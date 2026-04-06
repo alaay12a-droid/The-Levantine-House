@@ -13,6 +13,13 @@ import { useColors } from "@/hooks/useColors";
 import { useCart } from "@/context/CartContext";
 import { MenuItem, FOOD_IMAGES, RESTAURANT_INFO } from "@/constants/menu";
 
+const F = {
+  regular: "Cairo_400Regular",
+  semi: "Cairo_600SemiBold",
+  bold: "Cairo_700Bold",
+  extra: "Cairo_800ExtraBold",
+};
+
 interface Props {
   item: MenuItem;
 }
@@ -81,7 +88,7 @@ export function MenuItemCard({ item }: Props) {
                 <Feather name="plus" size={14} color="#fff" />
               </TouchableOpacity>
               <View style={[styles.qtyNumBox, { backgroundColor: colors.gold }]}>
-                <Text style={styles.qtyNumText}>{quantity}</Text>
+                <Text style={[styles.qtyNumText, { fontFamily: F.extra }]}>{quantity}</Text>
               </View>
               <TouchableOpacity
                 onPress={handleDecrease}
@@ -95,23 +102,23 @@ export function MenuItemCard({ item }: Props) {
 
         {/* Center: info */}
         <View style={styles.infoBlock}>
-          <Text style={[styles.name, { color: colors.foreground }]} numberOfLines={2}>
+          <Text style={[styles.name, { color: colors.foreground, fontFamily: F.bold }]} numberOfLines={2}>
             {item.name}
           </Text>
           {item.description ? (
-            <Text style={[styles.desc, { color: colors.mutedForeground }]}>
+            <Text style={[styles.desc, { color: colors.mutedForeground, fontFamily: F.regular }]}>
               {item.description}
             </Text>
           ) : null}
           <View style={styles.priceRow}>
             {isDhabiha ? (
               <View style={[styles.callBadge, { backgroundColor: "#1DBF4722", borderColor: "#1DBF47" }]}>
-                <Text style={[styles.callText, { color: "#1DBF47" }]}>اتصل للسعر</Text>
+                <Text style={[styles.callText, { color: "#1DBF47", fontFamily: F.bold }]}>اتصل للسعر</Text>
               </View>
             ) : (
               <>
-                <Text style={[styles.currency, { color: colors.mutedForeground }]}>ر.س</Text>
-                <Text style={[styles.price, { color: inCart ? colors.gold : colors.accent }]}>
+                <Text style={[styles.currency, { color: colors.mutedForeground, fontFamily: F.regular }]}>ر.س</Text>
+                <Text style={[styles.price, { color: inCart ? colors.gold : colors.accent, fontFamily: F.extra }]}>
                   {priceStr}
                 </Text>
               </>
@@ -185,7 +192,6 @@ const styles = StyleSheet.create({
   },
   qtyNumText: {
     color: "#fff",
-    fontWeight: "800",
     fontSize: 15,
   },
   infoBlock: {
@@ -195,7 +201,6 @@ const styles = StyleSheet.create({
   },
   name: {
     fontSize: 15,
-    fontWeight: "700",
     textAlign: "right",
     lineHeight: 22,
   },
@@ -211,7 +216,6 @@ const styles = StyleSheet.create({
   },
   price: {
     fontSize: 22,
-    fontWeight: "800",
   },
   currency: {
     fontSize: 12,
@@ -224,7 +228,6 @@ const styles = StyleSheet.create({
   },
   callText: {
     fontSize: 12,
-    fontWeight: "700",
   },
   imageWrap: {
     width: 82,

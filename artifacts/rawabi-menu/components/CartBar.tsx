@@ -5,6 +5,11 @@ import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { useCart } from "@/context/CartContext";
 
+const F = {
+  bold: "Cairo_700Bold",
+  extra: "Cairo_800ExtraBold",
+};
+
 export function CartBar() {
   const { totalItems, totalPrice } = useCart();
   const router = useRouter();
@@ -25,15 +30,15 @@ export function CartBar() {
       style={[styles.bar, Platform.OS === "web" && { bottom: 34 }]}
     >
       <View style={styles.leftSection}>
-        <Text style={styles.sarLabel}>ر.س</Text>
-        <Text style={styles.totalText}>{totalStr}</Text>
+        <Text style={[styles.sarLabel, { fontFamily: F.bold }]}>ر.س</Text>
+        <Text style={[styles.totalText, { fontFamily: F.extra }]}>{totalStr}</Text>
       </View>
 
-      <Text style={styles.centerLabel}>عرض سلة الطلبات</Text>
+      <Text style={[styles.centerLabel, { fontFamily: F.bold }]}>عرض سلة الطلبات</Text>
 
       <View style={styles.rightSection}>
         <Feather name="shopping-cart" size={16} color="#fff" />
-        <Text style={styles.countText}>{totalItems}</Text>
+        <Text style={[styles.countText, { fontFamily: F.extra }]}>{totalItems}</Text>
       </View>
     </TouchableOpacity>
   );
@@ -70,13 +75,11 @@ const styles = StyleSheet.create({
   totalText: {
     color: "#FFFFFF",
     fontSize: 19,
-    fontWeight: "800",
   },
   centerLabel: {
     flex: 1,
     color: "#FFFFFF",
     fontSize: 16,
-    fontWeight: "700",
     textAlign: "center",
   },
   rightSection: {
@@ -93,6 +96,5 @@ const styles = StyleSheet.create({
   countText: {
     color: "#FFFFFF",
     fontSize: 14,
-    fontWeight: "800",
   },
 });

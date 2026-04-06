@@ -21,6 +21,13 @@ const logo = require("@/assets/images/logo.png");
 const deliveryCar = require("@/assets/images/delivery_car.jpg");
 const dhabihaImg = require("@/assets/images/dhabiha.png");
 
+const F = {
+  regular: "Cairo_400Regular",
+  semi: "Cairo_600SemiBold",
+  bold: "Cairo_700Bold",
+  extra: "Cairo_800ExtraBold",
+};
+
 export default function MenuScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -52,9 +59,9 @@ export default function MenuScreen() {
           </TouchableOpacity>
 
           <View style={styles.titleBlock}>
-            <Text style={styles.brandName}>روابي المندي</Text>
-            <Text style={[styles.tagline, { color: colors.gold }]}>
-              {RESTAURANT_INFO.tagline}
+            <Text style={[styles.brandName, { fontFamily: F.extra }]}>روابي المندي</Text>
+            <Text style={[styles.tagline, { color: colors.gold, fontFamily: F.semi }]}>
+              للمذاق فن وأصول
             </Text>
           </View>
 
@@ -83,7 +90,7 @@ export default function MenuScreen() {
                 ]}
               >
                 <Text style={styles.tabIcon}>{cat.icon}</Text>
-                <Text style={[styles.tabLabel, { color: active ? "#fff" : colors.mutedForeground }]}>
+                <Text style={[styles.tabLabel, { color: active ? "#fff" : colors.mutedForeground, fontFamily: F.bold }]}>
                   {cat.name}
                 </Text>
               </TouchableOpacity>
@@ -99,12 +106,12 @@ export default function MenuScreen() {
           <View style={[styles.deliveryCard, { backgroundColor: colors.card, borderColor: colors.gold }]}>
             <Image source={deliveryCar} style={styles.carImage} resizeMode="cover" />
             <View style={[styles.deliveryOverlay, { backgroundColor: "#0F0A05EE" }]}>
-              <Text style={[styles.deliveryTitle, { color: colors.gold }]}>خدمة التوصيل</Text>
-              <Text style={[styles.deliverySubtitle, { color: colors.foreground }]}>
+              <Text style={[styles.deliveryTitle, { color: colors.gold, fontFamily: F.extra }]}>خدمة التوصيل</Text>
+              <Text style={[styles.deliverySubtitle, { color: colors.foreground, fontFamily: F.bold }]}>
                 نوصل طلبك لباب بيتك
               </Text>
-              <Text style={[styles.deliveryLocation, { color: colors.mutedForeground }]}>
-                📍 تبوك - حي الروضة وماحولها
+              <Text style={[styles.deliveryLocation, { color: colors.mutedForeground, fontFamily: F.semi }]}>
+                📍 تبوك - حي الروضة وما حولها
               </Text>
 
               <View style={styles.deliveryBtns}>
@@ -113,14 +120,14 @@ export default function MenuScreen() {
                   style={[styles.deliveryBtn, { backgroundColor: "#1DBF47" }]}
                 >
                   <Feather name="message-circle" size={18} color="#fff" />
-                  <Text style={styles.deliveryBtnText}>اطلب توصيل واتساب</Text>
+                  <Text style={[styles.deliveryBtnText, { fontFamily: F.bold }]}>اطلب توصيل واتساب</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={handleCall}
                   style={[styles.deliveryBtn, { backgroundColor: colors.primary }]}
                 >
                   <Feather name="phone" size={18} color="#fff" />
-                  <Text style={styles.deliveryBtnText}>{RESTAURANT_INFO.phone}</Text>
+                  <Text style={[styles.deliveryBtnText, { fontFamily: F.bold }]}>{RESTAURANT_INFO.phone}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -129,29 +136,26 @@ export default function MenuScreen() {
       ) : activeCat?.isDhabiha ? (
         /* ── DHABIHA SECTION ── */
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.list}>
-          {/* Hero */}
           <View style={[styles.dhabihaHero, { backgroundColor: colors.card, borderColor: "#E8920C" }]}>
             <Image source={dhabihaImg} style={styles.dhabihaImg} resizeMode="contain" />
             <View style={styles.dhabihaOverlay}>
               <View style={[styles.dhabihaTagBadge, { backgroundColor: colors.gold }]}>
-                <Text style={styles.dhabihaTagText}>🐑 احجز الآن</Text>
+                <Text style={[styles.dhabihaTagText, { fontFamily: F.bold }]}>🐑 احجز الآن</Text>
               </View>
-              <Text style={[styles.dhabihaHeroTitle, { color: "#fff" }]}>ذبائح العيد والمناسبات</Text>
-              <Text style={[styles.dhabihaHeroSub, { color: colors.gold }]}>
+              <Text style={[styles.dhabihaHeroTitle, { color: "#fff", fontFamily: F.extra }]}>ذبائح العيد والمناسبات</Text>
+              <Text style={[styles.dhabihaHeroSub, { color: colors.gold, fontFamily: F.semi }]}>
                 الطبق الملكي لمناسباتكم
               </Text>
             </View>
           </View>
 
-          {/* Items */}
           {activeCat.items.map((item) => (
             <MenuItemCard key={item.id} item={item} />
           ))}
 
-          {/* Book CTA */}
           <View style={[styles.bookBox, { backgroundColor: "#1F130A", borderColor: "#E8920C" }]}>
-            <Text style={[styles.bookTitle, { color: colors.gold }]}>حجز الذبائح</Text>
-            <Text style={[styles.bookDesc, { color: colors.mutedForeground }]}>
+            <Text style={[styles.bookTitle, { color: colors.gold, fontFamily: F.extra }]}>حجز الذبائح</Text>
+            <Text style={[styles.bookDesc, { color: colors.mutedForeground, fontFamily: F.regular }]}>
               للحجز والاستفسار عن الأسعار تواصل معنا مباشرة
             </Text>
             <View style={styles.bookBtns}>
@@ -160,14 +164,14 @@ export default function MenuScreen() {
                 style={[styles.bookBtn, { backgroundColor: "#1DBF47" }]}
               >
                 <Feather name="message-circle" size={16} color="#fff" />
-                <Text style={styles.bookBtnText}>واتساب</Text>
+                <Text style={[styles.bookBtnText, { fontFamily: F.bold }]}>واتساب</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={handleCall}
                 style={[styles.bookBtn, { backgroundColor: colors.primary }]}
               >
                 <Feather name="phone" size={16} color="#fff" />
-                <Text style={styles.bookBtnText}>اتصل الآن</Text>
+                <Text style={[styles.bookBtnText, { fontFamily: F.bold }]}>اتصل الآن</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -176,11 +180,11 @@ export default function MenuScreen() {
         /* ── REGULAR MENU SECTION ── */
         <>
           <View style={[styles.sectionRow, { borderBottomColor: "#2A1A0A" }]}>
-            <Text style={[styles.itemCount, { color: colors.mutedForeground }]}>
+            <Text style={[styles.itemCount, { color: colors.mutedForeground, fontFamily: F.semi }]}>
               {activeCat?.items.length ?? 0} أصناف
             </Text>
             <View style={styles.sectionTitle}>
-              <Text style={[styles.sectionName, { color: colors.foreground }]}>
+              <Text style={[styles.sectionName, { color: colors.foreground, fontFamily: F.extra }]}>
                 {activeCat?.name}
               </Text>
               <Text style={styles.sectionIcon}>{activeCat?.icon}</Text>
@@ -268,7 +272,7 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   tabIcon: { fontSize: 15 },
-  tabLabel: { fontSize: 13, fontWeight: "600" },
+  tabLabel: { fontSize: 13 },
   sectionRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -283,9 +287,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
   },
-  sectionName: { fontSize: 18, fontWeight: "700" },
+  sectionName: { fontSize: 18 },
   sectionIcon: { fontSize: 20 },
-  itemCount: { fontSize: 13, fontWeight: "500" },
+  itemCount: { fontSize: 13 },
   list: { padding: 14 },
 
   /* Delivery */
@@ -295,33 +299,15 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     marginBottom: 16,
   },
-  carImage: {
-    width: "100%",
-    height: 200,
-  },
+  carImage: { width: "100%", height: 200 },
   deliveryOverlay: {
     padding: 20,
     gap: 10,
   },
-  deliveryTitle: {
-    fontSize: 26,
-    fontWeight: "800",
-    textAlign: "right",
-  },
-  deliverySubtitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    textAlign: "right",
-  },
-  deliveryLocation: {
-    fontSize: 14,
-    textAlign: "right",
-    marginBottom: 6,
-  },
-  deliveryBtns: {
-    gap: 10,
-    marginTop: 6,
-  },
+  deliveryTitle: { fontSize: 26, textAlign: "right" },
+  deliverySubtitle: { fontSize: 16, textAlign: "right" },
+  deliveryLocation: { fontSize: 14, textAlign: "right", marginBottom: 6 },
+  deliveryBtns: { gap: 10, marginTop: 6 },
   deliveryBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -330,11 +316,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 14,
   },
-  deliveryBtnText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "700",
-  },
+  deliveryBtnText: { color: "#fff", fontSize: 16 },
 
   /* Dhabiha */
   dhabihaHero: {
@@ -358,21 +340,9 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: 20,
   },
-  dhabihaTagText: {
-    color: "#fff",
-    fontWeight: "700",
-    fontSize: 13,
-  },
-  dhabihaHeroTitle: {
-    fontSize: 22,
-    fontWeight: "800",
-    textAlign: "right",
-  },
-  dhabihaHeroSub: {
-    fontSize: 15,
-    fontWeight: "600",
-    textAlign: "right",
-  },
+  dhabihaTagText: { color: "#fff", fontSize: 13 },
+  dhabihaHeroTitle: { fontSize: 22, textAlign: "right" },
+  dhabihaHeroSub: { fontSize: 15, textAlign: "right" },
   bookBox: {
     borderRadius: 16,
     borderWidth: 1.5,
@@ -381,15 +351,8 @@ const styles = StyleSheet.create({
     marginTop: 6,
     alignItems: "flex-end",
   },
-  bookTitle: {
-    fontSize: 20,
-    fontWeight: "800",
-  },
-  bookDesc: {
-    fontSize: 14,
-    textAlign: "right",
-    lineHeight: 22,
-  },
+  bookTitle: { fontSize: 20 },
+  bookDesc: { fontSize: 14, textAlign: "right", lineHeight: 22 },
   bookBtns: {
     flexDirection: "row",
     gap: 10,
@@ -405,9 +368,5 @@ const styles = StyleSheet.create({
     paddingVertical: 13,
     borderRadius: 12,
   },
-  bookBtnText: {
-    color: "#fff",
-    fontSize: 15,
-    fontWeight: "700",
-  },
+  bookBtnText: { color: "#fff", fontSize: 15 },
 });
