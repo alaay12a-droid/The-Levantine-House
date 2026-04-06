@@ -8,6 +8,7 @@ import {
   Image,
   TouchableOpacity,
   StatusBar,
+  Linking,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
@@ -17,17 +18,24 @@ import { MenuItemCard } from "@/components/MenuItemCard";
 import { CartBar } from "@/components/CartBar";
 
 const logo = require("@/assets/images/logo.png");
+const deliveryCar = require("@/assets/images/delivery_car.jpg");
+const dhabihaImg = require("@/assets/images/dhabiha.png");
 
 export default function MenuScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const [activeCategory, setActiveCategory] = useState(MENU_CATEGORIES[0].id);
 
-  const activeItems =
-    MENU_CATEGORIES.find((c) => c.id === activeCategory)?.items ?? [];
-  const activeCategory_ = MENU_CATEGORIES.find((c) => c.id === activeCategory);
-
+  const activeCat = MENU_CATEGORIES.find((c) => c.id === activeCategory);
   const topInset = Platform.OS === "web" ? 60 : insets.top;
+
+  const handleWhatsApp = (msg: string) => {
+    Linking.openURL(`https://wa.me/${RESTAURANT_INFO.whatsapp}?text=${encodeURIComponent(msg)}`);
+  };
+
+  const handleCall = () => {
+    Linking.openURL(`tel:${RESTAURANT_INFO.phone}`);
+  };
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
@@ -36,7 +44,10 @@ export default function MenuScreen() {
       {/* ── HEADER ── */}
       <View style={[styles.header, { paddingTop: topInset }]}>
         <View style={styles.headerRow}>
-          <TouchableOpacity style={[styles.phoneBtn, { backgroundColor: "#2A1508" }]}>
+          <TouchableOpacity
+            onPress={handleCall}
+            style={[styles.phoneBtn, { backgroundColor: "#2A1508" }]}
+          >
             <Feather name="phone" size={18} color={colors.gold} />
           </TouchableOpacity>
 
@@ -81,31 +92,113 @@ export default function MenuScreen() {
         </ScrollView>
       </View>
 
-      {/* ── SECTION HEADING ── */}
-      <View style={[styles.sectionRow, { borderBottomColor: "#2A1A0A" }]}>
-        <Text style={[styles.itemCount, { color: colors.mutedForeground }]}>
-          {activeItems.length} أصناف
-        </Text>
-        <View style={styles.sectionTitle}>
-          <Text style={[styles.sectionName, { color: colors.foreground }]}>
-            {activeCategory_?.name}
-          </Text>
-          <Text style={styles.sectionIcon}>{activeCategory_?.icon}</Text>
-        </View>
-      </View>
+      {/* ── CONTENT ── */}
+      {activeCat?.isDelivery ? (
+        /* ── DELIVERY SECTION ── */
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.list}>
+          <View style={[styles.deliveryCard, { backgroundColor: colors.card, borderColor: colors.gold }]}>
+            <Image source={deliveryCar} style={styles.carImage} resizeMode="cover" />
+            <View style={[styles.deliveryOverlay, { backgroundColor: "#0F0A05EE" }]}>
+              <Text style={[styles.deliveryTitle, { color: colors.gold }]}>خدمة التوصيل</Text>
+              <Text style={[styles.deliverySubtitle, { color: colors.foreground }]}>
+                نوصل طلبك لباب بيتك
+              </Text>
+              <Text style={[styles.deliveryLocation, { color: colors.mutedForeground }]}>
+                📍 تبوك - حي الروضة وماحولها
+              </Text>
 
-      {/* ── MENU ITEMS ── */}
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={[
-          styles.list,
-          { paddingBottom: Platform.OS === "web" ? 130 : 110 },
-        ]}
-      >
-        {activeItems.map((item) => (
-          <MenuItemCard key={item.id} item={item} />
-        ))}
-      </ScrollView>
+              <View style={styles.deliveryBtns}>
+                <TouchableOpacity
+                  onPress={() => handleWhatsApp("السلام عليكم، أرغب في طلب توصيل")}
+                  style={[styles.deliveryBtn, { backgroundColor: "#1DBF47" }]}
+                >
+                  <Feather name="message-circle" size={18} color="#fff" />
+                  <Text style={styles.deliveryBtnText}>اطلب توصيل واتساب</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={handleCall}
+                  style={[styles.deliveryBtn, { backgroundColor: colors.primary }]}
+                >
+                  <Feather name="phone" size={18} color="#fff" />
+                  <Text style={styles.deliveryBtnText}>{RESTAURANT_INFO.phone}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </ScrollView>
+      ) : activeCat?.isDhabiha ? (
+        /* ── DHABIHA SECTION ── */
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.list}>
+          {/* Hero */}
+          <View style={[styles.dhabihaHero, { backgroundColor: colors.card, borderColor: "#E8920C" }]}>
+            <Image source={dhabihaImg} style={styles.dhabihaImg} resizeMode="contain" />
+            <View style={styles.dhabihaOverlay}>
+              <View style={[styles.dhabihaTagBadge, { backgroundColor: colors.gold }]}>
+                <Text style={styles.dhabihaTagText}>🐑 احجز الآن</Text>
+              </View>
+              <Text style={[styles.dhabihaHeroTitle, { color: "#fff" }]}>ذبائح العيد والمناسبات</Text>
+              <Text style={[styles.dhabihaHeroSub, { color: colors.gold }]}>
+                الطبق الملكي لمناسباتكم
+              </Text>
+            </View>
+          </View>
+
+          {/* Items */}
+          {activeCat.items.map((item) => (
+            <MenuItemCard key={item.id} item={item} />
+          ))}
+
+          {/* Book CTA */}
+          <View style={[styles.bookBox, { backgroundColor: "#1F130A", borderColor: "#E8920C" }]}>
+            <Text style={[styles.bookTitle, { color: colors.gold }]}>حجز الذبائح</Text>
+            <Text style={[styles.bookDesc, { color: colors.mutedForeground }]}>
+              للحجز والاستفسار عن الأسعار تواصل معنا مباشرة
+            </Text>
+            <View style={styles.bookBtns}>
+              <TouchableOpacity
+                onPress={() => handleWhatsApp("السلام عليكم، أرغب في الاستفسار عن ذبائح العيد والأسعار")}
+                style={[styles.bookBtn, { backgroundColor: "#1DBF47" }]}
+              >
+                <Feather name="message-circle" size={16} color="#fff" />
+                <Text style={styles.bookBtnText}>واتساب</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleCall}
+                style={[styles.bookBtn, { backgroundColor: colors.primary }]}
+              >
+                <Feather name="phone" size={16} color="#fff" />
+                <Text style={styles.bookBtnText}>اتصل الآن</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </ScrollView>
+      ) : (
+        /* ── REGULAR MENU SECTION ── */
+        <>
+          <View style={[styles.sectionRow, { borderBottomColor: "#2A1A0A" }]}>
+            <Text style={[styles.itemCount, { color: colors.mutedForeground }]}>
+              {activeCat?.items.length ?? 0} أصناف
+            </Text>
+            <View style={styles.sectionTitle}>
+              <Text style={[styles.sectionName, { color: colors.foreground }]}>
+                {activeCat?.name}
+              </Text>
+              <Text style={styles.sectionIcon}>{activeCat?.icon}</Text>
+            </View>
+          </View>
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={[
+              styles.list,
+              { paddingBottom: Platform.OS === "web" ? 130 : 110 },
+            ]}
+          >
+            {activeCat?.items.map((item) => (
+              <MenuItemCard key={item.id} item={item} />
+            ))}
+          </ScrollView>
+        </>
+      )}
 
       <CartBar />
     </View>
@@ -113,9 +206,7 @@ export default function MenuScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-  },
+  root: { flex: 1 },
   header: {
     backgroundColor: "#130B04",
     borderBottomWidth: 1,
@@ -160,9 +251,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  tabsScroll: {
-    paddingBottom: 14,
-  },
+  tabsScroll: { paddingBottom: 14 },
   tabsContent: {
     paddingHorizontal: 16,
     gap: 8,
@@ -178,13 +267,8 @@ const styles = StyleSheet.create({
     gap: 6,
     marginLeft: 4,
   },
-  tabIcon: {
-    fontSize: 15,
-  },
-  tabLabel: {
-    fontSize: 13,
-    fontWeight: "600",
-  },
+  tabIcon: { fontSize: 15 },
+  tabLabel: { fontSize: 13, fontWeight: "600" },
   sectionRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -199,19 +283,131 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
   },
-  sectionName: {
-    fontSize: 18,
+  sectionName: { fontSize: 18, fontWeight: "700" },
+  sectionIcon: { fontSize: 20 },
+  itemCount: { fontSize: 13, fontWeight: "500" },
+  list: { padding: 14 },
+
+  /* Delivery */
+  deliveryCard: {
+    borderRadius: 20,
+    overflow: "hidden",
+    borderWidth: 1.5,
+    marginBottom: 16,
+  },
+  carImage: {
+    width: "100%",
+    height: 200,
+  },
+  deliveryOverlay: {
+    padding: 20,
+    gap: 10,
+  },
+  deliveryTitle: {
+    fontSize: 26,
+    fontWeight: "800",
+    textAlign: "right",
+  },
+  deliverySubtitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    textAlign: "right",
+  },
+  deliveryLocation: {
+    fontSize: 14,
+    textAlign: "right",
+    marginBottom: 6,
+  },
+  deliveryBtns: {
+    gap: 10,
+    marginTop: 6,
+  },
+  deliveryBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    paddingVertical: 14,
+    borderRadius: 14,
+  },
+  deliveryBtnText: {
+    color: "#fff",
+    fontSize: 16,
     fontWeight: "700",
   },
-  sectionIcon: {
-    fontSize: 20,
+
+  /* Dhabiha */
+  dhabihaHero: {
+    borderRadius: 20,
+    overflow: "hidden",
+    borderWidth: 1.5,
+    marginBottom: 14,
   },
-  itemCount: {
+  dhabihaImg: {
+    width: "100%",
+    height: 230,
+    backgroundColor: "#0F0A05",
+  },
+  dhabihaOverlay: {
+    padding: 18,
+    gap: 6,
+    alignItems: "flex-end",
+  },
+  dhabihaTagBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 20,
+  },
+  dhabihaTagText: {
+    color: "#fff",
+    fontWeight: "700",
     fontSize: 13,
-    fontWeight: "500",
   },
-  list: {
-    paddingHorizontal: 14,
-    paddingTop: 12,
+  dhabihaHeroTitle: {
+    fontSize: 22,
+    fontWeight: "800",
+    textAlign: "right",
+  },
+  dhabihaHeroSub: {
+    fontSize: 15,
+    fontWeight: "600",
+    textAlign: "right",
+  },
+  bookBox: {
+    borderRadius: 16,
+    borderWidth: 1.5,
+    padding: 18,
+    gap: 8,
+    marginTop: 6,
+    alignItems: "flex-end",
+  },
+  bookTitle: {
+    fontSize: 20,
+    fontWeight: "800",
+  },
+  bookDesc: {
+    fontSize: 14,
+    textAlign: "right",
+    lineHeight: 22,
+  },
+  bookBtns: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 6,
+    width: "100%",
+  },
+  bookBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 13,
+    borderRadius: 12,
+  },
+  bookBtnText: {
+    color: "#fff",
+    fontSize: 15,
+    fontWeight: "700",
   },
 });

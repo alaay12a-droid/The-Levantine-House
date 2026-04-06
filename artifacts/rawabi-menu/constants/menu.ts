@@ -12,6 +12,8 @@ export interface MenuCategory {
   name: string;
   icon: string;
   items: MenuItem[];
+  isDelivery?: boolean;
+  isDhabiha?: boolean;
 }
 
 export const RESTAURANT_INFO = {
@@ -25,12 +27,20 @@ export const RESTAURANT_INFO = {
 };
 
 export const FOOD_IMAGES: Record<string, any> = {
+  chicken_full: require("@/assets/images/chicken_full.png"),
+  chicken_half: require("@/assets/images/chicken_half.png"),
   chicken_mandi: require("@/assets/images/chicken_mandi.png"),
+  meat_full: require("@/assets/images/meat_full.png"),
+  meat_nefs: require("@/assets/images/meat_nefs.png"),
+  meat_half: require("@/assets/images/meat_half.png"),
   meat_mandi: require("@/assets/images/meat_mandi.png"),
   oreo_dessert: require("@/assets/images/oreo_dessert.jpg"),
   tatli: require("@/assets/images/tatli.jpg"),
   muhalabia: require("@/assets/images/muhalabia.jpg"),
+  kunafa: require("@/assets/images/kunafa.png"),
   pepsi: require("@/assets/images/pepsi.jpg"),
+  delivery_car: require("@/assets/images/delivery_car.jpg"),
+  dhabiha: require("@/assets/images/dhabiha.png"),
 };
 
 export const MENU_CATEGORIES: MenuCategory[] = [
@@ -39,9 +49,10 @@ export const MENU_CATEGORIES: MenuCategory[] = [
     name: "الدجاج",
     icon: "🍗",
     items: [
-      { id: "c1", name: "مندي دجاج حبة كاملة", price: 28, category: "chicken", description: "بدون رز", imageKey: "chicken_mandi" },
-      { id: "c2", name: "رز مندي", price: 7, category: "chicken" },
-      { id: "c3", name: "رز بشاور", price: 7, category: "chicken" },
+      { id: "c1", name: "مندي دجاج حبة كاملة", price: 28, category: "chicken", description: "بدون رز", imageKey: "chicken_full" },
+      { id: "c2", name: "مندي دجاج نص حبة", price: 15, category: "chicken", description: "بدون رز", imageKey: "chicken_half" },
+      { id: "c3", name: "رز مندي", price: 7, category: "chicken" },
+      { id: "c4", name: "رز بشاور", price: 7, category: "chicken" },
     ],
   },
   {
@@ -49,10 +60,10 @@ export const MENU_CATEGORIES: MenuCategory[] = [
     name: "اللحوم",
     icon: "🥩",
     items: [
-      { id: "m1", name: "لحم مندي بلدي - تيس كامل", price: 1400, category: "meat", imageKey: "meat_mandi" },
-      { id: "m2", name: "لحم مندي بلدي - نص تيس", price: 700, category: "meat", imageKey: "meat_mandi" },
-      { id: "m3", name: "لحم مندي بلدي - ربع تيس", price: 350, category: "meat", imageKey: "meat_mandi" },
-      { id: "m4", name: "لحم مندي", price: 90, category: "meat", imageKey: "meat_mandi" },
+      { id: "m1", name: "لحم مندي بلدي - تيس كامل", price: 1400, category: "meat", imageKey: "meat_full" },
+      { id: "m2", name: "لحم مندي بلدي - نص تيس", price: 700, category: "meat", imageKey: "meat_half" },
+      { id: "m3", name: "لحم مندي بلدي - ربع تيس", price: 350, category: "meat", imageKey: "meat_half" },
+      { id: "m4", name: "لحم مندي - نفر", price: 90, category: "meat", imageKey: "meat_nefs" },
     ],
   },
   {
@@ -60,8 +71,8 @@ export const MENU_CATEGORIES: MenuCategory[] = [
     name: "الأطباق الرئيسية",
     icon: "🍽️",
     items: [
-      { id: "ma1", name: "مضغوط دجاج حبة كاملة مع الرز", price: 42, category: "mains", imageKey: "chicken_mandi" },
-      { id: "ma2", name: "مضغوط دجاج نص حبة مع الرز", price: 21, category: "mains", imageKey: "chicken_mandi" },
+      { id: "ma1", name: "مضغوط دجاج حبة كاملة مع الرز", price: 42, category: "mains", imageKey: "chicken_full" },
+      { id: "ma2", name: "مضغوط دجاج نص حبة مع الرز", price: 21, category: "mains", imageKey: "chicken_half" },
     ],
   },
   {
@@ -94,6 +105,7 @@ export const MENU_CATEGORIES: MenuCategory[] = [
       { id: "d1", name: "حلا أوريو", price: 4, category: "desserts", imageKey: "oreo_dessert" },
       { id: "d2", name: "حلا تاتلي", price: 4, category: "desserts", imageKey: "tatli" },
       { id: "d3", name: "حلا مهلبية", price: 4, category: "desserts", imageKey: "muhalabia" },
+      { id: "d4", name: "كنافة قشطة", price: 8, category: "desserts", imageKey: "kunafa" },
     ],
   },
   {
@@ -112,10 +124,26 @@ export const MENU_CATEGORIES: MenuCategory[] = [
     name: "إضافات",
     icon: "✨",
     items: [
-      { id: "e1", name: "كنافة قشطة", price: 8, category: "extras" },
       { id: "e2", name: "قرصان صغير", price: 4, category: "extras" },
       { id: "e3", name: "قرصان كبير", price: 6, category: "extras" },
     ],
+  },
+  {
+    id: "dhabiha",
+    name: "الذبائح",
+    icon: "🐑",
+    isDhabiha: true,
+    items: [
+      { id: "dh1", name: "ذبيحة كاملة - تيس بلدي", price: 0, category: "dhabiha", description: "اتصل للسعر", imageKey: "dhabiha" },
+      { id: "dh2", name: "ذبيحة العيد والمناسبات", price: 0, category: "dhabiha", description: "الطبق الملكي لمناسباتكم", imageKey: "dhabiha" },
+    ],
+  },
+  {
+    id: "delivery",
+    name: "التوصيل",
+    icon: "🚗",
+    isDelivery: true,
+    items: [],
   },
 ];
 

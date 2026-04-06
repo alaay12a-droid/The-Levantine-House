@@ -5,12 +5,13 @@ import {
   TouchableOpacity,
   StyleSheet,
   Image,
+  Linking,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useColors } from "@/hooks/useColors";
 import { useCart } from "@/context/CartContext";
-import { MenuItem, FOOD_IMAGES } from "@/constants/menu";
+import { MenuItem, FOOD_IMAGES, RESTAURANT_INFO } from "@/constants/menu";
 
 interface Props {
   item: MenuItem;
@@ -23,8 +24,13 @@ export function MenuItemCard({ item }: Props) {
   const quantity = cartItem?.quantity ?? 0;
   const inCart = quantity > 0;
   const foodImage = item.imageKey ? FOOD_IMAGES[item.imageKey] : null;
+  const isDhabiha = item.price === 0;
 
   const handleAdd = () => {
+    if (isDhabiha) {
+      Linking.openURL(`https://wa.me/${RESTAURANT_INFO.whatsapp}?text=${encodeURIComponent(`السلام عليكم، أرغب في الاستفسار عن: ${item.name}`)}`);
+      return;
+    }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     addItem(item);
   };
@@ -50,7 +56,15 @@ export function MenuItemCard({ item }: Props) {
       <View style={styles.inner}>
         {/* Left: quantity control / add button */}
         <View style={styles.leftSide}>
-          {quantity === 0 ? (
+          {isDhabiha ? (
+            <TouchableOpacity
+              onPress={handleAdd}
+              style={[styles.addBtn, { backgroundColor: "#1DBF47" }]}
+              activeOpacity={0.8}
+            >
+              <Feather name="phone" size={18} color="#fff" />
+            </TouchableOpacity>
+          ) : quantity === 0 ? (
             <TouchableOpacity
               onPress={handleAdd}
               style={[styles.addBtn, { backgroundColor: colors.primary }]}
@@ -90,10 +104,18 @@ export function MenuItemCard({ item }: Props) {
             </Text>
           ) : null}
           <View style={styles.priceRow}>
-            <Text style={[styles.currency, { color: colors.mutedForeground }]}>ر.س</Text>
-            <Text style={[styles.price, { color: inCart ? colors.gold : colors.accent }]}>
-              {priceStr}
-            </Text>
+            {isDhabiha ? (
+              <View style={[styles.callBadge, { backgroundColor: "#1DBF4722", borderColor: "#1DBF47" }]}>
+                <Text style={[styles.callText, { color: "#1DBF47" }]}>اتصل للسعر</Text>
+              </View>
+            ) : (
+              <>
+                <Text style={[styles.currency, { color: colors.mutedForeground }]}>ر.س</Text>
+                <Text style={[styles.price, { color: inCart ? colors.gold : colors.accent }]}>
+                  {priceStr}
+                </Text>
+              </>
+            )}
           </View>
         </View>
 
@@ -193,6 +215,16 @@ const styles = StyleSheet.create({
   },
   currency: {
     fontSize: 12,
+  },
+  callBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  callText: {
+    fontSize: 12,
+    fontWeight: "700",
   },
   imageWrap: {
     width: 82,
