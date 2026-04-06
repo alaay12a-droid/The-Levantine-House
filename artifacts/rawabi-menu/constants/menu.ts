@@ -3,7 +3,6 @@ export interface MenuItem {
   name: string;
   price: number;
   category: string;
-  image?: any;
   description?: string;
 }
 
@@ -16,6 +15,7 @@ export interface MenuCategory {
 
 export const RESTAURANT_INFO = {
   name: "روابي المندي",
+  tagline: "للمذاق فن وأصول",
   nameEn: "Rawabi Al Mandi",
   phone: "0530707042",
   whatsapp: "966530707042",
@@ -29,7 +29,7 @@ export const MENU_CATEGORIES: MenuCategory[] = [
     name: "الدجاج",
     icon: "🍗",
     items: [
-      { id: "c1", name: "مندي دجاج (حبة بدون رز)", price: 28, category: "chicken" },
+      { id: "c1", name: "مندي دجاج حبة كاملة", price: 28, category: "chicken", description: "بدون رز" },
       { id: "c2", name: "رز مندي", price: 7, category: "chicken" },
       { id: "c3", name: "رز بشاور", price: 7, category: "chicken" },
     ],
@@ -39,9 +39,9 @@ export const MENU_CATEGORIES: MenuCategory[] = [
     name: "اللحوم",
     icon: "🥩",
     items: [
-      { id: "m1", name: "لحم مندي بلدي (تيس كامل)", price: 1400, category: "meat" },
-      { id: "m2", name: "لحم مندي بلدي (نص تيس)", price: 700, category: "meat" },
-      { id: "m3", name: "لحم مندي بلدي (ربع تيس)", price: 350, category: "meat" },
+      { id: "m1", name: "لحم مندي بلدي - تيس كامل", price: 1400, category: "meat" },
+      { id: "m2", name: "لحم مندي بلدي - نص تيس", price: 700, category: "meat" },
+      { id: "m3", name: "لحم مندي بلدي - ربع تيس", price: 350, category: "meat" },
       { id: "m4", name: "لحم مندي", price: 90, category: "meat" },
     ],
   },
@@ -50,8 +50,8 @@ export const MENU_CATEGORIES: MenuCategory[] = [
     name: "الأطباق الرئيسية",
     icon: "🍽️",
     items: [
-      { id: "ma1", name: "مضغوط دجاج (حبة مع الرز)", price: 42, category: "mains" },
-      { id: "ma2", name: "مضغوط دجاج (نص حبة مع الرز)", price: 21, category: "mains" },
+      { id: "ma1", name: "مضغوط دجاج حبة كاملة مع الرز", price: 42, category: "mains" },
+      { id: "ma2", name: "مضغوط دجاج نص حبة مع الرز", price: 21, category: "mains" },
     ],
   },
   {
@@ -59,11 +59,11 @@ export const MENU_CATEGORIES: MenuCategory[] = [
     name: "الإيدامات",
     icon: "🥘",
     items: [
-      { id: "s1", name: "إيدام ملوخية (صغير)", price: 4, category: "sides" },
-      { id: "s2", name: "إيدام ملوخية (كبير)", price: 6, category: "sides" },
-      { id: "s3", name: "إيدام مصقع (صغير)", price: 4, category: "sides" },
-      { id: "s4", name: "إيدام مصقع (كبير)", price: 6, category: "sides" },
-      { id: "s5", name: "إيدام فرن (كبير)", price: 6, category: "sides" },
+      { id: "s1", name: "إيدام ملوخية صغير", price: 4, category: "sides" },
+      { id: "s2", name: "إيدام ملوخية كبير", price: 6, category: "sides" },
+      { id: "s3", name: "إيدام مصقع صغير", price: 4, category: "sides" },
+      { id: "s4", name: "إيدام مصقع كبير", price: 6, category: "sides" },
+      { id: "s5", name: "إيدام فرن كبير", price: 6, category: "sides" },
     ],
   },
   {
@@ -92,7 +92,7 @@ export const MENU_CATEGORIES: MenuCategory[] = [
     icon: "🥤",
     items: [
       { id: "dr1", name: "بيبسي عائلة", price: 9, category: "drinks" },
-      { id: "dr2", name: "بيبسي وسط (1 لتر)", price: 5, category: "drinks" },
+      { id: "dr2", name: "بيبسي وسط 1 لتر", price: 5, category: "drinks" },
       { id: "dr3", name: "بيبسي علبة", price: 2.5, category: "drinks" },
       { id: "dr4", name: "لبن", price: 2.5, category: "drinks" },
     ],
@@ -100,7 +100,7 @@ export const MENU_CATEGORIES: MenuCategory[] = [
   {
     id: "extras",
     name: "إضافات",
-    icon: "➕",
+    icon: "✨",
     items: [
       { id: "e1", name: "كنافة قشطة", price: 8, category: "extras" },
       { id: "e2", name: "قرصان صغير", price: 4, category: "extras" },

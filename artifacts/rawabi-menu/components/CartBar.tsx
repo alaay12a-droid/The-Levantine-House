@@ -26,15 +26,21 @@ export function CartBar() {
       activeOpacity={0.9}
       style={[
         styles.bar,
-        { backgroundColor: colors.primary },
         Platform.OS === "web" && { bottom: 34 },
       ]}
     >
-      <Text style={[styles.price, { color: colors.primaryForeground }]}>
-        {totalStr} ر.س
-      </Text>
-      <Text style={[styles.label, { color: colors.primaryForeground }]}>عرض السلة</Text>
-      <View style={[styles.badge, { backgroundColor: colors.gold }]}>
+      {/* Left: price */}
+      <View style={styles.priceBlock}>
+        <Text style={styles.totalStr}>{totalStr}</Text>
+        <Text style={styles.sar}>ر.س</Text>
+      </View>
+
+      {/* Center: label */}
+      <Text style={styles.label}>عرض سلة الطلبات</Text>
+
+      {/* Right: badge */}
+      <View style={[styles.badge, { backgroundColor: "#FFFFFF22" }]}>
+        <Feather name="shopping-cart" size={14} color="#FFFFFF" />
         <Text style={styles.badgeText}>{totalItems}</Text>
       </View>
     </TouchableOpacity>
@@ -44,40 +50,53 @@ export function CartBar() {
 const styles = StyleSheet.create({
   bar: {
     position: "absolute",
-    bottom: 20,
+    bottom: 22,
     left: 16,
     right: 16,
-    borderRadius: 16,
+    borderRadius: 18,
+    backgroundColor: "#C8171A",
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 18,
-    paddingVertical: 14,
-    shadowColor: "#C41E3A",
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 15,
+    shadowColor: "#C8171A",
+    shadowOpacity: 0.5,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 12,
   },
-  badge: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    alignItems: "center",
-    justifyContent: "center",
+  priceBlock: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    gap: 3,
   },
-  badgeText: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#fff",
+  totalStr: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: "#FFFFFF",
+  },
+  sar: {
+    fontSize: 12,
+    color: "#FFFFFF99",
   },
   label: {
     flex: 1,
     fontSize: 16,
     fontWeight: "700",
     textAlign: "center",
+    color: "#FFFFFF",
   },
-  price: {
-    fontSize: 15,
-    fontWeight: "600",
+  badge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+  },
+  badgeText: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: "#FFFFFF",
   },
 });

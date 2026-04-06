@@ -8,6 +8,7 @@ import {
   Platform,
   Linking,
   Alert,
+  StatusBar,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -30,15 +31,15 @@ export default function CartScreen() {
     if (items.length === 0) return;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-    let message = `*طلب جديد من تطبيق روابي المندي*\n\n`;
-    message += `*الطلبيات:*\n`;
-    items.forEach((cartItem) => {
+    let message = `🍗 *طلب جديد - روابي المندي للمذاق فن وأصول*\n\n`;
+    message += `📋 *تفاصيل الطلب:*\n`;
+    items.forEach((cartItem, i) => {
       const itemTotal = cartItem.item.price * cartItem.quantity;
       const priceStr = itemTotal % 1 === 0 ? itemTotal.toString() : itemTotal.toFixed(1);
-      message += `• ${cartItem.item.name} × ${cartItem.quantity} = ${priceStr} ر.س\n`;
+      message += `${i + 1}. ${cartItem.item.name}\n   × ${cartItem.quantity} = ${priceStr} ر.س\n`;
     });
     const totalStr = totalPrice % 1 === 0 ? totalPrice.toString() : totalPrice.toFixed(1);
-    message += `\n*المجموع الكلي: ${totalStr} ر.س*`;
+    message += `\n💰 *الإجمالي: ${totalStr} ر.س*\n\n📍 تبوك - حي الروضة`;
 
     const encoded = encodeURIComponent(message);
     const url = `https://wa.me/${RESTAURANT_INFO.whatsapp}?text=${encoded}`;
@@ -46,7 +47,7 @@ export default function CartScreen() {
     try {
       await Linking.openURL(url);
     } catch {
-      Alert.alert("خطأ", "تعذر فتح واتساب. يرجى الاتصال مباشرة على الرقم: " + RESTAURANT_INFO.phone);
+      Alert.alert("خطأ", "تعذر فتح واتساب. يرجى الاتصال على: " + RESTAURANT_INFO.phone);
     }
   };
 
@@ -56,12 +57,14 @@ export default function CartScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <StatusBar barStyle="light-content" />
+
       {/* Header */}
       <View
         style={[
           styles.header,
           {
-            backgroundColor: colors.card,
+            backgroundColor: "#1A1008",
             paddingTop: topInset + 8,
             borderBottomColor: colors.border,
           },
@@ -72,38 +75,38 @@ export default function CartScreen() {
           style={[styles.backBtn, { backgroundColor: colors.secondary }]}
           activeOpacity={0.7}
         >
-          <Feather name="arrow-right" size={22} color={colors.foreground} />
+          <Feather name="arrow-right" size={20} color={colors.foreground} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.foreground }]}>سلة الطلبات</Text>
         {items.length > 0 && (
-          <TouchableOpacity onPress={() => clearCart()} style={styles.clearBtn}>
-            <Text style={[styles.clearText, { color: colors.primary }]}>مسح الكل</Text>
+          <TouchableOpacity onPress={() => clearCart()}>
+            <Text style={[styles.clearText, { color: colors.mutedForeground }]}>مسح الكل</Text>
           </TouchableOpacity>
         )}
       </View>
 
       {items.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Feather name="shopping-cart" size={64} color={colors.border} />
-          <Text style={[styles.emptyTitle, { color: colors.mutedForeground }]}>السلة فارغة</Text>
+          <View style={[styles.emptyIcon, { backgroundColor: colors.surface }]}>
+            <Feather name="shopping-cart" size={44} color={colors.border} />
+          </View>
+          <Text style={[styles.emptyTitle, { color: colors.foreground }]}>السلة فارغة</Text>
           <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
-            أضف بعض الأصناف من القائمة
+            أضف بعض الأصناف من قائمتنا الشهية
           </Text>
           <TouchableOpacity
             onPress={() => router.back()}
             style={[styles.browseBtn, { backgroundColor: colors.primary }]}
             activeOpacity={0.8}
           >
-            <Text style={[styles.browseBtnText, { color: colors.primaryForeground }]}>
-              تصفح القائمة
-            </Text>
+            <Text style={styles.browseBtnText}>تصفح القائمة</Text>
           </TouchableOpacity>
         </View>
       ) : (
         <>
           <ScrollView
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={[styles.list, { paddingBottom: 200 }]}
+            contentContainerStyle={[styles.list, { paddingBottom: 220 }]}
           >
             {items.map((cartItem) => {
               const itemTotal = cartItem.item.price * cartItem.quantity;
@@ -119,50 +122,56 @@ export default function CartScreen() {
                     { backgroundColor: colors.card, borderColor: colors.border },
                   ]}
                 >
-                  <View style={styles.cardTop}>
-                    <TouchableOpacity
-                      onPress={() => removeItem(cartItem.item.id)}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    >
-                      <Feather name="x" size={18} color={colors.mutedForeground} />
-                    </TouchableOpacity>
-                    <Text style={[styles.cartItemName, { color: colors.foreground }]} numberOfLines={2}>
-                      {cartItem.item.name}
-                    </Text>
-                  </View>
+                  {/* Gold bar */}
+                  <View style={[styles.goldBar, { backgroundColor: colors.gold }]} />
 
-                  <View style={styles.cardBottom}>
-                    <View style={styles.qtyControls}>
+                  <View style={styles.cardInner}>
+                    <View style={styles.cardTop}>
                       <TouchableOpacity
-                        onPress={() => {
-                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                          updateQuantity(cartItem.item.id, cartItem.quantity + 1);
-                        }}
-                        style={[styles.qtyBtn, { backgroundColor: colors.primary }]}
+                        onPress={() => removeItem(cartItem.item.id)}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        style={[styles.removeBtn, { backgroundColor: "#3A2410" }]}
                       >
-                        <Feather name="plus" size={14} color={colors.primaryForeground} />
+                        <Feather name="x" size={14} color={colors.mutedForeground} />
                       </TouchableOpacity>
-                      <Text style={[styles.qtyNum, { color: colors.foreground }]}>
-                        {cartItem.quantity}
+                      <Text style={[styles.cartItemName, { color: colors.foreground }]} numberOfLines={2}>
+                        {cartItem.item.name}
                       </Text>
-                      <TouchableOpacity
-                        onPress={() => {
-                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                          updateQuantity(cartItem.item.id, cartItem.quantity - 1);
-                        }}
-                        style={[styles.qtyBtn, { backgroundColor: colors.secondary }]}
-                      >
-                        <Feather name="minus" size={14} color={colors.foreground} />
-                      </TouchableOpacity>
                     </View>
 
-                    <View style={styles.priceInfo}>
-                      <Text style={[styles.cartItemPrice, { color: colors.primary }]}>
-                        {totalStr} ر.س
-                      </Text>
-                      <Text style={[styles.unitPriceText, { color: colors.mutedForeground }]}>
-                        {unitStr} ر.س / وحدة
-                      </Text>
+                    <View style={styles.cardBottom}>
+                      <View style={styles.qtyRow}>
+                        <TouchableOpacity
+                          onPress={() => {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            updateQuantity(cartItem.item.id, cartItem.quantity + 1);
+                          }}
+                          style={[styles.qtyBtn, { backgroundColor: colors.primary }]}
+                        >
+                          <Feather name="plus" size={13} color="#FFFFFF" />
+                        </TouchableOpacity>
+                        <View style={[styles.qtyDisplay, { backgroundColor: colors.gold }]}>
+                          <Text style={styles.qtyNum}>{cartItem.quantity}</Text>
+                        </View>
+                        <TouchableOpacity
+                          onPress={() => {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            updateQuantity(cartItem.item.id, cartItem.quantity - 1);
+                          }}
+                          style={[styles.qtyBtn, { backgroundColor: colors.secondary }]}
+                        >
+                          <Feather name="minus" size={13} color={colors.foreground} />
+                        </TouchableOpacity>
+                      </View>
+
+                      <View style={styles.priceBlock}>
+                        <Text style={[styles.itemTotal, { color: colors.gold }]}>
+                          {totalStr} ر.س
+                        </Text>
+                        <Text style={[styles.unitPrice, { color: colors.mutedForeground }]}>
+                          {unitStr} ر.س للوحدة
+                        </Text>
+                      </View>
                     </View>
                   </View>
                 </View>
@@ -170,43 +179,44 @@ export default function CartScreen() {
             })}
           </ScrollView>
 
-          {/* Bottom Action */}
+          {/* Bottom Panel */}
           <View
             style={[
               styles.bottomPanel,
               {
-                backgroundColor: colors.card,
+                backgroundColor: "#1A1008",
                 borderTopColor: colors.border,
                 paddingBottom: bottomInset + 16,
               },
             ]}
           >
-            <View style={styles.totalRow}>
-              <Text style={[styles.totalAmount, { color: colors.primary }]}>
+            {/* Summary */}
+            <View style={[styles.summaryBox, { backgroundColor: colors.secondary }]}>
+              <Text style={[styles.summaryTotal, { color: colors.gold }]}>
                 {totalPrice % 1 === 0 ? totalPrice : totalPrice.toFixed(1)} ر.س
               </Text>
-              <Text style={[styles.totalLabel, { color: colors.mutedForeground }]}>
-                المجموع ({totalItems} أصناف)
+              <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>
+                إجمالي {totalItems} صنف
               </Text>
             </View>
 
             <TouchableOpacity
               onPress={handleOrder}
-              style={[styles.orderBtn, { backgroundColor: "#25D366" }]}
+              style={styles.whatsappBtn}
               activeOpacity={0.85}
             >
-              <Feather name="message-circle" size={20} color="#fff" />
-              <Text style={styles.orderBtnText}>أرسل الطلب عبر واتساب</Text>
+              <Feather name="message-circle" size={22} color="#FFFFFF" />
+              <Text style={styles.whatsappText}>أرسل طلبك عبر واتساب</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               onPress={handleCall}
-              style={[styles.callBtn, { borderColor: colors.primary }]}
+              style={[styles.callBtn, { borderColor: colors.border, backgroundColor: colors.secondary }]}
               activeOpacity={0.8}
             >
-              <Feather name="phone" size={18} color={colors.primary} />
-              <Text style={[styles.callBtnText, { color: colors.primary }]}>
-                اتصل بنا: {RESTAURANT_INFO.phone}
+              <Feather name="phone" size={18} color={colors.gold} />
+              <Text style={[styles.callText, { color: colors.gold }]}>
+                {RESTAURANT_INFO.phone}
               </Text>
             </TouchableOpacity>
           </View>
@@ -217,9 +227,7 @@ export default function CartScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -229,9 +237,9 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   backBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -241,36 +249,41 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     textAlign: "right",
   },
-  clearBtn: {
-    paddingHorizontal: 4,
-    paddingVertical: 4,
-  },
   clearText: {
-    fontSize: 14,
-    fontWeight: "600",
+    fontSize: 13,
+    fontWeight: "500",
   },
   emptyContainer: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    gap: 12,
+    gap: 14,
     paddingHorizontal: 32,
+  },
+  emptyIcon: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    alignItems: "center",
+    justifyContent: "center",
   },
   emptyTitle: {
     fontSize: 22,
     fontWeight: "700",
   },
   emptyText: {
-    fontSize: 15,
+    fontSize: 14,
     textAlign: "center",
+    lineHeight: 22,
   },
   browseBtn: {
     marginTop: 8,
-    paddingHorizontal: 28,
-    paddingVertical: 12,
-    borderRadius: 12,
+    paddingHorizontal: 32,
+    paddingVertical: 13,
+    borderRadius: 14,
   },
   browseBtnText: {
+    color: "#FFFFFF",
     fontSize: 16,
     fontWeight: "700",
   },
@@ -278,22 +291,37 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   cartCard: {
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1,
     marginBottom: 10,
-    padding: 14,
-    gap: 12,
+    overflow: "hidden",
+    flexDirection: "row",
+  },
+  goldBar: {
+    width: 4,
+  },
+  cardInner: {
+    flex: 1,
+    padding: 13,
+    gap: 10,
   },
   cardTop: {
     flexDirection: "row",
     alignItems: "flex-start",
     justifyContent: "space-between",
-    gap: 8,
+    gap: 10,
+  },
+  removeBtn: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: "center",
+    justifyContent: "center",
   },
   cartItemName: {
     flex: 1,
     fontSize: 15,
-    fontWeight: "600",
+    fontWeight: "700",
     textAlign: "right",
     lineHeight: 22,
   },
@@ -302,33 +330,40 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
-  qtyControls: {
+  qtyRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 6,
   },
   qtyBtn: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  qtyDisplay: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
   },
   qtyNum: {
-    fontSize: 16,
-    fontWeight: "700",
-    minWidth: 24,
-    textAlign: "center",
+    fontSize: 14,
+    fontWeight: "800",
+    color: "#FFFFFF",
   },
-  priceInfo: {
+  priceBlock: {
     alignItems: "flex-end",
   },
-  cartItemPrice: {
-    fontSize: 17,
-    fontWeight: "700",
+  itemTotal: {
+    fontSize: 18,
+    fontWeight: "800",
   },
-  unitPriceText: {
-    fontSize: 12,
+  unitPrice: {
+    fontSize: 11,
+    marginTop: 2,
   },
   bottomPanel: {
     position: "absolute",
@@ -338,35 +373,39 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingTop: 14,
     borderTopWidth: 1,
-    gap: 12,
-    shadowColor: "#000",
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: -4 },
-    elevation: 10,
+    gap: 10,
   },
-  totalRow: {
+  summaryBox: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
   },
-  totalLabel: {
-    fontSize: 14,
+  summaryTotal: {
+    fontSize: 24,
+    fontWeight: "800",
   },
-  totalAmount: {
-    fontSize: 22,
-    fontWeight: "700",
+  summaryLabel: {
+    fontSize: 13,
   },
-  orderBtn: {
+  whatsappBtn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 10,
     paddingVertical: 15,
-    borderRadius: 14,
+    borderRadius: 15,
+    backgroundColor: "#1DBF47",
+    shadowColor: "#1DBF47",
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 6,
   },
-  orderBtnText: {
-    color: "#fff",
+  whatsappText: {
+    color: "#FFFFFF",
     fontSize: 17,
     fontWeight: "700",
   },
@@ -377,9 +416,9 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 12,
     borderRadius: 12,
-    borderWidth: 1.5,
+    borderWidth: 1,
   },
-  callBtnText: {
+  callText: {
     fontSize: 15,
     fontWeight: "600",
   },
