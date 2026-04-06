@@ -4,6 +4,7 @@ export interface MenuItem {
   price: number;
   category: string;
   description?: string;
+  imageKey?: string;
 }
 
 export interface MenuCategory {
@@ -23,13 +24,22 @@ export const RESTAURANT_INFO = {
   instagram: "@rwabi-almndi",
 };
 
+export const FOOD_IMAGES: Record<string, any> = {
+  chicken_mandi: require("@/assets/images/chicken_mandi.png"),
+  meat_mandi: require("@/assets/images/meat_mandi.png"),
+  oreo_dessert: require("@/assets/images/oreo_dessert.jpg"),
+  tatli: require("@/assets/images/tatli.jpg"),
+  muhalabia: require("@/assets/images/muhalabia.jpg"),
+  pepsi: require("@/assets/images/pepsi.jpg"),
+};
+
 export const MENU_CATEGORIES: MenuCategory[] = [
   {
     id: "chicken",
     name: "الدجاج",
     icon: "🍗",
     items: [
-      { id: "c1", name: "مندي دجاج حبة كاملة", price: 28, category: "chicken", description: "بدون رز" },
+      { id: "c1", name: "مندي دجاج حبة كاملة", price: 28, category: "chicken", description: "بدون رز", imageKey: "chicken_mandi" },
       { id: "c2", name: "رز مندي", price: 7, category: "chicken" },
       { id: "c3", name: "رز بشاور", price: 7, category: "chicken" },
     ],
@@ -39,10 +49,10 @@ export const MENU_CATEGORIES: MenuCategory[] = [
     name: "اللحوم",
     icon: "🥩",
     items: [
-      { id: "m1", name: "لحم مندي بلدي - تيس كامل", price: 1400, category: "meat" },
-      { id: "m2", name: "لحم مندي بلدي - نص تيس", price: 700, category: "meat" },
-      { id: "m3", name: "لحم مندي بلدي - ربع تيس", price: 350, category: "meat" },
-      { id: "m4", name: "لحم مندي", price: 90, category: "meat" },
+      { id: "m1", name: "لحم مندي بلدي - تيس كامل", price: 1400, category: "meat", imageKey: "meat_mandi" },
+      { id: "m2", name: "لحم مندي بلدي - نص تيس", price: 700, category: "meat", imageKey: "meat_mandi" },
+      { id: "m3", name: "لحم مندي بلدي - ربع تيس", price: 350, category: "meat", imageKey: "meat_mandi" },
+      { id: "m4", name: "لحم مندي", price: 90, category: "meat", imageKey: "meat_mandi" },
     ],
   },
   {
@@ -50,8 +60,8 @@ export const MENU_CATEGORIES: MenuCategory[] = [
     name: "الأطباق الرئيسية",
     icon: "🍽️",
     items: [
-      { id: "ma1", name: "مضغوط دجاج حبة كاملة مع الرز", price: 42, category: "mains" },
-      { id: "ma2", name: "مضغوط دجاج نص حبة مع الرز", price: 21, category: "mains" },
+      { id: "ma1", name: "مضغوط دجاج حبة كاملة مع الرز", price: 42, category: "mains", imageKey: "chicken_mandi" },
+      { id: "ma2", name: "مضغوط دجاج نص حبة مع الرز", price: 21, category: "mains", imageKey: "chicken_mandi" },
     ],
   },
   {
@@ -81,9 +91,9 @@ export const MENU_CATEGORIES: MenuCategory[] = [
     name: "الحلويات",
     icon: "🍮",
     items: [
-      { id: "d1", name: "حلا أوريو", price: 4, category: "desserts" },
-      { id: "d2", name: "حلا تطلي", price: 4, category: "desserts" },
-      { id: "d3", name: "حلا مهلبية", price: 4, category: "desserts" },
+      { id: "d1", name: "حلا أوريو", price: 4, category: "desserts", imageKey: "oreo_dessert" },
+      { id: "d2", name: "حلا تاتلي", price: 4, category: "desserts", imageKey: "tatli" },
+      { id: "d3", name: "حلا مهلبية", price: 4, category: "desserts", imageKey: "muhalabia" },
     ],
   },
   {
@@ -91,9 +101,9 @@ export const MENU_CATEGORIES: MenuCategory[] = [
     name: "المشروبات",
     icon: "🥤",
     items: [
-      { id: "dr1", name: "بيبسي عائلة", price: 9, category: "drinks" },
-      { id: "dr2", name: "بيبسي وسط 1 لتر", price: 5, category: "drinks" },
-      { id: "dr3", name: "بيبسي علبة", price: 2.5, category: "drinks" },
+      { id: "dr1", name: "بيبسي عائلة", price: 9, category: "drinks", imageKey: "pepsi" },
+      { id: "dr2", name: "بيبسي وسط 1 لتر", price: 5, category: "drinks", imageKey: "pepsi" },
+      { id: "dr3", name: "بيبسي علبة", price: 2.5, category: "drinks", imageKey: "pepsi" },
       { id: "dr4", name: "لبن", price: 2.5, category: "drinks" },
     ],
   },

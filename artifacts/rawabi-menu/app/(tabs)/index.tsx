@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -25,41 +25,37 @@ export default function MenuScreen() {
 
   const activeItems =
     MENU_CATEGORIES.find((c) => c.id === activeCategory)?.items ?? [];
+  const activeCategory_ = MENU_CATEGORIES.find((c) => c.id === activeCategory);
 
   const topInset = Platform.OS === "web" ? 60 : insets.top;
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <StatusBar barStyle="light-content" />
+    <View style={[styles.root, { backgroundColor: colors.background }]}>
+      <StatusBar barStyle="light-content" backgroundColor={colors.background} />
 
-      {/* Hero Header */}
-      <View style={[styles.hero, { paddingTop: topInset }]}>
-        <View style={styles.heroTop}>
-          <Image source={logo} style={styles.logo} resizeMode="contain" />
-          <View style={styles.heroText}>
-            <Text style={[styles.restaurantName, { color: "#FFFFFF" }]}>
-              روابي المندي
-            </Text>
-            <View style={styles.taglineRow}>
-              <View style={[styles.taglineLine, { backgroundColor: colors.gold }]} />
-              <Text style={[styles.tagline, { color: colors.gold }]}>
-                {RESTAURANT_INFO.tagline}
-              </Text>
-              <View style={[styles.taglineLine, { backgroundColor: colors.gold }]} />
-            </View>
-            <Text style={[styles.location, { color: colors.mutedForeground }]}>
-              {RESTAURANT_INFO.location}
+      {/* ── HEADER ── */}
+      <View style={[styles.header, { paddingTop: topInset }]}>
+        <View style={styles.headerRow}>
+          <TouchableOpacity style={[styles.phoneBtn, { backgroundColor: "#2A1508" }]}>
+            <Feather name="phone" size={18} color={colors.gold} />
+          </TouchableOpacity>
+
+          <View style={styles.titleBlock}>
+            <Text style={styles.brandName}>روابي المندي</Text>
+            <Text style={[styles.tagline, { color: colors.gold }]}>
+              {RESTAURANT_INFO.tagline}
             </Text>
           </View>
-        </View>
-      </View>
 
-      {/* Category Tabs */}
-      <View style={[styles.categoryBar, { backgroundColor: colors.surface }]}>
+          <Image source={logo} style={styles.logo} resizeMode="contain" />
+        </View>
+
+        {/* ── CATEGORY TABS ── */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.categoryScroll}
+          contentContainerStyle={styles.tabsContent}
+          style={styles.tabsScroll}
         >
           {MENU_CATEGORIES.map((cat) => {
             const active = activeCategory === cat.id;
@@ -67,20 +63,16 @@ export default function MenuScreen() {
               <TouchableOpacity
                 key={cat.id}
                 onPress={() => setActiveCategory(cat.id)}
-                activeOpacity={0.8}
+                activeOpacity={0.75}
                 style={[
-                  styles.catTab,
-                  active && { backgroundColor: colors.primary },
-                  !active && { backgroundColor: colors.card },
+                  styles.tab,
+                  active
+                    ? { backgroundColor: colors.primary, borderColor: colors.primary }
+                    : { backgroundColor: "#1A1008", borderColor: "#3A2410" },
                 ]}
               >
-                <Text style={styles.catIcon}>{cat.icon}</Text>
-                <Text
-                  style={[
-                    styles.catLabel,
-                    { color: active ? "#FFFFFF" : colors.mutedForeground },
-                  ]}
-                >
+                <Text style={styles.tabIcon}>{cat.icon}</Text>
+                <Text style={[styles.tabLabel, { color: active ? "#fff" : colors.mutedForeground }]}>
                   {cat.name}
                 </Text>
               </TouchableOpacity>
@@ -89,24 +81,29 @@ export default function MenuScreen() {
         </ScrollView>
       </View>
 
-      {/* Section title */}
-      <View style={[styles.sectionHeader, { backgroundColor: colors.background }]}>
-        <View style={[styles.sectionAccent, { backgroundColor: colors.gold }]} />
-        <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-          {MENU_CATEGORIES.find((c) => c.id === activeCategory)?.name}
+      {/* ── SECTION HEADING ── */}
+      <View style={[styles.sectionRow, { borderBottomColor: "#2A1A0A" }]}>
+        <Text style={[styles.itemCount, { color: colors.mutedForeground }]}>
+          {activeItems.length} أصناف
         </Text>
+        <View style={styles.sectionTitle}>
+          <Text style={[styles.sectionName, { color: colors.foreground }]}>
+            {activeCategory_?.name}
+          </Text>
+          <Text style={styles.sectionIcon}>{activeCategory_?.icon}</Text>
+        </View>
       </View>
 
-      {/* Items */}
+      {/* ── MENU ITEMS ── */}
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[
-          styles.listContent,
+          styles.list,
           { paddingBottom: Platform.OS === "web" ? 130 : 110 },
         ]}
       >
-        {activeItems.map((item, index) => (
-          <MenuItemCard key={item.id} item={item} index={index} />
+        {activeItems.map((item) => (
+          <MenuItemCard key={item.id} item={item} />
         ))}
       </ScrollView>
 
@@ -116,107 +113,105 @@ export default function MenuScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
+  root: {
     flex: 1,
   },
-  hero: {
-    paddingHorizontal: 20,
-    paddingBottom: 16,
-    backgroundColor: "#1A1008",
+  header: {
+    backgroundColor: "#130B04",
     borderBottomWidth: 1,
-    borderBottomColor: "#3A2410",
+    borderBottomColor: "#2A1A0A",
   },
-  heroTop: {
+  headerRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 14,
+    paddingHorizontal: 16,
+    paddingBottom: 12,
     paddingTop: 10,
+    gap: 12,
   },
   logo: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
-    backgroundColor: "#2A1A0A",
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: "#1F130A",
   },
-  heroText: {
+  titleBlock: {
     flex: 1,
     alignItems: "flex-end",
   },
-  restaurantName: {
-    fontSize: 26,
+  brandName: {
+    color: "#FFFFFF",
+    fontSize: 24,
     fontWeight: "800",
     textAlign: "right",
-    letterSpacing: 0.5,
-  },
-  taglineRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginTop: 4,
-  },
-  taglineLine: {
-    height: 1.5,
-    flex: 1,
-    opacity: 0.6,
+    letterSpacing: 0.3,
   },
   tagline: {
     fontSize: 13,
     fontWeight: "600",
-    textAlign: "center",
-    letterSpacing: 0.3,
-  },
-  location: {
-    fontSize: 12,
     textAlign: "right",
-    marginTop: 5,
+    marginTop: 3,
+    letterSpacing: 0.5,
   },
-  categoryBar: {
-    borderBottomWidth: 1,
-    borderBottomColor: "#3A2410",
+  phoneBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  categoryScroll: {
+  tabsScroll: {
+    paddingBottom: 14,
+  },
+  tabsContent: {
     paddingHorizontal: 16,
-    paddingVertical: 12,
     gap: 8,
     flexDirection: "row",
   },
-  catTab: {
+  tab: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 14,
     paddingVertical: 8,
-    borderRadius: 20,
+    borderRadius: 22,
+    borderWidth: 1,
     gap: 6,
     marginLeft: 4,
   },
-  catIcon: {
+  tabIcon: {
     fontSize: 15,
   },
-  catLabel: {
+  tabLabel: {
     fontSize: 13,
     fontWeight: "600",
   },
-  sectionHeader: {
+  sectionRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "flex-end",
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 10,
-    gap: 10,
-  },
-  sectionAccent: {
-    width: 4,
-    height: 22,
-    borderRadius: 2,
+    justifyContent: "space-between",
+    paddingHorizontal: 18,
+    paddingVertical: 13,
+    borderBottomWidth: 1,
+    backgroundColor: "#0F0A05",
   },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    textAlign: "right",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
-  listContent: {
-    paddingHorizontal: 16,
-    paddingTop: 4,
+  sectionName: {
+    fontSize: 18,
+    fontWeight: "700",
+  },
+  sectionIcon: {
+    fontSize: 20,
+  },
+  itemCount: {
+    fontSize: 13,
+    fontWeight: "500",
+  },
+  list: {
+    paddingHorizontal: 14,
+    paddingTop: 12,
   },
 });

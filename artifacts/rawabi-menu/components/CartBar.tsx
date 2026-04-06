@@ -3,11 +3,9 @@ import { View, Text, TouchableOpacity, StyleSheet, Platform } from "react-native
 import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
-import { useColors } from "@/hooks/useColors";
 import { useCart } from "@/context/CartContext";
 
 export function CartBar() {
-  const colors = useColors();
   const { totalItems, totalPrice } = useCart();
   const router = useRouter();
 
@@ -24,24 +22,18 @@ export function CartBar() {
     <TouchableOpacity
       onPress={handlePress}
       activeOpacity={0.9}
-      style={[
-        styles.bar,
-        Platform.OS === "web" && { bottom: 34 },
-      ]}
+      style={[styles.bar, Platform.OS === "web" && { bottom: 34 }]}
     >
-      {/* Left: price */}
-      <View style={styles.priceBlock}>
-        <Text style={styles.totalStr}>{totalStr}</Text>
-        <Text style={styles.sar}>ر.س</Text>
+      <View style={styles.leftSection}>
+        <Text style={styles.sarLabel}>ر.س</Text>
+        <Text style={styles.totalText}>{totalStr}</Text>
       </View>
 
-      {/* Center: label */}
-      <Text style={styles.label}>عرض سلة الطلبات</Text>
+      <Text style={styles.centerLabel}>عرض سلة الطلبات</Text>
 
-      {/* Right: badge */}
-      <View style={[styles.badge, { backgroundColor: "#FFFFFF22" }]}>
-        <Feather name="shopping-cart" size={14} color="#FFFFFF" />
-        <Text style={styles.badgeText}>{totalItems}</Text>
+      <View style={styles.rightSection}>
+        <Feather name="shopping-cart" size={16} color="#fff" />
+        <Text style={styles.countText}>{totalItems}</Text>
       </View>
     </TouchableOpacity>
   );
@@ -51,52 +43,56 @@ const styles = StyleSheet.create({
   bar: {
     position: "absolute",
     bottom: 22,
-    left: 16,
-    right: 16,
-    borderRadius: 18,
+    left: 14,
+    right: 14,
+    borderRadius: 20,
     backgroundColor: "#C8171A",
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 15,
+    paddingHorizontal: 18,
+    paddingVertical: 16,
     shadowColor: "#C8171A",
-    shadowOpacity: 0.5,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 12,
+    shadowOpacity: 0.55,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 7 },
+    elevation: 14,
   },
-  priceBlock: {
+  leftSection: {
     flexDirection: "row",
     alignItems: "baseline",
     gap: 3,
+    minWidth: 70,
   },
-  totalStr: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: "#FFFFFF",
-  },
-  sar: {
-    fontSize: 12,
+  sarLabel: {
     color: "#FFFFFF99",
+    fontSize: 11,
   },
-  label: {
+  totalText: {
+    color: "#FFFFFF",
+    fontSize: 19,
+    fontWeight: "800",
+  },
+  centerLabel: {
     flex: 1,
+    color: "#FFFFFF",
     fontSize: 16,
     fontWeight: "700",
     textAlign: "center",
-    color: "#FFFFFF",
   },
-  badge: {
+  rightSection: {
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
+    backgroundColor: "#00000033",
     paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingVertical: 6,
     borderRadius: 12,
+    minWidth: 55,
+    justifyContent: "center",
   },
-  badgeText: {
+  countText: {
+    color: "#FFFFFF",
     fontSize: 14,
     fontWeight: "800",
-    color: "#FFFFFF",
   },
 });

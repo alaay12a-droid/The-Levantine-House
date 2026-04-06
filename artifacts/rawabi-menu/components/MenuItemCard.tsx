@@ -4,23 +4,25 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
+  Image,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useColors } from "@/hooks/useColors";
 import { useCart } from "@/context/CartContext";
-import { MenuItem } from "@/constants/menu";
+import { MenuItem, FOOD_IMAGES } from "@/constants/menu";
 
 interface Props {
   item: MenuItem;
-  index?: number;
 }
 
-export function MenuItemCard({ item, index = 0 }: Props) {
+export function MenuItemCard({ item }: Props) {
   const colors = useColors();
   const { items, addItem, updateQuantity } = useCart();
   const cartItem = items.find((c) => c.item.id === item.id);
   const quantity = cartItem?.quantity ?? 0;
+  const inCart = quantity > 0;
+  const foodImage = item.imageKey ? FOOD_IMAGES[item.imageKey] : null;
 
   const handleAdd = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -33,74 +35,81 @@ export function MenuItemCard({ item, index = 0 }: Props) {
   };
 
   const priceStr = item.price % 1 === 0 ? item.price.toString() : item.price.toFixed(1);
-  const inCart = quantity > 0;
 
   return (
     <View
       style={[
         styles.card,
         {
-          backgroundColor: inCart ? "#1F1308" : colors.card,
+          backgroundColor: colors.card,
           borderColor: inCart ? colors.gold : colors.border,
+          borderWidth: inCart ? 1.5 : 1,
         },
       ]}
     >
-      {/* Gold accent on left if in cart */}
-      {inCart && (
-        <View style={[styles.inCartAccent, { backgroundColor: colors.gold }]} />
-      )}
-
-      <View style={styles.content}>
-        {/* Add / Qty controls */}
-        <View style={styles.controls}>
+      <View style={styles.inner}>
+        {/* Left: quantity control / add button */}
+        <View style={styles.leftSide}>
           {quantity === 0 ? (
             <TouchableOpacity
               onPress={handleAdd}
               style={[styles.addBtn, { backgroundColor: colors.primary }]}
               activeOpacity={0.8}
             >
-              <Feather name="plus" size={18} color="#FFFFFF" />
+              <Feather name="plus" size={20} color="#fff" />
             </TouchableOpacity>
           ) : (
-            <View style={styles.qtyColumn}>
+            <View style={styles.qtyGroup}>
               <TouchableOpacity
                 onPress={handleAdd}
-                style={[styles.qtySmallBtn, { backgroundColor: colors.primary }]}
-                activeOpacity={0.8}
+                style={[styles.qtyRound, { backgroundColor: colors.primary }]}
               >
-                <Feather name="plus" size={13} color="#FFFFFF" />
+                <Feather name="plus" size={14} color="#fff" />
               </TouchableOpacity>
-              <View style={[styles.qtyBadge, { backgroundColor: colors.gold }]}>
-                <Text style={styles.qtyText}>{quantity}</Text>
+              <View style={[styles.qtyNumBox, { backgroundColor: colors.gold }]}>
+                <Text style={styles.qtyNumText}>{quantity}</Text>
               </View>
               <TouchableOpacity
                 onPress={handleDecrease}
-                style={[styles.qtySmallBtn, { backgroundColor: colors.secondary }]}
-                activeOpacity={0.8}
+                style={[styles.qtyRound, { backgroundColor: "#2A1A0A" }]}
               >
-                <Feather name="minus" size={13} color={colors.foreground} />
+                <Feather name="minus" size={14} color={colors.foreground} />
               </TouchableOpacity>
             </View>
           )}
         </View>
 
-        {/* Info */}
-        <View style={styles.info}>
+        {/* Center: info */}
+        <View style={styles.infoBlock}>
           <Text style={[styles.name, { color: colors.foreground }]} numberOfLines={2}>
             {item.name}
           </Text>
           {item.description ? (
-            <Text style={[styles.description, { color: colors.mutedForeground }]}>
+            <Text style={[styles.desc, { color: colors.mutedForeground }]}>
               {item.description}
             </Text>
           ) : null}
           <View style={styles.priceRow}>
             <Text style={[styles.currency, { color: colors.mutedForeground }]}>ر.س</Text>
-            <Text style={[styles.price, { color: inCart ? colors.gold : colors.primary }]}>
+            <Text style={[styles.price, { color: inCart ? colors.gold : colors.accent }]}>
               {priceStr}
             </Text>
           </View>
         </View>
+
+        {/* Right: food image */}
+        {foodImage ? (
+          <View style={[styles.imageWrap, { backgroundColor: "#2A1508" }]}>
+            <Image source={foodImage} style={styles.foodImage} resizeMode="cover" />
+            {inCart && (
+              <View style={[styles.inCartDot, { backgroundColor: colors.gold }]} />
+            )}
+          </View>
+        ) : (
+          <View style={[styles.imageWrap, styles.noImage, { backgroundColor: "#2A1508", borderColor: colors.border }]}>
+            <Text style={styles.noImageIcon}>🍽️</Text>
+          </View>
+        )}
       </View>
     </View>
   );
@@ -108,94 +117,108 @@ export function MenuItemCard({ item, index = 0 }: Props) {
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 14,
-    borderWidth: 1,
-    marginBottom: 10,
+    borderRadius: 16,
+    marginBottom: 12,
     overflow: "hidden",
-    position: "relative",
   },
-  inCartAccent: {
-    position: "absolute",
-    right: 0,
-    top: 0,
-    bottom: 0,
-    width: 3,
-    borderTopRightRadius: 14,
-    borderBottomRightRadius: 14,
-  },
-  content: {
+  inner: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 14,
-    gap: 14,
+    padding: 12,
+    gap: 12,
   },
-  info: {
-    flex: 1,
-    alignItems: "flex-end",
-  },
-  name: {
-    fontSize: 15.5,
-    fontWeight: "700",
-    textAlign: "right",
-    lineHeight: 23,
-    marginBottom: 3,
-  },
-  description: {
-    fontSize: 12,
-    textAlign: "right",
-    marginBottom: 6,
-  },
-  priceRow: {
-    flexDirection: "row",
-    alignItems: "baseline",
-    gap: 4,
-  },
-  price: {
-    fontSize: 20,
-    fontWeight: "800",
-  },
-  currency: {
-    fontSize: 12,
-    fontWeight: "500",
-    marginBottom: 2,
-  },
-  controls: {
+  leftSide: {
+    width: 46,
     alignItems: "center",
-    justifyContent: "center",
   },
   addBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     alignItems: "center",
     justifyContent: "center",
     shadowColor: "#C8171A",
-    shadowOpacity: 0.4,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 4,
+    shadowOpacity: 0.45,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 5,
   },
-  qtyColumn: {
+  qtyGroup: {
     alignItems: "center",
     gap: 5,
   },
-  qtySmallBtn: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  qtyBadge: {
+  qtyRound: {
     width: 32,
     height: 32,
     borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
   },
-  qtyText: {
-    fontSize: 15,
+  qtyNumBox: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  qtyNumText: {
+    color: "#fff",
     fontWeight: "800",
-    color: "#FFFFFF",
+    fontSize: 15,
+  },
+  infoBlock: {
+    flex: 1,
+    alignItems: "flex-end",
+    gap: 4,
+  },
+  name: {
+    fontSize: 15,
+    fontWeight: "700",
+    textAlign: "right",
+    lineHeight: 22,
+  },
+  desc: {
+    fontSize: 12,
+    textAlign: "right",
+  },
+  priceRow: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    gap: 3,
+    marginTop: 4,
+  },
+  price: {
+    fontSize: 22,
+    fontWeight: "800",
+  },
+  currency: {
+    fontSize: 12,
+  },
+  imageWrap: {
+    width: 82,
+    height: 82,
+    borderRadius: 12,
+    overflow: "hidden",
+    position: "relative",
+  },
+  foodImage: {
+    width: "100%",
+    height: "100%",
+  },
+  noImage: {
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  noImageIcon: {
+    fontSize: 32,
+  },
+  inCartDot: {
+    position: "absolute",
+    top: 6,
+    left: 6,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
   },
 });
