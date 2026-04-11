@@ -2,6 +2,7 @@
   "expo": {
     "name": "روابي المندي",
     "slug": "rawabi-menu",
+    "owner": "021837ala",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -42,6 +43,11 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "rawabi-menu"
+      }
     }
   }
 }
