@@ -20,6 +20,7 @@ import { CartBar } from "@/components/CartBar";
 const logo = require("@/assets/images/logo.png");
 const deliveryCar = require("@/assets/images/delivery_car.jpg");
 const dhabihaImg = require("@/assets/images/dhabiha.png");
+const dhabihaPoster = require("@/assets/images/dhabiha_poster.jpg");
 
 const F = {
   regular: "Cairo_400Regular",
@@ -136,17 +137,8 @@ export default function MenuScreen() {
       ) : activeCat?.isDhabiha ? (
         /* ── DHABIHA SECTION ── */
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.list}>
-          <View style={[styles.dhabihaHero, { backgroundColor: colors.card, borderColor: "#E8920C" }]}>
-            <Image source={dhabihaImg} style={styles.dhabihaImg} resizeMode="contain" />
-            <View style={styles.dhabihaOverlay}>
-              <View style={[styles.dhabihaTagBadge, { backgroundColor: colors.gold }]}>
-                <Text style={[styles.dhabihaTagText, { fontFamily: F.bold }]}>🐑 احجز الآن</Text>
-              </View>
-              <Text style={[styles.dhabihaHeroTitle, { color: "#fff", fontFamily: F.extra }]}>ذبائح العيد والمناسبات</Text>
-              <Text style={[styles.dhabihaHeroSub, { color: colors.gold, fontFamily: F.semi }]}>
-                الطبق الملكي لمناسباتكم
-              </Text>
-            </View>
+          <View style={[styles.dhabihaHero, { borderColor: "#E8920C" }]}>
+            <Image source={dhabihaPoster} style={styles.dhabihaImg} resizeMode="cover" />
           </View>
 
           {activeCat.items.map((item) => (
@@ -322,13 +314,12 @@ const styles = StyleSheet.create({
   dhabihaHero: {
     borderRadius: 20,
     overflow: "hidden",
-    borderWidth: 1.5,
+    borderWidth: 2,
     marginBottom: 14,
   },
   dhabihaImg: {
     width: "100%",
-    height: 230,
-    backgroundColor: "#0F0A05",
+    height: 480,
   },
   dhabihaOverlay: {
     padding: 18,
