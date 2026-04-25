@@ -148,18 +148,24 @@ export default function MenuScreen() {
           <View style={[styles.bookBox, { backgroundColor: "#1F130A", borderColor: "#E8920C" }]}>
             <Text style={[styles.bookTitle, { color: colors.gold, fontFamily: F.extra }]}>حجز الذبائح</Text>
             <Text style={[styles.bookDesc, { color: colors.mutedForeground, fontFamily: F.regular }]}>
-              للحجز والاستفسار عن الأسعار تواصل معنا مباشرة
+              للحجز والاستفسار عن الأسعار تواصل معنا على الرقم المخصص
             </Text>
+            <View style={[styles.dhabihaPhoneRow, { borderColor: colors.gold }]}>
+              <Feather name="phone" size={16} color={colors.gold} />
+              <Text style={[styles.dhabihaPhoneNum, { color: colors.gold, fontFamily: F.extra }]}>
+                {RESTAURANT_INFO.dhabihaPhone}
+              </Text>
+            </View>
             <View style={styles.bookBtns}>
               <TouchableOpacity
-                onPress={() => handleWhatsApp("السلام عليكم، أرغب في الاستفسار عن ذبائح العيد والأسعار")}
+                onPress={() => Linking.openURL(`https://wa.me/${RESTAURANT_INFO.dhabihaWhatsapp}?text=${encodeURIComponent("السلام عليكم، أرغب في حجز ذبيحة والاستفسار عن الأسعار")}`)}
                 style={[styles.bookBtn, { backgroundColor: "#1DBF47" }]}
               >
                 <Feather name="message-circle" size={16} color="#fff" />
                 <Text style={[styles.bookBtnText, { fontFamily: F.bold }]}>واتساب</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                onPress={handleCall}
+                onPress={() => Linking.openURL(`tel:${RESTAURANT_INFO.dhabihaPhone}`)}
                 style={[styles.bookBtn, { backgroundColor: colors.primary }]}
               >
                 <Feather name="phone" size={16} color="#fff" />
@@ -382,6 +388,18 @@ const styles = StyleSheet.create({
   },
   bookTitle: { fontSize: 20 },
   bookDesc: { fontSize: 14, textAlign: "right", lineHeight: 22 },
+  dhabihaPhoneRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    alignSelf: "flex-end",
+    marginVertical: 4,
+  },
+  dhabihaPhoneNum: { fontSize: 18, letterSpacing: 1 },
   bookBtns: {
     flexDirection: "row",
     gap: 10,

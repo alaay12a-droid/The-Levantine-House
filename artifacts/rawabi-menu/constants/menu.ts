@@ -25,6 +25,8 @@ export const RESTAURANT_INFO = {
   whatsapp: "966530707042",
   location: "تبوك - حي الروضة",
   instagram: "@rwabi-almndi",
+  dhabihaPhone: "0531555268",
+  dhabihaWhatsapp: "966531555268",
 };
 
 export const FOOD_IMAGES: Record<string, any> = {
