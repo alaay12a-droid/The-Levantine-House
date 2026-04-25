@@ -60,6 +60,10 @@ export const FOOD_IMAGES: Record<string, any> = {
   pepsi_family: require("@/assets/images/pepsi_family.jpg"),
   mirinda_citrus: require("@/assets/images/mirinda_citrus.jpg"),
   laban: require("@/assets/images/laban.jpg"),
+  pepsi_diet_can: require("@/assets/images/pepsi_diet_can.jpg"),
+  sevenup_can: require("@/assets/images/sevenup_can.jpg"),
+  mirinda_citrus_can: require("@/assets/images/mirinda_citrus_can.jpg"),
+  pepsi_can: require("@/assets/images/pepsi_can.jpg"),
 };
 
 export const MENU_CATEGORIES: MenuCategory[] = [
@@ -134,14 +138,17 @@ export const MENU_CATEGORIES: MenuCategory[] = [
     name: "المشروبات",
     icon: "🥤",
     items: [
-      { id: "dr1", name: "بيبسي عائلي 2.25 لتر",       price: 9,   category: "drinks", imageKey: "pepsi_family"   },
-      { id: "dr2", name: "بيبسي وسط 1 لتر",             price: 5,   category: "drinks", imageKey: "pepsi"          },
-      { id: "dr3", name: "بيبسي علبة",                  price: 2.5, category: "drinks", imageKey: "pepsi"          },
-      { id: "dr5", name: "ديو عائلي",                   price: 9,   category: "drinks", imageKey: "dew"            },
-      { id: "dr6", name: "ميرندا برتقال عائلي",         price: 9,   category: "drinks", imageKey: "mirinda_orange" },
-      { id: "dr7", name: "ميرندا حمضيات عائلي",         price: 9,   category: "drinks", imageKey: "mirinda_citrus" },
-      { id: "dr8", name: "سفن أب عائلي",                price: 9,   category: "drinks", imageKey: "sevenup"        },
-      { id: "dr4", name: "لبن",                         price: 2.5, category: "drinks", imageKey: "laban"         },
+      { id: "dr1",  name: "بيبسي عائلي 2.25 لتر",    price: 9,   category: "drinks", imageKey: "pepsi_family"       },
+      { id: "dr2",  name: "بيبسي وسط 1 لتر",          price: 5,   category: "drinks", imageKey: "pepsi"              },
+      { id: "dr3",  name: "بيبسي علبة",               price: 2.5, category: "drinks", imageKey: "pepsi_can"          },
+      { id: "dr9",  name: "بيبسي دايت علبة",          price: 2.5, category: "drinks", imageKey: "pepsi_diet_can"     },
+      { id: "dr5",  name: "ديو عائلي",                price: 9,   category: "drinks", imageKey: "dew"                },
+      { id: "dr6",  name: "ميرندا برتقال عائلي",      price: 9,   category: "drinks", imageKey: "mirinda_orange"     },
+      { id: "dr7",  name: "ميرندا حمضيات عائلي",      price: 9,   category: "drinks", imageKey: "mirinda_citrus"     },
+      { id: "dr11", name: "ميرندا حمضيات علبة",       price: 2.5, category: "drinks", imageKey: "mirinda_citrus_can" },
+      { id: "dr8",  name: "سفن أب عائلي",             price: 9,   category: "drinks", imageKey: "sevenup"            },
+      { id: "dr10", name: "سفن أب فري علبة",          price: 2.5, category: "drinks", imageKey: "sevenup_can"        },
+      { id: "dr4",  name: "لبن",                      price: 2.5, category: "drinks", imageKey: "laban"              },
     ],
   },
   {
