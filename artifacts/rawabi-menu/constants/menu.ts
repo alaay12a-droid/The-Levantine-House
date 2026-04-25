@@ -49,6 +49,7 @@ export const FOOD_IMAGES: Record<string, any> = {
   occasions: require("@/assets/images/occasions.png"),
   rice: require("@/assets/images/rice.jpg"),
   rice_mandi: require("@/assets/images/rice_mandi.jpg"),
+  maqbous_chicken: require("@/assets/images/maqbous_chicken.jpg"),
 };
 
 export const MENU_CATEGORIES: MenuCategory[] = [
@@ -79,8 +80,8 @@ export const MENU_CATEGORIES: MenuCategory[] = [
     name: "الأطباق الرئيسية",
     icon: "🍽️",
     items: [
-      { id: "ma1", name: "مضغوط دجاج حبة كاملة مع الرز", price: 42, category: "mains", imageKey: "chicken_full" },
-      { id: "ma2", name: "مضغوط دجاج نص حبة مع الرز", price: 21, category: "mains", imageKey: "chicken_half" },
+      { id: "ma1", name: "مضغوط دجاج حبة كاملة مع الرز", price: 42, category: "mains", imageKey: "maqbous_chicken" },
+      { id: "ma2", name: "مضغوط دجاج نص حبة مع الرز", price: 22, category: "mains", imageKey: "maqbous_chicken" },
     ],
   },
   {
