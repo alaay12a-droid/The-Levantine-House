@@ -69,6 +69,11 @@ export const FOOD_IMAGES: Record<string, any> = {
   laban_almarai_lg: require("@/assets/images/laban_almarai_lg.jpg"),
   laban_almarai_1l: require("@/assets/images/laban_almarai_1l.jpg"),
   goat_mandi: require("@/assets/images/goat_mandi.jpg"),
+  bamya: require("@/assets/images/bamya.jpg"),
+  masqaa: require("@/assets/images/masqaa.jpg"),
+  salad_laban: require("@/assets/images/salad_laban.jpg"),
+  salad_green: require("@/assets/images/salad_green.jpg"),
+  tahini: require("@/assets/images/tahini.jpg"),
 };
 
 export const MENU_CATEGORIES: MenuCategory[] = [
@@ -165,8 +170,15 @@ export const MENU_CATEGORIES: MenuCategory[] = [
     name: "إضافات",
     icon: "✨",
     items: [
-      { id: "e2", name: "قرصان صغير", price: 4, category: "extras", imageKey: "qursan" },
-      { id: "e3", name: "قرصان كبير", price: 6, category: "extras", imageKey: "qursan" },
+      { id: "e2",  name: "قرصان صغير",           price: 4, category: "extras", imageKey: "qursan"      },
+      { id: "e3",  name: "قرصان كبير",            price: 6, category: "extras", imageKey: "qursan"      },
+      { id: "e4",  name: "باميه صغير",            price: 5, category: "extras", imageKey: "bamya"       },
+      { id: "e5",  name: "باميه كبير",             price: 7, category: "extras", imageKey: "bamya"       },
+      { id: "e6",  name: "إيدام مصقعة صغير",      price: 4, category: "extras", imageKey: "masqaa"      },
+      { id: "e7",  name: "إيدام مصقعة كبير",       price: 6, category: "extras", imageKey: "masqaa"      },
+      { id: "e8",  name: "سلطة خيار باللبن",       price: 3, category: "extras", imageKey: "salad_laban" },
+      { id: "e9",  name: "سلطة خضراء",             price: 3, category: "extras", imageKey: "salad_green" },
+      { id: "e10", name: "طحينية سائلة",           price: 3, category: "extras", imageKey: "tahini"      },
     ],
   },
   {
