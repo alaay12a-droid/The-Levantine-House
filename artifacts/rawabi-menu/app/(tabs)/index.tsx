@@ -13,7 +13,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
-import { MENU_CATEGORIES, RESTAURANT_INFO } from "@/constants/menu";
+import { FOOD_IMAGES, MENU_CATEGORIES, RESTAURANT_INFO } from "@/constants/menu";
 import { MenuItemCard } from "@/components/MenuItemCard";
 import { CartBar } from "@/components/CartBar";
 
@@ -167,6 +167,44 @@ export default function MenuScreen() {
               </TouchableOpacity>
             </View>
           </View>
+        </ScrollView>
+      ) : activeCat?.isOccasions ? (
+        /* ── OCCASIONS SECTION ── */
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.list}>
+          <View style={[styles.occasionsHeader, { backgroundColor: "#1A0D00", borderColor: colors.gold }]}>
+            <Text style={[styles.occasionsTitle, { color: colors.gold, fontFamily: F.extra }]}>🎉 عروض المناسبات</Text>
+            <Text style={[styles.occasionsSub, { color: colors.mutedForeground, fontFamily: F.semi }]}>
+              عروض خاصة لكل مناسبة — تواصل معنا لمعرفة التفاصيل
+            </Text>
+          </View>
+
+          {activeCat.items.map((item) => (
+            <TouchableOpacity
+              key={item.id}
+              activeOpacity={0.85}
+              onPress={() => handleWhatsApp(`السلام عليكم، أرغب في الاستفسار عن: ${item.name}`)}
+              style={[styles.occasionCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+            >
+              {FOOD_IMAGES[item.imageKey ?? ""] && (
+                <Image
+                  source={FOOD_IMAGES[item.imageKey!]}
+                  style={styles.occasionImg}
+                  resizeMode="cover"
+                />
+              )}
+              <View style={[styles.occasionOverlay, { backgroundColor: "#0F0A05CC" }]}>
+                <View style={[styles.occasionBadge, { backgroundColor: colors.gold }]}>
+                  <Text style={[styles.occasionBadgeText, { fontFamily: F.bold }]}>عرض خاص</Text>
+                </View>
+                <Text style={[styles.occasionName, { color: "#FFFFFF", fontFamily: F.extra }]}>{item.name}</Text>
+                <Text style={[styles.occasionDesc, { color: "#FFFFFF99", fontFamily: F.semi }]}>{item.description}</Text>
+                <View style={[styles.occasionBtn, { backgroundColor: "#1DBF47" }]}>
+                  <Feather name="message-circle" size={15} color="#fff" />
+                  <Text style={[styles.occasionBtnText, { fontFamily: F.bold }]}>استفسر عبر واتساب</Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+          ))}
         </ScrollView>
       ) : (
         /* ── REGULAR MENU SECTION ── */
@@ -360,4 +398,54 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   bookBtnText: { color: "#fff", fontSize: 15 },
+
+  /* Occasions */
+  occasionsHeader: {
+    borderRadius: 16,
+    borderWidth: 1.5,
+    padding: 18,
+    alignItems: "center",
+    marginBottom: 14,
+    gap: 6,
+  },
+  occasionsTitle: { fontSize: 22, textAlign: "center" },
+  occasionsSub: { fontSize: 13, textAlign: "center", lineHeight: 20 },
+  occasionCard: {
+    borderRadius: 18,
+    borderWidth: 1,
+    marginBottom: 14,
+    overflow: "hidden",
+    height: 200,
+  },
+  occasionImg: {
+    position: "absolute",
+    width: "100%",
+    height: "100%",
+  },
+  occasionOverlay: {
+    flex: 1,
+    padding: 16,
+    justifyContent: "flex-end",
+    gap: 6,
+    alignItems: "flex-end",
+  },
+  occasionBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+  },
+  occasionBadgeText: { color: "#0F0A05", fontSize: 11 },
+  occasionName: { fontSize: 18, textAlign: "right" },
+  occasionDesc: { fontSize: 13, textAlign: "right" },
+  occasionBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 12,
+    alignSelf: "flex-end",
+    marginTop: 4,
+  },
+  occasionBtnText: { color: "#fff", fontSize: 13 },
 });

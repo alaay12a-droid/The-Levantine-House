@@ -14,6 +14,7 @@ export interface MenuCategory {
   items: MenuItem[];
   isDelivery?: boolean;
   isDhabiha?: boolean;
+  isOccasions?: boolean;
 }
 
 export const RESTAURANT_INFO = {
@@ -41,6 +42,11 @@ export const FOOD_IMAGES: Record<string, any> = {
   pepsi: require("@/assets/images/pepsi.jpg"),
   delivery_car: require("@/assets/images/delivery_car.jpg"),
   dhabiha: require("@/assets/images/dhabiha.png"),
+  ramadan: require("@/assets/images/ramadan.png"),
+  eid_fitr: require("@/assets/images/eid_fitr.png"),
+  eid_adha: require("@/assets/images/eid_adha.png"),
+  national_day: require("@/assets/images/national_day.png"),
+  occasions: require("@/assets/images/occasions.png"),
 };
 
 export const MENU_CATEGORIES: MenuCategory[] = [
@@ -136,6 +142,19 @@ export const MENU_CATEGORIES: MenuCategory[] = [
     items: [
       { id: "dh1", name: "ذبيحة كاملة - تيس بلدي", price: 0, category: "dhabiha", description: "اتصل للسعر", imageKey: "dhabiha" },
       { id: "dh2", name: "ذبيحة العيد والمناسبات", price: 0, category: "dhabiha", description: "الطبق الملكي لمناسباتكم", imageKey: "dhabiha" },
+    ],
+  },
+  {
+    id: "occasions",
+    name: "عروض المناسبات",
+    icon: "🎉",
+    isOccasions: true,
+    items: [
+      { id: "oc1", name: "عروض رمضان الكريم",        price: 0, category: "occasions", description: "أسعار مميزة طوال الشهر الكريم", imageKey: "ramadan"      },
+      { id: "oc2", name: "عروض عيد الفطر المبارك",  price: 0, category: "occasions", description: "احتفل مع أهلك بأشهى المأكولات",  imageKey: "eid_fitr"     },
+      { id: "oc3", name: "عروض عيد الأضحى المبارك", price: 0, category: "occasions", description: "ذبائح وولائم العيد",              imageKey: "eid_adha"     },
+      { id: "oc4", name: "عروض اليوم الوطني",        price: 0, category: "occasions", description: "احتفالاً باليوم الوطني السعودي", imageKey: "national_day"  },
+      { id: "oc5", name: "عروض المناسبات الخاصة",   price: 0, category: "occasions", description: "أعراس • مآتم • تجمعات",          imageKey: "occasions"     },
     ],
   },
   {
