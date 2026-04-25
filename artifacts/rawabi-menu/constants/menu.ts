@@ -54,6 +54,11 @@ export const FOOD_IMAGES: Record<string, any> = {
   molokhia: require("@/assets/images/molokhia.jpg"),
   qursan: require("@/assets/images/qursan.jpg"),
   mdfoon_chicken: require("@/assets/images/mdfoon_chicken.jpg"),
+  dew: require("@/assets/images/dew.jpg"),
+  mirinda_orange: require("@/assets/images/mirinda_orange.jpg"),
+  sevenup: require("@/assets/images/sevenup.jpg"),
+  pepsi_family: require("@/assets/images/pepsi_family.jpg"),
+  mirinda_citrus: require("@/assets/images/mirinda_citrus.jpg"),
 };
 
 export const MENU_CATEGORIES: MenuCategory[] = [
@@ -128,10 +133,14 @@ export const MENU_CATEGORIES: MenuCategory[] = [
     name: "المشروبات",
     icon: "🥤",
     items: [
-      { id: "dr1", name: "بيبسي عائلة", price: 9, category: "drinks", imageKey: "pepsi" },
-      { id: "dr2", name: "بيبسي وسط 1 لتر", price: 5, category: "drinks", imageKey: "pepsi" },
-      { id: "dr3", name: "بيبسي علبة", price: 2.5, category: "drinks", imageKey: "pepsi" },
-      { id: "dr4", name: "لبن", price: 2.5, category: "drinks" },
+      { id: "dr1", name: "بيبسي عائلي 2.25 لتر",       price: 9,   category: "drinks", imageKey: "pepsi_family"   },
+      { id: "dr2", name: "بيبسي وسط 1 لتر",             price: 5,   category: "drinks", imageKey: "pepsi"          },
+      { id: "dr3", name: "بيبسي علبة",                  price: 2.5, category: "drinks", imageKey: "pepsi"          },
+      { id: "dr5", name: "ديو عائلي",                   price: 9,   category: "drinks", imageKey: "dew"            },
+      { id: "dr6", name: "ميرندا برتقال عائلي",         price: 9,   category: "drinks", imageKey: "mirinda_orange" },
+      { id: "dr7", name: "ميرندا حمضيات عائلي",         price: 9,   category: "drinks", imageKey: "mirinda_citrus" },
+      { id: "dr8", name: "سفن أب عائلي",                price: 9,   category: "drinks", imageKey: "sevenup"        },
+      { id: "dr4", name: "لبن",                         price: 2.5, category: "drinks"                             },
     ],
   },
   {
