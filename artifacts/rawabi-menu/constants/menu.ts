@@ -47,6 +47,7 @@ export const FOOD_IMAGES: Record<string, any> = {
   eid_adha: require("@/assets/images/eid_adha.png"),
   national_day: require("@/assets/images/national_day.png"),
   occasions: require("@/assets/images/occasions.png"),
+  rice: require("@/assets/images/rice.jpg"),
 };
 
 export const MENU_CATEGORIES: MenuCategory[] = [
@@ -57,8 +58,8 @@ export const MENU_CATEGORIES: MenuCategory[] = [
     items: [
       { id: "c1", name: "مندي دجاج حبة كاملة", price: 28, category: "chicken", description: "بدون رز", imageKey: "chicken_full" },
       { id: "c2", name: "مندي دجاج نص حبة", price: 15, category: "chicken", description: "بدون رز", imageKey: "chicken_half" },
-      { id: "c3", name: "رز مندي", price: 7, category: "chicken" },
-      { id: "c4", name: "رز بشاور", price: 7, category: "chicken" },
+      { id: "c3", name: "رز مندي", price: 7, category: "chicken", imageKey: "rice" },
+      { id: "c4", name: "رز بشاور", price: 7, category: "chicken", imageKey: "rice" },
     ],
   },
   {
