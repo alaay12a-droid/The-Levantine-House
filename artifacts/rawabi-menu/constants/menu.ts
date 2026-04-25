@@ -77,6 +77,7 @@ export const FOOD_IMAGES: Record<string, any> = {
   chicken_grill: require("@/assets/images/chicken_grill.jpg"),
   chicken_mandi_new: require("@/assets/images/chicken_mandi_new.jpg"),
   meat_mandi_nfar: require("@/assets/images/meat_mandi_nfar.jpg"),
+  jareesh: require("@/assets/images/jareesh.jpg"),
 };
 
 const CHICKEN_AND_MAINS_ITEMS: MenuItem[] = [
@@ -129,8 +130,6 @@ export const MENU_CATEGORIES: MenuCategory[] = [
       { id: "e7",  name: "إيدام مصقعة كبير",   price: 6, category: "sides", imageKey: "masqaa"   },
       { id: "e4",  name: "باميه صغير",          price: 5, category: "sides", imageKey: "bamya"    },
       { id: "e5",  name: "باميه كبير",           price: 7, category: "sides", imageKey: "bamya"    },
-      { id: "e2",  name: "قرصان صغير",          price: 4, category: "sides", imageKey: "qursan"   },
-      { id: "e3",  name: "قرصان كبير",           price: 6, category: "sides", imageKey: "qursan"   },
       { id: "s5",  name: "إيدام فرن كبير",      price: 6, category: "sides"                       },
     ],
   },
@@ -182,6 +181,10 @@ export const MENU_CATEGORIES: MenuCategory[] = [
     name: "إضافات",
     icon: "✨",
     items: [
+      { id: "e2",  name: "قرصان صغير",        price: 4, category: "extras", imageKey: "qursan"      },
+      { id: "e3",  name: "قرصان كبير",        price: 6, category: "extras", imageKey: "qursan"      },
+      { id: "e11", name: "جريش صغير",         price: 4, category: "extras", imageKey: "jareesh"     },
+      { id: "e12", name: "جريش كبير",         price: 6, category: "extras", imageKey: "jareesh"     },
       { id: "e8",  name: "سلطة خيار باللبن", price: 3, category: "extras", imageKey: "salad_laban" },
       { id: "e9",  name: "سلطة خضراء",       price: 3, category: "extras", imageKey: "salad_green" },
       { id: "e10", name: "طحينية سائلة",     price: 3, category: "extras", imageKey: "tahini"      },
