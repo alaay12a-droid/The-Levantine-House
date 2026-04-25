@@ -27,74 +27,70 @@ export function CartBar() {
     <TouchableOpacity
       onPress={handlePress}
       activeOpacity={0.9}
-      style={[styles.bar, Platform.OS === "web" && { bottom: 34 }]}
+      style={[styles.fab, Platform.OS === "web" && { bottom: 40 }]}
     >
-      <View style={styles.leftSection}>
-        <Text style={[styles.sarLabel, { fontFamily: F.bold }]}>ر.س</Text>
-        <Text style={[styles.totalText, { fontFamily: F.extra }]}>{totalStr}</Text>
+      <View style={styles.iconWrap}>
+        <Feather name="shopping-cart" size={22} color="#fff" />
+        <View style={styles.badge}>
+          <Text style={[styles.badgeText, { fontFamily: F.extra }]}>{totalItems}</Text>
+        </View>
       </View>
-
-      <Text style={[styles.centerLabel, { fontFamily: F.bold }]}>عرض سلة الطلبات</Text>
-
-      <View style={styles.rightSection}>
-        <Feather name="shopping-cart" size={16} color="#fff" />
-        <Text style={[styles.countText, { fontFamily: F.extra }]}>{totalItems}</Text>
+      <View style={styles.priceWrap}>
+        <Text style={[styles.priceText, { fontFamily: F.extra }]}>{totalStr}</Text>
+        <Text style={[styles.sarText, { fontFamily: F.bold }]}>ر.س</Text>
       </View>
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
-  bar: {
+  fab: {
     position: "absolute",
-    bottom: 22,
-    left: 14,
-    right: 14,
-    borderRadius: 20,
+    bottom: 28,
+    left: 18,
     backgroundColor: "#C8171A",
+    borderRadius: 22,
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 18,
-    paddingVertical: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 10,
     shadowColor: "#C8171A",
-    shadowOpacity: 0.55,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 7 },
+    shadowOpacity: 0.6,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
     elevation: 14,
   },
-  leftSection: {
+  iconWrap: {
+    position: "relative",
+  },
+  badge: {
+    position: "absolute",
+    top: -7,
+    right: -8,
+    backgroundColor: "#E8920C",
+    borderRadius: 9,
+    minWidth: 18,
+    height: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 3,
+  },
+  badgeText: {
+    color: "#FFFFFF",
+    fontSize: 10,
+  },
+  priceWrap: {
     flexDirection: "row",
     alignItems: "baseline",
     gap: 3,
-    minWidth: 70,
   },
-  sarLabel: {
+  priceText: {
+    color: "#FFFFFF",
+    fontSize: 18,
+  },
+  sarText: {
     color: "#FFFFFF99",
     fontSize: 11,
-  },
-  totalText: {
-    color: "#FFFFFF",
-    fontSize: 19,
-  },
-  centerLabel: {
-    flex: 1,
-    color: "#FFFFFF",
-    fontSize: 16,
-    textAlign: "center",
-  },
-  rightSection: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    backgroundColor: "#00000033",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 12,
-    minWidth: 55,
-    justifyContent: "center",
-  },
-  countText: {
-    color: "#FFFFFF",
-    fontSize: 14,
   },
 });
