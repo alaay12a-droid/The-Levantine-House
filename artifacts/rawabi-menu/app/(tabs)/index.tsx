@@ -263,7 +263,7 @@ const styles = StyleSheet.create({
     gap: 6,
     marginLeft: 4,
   },
-  tabIcon: { fontSize: 15 },
+  tabIcon: { fontSize: 15, fontFamily: Platform.OS === "web" ? "'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',sans-serif" : undefined },
   tabLabel: { fontSize: 13 },
   sectionRow: {
     flexDirection: "row",
@@ -280,7 +280,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   sectionName: { fontSize: 18 },
-  sectionIcon: { fontSize: 20 },
+  sectionIcon: { fontSize: 20, fontFamily: Platform.OS === "web" ? "'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',sans-serif" : undefined },
   itemCount: { fontSize: 13 },
   list: { padding: 14 },
 

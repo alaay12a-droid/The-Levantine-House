@@ -22,11 +22,25 @@ SplashScreen.preventAutoHideAsync();
 const queryClient = new QueryClient();
 
 if (Platform.OS === "web" && typeof document !== "undefined") {
+  document.documentElement.lang = "ar";
+  document.documentElement.setAttribute("translate", "no");
+
+  const meta = document.createElement("meta");
+  meta.setAttribute("name", "google");
+  meta.setAttribute("content", "notranslate");
+  document.head.appendChild(meta);
+
+  const metaTranslate = document.createElement("meta");
+  metaTranslate.setAttribute("http-equiv", "Content-Language");
+  metaTranslate.setAttribute("content", "ar");
+  document.head.appendChild(metaTranslate);
+
   const style = document.createElement("style");
   style.textContent = `
     @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap');
-    * { font-family: 'Cairo', sans-serif !important; direction: rtl; }
-    body { direction: rtl; }
+    html, body { direction: rtl; font-family: 'Cairo', sans-serif; }
+    *:not(.emoji) { font-family: 'Cairo', sans-serif; }
+    span.emoji { font-family: 'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',sans-serif !important; }
   `;
   document.head.appendChild(style);
 }
