@@ -53,6 +53,7 @@ export const FOOD_IMAGES: Record<string, any> = {
   maqbous_half: require("@/assets/images/maqbous_half.jpg"),
   molokhia: require("@/assets/images/molokhia.jpg"),
   qursan: require("@/assets/images/qursan.jpg"),
+  mdfoon_chicken: require("@/assets/images/mdfoon_chicken.jpg"),
 };
 
 export const MENU_CATEGORIES: MenuCategory[] = [
@@ -85,6 +86,8 @@ export const MENU_CATEGORIES: MenuCategory[] = [
     items: [
       { id: "ma1", name: "مضغوط دجاج حبة كاملة مع الرز", price: 44, category: "mains", imageKey: "maqbous_chicken" },
       { id: "ma2", name: "مضغوط دجاج نص حبة مع الرز", price: 22, category: "mains", imageKey: "maqbous_half" },
+      { id: "ma3", name: "دجاج مدفون حبة كاملة مع الرز", price: 44, category: "mains", imageKey: "mdfoon_chicken" },
+      { id: "ma4", name: "دجاج مدفون نص حبة مع الرز", price: 22, category: "mains", imageKey: "mdfoon_chicken" },
     ],
   },
   {
