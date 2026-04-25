@@ -6,6 +6,7 @@ import React, { useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -166,10 +167,12 @@ export default function OnboardingScreen() {
           {/* Gold accent top */}
           <View style={[styles.cardAccent, { backgroundColor: C.gold }]} />
 
-          {/* Icon circle */}
-          <View style={[styles.iconCircle, { backgroundColor: C.primary + "22", borderColor: C.primary + "44" }]}>
-            <Feather name={current.icon as any} size={32} color={C.primary} />
-          </View>
+          {/* Logo */}
+          <Image
+            source={require("@/assets/images/rawabi_logo.jpg")}
+            style={styles.logo}
+            resizeMode="contain"
+          />
 
           <Text style={styles.stepTitle}>{current.title}</Text>
           <Text style={styles.stepSub}>{current.subtitle}</Text>
@@ -315,10 +318,10 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   cardAccent: { width: "100%", height: 4, marginBottom: 8 },
-  iconCircle: {
-    width: 72, height: 72, borderRadius: 36,
-    alignItems: "center", justifyContent: "center",
-    borderWidth: 1,
+  logo: {
+    width: 160,
+    height: 100,
+    marginBottom: 4,
   },
   stepTitle: {
     fontSize: 22,
