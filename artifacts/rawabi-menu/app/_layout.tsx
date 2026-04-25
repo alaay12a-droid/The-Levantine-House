@@ -6,7 +6,7 @@ import {
   useFonts,
 } from "@expo-google-fonts/cairo";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Stack } from "expo-router";
+import { Stack, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
 import { Platform } from "react-native";
@@ -16,6 +16,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { CartProvider } from "@/context/CartContext";
+import { UserProvider, useUser } from "@/context/UserContext";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -45,12 +46,34 @@ if (Platform.OS === "web" && typeof document !== "undefined") {
   document.head.appendChild(style);
 }
 
+function AuthGate() {
+  const { user, isLoading } = useUser();
+  const router = useRouter();
+  const segments = useSegments();
+
+  useEffect(() => {
+    if (isLoading) return;
+    const onOnboarding = segments[0] === "onboarding";
+    if (!user && !onOnboarding) {
+      router.replace("/onboarding");
+    } else if (user && onOnboarding) {
+      router.replace("/(tabs)");
+    }
+  }, [user, isLoading, segments]);
+
+  return null;
+}
+
 function RootLayoutNav() {
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen name="cart" options={{ headerShown: false, presentation: "modal" }} />
-    </Stack>
+    <>
+      <AuthGate />
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="onboarding" options={{ headerShown: false, animation: "fade" }} />
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="cart" options={{ headerShown: false, presentation: "modal" }} />
+      </Stack>
+    </>
   );
 }
 
@@ -74,13 +97,15 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <ErrorBoundary>
         <QueryClientProvider client={queryClient}>
-          <CartProvider>
-            <GestureHandlerRootView>
-              <KeyboardProvider>
-                <RootLayoutNav />
-              </KeyboardProvider>
-            </GestureHandlerRootView>
-          </CartProvider>
+          <UserProvider>
+            <CartProvider>
+              <GestureHandlerRootView>
+                <KeyboardProvider>
+                  <RootLayoutNav />
+                </KeyboardProvider>
+              </GestureHandlerRootView>
+            </CartProvider>
+          </UserProvider>
         </QueryClientProvider>
       </ErrorBoundary>
     </SafeAreaProvider>

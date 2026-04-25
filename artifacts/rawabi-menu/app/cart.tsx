@@ -16,6 +16,7 @@ import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useColors } from "@/hooks/useColors";
 import { useCart } from "@/context/CartContext";
+import { useUser } from "@/context/UserContext";
 import { RESTAURANT_INFO } from "@/constants/menu";
 
 export default function CartScreen() {
@@ -23,6 +24,7 @@ export default function CartScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { items, updateQuantity, removeItem, clearCart, totalItems, totalPrice } = useCart();
+  const { user } = useUser();
 
   const topInset = Platform.OS === "web" ? 67 : insets.top;
   const bottomInset = Platform.OS === "web" ? 34 : insets.bottom;
@@ -32,6 +34,17 @@ export default function CartScreen() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
     let message = `🍗 *طلب جديد - روابي المندي للمذاق فن وأصول*\n\n`;
+    if (user) {
+      message += `👤 *العميل:* ${user.name}\n`;
+      message += `📱 *الجوال:* ${user.phone}\n`;
+      if (user.address && user.address !== "غير محدد") {
+        message += `📍 *العنوان:* ${user.address}\n`;
+      }
+      if (user.lat && user.lng) {
+        message += `🗺️ *الخريطة:* https://maps.google.com/?q=${user.lat},${user.lng}\n`;
+      }
+      message += `\n`;
+    }
     message += `📋 *تفاصيل الطلب:*\n`;
     items.forEach((cartItem, i) => {
       const itemTotal = cartItem.item.price * cartItem.quantity;
@@ -39,7 +52,7 @@ export default function CartScreen() {
       message += `${i + 1}. ${cartItem.item.name}\n   × ${cartItem.quantity} = ${priceStr} ر.س\n`;
     });
     const totalStr = totalPrice % 1 === 0 ? totalPrice.toString() : totalPrice.toFixed(1);
-    message += `\n💰 *الإجمالي: ${totalStr} ر.س*\n\n📍 تبوك - حي الروضة`;
+    message += `\n💰 *الإجمالي: ${totalStr} ر.س*`;
 
     const encoded = encodeURIComponent(message);
     const url = `https://wa.me/${RESTAURANT_INFO.whatsapp}?text=${encoded}`;
