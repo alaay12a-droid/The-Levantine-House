@@ -64,6 +64,10 @@ export const FOOD_IMAGES: Record<string, any> = {
   sevenup_can: require("@/assets/images/sevenup_can.jpg"),
   mirinda_citrus_can: require("@/assets/images/mirinda_citrus_can.jpg"),
   pepsi_can: require("@/assets/images/pepsi_can.jpg"),
+  laban_qariah_lg: require("@/assets/images/laban_qariah_lg.jpg"),
+  laban_qariah_sm: require("@/assets/images/laban_qariah_sm.jpg"),
+  laban_almarai_lg: require("@/assets/images/laban_almarai_lg.jpg"),
+  laban_almarai_1l: require("@/assets/images/laban_almarai_1l.jpg"),
 };
 
 export const MENU_CATEGORIES: MenuCategory[] = [
@@ -148,7 +152,11 @@ export const MENU_CATEGORIES: MenuCategory[] = [
       { id: "dr11", name: "ميرندا حمضيات علبة",       price: 2.5, category: "drinks", imageKey: "mirinda_citrus_can" },
       { id: "dr8",  name: "سفن أب عائلي",             price: 9,   category: "drinks", imageKey: "sevenup"            },
       { id: "dr10", name: "سفن أب فري علبة",          price: 2.5, category: "drinks", imageKey: "sevenup_can"        },
-      { id: "dr4",  name: "لبن",                      price: 2.5, category: "drinks", imageKey: "laban"              },
+      { id: "dr4",  name: "لبن المراعي علبة",          price: 2.5, category: "drinks", imageKey: "laban"              },
+      { id: "dr12", name: "لبن القرية حجم كبير",      price: 9,   category: "drinks", imageKey: "laban_qariah_lg"    },
+      { id: "dr13", name: "لبن القرية حجم صغير",      price: 3,   category: "drinks", imageKey: "laban_qariah_sm"    },
+      { id: "dr14", name: "لبن المراعي 2 لتر",        price: 11,  category: "drinks", imageKey: "laban_almarai_lg"   },
+      { id: "dr15", name: "لبن المراعي 1 لتر",        price: 6,   category: "drinks", imageKey: "laban_almarai_1l"   },
     ],
   },
   {
