@@ -79,21 +79,27 @@ export const FOOD_IMAGES: Record<string, any> = {
   meat_mandi_nfar: require("@/assets/images/meat_mandi_nfar.jpg"),
 };
 
+const CHICKEN_AND_MAINS_ITEMS: MenuItem[] = [
+  { id: "c1",  name: "مندي دجاج حبة كاملة مع الرز",    price: 44, category: "chicken", imageKey: "chicken_mandi_new" },
+  { id: "c2",  name: "مندي دجاج نص حبة مع الرز",       price: 22, category: "chicken", imageKey: "chicken_mandi_new" },
+  { id: "ma1", name: "مضغوط دجاج حبة كاملة مع الرز",   price: 44, category: "chicken", imageKey: "maqbous_chicken"   },
+  { id: "ma2", name: "مضغوط دجاج نص حبة مع الرز",      price: 22, category: "chicken", imageKey: "maqbous_half"      },
+  { id: "ma3", name: "دجاج مدفون حبة كاملة مع الرز",   price: 44, category: "chicken", imageKey: "mdfoon_chicken"    },
+  { id: "ma4", name: "دجاج مدفون نص حبة مع الرز",      price: 22, category: "chicken", imageKey: "mdfoon_chicken"    },
+  { id: "c5",  name: "نص حبة على الفحم مع الرز",        price: 22, category: "chicken", imageKey: "chicken_grill"     },
+  { id: "c6",  name: "حبة على الفحم مع الرز",           price: 44, category: "chicken", imageKey: "chicken_grill"     },
+  { id: "c7",  name: "نص حبة على الفحم سادة",           price: 15, category: "chicken", description: "بدون رز", imageKey: "chicken_grill" },
+  { id: "c8",  name: "حبة على الفحم سادة",              price: 30, category: "chicken", description: "بدون رز", imageKey: "chicken_grill" },
+  { id: "c3",  name: "رز مندي",                         price: 7,  category: "chicken", imageKey: "rice_mandi"        },
+  { id: "c4",  name: "رز بشاور",                        price: 7,  category: "chicken", imageKey: "rice"              },
+];
+
 export const MENU_CATEGORIES: MenuCategory[] = [
   {
     id: "chicken",
     name: "الدجاج",
     icon: "🍗",
-    items: [
-      { id: "c1", name: "مندي دجاج حبة كاملة مع الرز", price: 44, category: "chicken", imageKey: "chicken_mandi_new" },
-      { id: "c2", name: "مندي دجاج نص حبة مع الرز",  price: 22, category: "chicken", imageKey: "chicken_mandi_new" },
-      { id: "c3", name: "رز مندي",                 price: 7,  category: "chicken",                            imageKey: "rice_mandi"    },
-      { id: "c4", name: "رز بشاور",                price: 7,  category: "chicken",                            imageKey: "rice"          },
-      { id: "c5", name: "نص حبة على الفحم مع الرز", price: 22, category: "chicken",                           imageKey: "chicken_grill" },
-      { id: "c6", name: "حبة على الفحم مع الرز",   price: 44, category: "chicken",                            imageKey: "chicken_grill" },
-      { id: "c7", name: "نص حبة على الفحم سادة",   price: 15, category: "chicken", description: "بدون رز",    imageKey: "chicken_grill" },
-      { id: "c8", name: "حبة على الفحم سادة",      price: 30, category: "chicken", description: "بدون رز",    imageKey: "chicken_grill" },
-    ],
+    items: CHICKEN_AND_MAINS_ITEMS,
   },
   {
     id: "meat",
@@ -110,12 +116,7 @@ export const MENU_CATEGORIES: MenuCategory[] = [
     id: "mains",
     name: "الأطباق الرئيسية",
     icon: "🍽️",
-    items: [
-      { id: "ma1", name: "مضغوط دجاج حبة كاملة مع الرز", price: 44, category: "mains", imageKey: "maqbous_chicken" },
-      { id: "ma2", name: "مضغوط دجاج نص حبة مع الرز", price: 22, category: "mains", imageKey: "maqbous_half" },
-      { id: "ma3", name: "دجاج مدفون حبة كاملة مع الرز", price: 44, category: "mains", imageKey: "mdfoon_chicken" },
-      { id: "ma4", name: "دجاج مدفون نص حبة مع الرز", price: 22, category: "mains", imageKey: "mdfoon_chicken" },
-    ],
+    items: CHICKEN_AND_MAINS_ITEMS,
   },
   {
     id: "sides",
