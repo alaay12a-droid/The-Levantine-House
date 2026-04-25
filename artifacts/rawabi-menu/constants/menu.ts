@@ -59,6 +59,7 @@ export const FOOD_IMAGES: Record<string, any> = {
   sevenup: require("@/assets/images/sevenup.jpg"),
   pepsi_family: require("@/assets/images/pepsi_family.jpg"),
   mirinda_citrus: require("@/assets/images/mirinda_citrus.jpg"),
+  laban: require("@/assets/images/laban.jpg"),
 };
 
 export const MENU_CATEGORIES: MenuCategory[] = [
@@ -140,7 +141,7 @@ export const MENU_CATEGORIES: MenuCategory[] = [
       { id: "dr6", name: "ميرندا برتقال عائلي",         price: 9,   category: "drinks", imageKey: "mirinda_orange" },
       { id: "dr7", name: "ميرندا حمضيات عائلي",         price: 9,   category: "drinks", imageKey: "mirinda_citrus" },
       { id: "dr8", name: "سفن أب عائلي",                price: 9,   category: "drinks", imageKey: "sevenup"        },
-      { id: "dr4", name: "لبن",                         price: 2.5, category: "drinks"                             },
+      { id: "dr4", name: "لبن",                         price: 2.5, category: "drinks", imageKey: "laban"         },
     ],
   },
   {
