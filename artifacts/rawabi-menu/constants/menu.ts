@@ -80,7 +80,7 @@ export const MENU_CATEGORIES: MenuCategory[] = [
     name: "الأطباق الرئيسية",
     icon: "🍽️",
     items: [
-      { id: "ma1", name: "مضغوط دجاج حبة كاملة مع الرز", price: 42, category: "mains", imageKey: "maqbous_chicken" },
+      { id: "ma1", name: "مضغوط دجاج حبة كاملة مع الرز", price: 44, category: "mains", imageKey: "maqbous_chicken" },
       { id: "ma2", name: "مضغوط دجاج نص حبة مع الرز", price: 22, category: "mains", imageKey: "maqbous_chicken" },
     ],
   },
