@@ -51,6 +51,7 @@ export const FOOD_IMAGES: Record<string, any> = {
   rice_mandi: require("@/assets/images/rice_mandi.jpg"),
   maqbous_chicken: require("@/assets/images/maqbous_chicken.jpg"),
   maqbous_half: require("@/assets/images/maqbous_half.jpg"),
+  molokhia: require("@/assets/images/molokhia.jpg"),
 };
 
 export const MENU_CATEGORIES: MenuCategory[] = [
@@ -90,8 +91,8 @@ export const MENU_CATEGORIES: MenuCategory[] = [
     name: "الإيدامات",
     icon: "🥘",
     items: [
-      { id: "s1", name: "إيدام ملوخية صغير", price: 4, category: "sides" },
-      { id: "s2", name: "إيدام ملوخية كبير", price: 6, category: "sides" },
+      { id: "s1", name: "إيدام ملوخية صغير", price: 4, category: "sides", imageKey: "molokhia" },
+      { id: "s2", name: "إيدام ملوخية كبير", price: 6, category: "sides", imageKey: "molokhia" },
       { id: "s3", name: "إيدام مصقع صغير", price: 4, category: "sides" },
       { id: "s4", name: "إيدام مصقع كبير", price: 6, category: "sides" },
       { id: "s5", name: "إيدام فرن كبير", price: 6, category: "sides" },
