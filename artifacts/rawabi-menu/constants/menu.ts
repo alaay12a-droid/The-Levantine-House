@@ -74,6 +74,7 @@ export const FOOD_IMAGES: Record<string, any> = {
   salad_laban: require("@/assets/images/salad_laban.jpg"),
   salad_green: require("@/assets/images/salad_green.jpg"),
   tahini: require("@/assets/images/tahini.jpg"),
+  chicken_grill: require("@/assets/images/chicken_grill.jpg"),
 };
 
 export const MENU_CATEGORIES: MenuCategory[] = [
@@ -82,10 +83,14 @@ export const MENU_CATEGORIES: MenuCategory[] = [
     name: "الدجاج",
     icon: "🍗",
     items: [
-      { id: "c1", name: "مندي دجاج حبة كاملة", price: 28, category: "chicken", description: "بدون رز", imageKey: "chicken_full" },
-      { id: "c2", name: "مندي دجاج نص حبة", price: 15, category: "chicken", description: "بدون رز", imageKey: "chicken_half" },
-      { id: "c3", name: "رز مندي", price: 7, category: "chicken", imageKey: "rice_mandi" },
-      { id: "c4", name: "رز بشاور", price: 7, category: "chicken", imageKey: "rice" },
+      { id: "c1", name: "مندي دجاج حبة كاملة",    price: 28, category: "chicken", description: "بدون رز",    imageKey: "chicken_full"  },
+      { id: "c2", name: "مندي دجاج نص حبة",       price: 15, category: "chicken", description: "بدون رز",    imageKey: "chicken_half"  },
+      { id: "c3", name: "رز مندي",                 price: 7,  category: "chicken",                            imageKey: "rice_mandi"    },
+      { id: "c4", name: "رز بشاور",                price: 7,  category: "chicken",                            imageKey: "rice"          },
+      { id: "c5", name: "نص حبة على الفحم مع الرز", price: 22, category: "chicken",                           imageKey: "chicken_grill" },
+      { id: "c6", name: "حبة على الفحم مع الرز",   price: 44, category: "chicken",                            imageKey: "chicken_grill" },
+      { id: "c7", name: "نص حبة على الفحم سادة",   price: 15, category: "chicken", description: "بدون رز",    imageKey: "chicken_grill" },
+      { id: "c8", name: "حبة على الفحم سادة",      price: 30, category: "chicken", description: "بدون رز",    imageKey: "chicken_grill" },
     ],
   },
   {
