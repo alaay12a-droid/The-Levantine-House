@@ -52,6 +52,7 @@ export const FOOD_IMAGES: Record<string, any> = {
   maqbous_chicken: require("@/assets/images/maqbous_chicken.jpg"),
   maqbous_half: require("@/assets/images/maqbous_half.jpg"),
   molokhia: require("@/assets/images/molokhia.jpg"),
+  qursan: require("@/assets/images/qursan.jpg"),
 };
 
 export const MENU_CATEGORIES: MenuCategory[] = [
@@ -135,8 +136,8 @@ export const MENU_CATEGORIES: MenuCategory[] = [
     name: "إضافات",
     icon: "✨",
     items: [
-      { id: "e2", name: "قرصان صغير", price: 4, category: "extras" },
-      { id: "e3", name: "قرصان كبير", price: 6, category: "extras" },
+      { id: "e2", name: "قرصان صغير", price: 4, category: "extras", imageKey: "qursan" },
+      { id: "e3", name: "قرصان كبير", price: 6, category: "extras", imageKey: "qursan" },
     ],
   },
   {
