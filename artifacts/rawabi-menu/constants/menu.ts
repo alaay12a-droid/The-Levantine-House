@@ -151,7 +151,7 @@ export const MENU_CATEGORIES: MenuCategory[] = [
     icon: "🍮",
     items: [
       { id: "d1", name: "حلا أوريو", price: 4, category: "desserts", imageKey: "oreo_dessert" },
-      { id: "d2", name: "حلا تاتلي", price: 4, category: "desserts", imageKey: "tatli" },
+      { id: "d2", name: "حلا تطلي", price: 4, category: "desserts", imageKey: "tatli" },
       { id: "d3", name: "حلا مهلبية", price: 4, category: "desserts", imageKey: "muhalabia" },
       { id: "d4", name: "كنافة قشطة", price: 8, category: "desserts", imageKey: "kunafa" },
     ],
