@@ -68,6 +68,7 @@ export const FOOD_IMAGES: Record<string, any> = {
   laban_qariah_sm: require("@/assets/images/laban_qariah_sm.jpg"),
   laban_almarai_lg: require("@/assets/images/laban_almarai_lg.jpg"),
   laban_almarai_1l: require("@/assets/images/laban_almarai_1l.jpg"),
+  goat_mandi: require("@/assets/images/goat_mandi.jpg"),
 };
 
 export const MENU_CATEGORIES: MenuCategory[] = [
@@ -87,9 +88,9 @@ export const MENU_CATEGORIES: MenuCategory[] = [
     name: "اللحوم",
     icon: "🥩",
     items: [
-      { id: "m1", name: "لحم مندي بلدي - تيس كامل", price: 1400, category: "meat", imageKey: "meat_full" },
-      { id: "m2", name: "لحم مندي بلدي - نص تيس", price: 700, category: "meat", imageKey: "meat_half" },
-      { id: "m3", name: "لحم مندي بلدي - ربع تيس", price: 350, category: "meat", imageKey: "meat_half" },
+      { id: "m1", name: "لحم مندي بلدي - تيس كامل", price: 1400, category: "meat", imageKey: "goat_mandi" },
+      { id: "m2", name: "لحم مندي بلدي - نص تيس",  price: 700,  category: "meat", imageKey: "goat_mandi" },
+      { id: "m3", name: "لحم مندي بلدي - ربع تيس", price: 350,  category: "meat", imageKey: "goat_mandi" },
       { id: "m4", name: "لحم مندي - نفر", price: 90, category: "meat", imageKey: "meat_nefs" },
     ],
   },
