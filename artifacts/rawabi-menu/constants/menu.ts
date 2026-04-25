@@ -76,6 +76,7 @@ export const FOOD_IMAGES: Record<string, any> = {
   tahini: require("@/assets/images/tahini.jpg"),
   chicken_grill: require("@/assets/images/chicken_grill.jpg"),
   chicken_mandi_new: require("@/assets/images/chicken_mandi_new.jpg"),
+  meat_mandi_nfar: require("@/assets/images/meat_mandi_nfar.jpg"),
 };
 
 export const MENU_CATEGORIES: MenuCategory[] = [
@@ -102,7 +103,7 @@ export const MENU_CATEGORIES: MenuCategory[] = [
       { id: "m1", name: "لحم مندي بلدي - تيس كامل", price: 1400, category: "meat", imageKey: "goat_mandi" },
       { id: "m2", name: "لحم مندي بلدي - نص تيس",  price: 700,  category: "meat", imageKey: "goat_mandi" },
       { id: "m3", name: "لحم مندي بلدي - ربع تيس", price: 350,  category: "meat", imageKey: "goat_mandi" },
-      { id: "m4", name: "لحم مندي - نفر", price: 90, category: "meat", imageKey: "meat_nefs" },
+      { id: "m4", name: "لحم مندي - نفر", price: 90, category: "meat", imageKey: "meat_mandi_nfar" },
     ],
   },
   {
