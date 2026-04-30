@@ -16,6 +16,7 @@ import { useColors } from "@/hooks/useColors";
 import { FOOD_IMAGES, MENU_CATEGORIES, RESTAURANT_INFO } from "@/constants/menu";
 import { MenuItemCard } from "@/components/MenuItemCard";
 import { CartBar } from "@/components/CartBar";
+import { useUser } from "@/context/UserContext";
 
 const deliveryCar = require("@/assets/images/delivery_car.jpg");
 const dhabihaImg = require("@/assets/images/dhabiha.png");
@@ -33,6 +34,7 @@ type OrderMode = "delivery" | "pickup";
 export default function MenuScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const { user } = useUser();
   const [activeCategory, setActiveCategory] = useState(MENU_CATEGORIES[0].id);
   const [orderMode, setOrderMode] = useState<OrderMode>("delivery");
 
@@ -55,16 +57,27 @@ export default function MenuScreen() {
       <View style={[styles.header, { paddingTop: topInset }]}>
         {/* Top row: location */}
         <View style={styles.locationRow}>
-          <Feather name="chevron-down" size={18} color="#fff" />
-          <View style={styles.locationTextWrap}>
-            <Text style={[styles.locationName, { fontFamily: F.bold }]}>{RESTAURANT_INFO.name}</Text>
-            <Text style={[styles.locationSub, { fontFamily: F.regular }]}>
-              📍 {RESTAURANT_INFO.location}
-            </Text>
-          </View>
           <TouchableOpacity onPress={handleCall}>
             <Feather name="phone" size={18} color="#fff" />
           </TouchableOpacity>
+          <View style={styles.locationTextWrap}>
+            <Text style={[styles.locationName, { fontFamily: F.bold }]}>
+              {RESTAURANT_INFO.name}
+            </Text>
+            {user?.address ? (
+              <View style={styles.locationAddrRow}>
+                <Feather name="chevron-down" size={13} color="#FFD0D0" />
+                <Text style={[styles.locationSub, { fontFamily: F.regular }]} numberOfLines={1}>
+                  {user.address}
+                </Text>
+              </View>
+            ) : (
+              <Text style={[styles.locationSub, { fontFamily: F.regular }]}>
+                حدد موقعك للتوصيل
+              </Text>
+            )}
+          </View>
+          <Feather name="map-pin" size={18} color="#fff" />
         </View>
 
         {/* Delivery / Pickup toggle */}
@@ -347,6 +360,13 @@ const styles = StyleSheet.create({
     color: "#FFD0D0",
     fontSize: 12,
     textAlign: "center",
+    marginTop: 2,
+  },
+  locationAddrRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 3,
     marginTop: 2,
   },
 
