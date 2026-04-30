@@ -71,10 +71,18 @@ Premium Arabic mobile restaurant ordering app built with Expo React Native.
 6. **In-app ordering system** — checkout screen → API order creation → order confirmed screen
 7. **Cashier dashboard** — PIN-protected (PIN: 1234), real-time polling every 10s, status management (pending → preparing → ready → done)
 8. Electronic payment (Moyasar) placeholder — shown as "coming soon"
+9. **Menu management admin panel** — add, edit, delete items, toggle availability (نافد/متاح)
 
 ### Ordering Flow
 - Customer: Cart → Checkout (`/checkout`) → POST `/api/orders` → Order Confirmed (`/order-confirmed`)
-- Cashier: Main menu header icon → PIN screen → Cashier dashboard (`/cashier`)
+- Cashier: Main menu header icon → PIN screen → Cashier dashboard (`/cashier`) → [list icon] → Admin menu (`/admin-menu`)
+
+### Menu Management
+- API: `GET/POST /api/menu`, `PUT/DELETE /api/menu/:itemId`
+- 52 items seeded automatically from static data on first server start (idempotent via ON CONFLICT DO NOTHING)
+- Prices stored as halalas in DB; divided by 100 for display / multiplied by 100 on save
+- Main menu fetches from API with fallback to static data
+- Unavailable items show "نافد" badge and cannot be added to cart
 
 ### API Server Notes
 - **Artifact workflow fails** due to a Replit platform port-detection limitation

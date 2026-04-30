@@ -21,7 +21,7 @@ const F = {
 };
 
 interface Props {
-  item: MenuItem;
+  item: MenuItem & { available?: boolean };
 }
 
 export function MenuItemCard({ item }: Props) {
@@ -32,8 +32,10 @@ export function MenuItemCard({ item }: Props) {
   const inCart = quantity > 0;
   const foodImage = item.imageKey ? FOOD_IMAGES[item.imageKey] : null;
   const isDhabiha = item.price === 0;
+  const isUnavailable = item.available === false;
 
   const handleAdd = () => {
+    if (isUnavailable) return;
     if (isDhabiha) {
       Linking.openURL(`https://wa.me/${RESTAURANT_INFO.whatsapp}?text=${encodeURIComponent(`السلام عليكم، أرغب في الاستفسار عن: ${item.name}`)}`);
       return;
@@ -54,16 +56,26 @@ export function MenuItemCard({ item }: Props) {
       style={[
         styles.card,
         {
-          backgroundColor: colors.card,
-          borderColor: inCart ? colors.gold : colors.border,
+          backgroundColor: isUnavailable ? "#1A1008" : colors.card,
+          borderColor: isUnavailable ? colors.border : inCart ? colors.gold : colors.border,
           borderWidth: inCart ? 1.5 : 1,
+          opacity: isUnavailable ? 0.7 : 1,
         },
       ]}
     >
+      {isUnavailable && (
+        <View style={styles.unavailableBanner}>
+          <Text style={[styles.unavailableText, { fontFamily: F.bold }]}>نافد</Text>
+        </View>
+      )}
       <View style={styles.inner}>
         {/* Left: quantity control / add button */}
         <View style={styles.leftSide}>
-          {isDhabiha ? (
+          {isUnavailable ? (
+            <View style={[styles.addBtn, { backgroundColor: "#3A2A1A" }]}>
+              <Feather name="x" size={18} color="#666" />
+            </View>
+          ) : isDhabiha ? (
             <TouchableOpacity
               onPress={handleAdd}
               style={[styles.addBtn, { backgroundColor: "#1DBF47" }]}
@@ -255,5 +267,15 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
+  },
+  unavailableBanner: {
+    backgroundColor: "#4A1A1A",
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    alignItems: "flex-end",
+  },
+  unavailableText: {
+    color: "#E57373",
+    fontSize: 12,
   },
 });

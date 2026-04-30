@@ -14,9 +14,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
-import { FOOD_IMAGES, MENU_CATEGORIES, RESTAURANT_INFO } from "@/constants/menu";
+import { FOOD_IMAGES, RESTAURANT_INFO } from "@/constants/menu";
 import { MenuItemCard } from "@/components/MenuItemCard";
 import { CartBar } from "@/components/CartBar";
+import { useMenu } from "@/hooks/useMenu";
 
 const logo = require("@/assets/images/logo.png");
 const deliveryCar = require("@/assets/images/delivery_car.jpg");
@@ -34,9 +35,10 @@ export default function MenuScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const [activeCategory, setActiveCategory] = useState(MENU_CATEGORIES[0].id);
+  const { categories } = useMenu();
+  const [activeCategory, setActiveCategory] = useState("chicken");
 
-  const activeCat = MENU_CATEGORIES.find((c) => c.id === activeCategory);
+  const activeCat = categories.find((c) => c.id === activeCategory) ?? categories[0];
   const topInset = Platform.OS === "web" ? 60 : insets.top;
 
   const handleWhatsApp = (msg: string) => {
@@ -86,7 +88,7 @@ export default function MenuScreen() {
           contentContainerStyle={styles.tabsContent}
           style={styles.tabsScroll}
         >
-          {MENU_CATEGORIES.map((cat) => {
+          {categories.map((cat) => {
             const active = activeCategory === cat.id;
             return (
               <TouchableOpacity

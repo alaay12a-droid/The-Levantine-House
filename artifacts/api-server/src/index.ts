@@ -1,5 +1,6 @@
 import app from "./app";
 import { logger } from "./lib/logger";
+import { seedMenu } from "./routes/menu";
 
 const rawPort = process.env["PORT"];
 
@@ -22,4 +23,6 @@ app.listen(port, "0.0.0.0", (err) => {
   }
 
   logger.info({ port }, "Server listening");
+
+  seedMenu().catch((e) => logger.error({ err: e }, "Menu seed failed"));
 });

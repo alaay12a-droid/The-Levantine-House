@@ -220,9 +220,14 @@ export default function CashierScreen() {
             </View>
           )}
         </View>
-        <TouchableOpacity onPress={() => fetchOrders()} style={[styles.refreshBtn, { backgroundColor: colors.secondary }]}>
-          <Feather name="refresh-cw" size={18} color={colors.gold} />
-        </TouchableOpacity>
+        <View style={{ flexDirection: "row", gap: 8 }}>
+          <TouchableOpacity onPress={() => router.push("/admin-menu")} style={[styles.refreshBtn, { backgroundColor: colors.secondary }]}>
+            <Feather name="list" size={18} color={colors.gold} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => fetchOrders()} style={[styles.refreshBtn, { backgroundColor: colors.secondary }]}>
+            <Feather name="refresh-cw" size={18} color={colors.gold} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Filter Tabs */}

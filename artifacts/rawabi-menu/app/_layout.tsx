@@ -75,6 +75,7 @@ function RootLayoutNav() {
         <Stack.Screen name="checkout" options={{ headerShown: false }} />
         <Stack.Screen name="order-confirmed" options={{ headerShown: false }} />
         <Stack.Screen name="cashier" options={{ headerShown: false }} />
+        <Stack.Screen name="admin-menu" options={{ headerShown: false }} />
       </Stack>
     </>
   );
