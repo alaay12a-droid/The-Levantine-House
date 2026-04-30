@@ -11,6 +11,7 @@ import {
   Linking,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import { FOOD_IMAGES, MENU_CATEGORIES, RESTAURANT_INFO } from "@/constants/menu";
@@ -32,6 +33,7 @@ const F = {
 export default function MenuScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const [activeCategory, setActiveCategory] = useState(MENU_CATEGORIES[0].id);
 
   const activeCat = MENU_CATEGORIES.find((c) => c.id === activeCategory);
@@ -52,12 +54,20 @@ export default function MenuScreen() {
       {/* ── HEADER ── */}
       <View style={[styles.header, { paddingTop: topInset }]}>
         <View style={styles.headerRow}>
-          <TouchableOpacity
-            onPress={handleCall}
-            style={[styles.phoneBtn, { backgroundColor: "#2A1508" }]}
-          >
-            <Feather name="phone" size={18} color={colors.gold} />
-          </TouchableOpacity>
+          <View style={{ gap: 8 }}>
+            <TouchableOpacity
+              onPress={handleCall}
+              style={[styles.phoneBtn, { backgroundColor: "#2A1508" }]}
+            >
+              <Feather name="phone" size={18} color={colors.gold} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => router.push("/cashier")}
+              style={[styles.phoneBtn, { backgroundColor: "#2A1508" }]}
+            >
+              <Feather name="monitor" size={16} color={colors.mutedForeground} />
+            </TouchableOpacity>
+          </View>
 
           <View style={styles.titleBlock}>
             <Text style={[styles.brandName, { fontFamily: F.extra }]}>روابي المندي</Text>

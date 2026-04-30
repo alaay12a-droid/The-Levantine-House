@@ -1,0 +1,419 @@
+import React, { useState } from "react";
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  StyleSheet,
+  TextInput,
+  Alert,
+  ActivityIndicator,
+  Platform,
+  StatusBar,
+} from "react-native";
+import { useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Feather } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
+import { useColors } from "@/hooks/useColors";
+import { useCart } from "@/context/CartContext";
+import { useUser } from "@/context/UserContext";
+import { apiPost } from "@/constants/api";
+
+const F = {
+  regular: "Cairo_400Regular",
+  semi: "Cairo_600SemiBold",
+  bold: "Cairo_700Bold",
+  extra: "Cairo_800ExtraBold",
+};
+
+type PaymentMethod = "cash" | "moyasar";
+
+interface Order {
+  id: number;
+  status: string;
+}
+
+export default function CheckoutScreen() {
+  const colors = useColors();
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const { items, totalPrice, totalItems, clearCart } = useCart();
+  const { user } = useUser();
+
+  const [notes, setNotes] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
+  const [loading, setLoading] = useState(false);
+
+  const topInset = Platform.OS === "web" ? 67 : insets.top;
+  const bottomInset = Platform.OS === "web" ? 34 : insets.bottom;
+
+  const totalStr = totalPrice % 1 === 0 ? totalPrice.toString() : totalPrice.toFixed(2);
+
+  const handlePlaceOrder = async () => {
+    if (!user) return;
+    if (items.length === 0) return;
+
+    if (paymentMethod === "moyasar") {
+      Alert.alert(
+        "قريباً",
+        "الدفع الإلكتروني سيكون متاحاً قريباً. يرجى اختيار الدفع عند الاستلام.",
+        [{ text: "حسناً" }]
+      );
+      return;
+    }
+
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setLoading(true);
+    try {
+      const order = await apiPost<Order>("/orders", {
+        customerName: user.name,
+        customerPhone: user.phone,
+        customerAddress: user.address || null,
+        items: items.map((ci) => ({
+          id: ci.item.id,
+          name: ci.item.name,
+          price: ci.item.price,
+          quantity: ci.quantity,
+        })),
+        totalPrice,
+        paymentMethod,
+        notes: notes.trim() || null,
+      });
+      clearCart();
+      router.replace({ pathname: "/order-confirmed", params: { orderId: String(order.id) } });
+    } catch (err) {
+      Alert.alert("خطأ", "تعذر إرسال الطلب، يرجى المحاولة مرة أخرى.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <StatusBar barStyle="light-content" />
+
+      <View style={[styles.header, { backgroundColor: "#1A1008", paddingTop: topInset + 8, borderBottomColor: colors.border }]}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={[styles.backBtn, { backgroundColor: colors.secondary }]}
+          activeOpacity={0.7}
+        >
+          <Feather name="arrow-right" size={20} color={colors.foreground} />
+        </TouchableOpacity>
+        <Text style={[styles.headerTitle, { color: colors.foreground, fontFamily: F.bold }]}>
+          إتمام الطلب
+        </Text>
+        <View style={{ width: 36 }} />
+      </View>
+
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.scroll, { paddingBottom: bottomInset + 200 }]}>
+
+        {/* Customer Info */}
+        <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[styles.sectionTitle, { color: colors.gold, fontFamily: F.bold }]}>
+            بيانات العميل
+          </Text>
+          <View style={styles.infoRow}>
+            <Text style={[styles.infoValue, { color: colors.foreground, fontFamily: F.semi }]}>
+              {user?.name}
+            </Text>
+            <Feather name="user" size={16} color={colors.mutedForeground} />
+          </View>
+          <View style={styles.infoRow}>
+            <Text style={[styles.infoValue, { color: colors.foreground, fontFamily: F.semi }]}>
+              {user?.phone}
+            </Text>
+            <Feather name="phone" size={16} color={colors.mutedForeground} />
+          </View>
+          {user?.address && user.address !== "غير محدد" && (
+            <View style={styles.infoRow}>
+              <Text style={[styles.infoValue, { color: colors.foreground, fontFamily: F.semi }]}>
+                {user.address}
+              </Text>
+              <Feather name="map-pin" size={16} color={colors.mutedForeground} />
+            </View>
+          )}
+        </View>
+
+        {/* Order Summary */}
+        <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[styles.sectionTitle, { color: colors.gold, fontFamily: F.bold }]}>
+            ملخص الطلب
+          </Text>
+          {items.map((ci) => {
+            const lineTotal = ci.item.price * ci.quantity;
+            const lineTotalStr = lineTotal % 1 === 0 ? lineTotal.toString() : lineTotal.toFixed(1);
+            return (
+              <View key={ci.item.id} style={styles.orderRow}>
+                <Text style={[styles.orderPrice, { color: colors.gold, fontFamily: F.bold }]}>
+                  {lineTotalStr} ر.س
+                </Text>
+                <Text style={[styles.orderName, { color: colors.foreground, fontFamily: F.semi }]} numberOfLines={1}>
+                  {ci.item.name} × {ci.quantity}
+                </Text>
+              </View>
+            );
+          })}
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+          <View style={styles.orderRow}>
+            <Text style={[styles.totalPrice, { color: colors.gold, fontFamily: F.extra }]}>
+              {totalStr} ر.س
+            </Text>
+            <Text style={[styles.totalLabel, { color: colors.mutedForeground, fontFamily: F.semi }]}>
+              المجموع ({totalItems} صنف)
+            </Text>
+          </View>
+        </View>
+
+        {/* Notes */}
+        <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[styles.sectionTitle, { color: colors.gold, fontFamily: F.bold }]}>
+            ملاحظات (اختياري)
+          </Text>
+          <TextInput
+            value={notes}
+            onChangeText={setNotes}
+            placeholder="أي ملاحظات على الطلب..."
+            placeholderTextColor={colors.mutedForeground}
+            multiline
+            numberOfLines={3}
+            style={[
+              styles.notesInput,
+              {
+                color: colors.foreground,
+                borderColor: colors.border,
+                backgroundColor: colors.secondary,
+                fontFamily: F.regular,
+              },
+            ]}
+            textAlignVertical="top"
+          />
+        </View>
+
+        {/* Payment Method */}
+        <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[styles.sectionTitle, { color: colors.gold, fontFamily: F.bold }]}>
+            طريقة الدفع
+          </Text>
+
+          <TouchableOpacity
+            onPress={() => setPaymentMethod("cash")}
+            style={[
+              styles.paymentOption,
+              {
+                borderColor: paymentMethod === "cash" ? colors.gold : colors.border,
+                backgroundColor: paymentMethod === "cash" ? "#2A1A08" : colors.secondary,
+              },
+            ]}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.radioOuter, { borderColor: paymentMethod === "cash" ? colors.gold : colors.border }]}>
+              {paymentMethod === "cash" && (
+                <View style={[styles.radioInner, { backgroundColor: colors.gold }]} />
+              )}
+            </View>
+            <View style={styles.paymentInfo}>
+              <Text style={[styles.paymentTitle, { color: colors.foreground, fontFamily: F.bold }]}>
+                💵 الدفع عند الاستلام
+              </Text>
+              <Text style={[styles.paymentDesc, { color: colors.mutedForeground, fontFamily: F.regular }]}>
+                ادفع نقداً أو بطاقة عند استلام طلبك
+              </Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => setPaymentMethod("moyasar")}
+            style={[
+              styles.paymentOption,
+              {
+                borderColor: paymentMethod === "moyasar" ? colors.gold : colors.border,
+                backgroundColor: paymentMethod === "moyasar" ? "#2A1A08" : colors.secondary,
+                opacity: 0.6,
+              },
+            ]}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.radioOuter, { borderColor: paymentMethod === "moyasar" ? colors.gold : colors.border }]}>
+              {paymentMethod === "moyasar" && (
+                <View style={[styles.radioInner, { backgroundColor: colors.gold }]} />
+              )}
+            </View>
+            <View style={styles.paymentInfo}>
+              <Text style={[styles.paymentTitle, { color: colors.foreground, fontFamily: F.bold }]}>
+                💳 دفع إلكتروني (قريباً)
+              </Text>
+              <Text style={[styles.paymentDesc, { color: colors.mutedForeground, fontFamily: F.regular }]}>
+                مدى • فيزا • Apple Pay • STC Pay
+              </Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+
+      {/* Bottom CTA */}
+      <View style={[styles.bottomBar, { backgroundColor: "#1A1008", borderTopColor: colors.border, paddingBottom: bottomInset + 16 }]}>
+        <View style={[styles.totalRow, { backgroundColor: colors.secondary }]}>
+          <Text style={[styles.bottomTotal, { color: colors.gold, fontFamily: F.extra }]}>
+            {totalStr} ر.س
+          </Text>
+          <Text style={[styles.bottomLabel, { color: colors.mutedForeground, fontFamily: F.regular }]}>
+            الإجمالي
+          </Text>
+        </View>
+        <TouchableOpacity
+          onPress={handlePlaceOrder}
+          disabled={loading}
+          style={[styles.orderBtn, { opacity: loading ? 0.7 : 1 }]}
+          activeOpacity={0.85}
+        >
+          {loading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <>
+              <Feather name="check-circle" size={20} color="#fff" />
+              <Text style={[styles.orderBtnText, { fontFamily: F.bold }]}>إرسال الطلب</Text>
+            </>
+          )}
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingBottom: 14,
+    borderBottomWidth: 1,
+    gap: 12,
+  },
+  backBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  headerTitle: {
+    flex: 1,
+    fontSize: 20,
+    textAlign: "center",
+  },
+  scroll: { padding: 16, gap: 12 },
+  section: {
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 16,
+    gap: 10,
+    marginBottom: 12,
+  },
+  sectionTitle: {
+    fontSize: 15,
+    marginBottom: 4,
+  },
+  infoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  infoValue: {
+    flex: 1,
+    fontSize: 14,
+    textAlign: "right",
+  },
+  orderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  orderName: {
+    flex: 1,
+    fontSize: 14,
+    textAlign: "right",
+  },
+  orderPrice: {
+    fontSize: 14,
+    minWidth: 60,
+    textAlign: "left",
+  },
+  divider: { height: 1, marginVertical: 4 },
+  totalLabel: { fontSize: 14 },
+  totalPrice: { fontSize: 20 },
+  notesInput: {
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 12,
+    fontSize: 14,
+    minHeight: 80,
+    textAlign: "right",
+  },
+  paymentOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    borderWidth: 1.5,
+    borderRadius: 12,
+    padding: 14,
+  },
+  radioOuter: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  radioInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  paymentInfo: { flex: 1, gap: 3 },
+  paymentTitle: { fontSize: 15 },
+  paymentDesc: { fontSize: 12 },
+  bottomBar: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 16,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    gap: 10,
+  },
+  totalRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  bottomTotal: { fontSize: 22 },
+  bottomLabel: { fontSize: 13 },
+  orderBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    paddingVertical: 15,
+    borderRadius: 15,
+    backgroundColor: "#C17F24",
+    shadowColor: "#C17F24",
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 6,
+  },
+  orderBtnText: {
+    color: "#fff",
+    fontSize: 17,
+  },
+});

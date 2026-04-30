@@ -72,6 +72,9 @@ function RootLayoutNav() {
         <Stack.Screen name="onboarding" options={{ headerShown: false, animation: "fade" }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="cart" options={{ headerShown: false, presentation: "modal" }} />
+        <Stack.Screen name="checkout" options={{ headerShown: false }} />
+        <Stack.Screen name="order-confirmed" options={{ headerShown: false }} />
+        <Stack.Screen name="cashier" options={{ headerShown: false }} />
       </Stack>
     </>
   );

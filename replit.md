@@ -65,6 +65,20 @@ Premium Arabic mobile restaurant ordering app built with Expo React Native.
 ### Features Implemented
 1. Full menu with categories (مناسبات، مندي، مشويات، مقبلات، سلطات، مشروبات، عصائر)
 2. Add to cart, quantity controls, total price
-3. WhatsApp ordering (sends formatted Arabic message with user name + items)
+3. WhatsApp ordering (secondary option, sends formatted Arabic message)
 4. 3-step Arabic onboarding (name, phone, GPS location)
 5. User data persisted via AsyncStorage
+6. **In-app ordering system** — checkout screen → API order creation → order confirmed screen
+7. **Cashier dashboard** — PIN-protected (PIN: 1234), real-time polling every 10s, status management (pending → preparing → ready → done)
+8. Electronic payment (Moyasar) placeholder — shown as "coming soon"
+
+### Ordering Flow
+- Customer: Cart → Checkout (`/checkout`) → POST `/api/orders` → Order Confirmed (`/order-confirmed`)
+- Cashier: Main menu header icon → PIN screen → Cashier dashboard (`/cashier`)
+
+### API Server Notes
+- **Artifact workflow fails** due to a Replit platform port-detection limitation
+- **Solution**: "Start Backend" workflow runs the server directly (`cd artifacts/api-server && PORT=8080 node ./dist/index.mjs`)
+- The artifact.toml still defines `/api` → port 8080 routing correctly
+- Prices stored as halalas (×100) in DB; divided by 100 when displayed in cashier
+- `notes` and `customerAddress` fields accept null (use `.nullable().optional()` in Zod schema)

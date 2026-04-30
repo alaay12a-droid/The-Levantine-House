@@ -214,12 +214,21 @@ export default function CartScreen() {
             </View>
 
             <TouchableOpacity
-              onPress={handleOrder}
-              style={styles.whatsappBtn}
+              onPress={() => router.push("/checkout")}
+              style={styles.checkoutBtn}
               activeOpacity={0.85}
             >
-              <Feather name="message-circle" size={22} color="#FFFFFF" />
-              <Text style={styles.whatsappText}>أرسل طلبك عبر واتساب</Text>
+              <Feather name="check-circle" size={22} color="#FFFFFF" />
+              <Text style={styles.checkoutText}>إتمام الطلب</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={handleOrder}
+              style={[styles.whatsappBtn, { backgroundColor: "#1DBF47" }]}
+              activeOpacity={0.85}
+            >
+              <Feather name="message-circle" size={18} color="#FFFFFF" />
+              <Text style={[styles.whatsappText, { fontSize: 14 }]}>أو أرسل عبر واتساب</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -403,19 +412,32 @@ const styles = StyleSheet.create({
   summaryLabel: {
     fontSize: 13,
   },
-  whatsappBtn: {
+  checkoutBtn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 10,
     paddingVertical: 15,
     borderRadius: 15,
-    backgroundColor: "#1DBF47",
-    shadowColor: "#1DBF47",
-    shadowOpacity: 0.35,
+    backgroundColor: "#C17F24",
+    shadowColor: "#C17F24",
+    shadowOpacity: 0.4,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
     elevation: 6,
+  },
+  checkoutText: {
+    color: "#FFFFFF",
+    fontSize: 17,
+    fontWeight: "700",
+  },
+  whatsappBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 11,
+    borderRadius: 12,
   },
   whatsappText: {
     color: "#FFFFFF",
