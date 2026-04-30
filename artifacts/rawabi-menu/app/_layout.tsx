@@ -54,10 +54,11 @@ function AuthGate() {
   useEffect(() => {
     if (isLoading) return;
     const onOnboarding = segments[0] === "onboarding";
-    if (!user && !onOnboarding) {
-      router.replace("/onboarding");
-    } else if (user && onOnboarding) {
+    const onRoot = segments.length === 0;
+    if (user && onOnboarding) {
       router.replace("/(tabs)");
+    } else if (!user && (onRoot || segments[0] === "(tabs)") && !onOnboarding) {
+      router.replace("/onboarding");
     }
   }, [user, isLoading, segments]);
 
