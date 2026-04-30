@@ -28,6 +28,8 @@ const F = {
   extra: "Cairo_800ExtraBold",
 };
 
+const ADMIN_PIN = "0000";
+
 const CATEGORIES = [
   { id: "chicken",  name: "الدجاج",   icon: "🍗" },
   { id: "meat",     name: "اللحوم",   icon: "🥩" },
@@ -42,6 +44,76 @@ function getCatMeta(catId: string) {
   return CATEGORIES.find((c) => c.id === catId) ?? { id: catId, name: catId, icon: "🍽️" };
 }
 
+function PinScreen({ onSuccess }: { onSuccess: () => void }) {
+  const colors = useColors();
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const [pin, setPin] = useState("");
+  const [error, setError] = useState(false);
+  const topInset = Platform.OS === "web" ? 80 : insets.top;
+
+  const handleDigit = (d: string) => {
+    const next = pin + d;
+    if (next.length <= 4) {
+      setPin(next);
+      setError(false);
+      if (next.length === 4) {
+        if (next === ADMIN_PIN) {
+          onSuccess();
+        } else {
+          setError(true);
+          setTimeout(() => setPin(""), 600);
+        }
+      }
+    }
+  };
+
+  const handleDelete = () => setPin((p) => p.slice(0, -1));
+
+  return (
+    <View style={[styles.pinContainer, { backgroundColor: colors.background, paddingTop: topInset }]}>
+      <StatusBar barStyle="light-content" />
+      <TouchableOpacity onPress={() => router.back()} style={styles.pinBack}>
+        <Feather name="arrow-right" size={22} color={colors.mutedForeground} />
+      </TouchableOpacity>
+      <Text style={[styles.pinTitle, { color: colors.foreground, fontFamily: F.extra }]}>
+        🔐 إدارة القائمة
+      </Text>
+      <Text style={[styles.pinSubtitle, { color: colors.mutedForeground, fontFamily: F.regular }]}>
+        أدخل رمز الإدارة للمتابعة
+      </Text>
+      <View style={styles.pinDots}>
+        {[0, 1, 2, 3].map((i) => (
+          <View
+            key={i}
+            style={[
+              styles.pinDot,
+              { backgroundColor: i < pin.length ? (error ? "#E53935" : colors.gold) : colors.border },
+            ]}
+          />
+        ))}
+      </View>
+      {error && (
+        <Text style={[styles.pinError, { fontFamily: F.semi }]}>رمز خاطئ، حاول مجدداً</Text>
+      )}
+      <View style={styles.numpad}>
+        {["1","2","3","4","5","6","7","8","9","","0","⌫"].map((d, i) => (
+          <TouchableOpacity
+            key={i}
+            style={[styles.numKey, { backgroundColor: d === "" ? "transparent" : colors.card, borderColor: colors.border }]}
+            onPress={() => d === "⌫" ? handleDelete() : d !== "" ? handleDigit(d) : null}
+            activeOpacity={d === "" ? 1 : 0.7}
+          >
+            <Text style={[styles.numKeyText, { color: d === "⌫" ? colors.mutedForeground : colors.foreground, fontFamily: F.bold }]}>
+              {d}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    </View>
+  );
+}
+
 export default function AdminMenuScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -51,14 +123,18 @@ export default function AdminMenuScreen() {
   const topInset = Platform.OS === "web" ? 60 : insets.top;
   const bottomInset = Platform.OS === "web" ? 34 : insets.bottom;
 
+  const [authenticated, setAuthenticated] = useState(false);
   const [filterCat, setFilterCat] = useState<string>("all");
   const [showAddModal, setShowAddModal] = useState(false);
   const [editItem, setEditItem] = useState<ApiMenuItem | null>(null);
   const [loading, setLoading] = useState<string | null>(null);
-
   const [newName, setNewName] = useState("");
   const [newPrice, setNewPrice] = useState("");
   const [newCategory, setNewCategory] = useState("chicken");
+
+  if (!authenticated) {
+    return <PinScreen onSuccess={() => setAuthenticated(true)} />;
+  }
 
   const filtered = filterCat === "all"
     ? items
@@ -420,4 +496,14 @@ const styles = StyleSheet.create({
   modalBtns: { flexDirection: "row", gap: 10, marginTop: 4 },
   modalBtn: { flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "transparent" },
   modalBtnText: { fontSize: 15 },
+  pinContainer: { flex: 1, alignItems: "center", paddingTop: 40, padding: 24 },
+  pinBack: { alignSelf: "flex-start", marginBottom: 20, padding: 4 },
+  pinTitle: { fontSize: 26, marginBottom: 8 },
+  pinSubtitle: { fontSize: 15, marginBottom: 32 },
+  pinDots: { flexDirection: "row", gap: 18, marginBottom: 16 },
+  pinDot: { width: 18, height: 18, borderRadius: 9 },
+  pinError: { color: "#E53935", fontSize: 14, marginBottom: 12 },
+  numpad: { flexDirection: "row", flexWrap: "wrap", width: 280, justifyContent: "center", gap: 14, marginTop: 20 },
+  numKey: { width: 76, height: 76, borderRadius: 38, alignItems: "center", justifyContent: "center", borderWidth: 1 },
+  numKeyText: { fontSize: 24 },
 });
