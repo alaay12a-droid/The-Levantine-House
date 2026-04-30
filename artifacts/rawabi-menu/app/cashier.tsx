@@ -25,7 +25,7 @@ const F = {
   extra: "Cairo_800ExtraBold",
 };
 
-const CASHIER_PIN = "0000";
+const CASHIER_PIN = "Aa@000";
 
 type OrderStatus = "pending" | "preparing" | "ready" | "done";
 
@@ -81,26 +81,16 @@ function PinScreen({ onSuccess }: { onSuccess: () => void }) {
   const router = useRouter();
   const [pin, setPin] = useState("");
   const [error, setError] = useState(false);
+  const topInset = Platform.OS === "web" ? 80 : insets.top;
 
-  const handleDigit = (d: string) => {
-    const next = pin + d;
-    if (next.length <= 4) {
-      setPin(next);
-      setError(false);
-      if (next.length === 4) {
-        if (next === CASHIER_PIN) {
-          onSuccess();
-        } else {
-          setError(true);
-          setTimeout(() => setPin(""), 600);
-        }
-      }
+  const handleConfirm = () => {
+    if (pin === CASHIER_PIN) {
+      onSuccess();
+    } else {
+      setError(true);
+      setPin("");
     }
   };
-
-  const handleDelete = () => setPin((p) => p.slice(0, -1));
-
-  const topInset = Platform.OS === "web" ? 80 : insets.top;
 
   return (
     <View style={[styles.pinContainer, { backgroundColor: colors.background, paddingTop: topInset }]}>
@@ -112,40 +102,30 @@ function PinScreen({ onSuccess }: { onSuccess: () => void }) {
         🔐 لوحة الكاشير
       </Text>
       <Text style={[styles.pinSubtitle, { color: colors.mutedForeground, fontFamily: F.regular }]}>
-        أدخل رمز الكاشير
+        أدخل رمز الدخول
       </Text>
-      <View style={styles.pinDots}>
-        {[0, 1, 2, 3].map((i) => (
-          <View
-            key={i}
-            style={[
-              styles.pinDot,
-              {
-                backgroundColor: i < pin.length
-                  ? (error ? "#E53935" : colors.gold)
-                  : colors.border,
-              },
-            ]}
-          />
-        ))}
-      </View>
+      <TextInput
+        style={[styles.pinInput, { backgroundColor: colors.card, borderColor: error ? "#E53935" : colors.border, color: colors.foreground, fontFamily: F.bold }]}
+        value={pin}
+        onChangeText={(t) => { setPin(t); setError(false); }}
+        secureTextEntry
+        autoCapitalize="none"
+        autoCorrect={false}
+        placeholder="••••••"
+        placeholderTextColor={colors.mutedForeground}
+        onSubmitEditing={handleConfirm}
+        returnKeyType="done"
+      />
       {error && (
         <Text style={[styles.pinError, { fontFamily: F.semi }]}>رمز خاطئ، حاول مجدداً</Text>
       )}
-      <View style={styles.numpad}>
-        {["1","2","3","4","5","6","7","8","9","","0","⌫"].map((d, i) => (
-          <TouchableOpacity
-            key={i}
-            style={[styles.numKey, { backgroundColor: d === "" ? "transparent" : colors.card, borderColor: colors.border }]}
-            onPress={() => d === "⌫" ? handleDelete() : d !== "" ? handleDigit(d) : null}
-            activeOpacity={d === "" ? 1 : 0.7}
-          >
-            <Text style={[styles.numKeyText, { color: d === "⌫" ? colors.mutedForeground : colors.foreground, fontFamily: F.bold }]}>
-              {d}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+      <TouchableOpacity
+        onPress={handleConfirm}
+        style={[styles.pinConfirmBtn, { backgroundColor: colors.gold }]}
+        activeOpacity={0.8}
+      >
+        <Text style={[styles.pinConfirmText, { color: "#1A0A00", fontFamily: F.extra }]}>دخول</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -460,57 +440,28 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   actionBtnText: { color: "#fff", fontSize: 16 },
-  pinContainer: {
-    flex: 1,
+  pinContainer: { flex: 1, alignItems: "center", paddingTop: 40, padding: 24 },
+  pinBack: { alignSelf: "flex-start", marginBottom: 20, padding: 4 },
+  pinTitle: { fontSize: 26, marginBottom: 8 },
+  pinSubtitle: { fontSize: 15, marginBottom: 24 },
+  pinInput: {
+    width: "100%",
+    borderWidth: 1.5,
+    borderRadius: 14,
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+    fontSize: 20,
+    textAlign: "center",
+    letterSpacing: 4,
+    marginBottom: 10,
+  },
+  pinError: { color: "#E53935", fontSize: 14, marginBottom: 10 },
+  pinConfirmBtn: {
+    width: "100%",
+    paddingVertical: 16,
+    borderRadius: 14,
     alignItems: "center",
-    paddingTop: 40,
-    padding: 24,
+    marginTop: 6,
   },
-  pinBack: {
-    alignSelf: "flex-start",
-    marginBottom: 20,
-    padding: 4,
-  },
-  pinTitle: {
-    fontSize: 26,
-    marginBottom: 8,
-  },
-  pinSubtitle: {
-    fontSize: 15,
-    marginBottom: 32,
-  },
-  pinDots: {
-    flexDirection: "row",
-    gap: 18,
-    marginBottom: 16,
-  },
-  pinDot: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-  },
-  pinError: {
-    color: "#E53935",
-    fontSize: 14,
-    marginBottom: 12,
-  },
-  numpad: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    width: 280,
-    justifyContent: "center",
-    gap: 14,
-    marginTop: 20,
-  },
-  numKey: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-  },
-  numKeyText: {
-    fontSize: 24,
-  },
+  pinConfirmText: { fontSize: 18 },
 });
