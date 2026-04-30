@@ -25,7 +25,7 @@ const F = {
   extra: "Cairo_800ExtraBold",
 };
 
-const CASHIER_PIN = "1234";
+const CASHIER_PIN = "0000";
 
 type OrderStatus = "pending" | "preparing" | "ready" | "done";
 
