@@ -67,7 +67,14 @@ export default function MenuScreen() {
               onPress={() => router.push("/cashier")}
               style={[styles.phoneBtn, { backgroundColor: "#2A1508" }]}
             >
-              <Feather name="monitor" size={16} color={colors.mutedForeground} />
+              <Feather name="monitor" size={16} color={colors.gold} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => router.push("/admin-menu")}
+              style={[styles.adminBtn, { backgroundColor: colors.gold }]}
+            >
+              <Feather name="settings" size={14} color="#1A0A00" />
+              <Text style={[styles.adminBtnText, { color: "#1A0A00", fontFamily: F.bold }]}>إدارة</Text>
             </TouchableOpacity>
           </View>
 
@@ -303,6 +310,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  adminBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 20,
+  },
+  adminBtnText: { fontSize: 13 },
   tabsScroll: { paddingBottom: 14 },
   tabsContent: {
     paddingHorizontal: 16,

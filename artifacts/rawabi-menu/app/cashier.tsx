@@ -220,9 +220,13 @@ export default function CashierScreen() {
             </View>
           )}
         </View>
-        <View style={{ flexDirection: "row", gap: 8 }}>
-          <TouchableOpacity onPress={() => router.push("/admin-menu")} style={[styles.refreshBtn, { backgroundColor: colors.secondary }]}>
-            <Feather name="list" size={18} color={colors.gold} />
+        <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
+          <TouchableOpacity
+            onPress={() => router.push("/admin-menu")}
+            style={[styles.adminMenuBtn, { backgroundColor: colors.gold }]}
+          >
+            <Feather name="settings" size={15} color="#1A0A00" />
+            <Text style={{ color: "#1A0A00", fontFamily: "Cairo_700Bold", fontSize: 13 }}>إدارة القائمة</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => fetchOrders()} style={[styles.refreshBtn, { backgroundColor: colors.secondary }]}>
             <Feather name="refresh-cw" size={18} color={colors.gold} />
@@ -393,6 +397,7 @@ const styles = StyleSheet.create({
   badge: { borderRadius: 10, paddingHorizontal: 7, paddingVertical: 2 },
   badgeText: { color: "#fff", fontSize: 13, fontWeight: "700" },
   refreshBtn: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
+  adminMenuBtn: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20 },
   filterTabs: { paddingHorizontal: 12, paddingVertical: 10, gap: 8 },
   filterTab: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, borderWidth: 1 },
   filterTabText: { fontSize: 13 },
