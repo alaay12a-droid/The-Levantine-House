@@ -142,18 +142,6 @@ export default function OnboardingScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* Skip button */}
-        <TouchableOpacity
-          style={styles.skipTopBtn}
-          onPress={async () => {
-            await saveUser({ name: "زائر", phone: "", address: "" });
-            router.replace("/(tabs)");
-          }}
-        >
-          <Text style={[styles.skipTopText, { color: C.muted }]}>تخطى</Text>
-          <Feather name="arrow-left" size={14} color={C.muted} />
-        </TouchableOpacity>
-
         {/* Logo / Brand */}
         <View style={styles.brand}>
           <Text style={styles.brandTitle}>روابي المندي</Text>
@@ -298,18 +286,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 24,
     gap: 24,
-  },
-  skipTopBtn: {
-    alignSelf: "flex-start",
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingVertical: 4,
-    paddingHorizontal: 2,
-  },
-  skipTopText: {
-    fontSize: 13,
-    fontFamily: "Cairo_400Regular",
   },
   brand: { alignItems: "center", gap: 4 },
   brandTitle: {

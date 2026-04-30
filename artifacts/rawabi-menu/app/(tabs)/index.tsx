@@ -16,9 +16,8 @@ import { useColors } from "@/hooks/useColors";
 import { FOOD_IMAGES, MENU_CATEGORIES, RESTAURANT_INFO } from "@/constants/menu";
 import { MenuItemCard } from "@/components/MenuItemCard";
 import { CartBar } from "@/components/CartBar";
-import { useUser } from "@/context/UserContext";
 
-const logo = require("@/assets/images/rawabi_logo.jpg");
+const logo = require("@/assets/images/logo.png");
 const deliveryCar = require("@/assets/images/delivery_car.jpg");
 const dhabihaImg = require("@/assets/images/dhabiha.png");
 const dhabihaPoster = require("@/assets/images/dhabiha_poster.jpg");
@@ -30,17 +29,13 @@ const F = {
   extra: "Cairo_800ExtraBold",
 };
 
-type OrderMode = "delivery" | "pickup";
-
 export default function MenuScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { user } = useUser();
   const [activeCategory, setActiveCategory] = useState(MENU_CATEGORIES[0].id);
-  const [orderMode, setOrderMode] = useState<OrderMode>("delivery");
 
   const activeCat = MENU_CATEGORIES.find((c) => c.id === activeCategory);
-  const topInset = Platform.OS === "web" ? 0 : insets.top;
+  const topInset = Platform.OS === "web" ? 60 : insets.top;
 
   const handleWhatsApp = (msg: string) => {
     Linking.openURL(`https://wa.me/${RESTAURANT_INFO.whatsapp}?text=${encodeURIComponent(msg)}`);
@@ -52,103 +47,34 @@ export default function MenuScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
-      <StatusBar barStyle="light-content" backgroundColor="#C8171A" />
+      <StatusBar barStyle="light-content" backgroundColor={colors.background} />
 
       {/* ── HEADER ── */}
       <View style={[styles.header, { paddingTop: topInset }]}>
-        {/* Top row: location */}
-        <View style={styles.locationRow}>
-          <TouchableOpacity onPress={handleCall}>
-            <Feather name="phone" size={18} color="#fff" />
+        <View style={styles.headerRow}>
+          <TouchableOpacity
+            onPress={handleCall}
+            style={[styles.phoneBtn, { backgroundColor: "#2A1508" }]}
+          >
+            <Feather name="phone" size={18} color={colors.gold} />
           </TouchableOpacity>
-          <View style={styles.locationTextWrap}>
-            <Image source={logo} style={styles.headerLogo} resizeMode="contain" />
-            {user?.address ? (
-              <View style={styles.locationAddrRow}>
-                <Feather name="chevron-down" size={13} color="#FFD0D0" />
-                <Text style={[styles.locationSub, { fontFamily: F.regular }]} numberOfLines={1}>
-                  {user.address}
-                </Text>
-              </View>
-            ) : (
-              <Text style={[styles.locationSub, { fontFamily: F.regular }]}>
-                حدد موقعك للتوصيل
-              </Text>
-            )}
+
+          <View style={styles.titleBlock}>
+            <Text style={[styles.brandName, { fontFamily: F.extra }]}>روابي المندي</Text>
+            <Text style={[styles.tagline, { color: colors.gold, fontFamily: F.semi }]}>
+              للمذاق فن وأصول
+            </Text>
           </View>
-          <Feather name="map-pin" size={18} color="#fff" />
+
+          <Image source={logo} style={styles.logo} resizeMode="contain" />
         </View>
 
-        {/* Delivery / Pickup toggle */}
-        <View style={styles.toggleRow}>
-          <TouchableOpacity
-            style={[
-              styles.toggleBtn,
-              orderMode === "delivery"
-                ? styles.toggleActive
-                : styles.toggleInactive,
-            ]}
-            onPress={() => setOrderMode("delivery")}
-            activeOpacity={0.85}
-          >
-            {orderMode === "delivery" && (
-              <View style={styles.toggleCheck}>
-                <Feather name="check" size={12} color="#C8171A" />
-              </View>
-            )}
-            <Feather
-              name="truck"
-              size={16}
-              color={orderMode === "delivery" ? "#C8171A" : "#fff"}
-            />
-            <Text
-              style={[
-                styles.toggleLabel,
-                { fontFamily: F.bold, color: orderMode === "delivery" ? "#C8171A" : "#fff" },
-              ]}
-            >
-              خدمة توصيل
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.toggleBtn,
-              orderMode === "pickup"
-                ? styles.toggleActive
-                : styles.toggleInactive,
-            ]}
-            onPress={() => setOrderMode("pickup")}
-            activeOpacity={0.85}
-          >
-            {orderMode === "pickup" && (
-              <View style={styles.toggleCheck}>
-                <Feather name="check" size={12} color="#C8171A" />
-              </View>
-            )}
-            <Feather
-              name="shopping-bag"
-              size={16}
-              color={orderMode === "pickup" ? "#C8171A" : "#fff"}
-            />
-            <Text
-              style={[
-                styles.toggleLabel,
-                { fontFamily: F.bold, color: orderMode === "pickup" ? "#C8171A" : "#fff" },
-              ]}
-            >
-              استلام
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* ── CATEGORY TABS ── */}
-      <View style={[styles.tabsContainer, { backgroundColor: colors.background }]}>
+        {/* ── CATEGORY TABS ── */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.tabsContent}
+          style={styles.tabsScroll}
         >
           {MENU_CATEGORIES.map((cat) => {
             const active = activeCategory === cat.id;
@@ -161,15 +87,11 @@ export default function MenuScreen() {
                   styles.tab,
                   active
                     ? { backgroundColor: colors.primary, borderColor: colors.primary }
-                    : { backgroundColor: "transparent", borderColor: "#3A2410" },
+                    : { backgroundColor: "#1A1008", borderColor: "#3A2410" },
                 ]}
               >
-                <Text
-                  style={[
-                    styles.tabLabel,
-                    { color: active ? "#fff" : colors.mutedForeground, fontFamily: F.bold },
-                  ]}
-                >
+                <Text style={styles.tabIcon}>{cat.icon}</Text>
+                <Text style={[styles.tabLabel, { color: active ? "#fff" : colors.mutedForeground, fontFamily: F.bold }]}>
                   {cat.name}
                 </Text>
               </TouchableOpacity>
@@ -180,6 +102,7 @@ export default function MenuScreen() {
 
       {/* ── CONTENT ── */}
       {activeCat?.isDelivery ? (
+        /* ── DELIVERY SECTION ── */
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.list}>
           <View style={[styles.deliveryCard, { backgroundColor: colors.card, borderColor: colors.gold }]}>
             <Image source={deliveryCar} style={styles.carImage} resizeMode="cover" />
@@ -212,6 +135,7 @@ export default function MenuScreen() {
           </View>
         </ScrollView>
       ) : activeCat?.isDhabiha ? (
+        /* ── DHABIHA SECTION ── */
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.list}>
           <View style={[styles.dhabihaHero, { borderColor: "#E8920C" }]}>
             <Image source={dhabihaPoster} style={styles.dhabihaImg} resizeMode="cover" />
@@ -251,6 +175,7 @@ export default function MenuScreen() {
           </View>
         </ScrollView>
       ) : activeCat?.isOccasions ? (
+        /* ── OCCASIONS SECTION ── */
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.list}>
           <View style={[styles.occasionsHeader, { backgroundColor: "#1A0D00", borderColor: colors.gold }]}>
             <Text style={[styles.occasionsTitle, { color: colors.gold, fontFamily: F.extra }]}>🎉 عروض المناسبات</Text>
@@ -289,40 +214,30 @@ export default function MenuScreen() {
         </ScrollView>
       ) : (
         /* ── REGULAR MENU SECTION ── */
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={[
-            styles.list,
-            { paddingBottom: Platform.OS === "web" ? 130 : 110 },
-          ]}
-        >
-          {/* Promo Banner */}
-          <View style={styles.bannerWrap}>
-            <Image source={deliveryCar} style={styles.bannerImg} resizeMode="cover" />
-            <View style={[styles.bannerOverlay]}>
-              <Text style={[styles.bannerText, { fontFamily: F.extra }]}>
-                طلب التوصيل عبر واتساب
+        <>
+          <View style={[styles.sectionRow, { borderBottomColor: "#2A1A0A" }]}>
+            <Text style={[styles.itemCount, { color: colors.mutedForeground, fontFamily: F.semi }]}>
+              {activeCat?.items.length ?? 0} أصناف
+            </Text>
+            <View style={styles.sectionTitle}>
+              <Text style={[styles.sectionName, { color: colors.foreground, fontFamily: F.extra }]}>
+                {activeCat?.name}
               </Text>
-              <TouchableOpacity
-                onPress={() => handleWhatsApp("السلام عليكم، أرغب في طلب توصيل")}
-                style={styles.bannerBtn}
-              >
-                <Text style={[styles.bannerBtnText, { fontFamily: F.bold }]}>اطلب الآن</Text>
-              </TouchableOpacity>
+              <Text style={styles.sectionIcon}>{activeCat?.icon}</Text>
             </View>
           </View>
-
-          {/* Section title */}
-          <View style={styles.sectionRow}>
-            <Text style={[styles.sectionName, { color: colors.foreground, fontFamily: F.extra }]}>
-              {activeCat?.name}
-            </Text>
-          </View>
-
-          {activeCat?.items.map((item) => (
-            <MenuItemCard key={item.id} item={item} />
-          ))}
-        </ScrollView>
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={[
+              styles.list,
+              { paddingBottom: Platform.OS === "web" ? 130 : 110 },
+            ]}
+          >
+            {activeCat?.items.map((item) => (
+              <MenuItemCard key={item.id} item={item} />
+            ))}
+          </ScrollView>
+        </>
       )}
 
       <CartBar />
@@ -332,145 +247,86 @@ export default function MenuScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-
-  /* Header */
   header: {
-    backgroundColor: "#C8171A",
-    paddingBottom: 12,
-    paddingHorizontal: 16,
-    gap: 12,
-  },
-  locationRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingTop: 10,
-  },
-  locationTextWrap: {
-    flex: 1,
-    alignItems: "center",
-  },
-  headerLogo: {
-    width: 140,
-    height: 40,
-  },
-  locationSub: {
-    color: "#FFD0D0",
-    fontSize: 12,
-    textAlign: "center",
-    marginTop: 2,
-  },
-  locationAddrRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 3,
-    marginTop: 2,
-  },
-
-  /* Toggle */
-  toggleRow: {
-    flexDirection: "row",
-    gap: 10,
-  },
-  toggleBtn: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    paddingVertical: 10,
-    borderRadius: 10,
-    position: "relative",
-  },
-  toggleActive: {
-    backgroundColor: "#fff",
-  },
-  toggleInactive: {
-    backgroundColor: "rgba(255,255,255,0.15)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.3)",
-  },
-  toggleLabel: {
-    fontSize: 14,
-  },
-  toggleCheck: {
-    position: "absolute",
-    top: 6,
-    right: 10,
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: "#FFE0E0",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  /* Category tabs */
-  tabsContainer: {
+    backgroundColor: "#130B04",
     borderBottomWidth: 1,
     borderBottomColor: "#2A1A0A",
   },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    paddingTop: 10,
+    gap: 12,
+  },
+  logo: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: "#1F130A",
+  },
+  titleBlock: {
+    flex: 1,
+    alignItems: "flex-end",
+  },
+  brandName: {
+    color: "#FFFFFF",
+    fontSize: 24,
+    fontWeight: "800",
+    textAlign: "right",
+    letterSpacing: 0.3,
+  },
+  tagline: {
+    fontSize: 13,
+    fontWeight: "600",
+    textAlign: "right",
+    marginTop: 3,
+    letterSpacing: 0.5,
+  },
+  phoneBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  tabsScroll: { paddingBottom: 14 },
   tabsContent: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingHorizontal: 16,
     gap: 8,
     flexDirection: "row",
   },
   tab: {
-    paddingHorizontal: 16,
-    paddingVertical: 7,
-    borderRadius: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 22,
     borderWidth: 1,
+    gap: 6,
+    marginLeft: 4,
   },
+  tabIcon: { fontSize: 15, fontFamily: Platform.OS === "web" ? "'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',sans-serif" : undefined },
   tabLabel: { fontSize: 13 },
-
-  /* Section title */
   sectionRow: {
-    alignItems: "flex-end",
-    paddingHorizontal: 4,
-    paddingVertical: 10,
-  },
-  sectionName: { fontSize: 18 },
-
-  list: { padding: 14 },
-
-  /* Banner */
-  bannerWrap: {
-    borderRadius: 14,
-    overflow: "hidden",
-    marginBottom: 14,
-    height: 130,
-  },
-  bannerImg: {
-    width: "100%",
-    height: "100%",
-  },
-  bannerOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(15,10,5,0.6)",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 16,
+    paddingHorizontal: 18,
+    paddingVertical: 13,
+    borderBottomWidth: 1,
+    backgroundColor: "#0F0A05",
   },
-  bannerText: {
-    color: "#fff",
-    fontSize: 16,
-    flex: 1,
-    textAlign: "right",
+  sectionTitle: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
-  bannerBtn: {
-    backgroundColor: "#C8171A",
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 10,
-    marginRight: 10,
-  },
-  bannerBtnText: {
-    color: "#fff",
-    fontSize: 13,
-  },
+  sectionName: { fontSize: 18 },
+  sectionIcon: { fontSize: 20, fontFamily: Platform.OS === "web" ? "'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',sans-serif" : undefined },
+  itemCount: { fontSize: 13 },
+  list: { padding: 14 },
 
   /* Delivery */
   deliveryCard: {
@@ -509,6 +365,29 @@ const styles = StyleSheet.create({
     width: "100%",
     height: 480,
   },
+  dhabihaOverlay: {
+    padding: 18,
+    gap: 6,
+    alignItems: "flex-end",
+  },
+  dhabihaTagBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 20,
+  },
+  dhabihaTagText: { color: "#fff", fontSize: 13 },
+  dhabihaHeroTitle: { fontSize: 22, textAlign: "right" },
+  dhabihaHeroSub: { fontSize: 15, textAlign: "right" },
+  bookBox: {
+    borderRadius: 16,
+    borderWidth: 1.5,
+    padding: 18,
+    gap: 8,
+    marginTop: 6,
+    alignItems: "flex-end",
+  },
+  bookTitle: { fontSize: 20 },
+  bookDesc: { fontSize: 14, textAlign: "right", lineHeight: 22 },
   dhabihaPhoneRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -521,16 +400,6 @@ const styles = StyleSheet.create({
     marginVertical: 4,
   },
   dhabihaPhoneNum: { fontSize: 18, letterSpacing: 1 },
-  bookBox: {
-    borderRadius: 16,
-    borderWidth: 1.5,
-    padding: 18,
-    gap: 8,
-    marginTop: 6,
-    alignItems: "flex-end",
-  },
-  bookTitle: { fontSize: 20 },
-  bookDesc: { fontSize: 14, textAlign: "right", lineHeight: 22 },
   bookBtns: {
     flexDirection: "row",
     gap: 10,
