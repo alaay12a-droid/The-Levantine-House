@@ -18,6 +18,7 @@ import { MenuItemCard } from "@/components/MenuItemCard";
 import { CartBar } from "@/components/CartBar";
 import { useUser } from "@/context/UserContext";
 
+const logo = require("@/assets/images/rawabi_logo.jpg");
 const deliveryCar = require("@/assets/images/delivery_car.jpg");
 const dhabihaImg = require("@/assets/images/dhabiha.png");
 const dhabihaPoster = require("@/assets/images/dhabiha_poster.jpg");
@@ -61,9 +62,7 @@ export default function MenuScreen() {
             <Feather name="phone" size={18} color="#fff" />
           </TouchableOpacity>
           <View style={styles.locationTextWrap}>
-            <Text style={[styles.locationName, { fontFamily: F.bold }]}>
-              {RESTAURANT_INFO.name}
-            </Text>
+            <Image source={logo} style={styles.headerLogo} resizeMode="contain" />
             {user?.address ? (
               <View style={styles.locationAddrRow}>
                 <Feather name="chevron-down" size={13} color="#FFD0D0" />
@@ -351,10 +350,9 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
   },
-  locationName: {
-    color: "#fff",
-    fontSize: 16,
-    textAlign: "center",
+  headerLogo: {
+    width: 140,
+    height: 40,
   },
   locationSub: {
     color: "#FFD0D0",
