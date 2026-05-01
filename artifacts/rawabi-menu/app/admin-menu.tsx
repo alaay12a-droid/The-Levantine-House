@@ -22,6 +22,7 @@ import * as ImagePicker from "expo-image-picker";
 import { useColors } from "@/hooks/useColors";
 import { useMenu, type ApiMenuItem } from "@/hooks/useMenu";
 import type { ApiOccasion } from "@/hooks/useOccasions";
+import { useTabConfig, type TabConfig } from "@/hooks/useTabConfig";
 import { apiGet, apiPost, apiPut, apiDelete, API_BASE } from "@/constants/api";
 
 const F = {
@@ -121,7 +122,8 @@ export default function AdminMenuScreen() {
   React.useEffect(() => { refreshOccasions(); }, [refreshOccasions]);
 
   const [authenticated, setAuthenticated] = useState(false);
-  const [activeTab, setActiveTab] = useState<"menu" | "occasions" | "stock">("menu");
+  const [activeTab, setActiveTab] = useState<"menu" | "occasions" | "stock" | "settings">("menu");
+  const { config: tabConfig, update: updateTabConfig } = useTabConfig();
   const [stockEdits, setStockEdits] = useState<Record<string, string>>({});
   const [stockSaving, setStockSaving] = useState<string | null>(null);
 
@@ -459,13 +461,19 @@ export default function AdminMenuScreen() {
           >
             <Text style={[styles.tabBtnText, { color: activeTab === "stock" ? "#fff" : colors.mutedForeground, fontFamily: F.bold }]}>📦 المخزون</Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setActiveTab("settings")}
+            style={[styles.tabBtn, { backgroundColor: activeTab === "settings" ? "#1B5E20" : colors.secondary, borderWidth: 1, borderColor: activeTab === "settings" ? "#66BB6A" : "transparent" }]}
+          >
+            <Text style={[styles.tabBtnText, { color: activeTab === "settings" ? "#fff" : colors.mutedForeground, fontFamily: F.bold }]}>⚙️ الإعدادات</Text>
+          </TouchableOpacity>
         </ScrollView>
         <TouchableOpacity
           onPress={activeTab === "menu" ? openAdd : activeTab === "occasions" ? () => { setOccName(""); setOccDesc(""); setOccImageUrl(""); setShowAddOccasionModal(true); } : undefined}
-          style={[styles.iconBtn, { backgroundColor: activeTab === "stock" ? colors.secondary : colors.gold, opacity: activeTab === "stock" ? 0.3 : 1 }]}
-          disabled={activeTab === "stock"}
+          style={[styles.iconBtn, { backgroundColor: (activeTab === "stock" || activeTab === "settings") ? colors.secondary : colors.gold, opacity: (activeTab === "stock" || activeTab === "settings") ? 0.3 : 1 }]}
+          disabled={activeTab === "stock" || activeTab === "settings"}
         >
-          <Feather name="plus" size={20} color={activeTab === "stock" ? colors.mutedForeground : "#fff"} />
+          <Feather name="plus" size={20} color={(activeTab === "stock" || activeTab === "settings") ? colors.mutedForeground : "#fff"} />
         </TouchableOpacity>
       </View>
 
@@ -791,6 +799,128 @@ export default function AdminMenuScreen() {
               );
             })}
           </View>
+        </ScrollView>
+      )}
+
+      {activeTab === "settings" && (
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ padding: 20, gap: 20 }}
+        >
+          <Text style={{ color: colors.gold, fontFamily: F.extra, fontSize: 16, textAlign: "right" }}>
+            ⚙️ إعدادات التاب بار
+          </Text>
+
+          {/* Height */}
+          <View style={{ backgroundColor: colors.card, borderRadius: 14, borderWidth: 1, borderColor: colors.border, padding: 16, gap: 12 }}>
+            <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" }}>
+              <Text style={{ color: colors.foreground, fontFamily: F.bold, fontSize: 15 }}>الارتفاع</Text>
+              <Text style={{ color: colors.gold, fontFamily: F.extra, fontSize: 20 }}>{tabConfig.height}</Text>
+            </View>
+            <View style={{ flexDirection: "row-reverse", gap: 12 }}>
+              {[55, 60, 65, 70, 75, 80, 85, 90].map((v) => (
+                <TouchableOpacity
+                  key={v}
+                  onPress={() => updateTabConfig({ ...tabConfig, height: v })}
+                  style={{ flex: 1, paddingVertical: 8, borderRadius: 8, alignItems: "center", backgroundColor: tabConfig.height === v ? colors.gold : colors.secondary }}
+                >
+                  <Text style={{ color: tabConfig.height === v ? "#1A0A00" : colors.mutedForeground, fontFamily: F.bold, fontSize: 12 }}>{v}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <View style={{ flexDirection: "row-reverse", gap: 12 }}>
+              <TouchableOpacity
+                onPress={() => updateTabConfig({ ...tabConfig, height: Math.max(50, tabConfig.height - 1) })}
+                style={{ flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: "center", backgroundColor: colors.secondary }}
+              >
+                <Text style={{ color: colors.foreground, fontFamily: F.extra, fontSize: 18 }}>−</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => updateTabConfig({ ...tabConfig, height: Math.min(100, tabConfig.height + 1) })}
+                style={{ flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: "center", backgroundColor: colors.secondary }}
+              >
+                <Text style={{ color: colors.foreground, fontFamily: F.extra, fontSize: 18 }}>+</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Padding Bottom */}
+          <View style={{ backgroundColor: colors.card, borderRadius: 14, borderWidth: 1, borderColor: colors.border, padding: 16, gap: 12 }}>
+            <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" }}>
+              <Text style={{ color: colors.foreground, fontFamily: F.bold, fontSize: 15 }}>التباعد السفلي</Text>
+              <Text style={{ color: colors.gold, fontFamily: F.extra, fontSize: 20 }}>{tabConfig.paddingBottom}</Text>
+            </View>
+            <View style={{ flexDirection: "row-reverse", gap: 12 }}>
+              {[4, 6, 8, 10, 12, 14, 16, 18].map((v) => (
+                <TouchableOpacity
+                  key={v}
+                  onPress={() => updateTabConfig({ ...tabConfig, paddingBottom: v })}
+                  style={{ flex: 1, paddingVertical: 8, borderRadius: 8, alignItems: "center", backgroundColor: tabConfig.paddingBottom === v ? colors.gold : colors.secondary }}
+                >
+                  <Text style={{ color: tabConfig.paddingBottom === v ? "#1A0A00" : colors.mutedForeground, fontFamily: F.bold, fontSize: 12 }}>{v}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <View style={{ flexDirection: "row-reverse", gap: 12 }}>
+              <TouchableOpacity
+                onPress={() => updateTabConfig({ ...tabConfig, paddingBottom: Math.max(0, tabConfig.paddingBottom - 1) })}
+                style={{ flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: "center", backgroundColor: colors.secondary }}
+              >
+                <Text style={{ color: colors.foreground, fontFamily: F.extra, fontSize: 18 }}>−</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => updateTabConfig({ ...tabConfig, paddingBottom: Math.min(30, tabConfig.paddingBottom + 1) })}
+                style={{ flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: "center", backgroundColor: colors.secondary }}
+              >
+                <Text style={{ color: colors.foreground, fontFamily: F.extra, fontSize: 18 }}>+</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Font Size */}
+          <View style={{ backgroundColor: colors.card, borderRadius: 14, borderWidth: 1, borderColor: colors.border, padding: 16, gap: 12 }}>
+            <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" }}>
+              <Text style={{ color: colors.foreground, fontFamily: F.bold, fontSize: 15 }}>حجم الخط</Text>
+              <Text style={{ color: colors.gold, fontFamily: F.extra, fontSize: 20 }}>{tabConfig.fontSize}</Text>
+            </View>
+            <View style={{ flexDirection: "row-reverse", gap: 12 }}>
+              {[10, 11, 12, 13, 14, 15, 16].map((v) => (
+                <TouchableOpacity
+                  key={v}
+                  onPress={() => updateTabConfig({ ...tabConfig, fontSize: v })}
+                  style={{ flex: 1, paddingVertical: 8, borderRadius: 8, alignItems: "center", backgroundColor: tabConfig.fontSize === v ? colors.gold : colors.secondary }}
+                >
+                  <Text style={{ color: tabConfig.fontSize === v ? "#1A0A00" : colors.mutedForeground, fontFamily: F.bold, fontSize: 12 }}>{v}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <View style={{ flexDirection: "row-reverse", gap: 12 }}>
+              <TouchableOpacity
+                onPress={() => updateTabConfig({ ...tabConfig, fontSize: Math.max(9, tabConfig.fontSize - 1) })}
+                style={{ flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: "center", backgroundColor: colors.secondary }}
+              >
+                <Text style={{ color: colors.foreground, fontFamily: F.extra, fontSize: 18 }}>−</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => updateTabConfig({ ...tabConfig, fontSize: Math.min(18, tabConfig.fontSize + 1) })}
+                style={{ flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: "center", backgroundColor: colors.secondary }}
+              >
+                <Text style={{ color: colors.foreground, fontFamily: F.extra, fontSize: 18 }}>+</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Reset button */}
+          <TouchableOpacity
+            onPress={() => updateTabConfig({ height: 70, paddingBottom: 10, fontSize: 12 })}
+            style={{ paddingVertical: 14, borderRadius: 12, alignItems: "center", backgroundColor: colors.secondary, borderWidth: 1, borderColor: colors.border }}
+          >
+            <Text style={{ color: colors.mutedForeground, fontFamily: F.bold, fontSize: 14 }}>↺ إعادة ضبط الإعدادات</Text>
+          </TouchableOpacity>
+
+          <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12, textAlign: "center" }}>
+            التغييرات تُحفظ تلقائياً وتظهر فور الرجوع للتطبيق
+          </Text>
         </ScrollView>
       )}
 

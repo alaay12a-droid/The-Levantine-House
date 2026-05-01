@@ -2,6 +2,7 @@ import { Tabs } from "expo-router";
 import React from "react";
 import { Platform } from "react-native";
 import { Feather } from "@expo/vector-icons";
+import { useTabConfig } from "@/hooks/useTabConfig";
 
 const GOLD = "#E8920C";
 const MUTED = "#9A7A5A";
@@ -9,6 +10,13 @@ const BG = "#1A1008";
 const BORDER = "#3A2410";
 
 export default function TabLayout() {
+  const { config, loaded } = useTabConfig();
+
+  if (!loaded) return null;
+
+  const h = Platform.OS === "web" ? config.height : config.height + 10;
+  const pb = Platform.OS === "web" ? config.paddingBottom : config.paddingBottom + 8;
+
   return (
     <Tabs
       screenOptions={{
@@ -17,15 +25,15 @@ export default function TabLayout() {
           backgroundColor: BG,
           borderTopColor: BORDER,
           borderTopWidth: 1,
-          height: Platform.OS === "web" ? 70 : 80,
-          paddingBottom: Platform.OS === "web" ? 10 : 18,
+          height: h,
+          paddingBottom: pb,
           paddingTop: 8,
         },
         tabBarActiveTintColor: GOLD,
         tabBarInactiveTintColor: MUTED,
         tabBarLabelStyle: {
           fontFamily: "Cairo_700Bold",
-          fontSize: 12,
+          fontSize: config.fontSize,
           marginTop: 2,
         },
       }}
