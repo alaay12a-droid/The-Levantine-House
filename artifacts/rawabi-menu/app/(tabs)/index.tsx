@@ -1,8 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useCallback } from "react";
 import {
   View,
   Text,
   ScrollView,
+  SectionList,
   StyleSheet,
   Platform,
   Image,
@@ -39,9 +40,45 @@ export default function MenuScreen() {
   const { categories } = useMenu();
   const { occasions } = useOccasions();
   const [activeCategory, setActiveCategory] = useState("chicken");
+  const sectionListRef = useRef<SectionList<any>>(null);
+  const tabsScrollRef = useRef<ScrollView>(null);
+  const isScrollingProgrammatically = useRef(false);
 
+  const regularCats = categories.filter((c) => !c.isDelivery && !c.isDhabiha && !c.isOccasions);
+  const specialCat = categories.find((c) => c.id === activeCategory && (c.isDelivery || c.isDhabiha || c.isOccasions));
   const activeCat = categories.find((c) => c.id === activeCategory) ?? categories[0];
   const topInset = Platform.OS === "web" ? 60 : insets.top;
+
+  const sections = regularCats.map((cat) => ({
+    id: cat.id,
+    icon: cat.icon,
+    name: cat.name,
+    count: cat.items.length,
+    data: cat.items,
+  }));
+
+  const handleTabPress = useCallback((catId: string) => {
+    setActiveCategory(catId);
+    const cat = categories.find((c) => c.id === catId);
+    if (cat?.isDelivery || cat?.isDhabiha || cat?.isOccasions) return;
+    const sectionIndex = regularCats.findIndex((c) => c.id === catId);
+    if (sectionIndex === -1 || !sectionListRef.current) return;
+    isScrollingProgrammatically.current = true;
+    try {
+      sectionListRef.current.scrollToLocation({ sectionIndex, itemIndex: 0, viewPosition: 0, animated: true });
+    } catch {}
+    setTimeout(() => { isScrollingProgrammatically.current = false; }, 800);
+  }, [categories, regularCats]);
+
+  const onViewableItemsChanged = useCallback(({ viewableItems }: any) => {
+    if (isScrollingProgrammatically.current) return;
+    for (const vi of viewableItems) {
+      if (vi.section) {
+        setActiveCategory(vi.section.id);
+        break;
+      }
+    }
+  }, []);
 
   const handleWhatsApp = (msg: string) => {
     Linking.openURL(`https://wa.me/${RESTAURANT_INFO.whatsapp}?text=${encodeURIComponent(msg)}`);
@@ -85,6 +122,7 @@ export default function MenuScreen() {
 
         {/* ── CATEGORY TABS ── */}
         <ScrollView
+          ref={tabsScrollRef}
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.tabsContent}
@@ -95,7 +133,7 @@ export default function MenuScreen() {
             return (
               <TouchableOpacity
                 key={cat.id}
-                onPress={() => setActiveCategory(cat.id)}
+                onPress={() => handleTabPress(cat.id)}
                 activeOpacity={0.75}
                 style={[
                   styles.tab,
@@ -115,7 +153,7 @@ export default function MenuScreen() {
       </View>
 
       {/* ── CONTENT ── */}
-      {activeCat?.isDelivery ? (
+      {specialCat?.isDelivery ? (
         /* ── DELIVERY SECTION ── */
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.list}>
           <View style={[styles.deliveryCard, { backgroundColor: colors.card, borderColor: colors.gold }]}>
@@ -148,7 +186,7 @@ export default function MenuScreen() {
             </View>
           </View>
         </ScrollView>
-      ) : activeCat?.isDhabiha ? (
+      ) : specialCat?.isDhabiha ? (
         /* ── DHABIHA SECTION ── */
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.list}>
           <View style={[styles.dhabihaHero, { borderColor: "#E8920C" }]}>
@@ -188,7 +226,7 @@ export default function MenuScreen() {
             </View>
           </View>
         </ScrollView>
-      ) : activeCat?.isOccasions ? (
+      ) : specialCat?.isOccasions ? (
         /* ── OCCASIONS SECTION ── */
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.list}>
           <View style={[styles.occasionsHeader, { backgroundColor: "#1A0D00", borderColor: colors.gold }]}>
@@ -227,31 +265,36 @@ export default function MenuScreen() {
           ))}
         </ScrollView>
       ) : (
-        /* ── REGULAR MENU SECTION ── */
-        <>
-          <View style={[styles.sectionRow, { borderBottomColor: "#2A1A0A" }]}>
-            <Text style={[styles.itemCount, { color: colors.mutedForeground, fontFamily: F.semi }]}>
-              {activeCat?.items.length ?? 0} أصناف
-            </Text>
-            <View style={styles.sectionTitle}>
-              <Text style={[styles.sectionName, { color: colors.foreground, fontFamily: F.extra }]}>
-                {activeCat?.name}
+        /* ── REGULAR MENU — continuous SectionList ── */
+        <SectionList
+          ref={sectionListRef}
+          sections={sections}
+          keyExtractor={(item) => item.id}
+          showsVerticalScrollIndicator={false}
+          stickySectionHeadersEnabled={true}
+          onViewableItemsChanged={onViewableItemsChanged}
+          viewabilityConfig={{ itemVisiblePercentThreshold: 10 }}
+          contentContainerStyle={{ paddingBottom: Platform.OS === "web" ? 130 : 110 }}
+          renderSectionHeader={({ section }) => (
+            <View style={[styles.sectionRow, { backgroundColor: colors.background, borderBottomColor: "#2A1A0A", borderTopColor: "#2A1A0A" }]}>
+              <Text style={[styles.itemCount, { color: colors.mutedForeground, fontFamily: F.semi }]}>
+                {section.count} أصناف
               </Text>
-              <Text style={styles.sectionIcon}>{activeCat?.icon}</Text>
+              <View style={styles.sectionTitle}>
+                <Text style={[styles.sectionName, { color: colors.foreground, fontFamily: F.extra }]}>
+                  {section.name}
+                </Text>
+                <Text style={styles.sectionIcon}>{section.icon}</Text>
+              </View>
             </View>
-          </View>
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={[
-              styles.list,
-              { paddingBottom: Platform.OS === "web" ? 130 : 110 },
-            ]}
-          >
-            {activeCat?.items.map((item) => (
-              <MenuItemCard key={item.id} item={item} />
-            ))}
-          </ScrollView>
-        </>
+          )}
+          renderItem={({ item }) => (
+            <View style={{ paddingHorizontal: 12, paddingTop: 8 }}>
+              <MenuItemCard item={item} />
+            </View>
+          )}
+          SectionSeparatorComponent={() => <View style={{ height: 8 }} />}
+        />
       )}
 
       <CartBar />
@@ -330,6 +373,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 13,
     borderBottomWidth: 1,
+    borderTopWidth: 1,
     backgroundColor: "#0F0A05",
   },
   sectionTitle: {
