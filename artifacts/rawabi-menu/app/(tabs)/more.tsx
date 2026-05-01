@@ -30,13 +30,8 @@ interface SocialLink {
 }
 
 const SOCIAL_LINKS: SocialLink[] = [
-  { icon: "📸", color: "#E1306C", url: `https://www.instagram.com/rwabi_almndi` },
-  { icon: "💬", color: "#25D366", url: `https://wa.me/${RESTAURANT_INFO.whatsapp}` },
-  { icon: "📞", color: "#0088CC", url: `tel:${RESTAURANT_INFO.phone}` },
-  { icon: "🐦", color: "#1DA1F2", url: `https://twitter.com` },
-  { icon: "📘", color: "#1877F2", url: `https://facebook.com` },
-  { icon: "🎵", color: "#010101", url: `https://tiktok.com` },
-  { icon: "▶️", color: "#FF0000", url: `https://youtube.com` },
+  { icon: "👻", color: "#FFFC00", url: `https://www.snapchat.com/add/rawabi-mandi` },
+  { icon: "🎵", color: "#010101", url: `https://www.tiktok.com/@rawabi-mandi` },
 ];
 
 interface MenuItem {
@@ -166,9 +161,14 @@ export default function MoreScreen() {
               <TouchableOpacity
                 key={i}
                 onPress={() => Linking.openURL(s.url).catch(() => {})}
-                style={[styles.socialBtn, { backgroundColor: colors.secondary }]}
+                style={styles.socialItem}
               >
-                <Text style={styles.socialEmoji}>{s.icon}</Text>
+                <View style={[styles.socialBtn, { backgroundColor: colors.secondary }]}>
+                  <Text style={styles.socialEmoji}>{s.icon}</Text>
+                </View>
+                <Text style={[styles.socialHandle, { color: colors.mutedForeground, fontFamily: F.regular }]}>
+                  @rawabi-mandi
+                </Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -254,17 +254,21 @@ const styles = StyleSheet.create({
   sectionLabel: { fontSize: 13, textAlign: "right" },
   socialRow: {
     flexDirection: "row-reverse",
-    flexWrap: "wrap",
-    gap: 10,
+    gap: 20,
+  },
+  socialItem: {
+    alignItems: "center",
+    gap: 6,
   },
   socialBtn: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
+    width: 58,
+    height: 58,
+    borderRadius: 29,
     alignItems: "center",
     justifyContent: "center",
   },
-  socialEmoji: { fontSize: 22 },
+  socialEmoji: { fontSize: 28 },
+  socialHandle: { fontSize: 11 },
   menuCard: {
     marginHorizontal: 16,
     borderRadius: 14,
