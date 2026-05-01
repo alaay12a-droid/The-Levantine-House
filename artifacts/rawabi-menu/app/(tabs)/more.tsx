@@ -34,7 +34,7 @@ interface SocialLink {
 }
 
 const SOCIAL_LINKS: SocialLink[] = [
-  { image: snapchatLogo, label: "سناب شات", url: `https://www.snapchat.com/add/rawabi-mandi` },
+  { image: snapchatLogo, label: "سناب شات", url: `https://www.snapchat.com/add/rwabi-almndi?share_id=3Bq3Hx1Ah3o&locale=ar-AE` },
   { image: tiktokLogo,   label: "تيك توك",   url: `https://www.tiktok.com/@rwabialmndi?_r=1&_t=ZS-95zIV9lsc6R` },
 ];
 
