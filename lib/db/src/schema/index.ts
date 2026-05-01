@@ -72,6 +72,12 @@ export const bannersTable = pgTable("banners", {
 
 export type Banner = typeof bannersTable.$inferSelect;
 
+export const appSettingsTable = pgTable("app_settings", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 export const pushTokensTable = pgTable("push_tokens", {
   id: serial("id").primaryKey(),
   token: text("token").notNull().unique(),

@@ -21,7 +21,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useColors } from "@/hooks/useColors";
 import { useCart } from "@/context/CartContext";
 import { useUser } from "@/context/UserContext";
-import { apiPost } from "@/constants/api";
+import { apiPost, apiGet } from "@/constants/api";
 import { useCustomerPushToken } from "@/hooks/useCustomerPushToken";
 import { useOrderBadge } from "@/context/OrderBadgeContext";
 import { usePaymentSettings } from "@/hooks/usePaymentSettings";
@@ -59,6 +59,11 @@ export default function CheckoutScreen() {
   const [loading, setLoading] = useState(false);
   const [locationUrl, setLocationUrl] = useState<string | null>(null);
   const [locationLoading, setLocationLoading] = useState(false);
+
+  // SMS OTP
+  const [otpStep, setOtpStep] = useState<"idle" | "sent" | "verified">("idle");
+  const [otpCode, setOtpCode] = useState("");
+  const [otpLoading, setOtpLoading] = useState(false);
 
   const handleGetLocation = async () => {
     setLocationLoading(true);
@@ -107,19 +112,27 @@ export default function CheckoutScreen() {
   const grandTotalStr = grandTotal % 1 === 0 ? grandTotal.toString() : grandTotal.toFixed(2);
   const deliveryFeeStr = deliveryFee % 1 === 0 ? deliveryFee.toString() : deliveryFee.toFixed(2);
 
-  const handlePlaceOrder = async () => {
-    if (!user) return;
-    if (items.length === 0) return;
+  const handleSendOtp = async () => {
+    if (!user?.phone) return;
+    setOtpLoading(true);
+    try {
+      const r = await apiPost<{ ok: boolean; skipped?: boolean }>("/sms/send-otp", { phone: user.phone });
+      if (r.skipped) { setOtpStep("verified"); return; }
+      setOtpStep("sent");
+      setOtpCode("");
+    } catch {
+      Alert.alert("خطأ", "تعذر إرسال الرمز، حاول مرة أخرى.");
+    } finally {
+      setOtpLoading(false);
+    }
+  };
 
+  const submitOrder = async () => {
+    if (!user) return;
     if (paymentMethod === "moyasar") {
-      Alert.alert(
-        "قريباً",
-        "الدفع الإلكتروني سيكون متاحاً قريباً. يرجى اختيار الدفع عند الاستلام.",
-        [{ text: "حسناً" }]
-      );
+      Alert.alert("قريباً", "الدفع الإلكتروني سيكون متاحاً قريباً. يرجى اختيار الدفع عند الاستلام.", [{ text: "حسناً" }]);
       return;
     }
-
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setLoading(true);
     try {
@@ -144,7 +157,6 @@ export default function CheckoutScreen() {
         ].filter(Boolean).join(" | ") || null,
         customerPushToken: customerPushToken ?? null,
       });
-
       const storedOrder: StoredOrder = {
         id: order.id,
         dailyNumber: order.dailyNumber,
@@ -159,14 +171,48 @@ export default function CheckoutScreen() {
         await AsyncStorage.setItem(ORDERS_STORAGE_KEY, JSON.stringify([storedOrder, ...prev]));
         incrementBadge();
       } catch {}
-
       clearCart();
       router.replace({ pathname: "/order-confirmed", params: { orderId: String(order.id) } });
-    } catch (err) {
+    } catch {
       Alert.alert("خطأ", "تعذر إرسال الطلب، يرجى المحاولة مرة أخرى.");
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (!user?.phone || otpCode.length !== 4) return;
+    setOtpLoading(true);
+    try {
+      await apiPost("/sms/verify-otp", { phone: user.phone, code: otpCode });
+      setOtpStep("verified");
+      setOtpCode("");
+      // auto-submit after successful verification
+      await submitOrder();
+    } catch (err: unknown) {
+      const msg = (err as { message?: string })?.message ?? "الرمز غير صحيح";
+      Alert.alert("خطأ", msg);
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  const handlePlaceOrder = async () => {
+    if (!user) return;
+    if (items.length === 0) return;
+
+    // Check if SMS OTP is required
+    if (otpStep !== "verified") {
+      try {
+        const smsSettings = await apiGet<{ enabled: boolean }>("/sms-settings");
+        if (smsSettings.enabled) {
+          await handleSendOtp();
+          return; // pause — user must enter OTP first
+        }
+      } catch {}
+    }
+
+    await submitOrder();
   };
 
   return (
@@ -507,6 +553,56 @@ export default function CheckoutScreen() {
           )}
         </TouchableOpacity>
       </View>
+
+      {/* OTP Verification Overlay */}
+      {otpStep === "sent" && (
+        <View style={{ position: "absolute", bottom: 0, left: 0, right: 0, top: 0, backgroundColor: "#000000BB", justifyContent: "flex-end" }}>
+          <View style={{ backgroundColor: "#1A1008", borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, gap: 16 }}>
+            <Text style={{ color: "#FFD700", fontFamily: F.extra, fontSize: 18, textAlign: "center" }}>📱 التحقق من رقمك</Text>
+            <Text style={{ color: "#ccc", fontFamily: F.regular, fontSize: 14, textAlign: "center" }}>
+              تم إرسال رمز مكون من 4 أرقام إلى{"\n"}
+              <Text style={{ color: "#fff", fontFamily: F.bold }}>{user?.phone}</Text>
+            </Text>
+            <TextInput
+              value={otpCode}
+              onChangeText={(t) => setOtpCode(t.replace(/\D/g, "").slice(0, 4))}
+              placeholder="• • • •"
+              placeholderTextColor="#555"
+              keyboardType="number-pad"
+              maxLength={4}
+              autoFocus
+              style={{
+                backgroundColor: "#2A1A08",
+                borderRadius: 14,
+                paddingVertical: 14,
+                fontSize: 32,
+                fontFamily: F.bold,
+                color: "#FFD700",
+                textAlign: "center",
+                letterSpacing: 16,
+                borderWidth: 2,
+                borderColor: otpCode.length === 4 ? "#FFD700" : "#444",
+              }}
+            />
+            <TouchableOpacity
+              onPress={handleVerifyOtp}
+              disabled={otpCode.length !== 4 || otpLoading}
+              style={{ backgroundColor: otpCode.length === 4 ? "#FFD700" : "#333", borderRadius: 14, paddingVertical: 14, alignItems: "center", opacity: otpCode.length === 4 ? 1 : 0.5 }}
+            >
+              {otpLoading
+                ? <ActivityIndicator color="#1A0A00" />
+                : <Text style={{ color: "#1A0A00", fontFamily: F.bold, fontSize: 16 }}>✅ تحقق وأكمل الطلب</Text>
+              }
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handleSendOtp} disabled={otpLoading} style={{ alignItems: "center" }}>
+              <Text style={{ color: "#aaa", fontFamily: F.regular, fontSize: 13 }}>لم تصلك الرسالة؟ أعد الإرسال</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setOtpStep("idle")} style={{ alignItems: "center" }}>
+              <Text style={{ color: "#E57373", fontFamily: F.regular, fontSize: 13 }}>إلغاء</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
     </View>
   );
 }

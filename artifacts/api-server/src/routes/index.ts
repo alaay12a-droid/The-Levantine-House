@@ -7,6 +7,7 @@ import storageRouter from "./storage";
 import pushTokensRouter from "./push-tokens";
 import bannersRouter from "./banners";
 import revenueRouter from "./revenue";
+import smsRouter from "./sms";
 
 const router: IRouter = Router();
 
@@ -18,5 +19,6 @@ router.use(storageRouter);
 router.use(pushTokensRouter);
 router.use(bannersRouter);
 router.use(revenueRouter);
+router.use(smsRouter);
 
 export default router;

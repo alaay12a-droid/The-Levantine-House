@@ -225,6 +225,13 @@ export default function AdminMenuScreen() {
   const { banners: allBanners, refresh: refreshBanners } = useBanners();
   const { data: revenueData, loading: revenueLoading, refresh: refreshRevenue } = useRevenue();
   const [revenueView, setRevenueView] = useState<"daily" | "monthly">("daily");
+
+  // SMS OTP settings
+  const [smsEnabled, setSmsEnabled] = useState(false);
+  const [smsHasKey, setSmsHasKey] = useState(false);
+  const [smsApiKey, setSmsApiKey] = useState("");
+  const [smsSender, setSmsSender] = useState("روابي المندي");
+  const [smsLoading, setSmsLoading] = useState(false);
   const [bannerTitle, setBannerTitle] = useState("");
   const [bannerImageUrl, setBannerImageUrl] = useState("");
   const [bannerUploading, setBannerUploading] = useState(false);
@@ -232,6 +239,16 @@ export default function AdminMenuScreen() {
 
   useEffect(() => { refreshBanners(); }, [refreshBanners]);
   useEffect(() => { if (activeTab === "revenue") refreshRevenue(); }, [activeTab, refreshRevenue]);
+
+  const loadSmsSettings = useCallback(async () => {
+    try {
+      const r = await apiGet<{ enabled: boolean; hasApiKey: boolean; sender: string }>("/sms-settings");
+      setSmsEnabled(r.enabled);
+      setSmsHasKey(r.hasApiKey);
+      setSmsSender(r.sender ?? "روابي المندي");
+    } catch {}
+  }, []);
+  useEffect(() => { if (activeTab === "settings") loadSmsSettings(); }, [activeTab, loadSmsSettings]);
 
   const [dcCode, setDcCode] = useState("");
   const [dcType, setDcType] = useState<"percentage" | "fixed">("percentage");
@@ -1390,6 +1407,87 @@ export default function AdminMenuScreen() {
               style={{ paddingVertical: 13, borderRadius: 12, alignItems: "center", backgroundColor: colors.gold }}
             >
               <Text style={{ color: "#1A0A00", fontFamily: F.bold, fontSize: 14 }}>حفظ الكود</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* SMS OTP Settings */}
+          <Text style={{ color: colors.gold, fontFamily: F.extra, fontSize: 16, textAlign: "right", marginTop: 8 }}>
+            📱 التحقق برسالة SMS
+          </Text>
+
+          <View style={{ backgroundColor: colors.card, borderRadius: 14, padding: 16, gap: 14, borderWidth: 1, borderColor: colors.border }}>
+            {/* Enable toggle */}
+            <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center" }}>
+              <Text style={{ color: colors.foreground, fontFamily: F.semi, fontSize: 14 }}>
+                تفعيل التحقق بالرسائل
+              </Text>
+              <Switch
+                value={smsEnabled}
+                onValueChange={async (v) => {
+                  setSmsEnabled(v);
+                  try { await apiPut("/sms-settings", { enabled: v }); } catch {}
+                }}
+                trackColor={{ false: "#3A1A1A", true: "#1A4A2A" }}
+                thumbColor={smsEnabled ? "#4CAF50" : "#E57373"}
+              />
+            </View>
+
+            <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12, textAlign: "right" }}>
+              {smsEnabled
+                ? "✅ مفعّل — العميل سيستقبل رمز تحقق عند الطلب"
+                : "❌ موقوف — الطلبات تكمل بدون تحقق"}
+            </Text>
+
+            <View style={{ height: 1, backgroundColor: colors.border }} />
+
+            {/* Sender name */}
+            <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 13, textAlign: "right" }}>اسم المرسل (Sender ID)</Text>
+            <TextInput
+              value={smsSender}
+              onChangeText={setSmsSender}
+              placeholder="روابي المندي"
+              placeholderTextColor={colors.mutedForeground}
+              style={{ backgroundColor: colors.secondary, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, color: colors.foreground, fontFamily: F.regular, textAlign: "right", borderWidth: 1, borderColor: colors.border }}
+            />
+
+            {/* API Key */}
+            <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 13, textAlign: "right" }}>
+              API Key من مسجات{smsHasKey ? " ✅ (محفوظ)" : " (لم يُضَف بعد)"}
+            </Text>
+            <TextInput
+              value={smsApiKey}
+              onChangeText={setSmsApiKey}
+              placeholder={smsHasKey ? "اتركه فارغاً إذا ما تريد تغييره" : "أدخل: اسم_المستخدم:مفتاح_API"}
+              placeholderTextColor={colors.mutedForeground}
+              secureTextEntry
+              style={{ backgroundColor: colors.secondary, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, color: colors.foreground, fontFamily: F.regular, textAlign: "right", borderWidth: 1, borderColor: colors.border }}
+            />
+            <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11, textAlign: "right" }}>
+              💡 أدخل بالصيغة: username:apiKey (مثال: rawabi:abc123xyz)
+            </Text>
+
+            <TouchableOpacity
+              onPress={async () => {
+                setSmsLoading(true);
+                try {
+                  const body: Record<string, unknown> = { sender: smsSender };
+                  if (smsApiKey.trim()) body.apiKey = smsApiKey.trim();
+                  await apiPut("/sms-settings", body);
+                  setSmsApiKey("");
+                  await loadSmsSettings();
+                  Alert.alert("تم", "تم حفظ إعدادات الرسائل");
+                } catch {
+                  Alert.alert("خطأ", "تعذّر حفظ الإعدادات");
+                } finally {
+                  setSmsLoading(false);
+                }
+              }}
+              style={{ paddingVertical: 12, borderRadius: 12, alignItems: "center", backgroundColor: colors.gold }}
+            >
+              {smsLoading
+                ? <ActivityIndicator color="#1A0A00" />
+                : <Text style={{ color: "#1A0A00", fontFamily: F.bold, fontSize: 14 }}>حفظ إعدادات الرسائل</Text>
+              }
             </TouchableOpacity>
           </View>
 
