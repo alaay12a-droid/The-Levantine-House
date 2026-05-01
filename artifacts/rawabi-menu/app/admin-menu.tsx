@@ -27,6 +27,7 @@ import { loadPins, savePins, isMasterCode, type Pins } from "@/hooks/usePins";
 import { usePaymentSettings } from "@/hooks/usePaymentSettings";
 import { useDiscountCodes, type DiscountCode } from "@/hooks/useDiscountCodes";
 import { useBanners, type ApiBanner } from "@/hooks/useBanners";
+import { useRevenue } from "@/hooks/useRevenue";
 import { apiGet, apiPost, apiPut, apiDelete, API_BASE } from "@/constants/api";
 
 const F = {
@@ -217,17 +218,20 @@ export default function AdminMenuScreen() {
     loadPins().then((p) => { setPins(p); setPinsLoaded(true); });
   }, []);
 
-  const [activeTab, setActiveTab] = useState<"menu" | "occasions" | "stock" | "settings" | "banners">("menu");
+  const [activeTab, setActiveTab] = useState<"menu" | "occasions" | "stock" | "settings" | "banners" | "revenue">("menu");
   const { config: tabConfig, update: updateTabConfig } = useTabConfig();
   const { settings: paymentSettings, saveSettings: savePaymentSettings } = usePaymentSettings();
   const { codes: discountCodes, addCode, updateCode, deleteCode } = useDiscountCodes();
   const { banners: allBanners, refresh: refreshBanners } = useBanners();
+  const { data: revenueData, loading: revenueLoading, refresh: refreshRevenue } = useRevenue();
+  const [revenueView, setRevenueView] = useState<"daily" | "monthly">("daily");
   const [bannerTitle, setBannerTitle] = useState("");
   const [bannerImageUrl, setBannerImageUrl] = useState("");
   const [bannerUploading, setBannerUploading] = useState(false);
   const [bannerLoading, setBannerLoading] = useState<string | null>(null);
 
   useEffect(() => { refreshBanners(); }, [refreshBanners]);
+  useEffect(() => { if (activeTab === "revenue") refreshRevenue(); }, [activeTab, refreshRevenue]);
 
   const [dcCode, setDcCode] = useState("");
   const [dcType, setDcType] = useState<"percentage" | "fixed">("percentage");
@@ -649,6 +653,12 @@ export default function AdminMenuScreen() {
           >
             <Text style={[styles.tabBtnText, { color: activeTab === "banners" ? colors.gold : colors.mutedForeground, fontFamily: F.bold }]}>🖼️ البانر</Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setActiveTab("revenue")}
+            style={[styles.tabBtn, { backgroundColor: activeTab === "revenue" ? "#0A2A1A" : colors.secondary, borderWidth: 1, borderColor: activeTab === "revenue" ? "#4CAF50" : "transparent" }]}
+          >
+            <Text style={[styles.tabBtnText, { color: activeTab === "revenue" ? "#4CAF50" : colors.mutedForeground, fontFamily: F.bold }]}>📊 الإيرادات</Text>
+          </TouchableOpacity>
         </ScrollView>
         <TouchableOpacity
           onPress={
@@ -656,10 +666,10 @@ export default function AdminMenuScreen() {
             : activeTab === "occasions" ? () => { setOccName(""); setOccDesc(""); setOccImageUrl(""); setShowAddOccasionModal(true); }
             : undefined
           }
-          style={[styles.iconBtn, { backgroundColor: (activeTab === "stock" || activeTab === "settings" || activeTab === "banners") ? colors.secondary : colors.gold, opacity: (activeTab === "stock" || activeTab === "settings" || activeTab === "banners") ? 0.3 : 1 }]}
-          disabled={activeTab === "stock" || activeTab === "settings" || activeTab === "banners"}
+          style={[styles.iconBtn, { backgroundColor: (activeTab === "stock" || activeTab === "settings" || activeTab === "banners" || activeTab === "revenue") ? colors.secondary : colors.gold, opacity: (activeTab === "stock" || activeTab === "settings" || activeTab === "banners" || activeTab === "revenue") ? 0.3 : 1 }]}
+          disabled={activeTab === "stock" || activeTab === "settings" || activeTab === "banners" || activeTab === "revenue"}
         >
-          <Feather name="plus" size={20} color={(activeTab === "stock" || activeTab === "settings" || activeTab === "banners") ? colors.mutedForeground : "#fff"} />
+          <Feather name="plus" size={20} color={(activeTab === "stock" || activeTab === "settings" || activeTab === "banners" || activeTab === "revenue") ? colors.mutedForeground : "#fff"} />
         </TouchableOpacity>
       </View>
 
@@ -1501,6 +1511,119 @@ export default function AdminMenuScreen() {
               </View>
             </View>
           ))}
+        </ScrollView>
+      )}
+
+      {/* ── Revenue Tab ── */}
+      {activeTab === "revenue" && (
+        <ScrollView contentContainerStyle={{ padding: 16, gap: 16 }}>
+          {/* Refresh */}
+          <TouchableOpacity
+            onPress={refreshRevenue}
+            style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8, alignSelf: "flex-start", backgroundColor: colors.secondary, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10 }}
+          >
+            <Feather name="refresh-cw" size={16} color={colors.gold} />
+            <Text style={{ color: colors.gold, fontFamily: F.bold, fontSize: 13 }}>تحديث</Text>
+          </TouchableOpacity>
+
+          {revenueLoading ? (
+            <ActivityIndicator color={colors.gold} style={{ marginTop: 40 }} />
+          ) : !revenueData ? (
+            <Text style={{ color: colors.mutedForeground, textAlign: "center", marginTop: 40, fontFamily: F.regular }}>لا توجد بيانات</Text>
+          ) : (
+            <>
+              {/* Summary Cards */}
+              {(
+                [
+                  { label: "اليوم", data: revenueData.today, accent: "#FFD700" },
+                  { label: "هذا الشهر", data: revenueData.month, accent: "#82B1FF" },
+                  { label: "هذه السنة", data: revenueData.year, accent: "#A5D6A7" },
+                ] as const
+              ).map(({ label, data: d, accent }) => (
+                <View
+                  key={label}
+                  style={{ backgroundColor: colors.card, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: accent + "44" }}
+                >
+                  <Text style={{ color: accent, fontFamily: F.bold, fontSize: 15, textAlign: "right", marginBottom: 12 }}>
+                    📅 {label}
+                  </Text>
+                  <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", marginBottom: 8 }}>
+                    <View style={{ alignItems: "flex-end", gap: 4 }}>
+                      <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }}>الإجمالي</Text>
+                      <Text style={{ color: accent, fontFamily: F.bold, fontSize: 20 }}>{d.totalRevenue.toFixed(2)} ر.س</Text>
+                    </View>
+                    <View style={{ alignItems: "flex-end", gap: 4 }}>
+                      <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }}>الطلبات</Text>
+                      <Text style={{ color: colors.foreground, fontFamily: F.bold, fontSize: 20 }}>{d.orderCount}</Text>
+                    </View>
+                  </View>
+                  <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 8 }} />
+                  <View style={{ flexDirection: "row-reverse", justifyContent: "space-between" }}>
+                    <View style={{ alignItems: "flex-end", gap: 2 }}>
+                      <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }}>🍽️ الأصناف</Text>
+                      <Text style={{ color: "#A5D6A7", fontFamily: F.semi, fontSize: 14 }}>{d.itemsRevenue.toFixed(2)} ر.س</Text>
+                    </View>
+                    <View style={{ alignItems: "flex-end", gap: 2 }}>
+                      <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }}>🚗 التوصيل</Text>
+                      <Text style={{ color: "#82B1FF", fontFamily: F.semi, fontSize: 14 }}>{d.deliveryRevenue.toFixed(2)} ر.س</Text>
+                    </View>
+                  </View>
+                </View>
+              ))}
+
+              {/* View toggle */}
+              <View style={{ flexDirection: "row-reverse", gap: 8 }}>
+                {(["daily", "monthly"] as const).map((v) => (
+                  <TouchableOpacity
+                    key={v}
+                    onPress={() => setRevenueView(v)}
+                    style={{
+                      flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: "center",
+                      backgroundColor: revenueView === v ? colors.gold : colors.secondary,
+                      borderWidth: 1, borderColor: revenueView === v ? colors.gold : colors.border,
+                    }}
+                  >
+                    <Text style={{ color: revenueView === v ? "#1a1a1a" : colors.mutedForeground, fontFamily: F.bold, fontSize: 13 }}>
+                      {v === "daily" ? "يومي (آخر 30 يوم)" : "شهري (هذه السنة)"}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* Breakdown Table */}
+              <View style={{ backgroundColor: colors.card, borderRadius: 16, overflow: "hidden", borderWidth: 1, borderColor: colors.border }}>
+                {/* Header */}
+                <View style={{ flexDirection: "row-reverse", backgroundColor: colors.secondary, paddingVertical: 10, paddingHorizontal: 12, gap: 4 }}>
+                  {["التاريخ","الإجمالي","الأصناف","التوصيل","الطلبات"].map((h) => (
+                    <Text key={h} style={{ flex: h === "التاريخ" ? 1.4 : 1, color: colors.gold, fontFamily: F.bold, fontSize: 11, textAlign: "center" }}>{h}</Text>
+                  ))}
+                </View>
+                {(revenueView === "daily" ? revenueData.dailyBreakdown : revenueData.monthlyBreakdown).map((row, i) => {
+                  const isDay = revenueView === "daily";
+                  const label = isDay ? (row as { date: string }).date : (row as { month: string }).month;
+                  const isEven = i % 2 === 0;
+                  const hasData = row.total > 0;
+                  return (
+                    <View
+                      key={i}
+                      style={{
+                        flexDirection: "row-reverse",
+                        paddingVertical: 9, paddingHorizontal: 12, gap: 4,
+                        backgroundColor: isEven ? colors.card : colors.secondary + "88",
+                        borderTopWidth: 1, borderTopColor: colors.border + "55",
+                      }}
+                    >
+                      <Text style={{ flex: 1.4, color: hasData ? colors.foreground : colors.mutedForeground, fontFamily: F.semi, fontSize: 11, textAlign: "center" }}>{label}</Text>
+                      <Text style={{ flex: 1, color: hasData ? "#FFD700" : colors.mutedForeground, fontFamily: F.bold, fontSize: 11, textAlign: "center" }}>{row.total > 0 ? row.total.toFixed(1) : "—"}</Text>
+                      <Text style={{ flex: 1, color: hasData ? "#A5D6A7" : colors.mutedForeground, fontFamily: F.semi, fontSize: 11, textAlign: "center" }}>{row.items > 0 ? row.items.toFixed(1) : "—"}</Text>
+                      <Text style={{ flex: 1, color: hasData ? "#82B1FF" : colors.mutedForeground, fontFamily: F.semi, fontSize: 11, textAlign: "center" }}>{row.delivery > 0 ? row.delivery.toFixed(1) : "—"}</Text>
+                      <Text style={{ flex: 1, color: hasData ? colors.foreground : colors.mutedForeground, fontFamily: F.semi, fontSize: 11, textAlign: "center" }}>{row.orders > 0 ? row.orders : "—"}</Text>
+                    </View>
+                  );
+                })}
+              </View>
+            </>
+          )}
         </ScrollView>
       )}
 

@@ -19,6 +19,7 @@ const createOrderSchema = z.object({
     })
   ).min(1),
   totalPrice: z.number().positive(),
+  deliveryFee: z.number().min(0).default(0),
   paymentMethod: z.enum(["cash", "moyasar"]).default("cash"),
   notes: z.string().nullable().optional(),
   customerPushToken: z.string().nullable().optional(),
@@ -53,6 +54,7 @@ router.post("/orders", async (req, res) => {
     customerAddress: data.customerAddress ?? null,
     items: data.items,
     totalPrice: Math.round(data.totalPrice * 100),
+    deliveryFee: Math.round((data.deliveryFee ?? 0) * 100),
     paymentMethod: data.paymentMethod,
     notes: data.notes ?? null,
     status: "pending",

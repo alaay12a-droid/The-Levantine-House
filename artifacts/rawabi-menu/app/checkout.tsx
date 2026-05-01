@@ -134,6 +134,7 @@ export default function CheckoutScreen() {
           quantity: ci.quantity,
         })),
         totalPrice: grandTotal,
+        deliveryFee,
         paymentMethod,
         notes: [
           paymentSettings.deliveryEnabled

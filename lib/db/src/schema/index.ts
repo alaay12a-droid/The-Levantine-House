@@ -17,6 +17,7 @@ export const ordersTable = pgTable("orders", {
   customerAddress: text("customer_address"),
   items: jsonb("items").notNull(),
   totalPrice: integer("total_price").notNull(),
+  deliveryFee: integer("delivery_fee").notNull().default(0),
   status: orderStatusEnum("status").default("pending").notNull(),
   paymentMethod: text("payment_method").default("cash").notNull(),
   notes: text("notes"),
