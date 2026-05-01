@@ -245,10 +245,108 @@ export default function CashierScreen() {
     };
   }, [authenticated, fetchOrders]);
 
+  const [printOrder, setPrintOrder] = useState<Order | null>(null);
+
+  const handlePrint = (order: Order) => {
+    if (Platform.OS !== "web" || typeof window === "undefined") return;
+    const date = new Date(order.createdAt);
+    const dateStr = date.toLocaleDateString("ar-SA", { day: "numeric", month: "long", year: "numeric" });
+    const timeStr = date.toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" });
+    const itemsRows = order.items.map((item) => {
+      const lineTotal = (item.price * item.quantity);
+      const lineTotalStr = lineTotal % 1 === 0 ? String(lineTotal) : lineTotal.toFixed(2);
+      return `
+        <tr>
+          <td style="padding:4px 8px;text-align:left;">${lineTotalStr} ر.س</td>
+          <td style="padding:4px 8px;text-align:right;">${item.name}</td>
+          <td style="padding:4px 8px;text-align:center;">${item.quantity}</td>
+        </tr>`;
+    }).join("");
+    const total = (order.totalPrice / 100).toFixed(2);
+    const payMethod = order.paymentMethod === "cash" ? "نقدي" : "إلكتروني";
+    const html = `<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>إيصال الطلب</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap');
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'Cairo',sans-serif; background:#fff; color:#111; direction:rtl; }
+  .receipt { max-width:80mm; margin:0 auto; padding:10mm 5mm; }
+  .logo { text-align:center; margin-bottom:8px; }
+  .logo h1 { font-size:20px; font-weight:800; color:#8B4513; }
+  .logo p { font-size:12px; color:#666; }
+  .divider { border:none; border-top:1px dashed #bbb; margin:8px 0; }
+  .meta { font-size:12px; margin-bottom:6px; }
+  .meta span { color:#555; }
+  .daily-num { text-align:center; font-size:18px; font-weight:800; margin:6px 0; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  thead th { border-bottom:1px solid #ccc; padding:4px 8px; font-weight:700; }
+  .total-row { font-size:15px; font-weight:800; }
+  .total-row td { padding:8px; border-top:1px solid #aaa; }
+  .footer { text-align:center; font-size:11px; color:#888; margin-top:10px; }
+  @media print {
+    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    button { display:none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="receipt">
+  <div class="logo">
+    <h1>🍗 روابي المندي</h1>
+    <p>تبوك - المملكة العربية السعودية</p>
+  </div>
+  <hr class="divider"/>
+  <div class="daily-num">طلب اليوم #${order.dailyNumber}</div>
+  <hr class="divider"/>
+  <div class="meta"><span>الاسم:</span> ${order.customerName}</div>
+  <div class="meta"><span>الجوال:</span> ${order.customerPhone}</div>
+  ${order.customerAddress ? `<div class="meta"><span>العنوان:</span> ${order.customerAddress.startsWith("https://") ? "موقع GPS" : order.customerAddress}</div>` : ""}
+  <div class="meta"><span>التاريخ:</span> ${dateStr}</div>
+  <div class="meta"><span>الوقت:</span> ${timeStr}</div>
+  <div class="meta"><span>الدفع:</span> ${payMethod}</div>
+  ${order.notes ? `<div class="meta"><span>ملاحظات:</span> ${order.notes}</div>` : ""}
+  <hr class="divider"/>
+  <table>
+    <thead>
+      <tr>
+        <th style="text-align:left;">الإجمالي</th>
+        <th style="text-align:right;">الصنف</th>
+        <th style="text-align:center;">الكمية</th>
+      </tr>
+    </thead>
+    <tbody>${itemsRows}</tbody>
+    <tfoot>
+      <tr class="total-row">
+        <td colspan="3" style="text-align:center;">الإجمالي: ${total} ر.س</td>
+      </tr>
+    </tfoot>
+  </table>
+  <hr class="divider"/>
+  <div class="footer">شكراً لاختيارك روابي المندي 🍗<br/>نتمنى لك وجبة شهية!</div>
+</div>
+<script>
+  window.onload = function() { window.print(); };
+</script>
+</body>
+</html>`;
+    const win = window.open("", "_blank", "width=400,height=600");
+    if (win) {
+      win.document.write(html);
+      win.document.close();
+    }
+  };
+
   const handleUpdateStatus = async (order: Order, newStatus: OrderStatus) => {
     try {
       const updated = await apiPatch<Order>(`/orders/${order.id}/status`, { status: newStatus });
       setOrders((prev) => prev.map((o) => (o.id === updated.id ? updated : o)));
+      if (newStatus === "preparing") {
+        setPrintOrder(updated);
+      }
     } catch {
       Alert.alert("خطأ", "تعذر تحديث الحالة");
     }
@@ -467,11 +565,97 @@ export default function CashierScreen() {
                     <Text style={[styles.actionBtnText, { fontFamily: F.bold }]}>{nextLabel}</Text>
                   </TouchableOpacity>
                 )}
+
+                {Platform.OS === "web" && (
+                  <TouchableOpacity
+                    onPress={() => handlePrint(order)}
+                    style={[styles.actionBtn, { backgroundColor: "#1A2A3A", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }]}
+                    activeOpacity={0.8}
+                  >
+                    <Feather name="printer" size={15} color="#64B5F6" />
+                    <Text style={[styles.actionBtnText, { fontFamily: F.bold, color: "#64B5F6" }]}>طباعة الإيصال</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             );
           })}
         </ScrollView>
       )}
+
+      {/* Print Receipt Modal */}
+      <Modal
+        visible={!!printOrder}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPrintOrder(null)}
+      >
+        <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#000000AA", padding: 20 }}>
+          <View style={{ backgroundColor: colors.card, borderRadius: 20, padding: 22, width: "100%", maxWidth: 420, gap: 16, borderWidth: 1, borderColor: colors.border }}>
+            {/* Header */}
+            <View style={{ alignItems: "center", gap: 6 }}>
+              <Text style={{ fontSize: 28 }}>🖨️</Text>
+              <Text style={{ color: colors.foreground, fontFamily: F.extra, fontSize: 18, textAlign: "center" }}>
+                طباعة الإيصال؟
+              </Text>
+              <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 13, textAlign: "center" }}>
+                تم قبول الطلب — هل تريد طباعة إيصال للزبون؟
+              </Text>
+            </View>
+
+            {/* Order Summary */}
+            {printOrder && (
+              <View style={{ backgroundColor: colors.background, borderRadius: 12, padding: 14, gap: 6, borderWidth: 1, borderColor: colors.border }}>
+                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                  <Text style={{ color: colors.gold, fontFamily: F.extra, fontSize: 15 }}>
+                    طلب اليوم #{printOrder.dailyNumber}
+                  </Text>
+                  <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12 }}>
+                    {new Date(printOrder.createdAt).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" })}
+                  </Text>
+                </View>
+                <Text style={{ color: colors.foreground, fontFamily: F.bold, fontSize: 14, textAlign: "right" }}>
+                  {printOrder.customerName} — {printOrder.customerPhone}
+                </Text>
+                {printOrder.items.map((item, i) => (
+                  <View key={i} style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                    <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12 }}>
+                      {(item.price * item.quantity) % 1 === 0 ? (item.price * item.quantity) : (item.price * item.quantity).toFixed(2)} ر.س
+                    </Text>
+                    <Text style={{ color: colors.foreground, fontFamily: F.semi, fontSize: 12 }}>
+                      {item.name} × {item.quantity}
+                    </Text>
+                  </View>
+                ))}
+                <View style={{ borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 6, flexDirection: "row", justifyContent: "space-between" }}>
+                  <Text style={{ color: colors.gold, fontFamily: F.extra, fontSize: 14 }}>
+                    {(printOrder.totalPrice / 100).toFixed(2)} ر.س
+                  </Text>
+                  <Text style={{ color: colors.mutedForeground, fontFamily: F.bold, fontSize: 14 }}>المجموع</Text>
+                </View>
+              </View>
+            )}
+
+            {/* Buttons */}
+            <View style={{ flexDirection: "row", gap: 10 }}>
+              <TouchableOpacity
+                onPress={() => { setPrintOrder(null); }}
+                style={{ flex: 1, alignItems: "center", paddingVertical: 14, borderRadius: 14, borderWidth: 1, borderColor: colors.border }}
+                activeOpacity={0.7}
+              >
+                <Text style={{ color: colors.mutedForeground, fontFamily: F.bold, fontSize: 14 }}>تخطي</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => { if (printOrder) handlePrint(printOrder); setPrintOrder(null); }}
+                style={{ flex: 2, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 14, borderRadius: 14, backgroundColor: colors.gold }}
+                activeOpacity={0.8}
+              >
+                <Feather name="printer" size={18} color="#1A0A00" />
+                <Text style={{ color: "#1A0A00", fontFamily: F.extra, fontSize: 15 }}>طباعة الإيصال</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Customer Link Modal */}
       <Modal
