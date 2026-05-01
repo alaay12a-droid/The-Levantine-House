@@ -54,6 +54,7 @@ export default function CheckoutScreen() {
   const { settings: paymentSettings } = usePaymentSettings();
 
   const [notes, setNotes] = useState("");
+  const [orderType, setOrderType] = useState<"delivery" | "pickup">("delivery");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
   const [loading, setLoading] = useState(false);
   const [locationUrl, setLocationUrl] = useState<string | null>(null);
@@ -98,7 +99,9 @@ export default function CheckoutScreen() {
   const topInset = Platform.OS === "web" ? 67 : insets.top;
   const bottomInset = Platform.OS === "web" ? 34 : insets.bottom;
 
-  const deliveryFee = paymentSettings.deliveryFee ?? 0;
+  const deliveryFee = (paymentSettings.deliveryEnabled && orderType === "delivery")
+    ? (paymentSettings.deliveryFee ?? 0)
+    : 0;
   const grandTotal = totalPrice + deliveryFee;
   const totalStr = totalPrice % 1 === 0 ? totalPrice.toString() : totalPrice.toFixed(2);
   const grandTotalStr = grandTotal % 1 === 0 ? grandTotal.toString() : grandTotal.toFixed(2);
@@ -132,7 +135,12 @@ export default function CheckoutScreen() {
         })),
         totalPrice: grandTotal,
         paymentMethod,
-        notes: notes.trim() || null,
+        notes: [
+          paymentSettings.deliveryEnabled
+            ? (orderType === "delivery" ? "🚗 توصيل" : "🏪 استلام من الفرع")
+            : null,
+          notes.trim() || null,
+        ].filter(Boolean).join(" | ") || null,
         customerPushToken: customerPushToken ?? null,
       });
 
@@ -207,7 +215,49 @@ export default function CheckoutScreen() {
           )}
         </View>
 
+        {/* Delivery / Pickup Selector */}
+        {paymentSettings.deliveryEnabled && (
+          <View style={[styles.section, { backgroundColor: colors.card, borderColor: orderType === "delivery" ? colors.gold : "#2A5A2A" }]}>
+            <Text style={[styles.sectionTitle, { color: colors.gold, fontFamily: F.bold }]}>
+              نوع الطلب
+            </Text>
+            <View style={{ flexDirection: "row-reverse", gap: 10 }}>
+              <TouchableOpacity
+                onPress={() => setOrderType("delivery")}
+                activeOpacity={0.8}
+                style={{
+                  flex: 1, borderRadius: 12, borderWidth: 2, paddingVertical: 14, alignItems: "center", gap: 6,
+                  borderColor: orderType === "delivery" ? colors.gold : colors.border,
+                  backgroundColor: orderType === "delivery" ? "#2A1A05" : colors.secondary,
+                }}
+              >
+                <Text style={{ fontSize: 26 }}>🚗</Text>
+                <Text style={{ color: orderType === "delivery" ? colors.gold : colors.foreground, fontFamily: F.bold, fontSize: 14 }}>توصيل</Text>
+                {paymentSettings.deliveryFee > 0 ? (
+                  <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }}>+{paymentSettings.deliveryFee} ر.س</Text>
+                ) : (
+                  <Text style={{ color: "#4CAF50", fontFamily: F.semi, fontSize: 11 }}>مجاني</Text>
+                )}
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setOrderType("pickup")}
+                activeOpacity={0.8}
+                style={{
+                  flex: 1, borderRadius: 12, borderWidth: 2, paddingVertical: 14, alignItems: "center", gap: 6,
+                  borderColor: orderType === "pickup" ? "#4CAF50" : colors.border,
+                  backgroundColor: orderType === "pickup" ? "#0A2A0A" : colors.secondary,
+                }}
+              >
+                <Text style={{ fontSize: 26 }}>🏪</Text>
+                <Text style={{ color: orderType === "pickup" ? "#4CAF50" : colors.foreground, fontFamily: F.bold, fontSize: 14 }}>استلام من الفرع</Text>
+                <Text style={{ color: "#4CAF50", fontFamily: F.semi, fontSize: 11 }}>بدون رسوم</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
         {/* Location */}
+        {(!paymentSettings.deliveryEnabled || orderType === "delivery") && (
         <View style={[styles.section, { backgroundColor: colors.card, borderColor: locationUrl ? "#2A5A2A" : colors.border }]}>
           <Text style={[styles.sectionTitle, { color: colors.gold, fontFamily: F.bold }]}>
             📍 الموقع (اختياري)
@@ -259,6 +309,7 @@ export default function CheckoutScreen() {
             سيصل رابط موقعك للكاشير مع طلبك
           </Text>
         </View>
+        )}
 
         {/* Order Summary */}
         <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -288,20 +339,22 @@ export default function CheckoutScreen() {
               المجموع الفرعي ({totalItems} صنف)
             </Text>
           </View>
-          <View style={styles.orderRow}>
-            {deliveryFee > 0 ? (
-              <Text style={[styles.orderPrice, { color: colors.gold, fontFamily: F.bold }]}>
-                {deliveryFeeStr} ر.س
+          {paymentSettings.deliveryEnabled && (
+            <View style={styles.orderRow}>
+              {deliveryFee > 0 ? (
+                <Text style={[styles.orderPrice, { color: colors.gold, fontFamily: F.bold }]}>
+                  {deliveryFeeStr} ر.س
+                </Text>
+              ) : (
+                <Text style={[styles.orderPrice, { color: "#4CAF50", fontFamily: F.bold }]}>
+                  مجاني
+                </Text>
+              )}
+              <Text style={[styles.orderName, { color: colors.foreground, fontFamily: F.semi }]}>
+                {orderType === "delivery" ? "🚗 رسوم التوصيل" : "🏪 استلام من الفرع"}
               </Text>
-            ) : (
-              <Text style={[styles.orderPrice, { color: "#4CAF50", fontFamily: F.bold }]}>
-                مجاني
-              </Text>
-            )}
-            <Text style={[styles.orderName, { color: colors.foreground, fontFamily: F.semi }]}>
-              🚗 رسوم التوصيل
-            </Text>
-          </View>
+            </View>
+          )}
           <View style={[styles.divider, { backgroundColor: colors.gold, opacity: 0.4 }]} />
           <View style={styles.orderRow}>
             <Text style={[styles.totalPrice, { color: colors.gold, fontFamily: F.extra }]}>
@@ -428,7 +481,13 @@ export default function CheckoutScreen() {
             {grandTotalStr} ر.س
           </Text>
           <Text style={[styles.bottomLabel, { color: colors.mutedForeground, fontFamily: F.regular }]}>
-            الإجمالي{deliveryFee > 0 ? ` (شامل التوصيل ${deliveryFeeStr} ر.س)` : " (التوصيل مجاني)"}
+            {paymentSettings.deliveryEnabled
+              ? (orderType === "pickup"
+                ? "استلام من الفرع"
+                : deliveryFee > 0
+                  ? `شامل التوصيل ${deliveryFeeStr} ر.س`
+                  : "توصيل مجاني")
+              : "الإجمالي"}
           </Text>
         </View>
         <TouchableOpacity

@@ -8,6 +8,7 @@ export interface PaymentSettings {
   moyasarPublishableKey: string;
   moyasarApplePayIdentifier: string;
   deliveryFee: number;
+  deliveryEnabled: boolean;
 }
 
 const DEFAULT_SETTINGS: PaymentSettings = {
@@ -15,6 +16,7 @@ const DEFAULT_SETTINGS: PaymentSettings = {
   moyasarPublishableKey: "",
   moyasarApplePayIdentifier: "",
   deliveryFee: 0,
+  deliveryEnabled: false,
 };
 
 export function usePaymentSettings() {
