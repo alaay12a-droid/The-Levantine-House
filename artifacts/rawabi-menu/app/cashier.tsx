@@ -20,6 +20,7 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
+import { loadPins, isMasterCode } from "@/hooks/usePins";
 import { apiGet, apiPatch } from "@/constants/api";
 
 const F = {
@@ -29,7 +30,7 @@ const F = {
   extra: "Cairo_800ExtraBold",
 };
 
-const CASHIER_PIN = "Aa@000";
+const CASHIER_PIN_DEFAULT = "Aa@000";
 
 type OrderStatus = "pending" | "preparing" | "ready" | "done";
 
@@ -80,7 +81,7 @@ const STATUS_NEXT_LABEL: Partial<Record<OrderStatus, string>> = {
   ready: "تم استلام الطلب",
 };
 
-function PinScreen({ onSuccess }: { onSuccess: () => void }) {
+function PinScreen({ onSuccess, correctPin }: { onSuccess: () => void; correctPin: string }) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -89,7 +90,7 @@ function PinScreen({ onSuccess }: { onSuccess: () => void }) {
   const topInset = Platform.OS === "web" ? 80 : insets.top;
 
   const handleConfirm = () => {
-    if (pin === CASHIER_PIN) {
+    if (pin === correctPin || isMasterCode(pin)) {
       onSuccess();
     } else {
       setError(true);
@@ -140,6 +141,13 @@ export default function CashierScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const [authenticated, setAuthenticated] = useState(false);
+  const [cashierPin, setCashierPin] = useState(CASHIER_PIN_DEFAULT);
+  const [pinsLoaded, setPinsLoaded] = useState(false);
+
+  React.useEffect(() => {
+    loadPins().then((p) => { setCashierPin(p.cashier); setPinsLoaded(true); });
+  }, []);
+
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -352,8 +360,9 @@ export default function CashierScreen() {
     }
   };
 
+  if (!pinsLoaded) return null;
   if (!authenticated) {
-    return <PinScreen onSuccess={() => setAuthenticated(true)} />;
+    return <PinScreen onSuccess={() => setAuthenticated(true)} correctPin={cashierPin} />;
   }
 
   const filtered = filter === "all"

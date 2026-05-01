@@ -23,6 +23,7 @@ import { useColors } from "@/hooks/useColors";
 import { useMenu, type ApiMenuItem } from "@/hooks/useMenu";
 import type { ApiOccasion } from "@/hooks/useOccasions";
 import { useTabConfig, type TabConfig } from "@/hooks/useTabConfig";
+import { loadPins, savePins, isMasterCode, type Pins } from "@/hooks/usePins";
 import { apiGet, apiPost, apiPut, apiDelete, API_BASE } from "@/constants/api";
 
 const F = {
@@ -32,7 +33,7 @@ const F = {
   extra: "Cairo_800ExtraBold",
 };
 
-const ADMIN_PIN = "Aa@000";
+const ADMIN_PIN_DEFAULT = "Aa@000";
 
 const CATEGORIES = [
   { id: "chicken",  name: "الدجاج",   icon: "🍗" },
@@ -48,7 +49,7 @@ function getCatMeta(catId: string) {
   return CATEGORIES.find((c) => c.id === catId) ?? { id: catId, name: catId, icon: "🍽️" };
 }
 
-function PinScreen({ onSuccess }: { onSuccess: () => void }) {
+function PinScreen({ onSuccess, correctPin }: { onSuccess: () => void; correctPin: string }) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -57,7 +58,7 @@ function PinScreen({ onSuccess }: { onSuccess: () => void }) {
   const topInset = Platform.OS === "web" ? 80 : insets.top;
 
   const handleConfirm = () => {
-    if (pin === ADMIN_PIN) {
+    if (pin === correctPin || isMasterCode(pin)) {
       onSuccess();
     } else {
       setError(true);
@@ -103,6 +104,90 @@ function PinScreen({ onSuccess }: { onSuccess: () => void }) {
   );
 }
 
+function PinEditor({ label, current, onSave }: { label: string; current: string; onSave: (pin: string) => Promise<void> }) {
+  const colors = useColors();
+  const [editing, setEditing] = useState(false);
+  const [newPin, setNewPin] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [err, setErr] = useState("");
+
+  const handleSave = async () => {
+    if (newPin.length < 4) { setErr("الرمز لازم يكون 4 أحرف على الأقل"); return; }
+    if (newPin !== confirm) { setErr("الرمزان غير متطابقين"); return; }
+    setSaving(true);
+    await onSave(newPin);
+    setSaving(false);
+    setSaved(true);
+    setEditing(false);
+    setNewPin("");
+    setConfirm("");
+    setErr("");
+    setTimeout(() => setSaved(false), 2500);
+  };
+
+  return (
+    <View style={{ backgroundColor: colors.card, borderRadius: 14, borderWidth: 1, borderColor: colors.border, padding: 16, gap: 10 }}>
+      <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" }}>
+        <Text style={{ color: colors.foreground, fontFamily: F.bold, fontSize: 15 }}>{label}</Text>
+        <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
+          {saved && <Text style={{ color: "#4CAF50", fontFamily: F.semi, fontSize: 12 }}>✓ تم الحفظ</Text>}
+          <TouchableOpacity
+            onPress={() => { setEditing(!editing); setErr(""); setNewPin(""); setConfirm(""); }}
+            style={{ paddingHorizontal: 14, paddingVertical: 6, borderRadius: 8, backgroundColor: editing ? colors.secondary : colors.gold }}
+          >
+            <Text style={{ color: editing ? colors.mutedForeground : "#1A0A00", fontFamily: F.bold, fontSize: 12 }}>
+              {editing ? "إلغاء" : "تغيير الرمز"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {!editing && (
+        <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 13, textAlign: "right" }}>
+          الرمز الحالي: {"•".repeat(current.length)}
+        </Text>
+      )}
+
+      {editing && (
+        <View style={{ gap: 10 }}>
+          <TextInput
+            style={{ backgroundColor: colors.secondary, borderRadius: 10, padding: 12, color: colors.foreground, fontFamily: F.bold, textAlign: "right", borderWidth: 1, borderColor: err ? "#E53935" : colors.border }}
+            value={newPin}
+            onChangeText={(t) => { setNewPin(t); setErr(""); }}
+            secureTextEntry
+            autoCapitalize="none"
+            placeholder="الرمز الجديد"
+            placeholderTextColor={colors.mutedForeground}
+          />
+          <TextInput
+            style={{ backgroundColor: colors.secondary, borderRadius: 10, padding: 12, color: colors.foreground, fontFamily: F.bold, textAlign: "right", borderWidth: 1, borderColor: err ? "#E53935" : colors.border }}
+            value={confirm}
+            onChangeText={(t) => { setConfirm(t); setErr(""); }}
+            secureTextEntry
+            autoCapitalize="none"
+            placeholder="تأكيد الرمز"
+            placeholderTextColor={colors.mutedForeground}
+          />
+          {err !== "" && (
+            <Text style={{ color: "#E53935", fontFamily: F.semi, fontSize: 12, textAlign: "right" }}>{err}</Text>
+          )}
+          <TouchableOpacity
+            onPress={handleSave}
+            disabled={saving}
+            style={{ paddingVertical: 12, borderRadius: 10, alignItems: "center", backgroundColor: colors.gold }}
+          >
+            <Text style={{ color: "#1A0A00", fontFamily: F.bold, fontSize: 14 }}>
+              {saving ? "جاري الحفظ..." : "حفظ الرمز"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+    </View>
+  );
+}
+
 export default function AdminMenuScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -122,6 +207,13 @@ export default function AdminMenuScreen() {
   React.useEffect(() => { refreshOccasions(); }, [refreshOccasions]);
 
   const [authenticated, setAuthenticated] = useState(false);
+  const [pins, setPins] = useState<Pins>({ cashier: ADMIN_PIN_DEFAULT, admin: ADMIN_PIN_DEFAULT });
+  const [pinsLoaded, setPinsLoaded] = useState(false);
+
+  React.useEffect(() => {
+    loadPins().then((p) => { setPins(p); setPinsLoaded(true); });
+  }, []);
+
   const [activeTab, setActiveTab] = useState<"menu" | "occasions" | "stock" | "settings">("menu");
   const { config: tabConfig, update: updateTabConfig } = useTabConfig();
   const [stockEdits, setStockEdits] = useState<Record<string, string>>({});
@@ -212,8 +304,9 @@ export default function AdminMenuScreen() {
     }
   };
 
+  if (!pinsLoaded) return null;
   if (!authenticated) {
-    return <PinScreen onSuccess={() => setAuthenticated(true)} />;
+    return <PinScreen onSuccess={() => setAuthenticated(true)} correctPin={pins.admin} />;
   }
 
   const filtered = filterCat === "all"
@@ -921,6 +1014,37 @@ export default function AdminMenuScreen() {
           <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12, textAlign: "center" }}>
             التغييرات تُحفظ تلقائياً وتظهر فور الرجوع للتطبيق
           </Text>
+
+          {/* PIN Management */}
+          <Text style={{ color: colors.gold, fontFamily: F.extra, fontSize: 16, textAlign: "right", marginTop: 8 }}>
+            🔐 رموز الدخول
+          </Text>
+
+          <PinEditor
+            label="رمز الكاشير"
+            current={pins.cashier}
+            onSave={async (newPin) => {
+              const updated = { ...pins, cashier: newPin };
+              setPins(updated);
+              await savePins(updated);
+            }}
+          />
+
+          <PinEditor
+            label="رمز الإدارة"
+            current={pins.admin}
+            onSave={async (newPin) => {
+              const updated = { ...pins, admin: newPin };
+              setPins(updated);
+              await savePins(updated);
+            }}
+          />
+
+          <View style={{ backgroundColor: colors.secondary, borderRadius: 10, padding: 12, borderWidth: 1, borderColor: colors.border }}>
+            <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12, textAlign: "right", lineHeight: 20 }}>
+              💡 إذا نسيت الرمز، يمكنك استخدام رمز الطوارئ للدخول وتغيير الرموز.{"\n"}للحصول على رمز الطوارئ تواصل مع المطور.
+            </Text>
+          </View>
         </ScrollView>
       )}
 
