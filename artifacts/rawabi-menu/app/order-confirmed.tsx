@@ -26,7 +26,9 @@ type OrderStatus = "pending" | "preparing" | "ready" | "done";
 
 interface Order {
   id: number;
+  dailyNumber: number;
   status: OrderStatus;
+  createdAt: string;
 }
 
 const POLL_INTERVAL = 5000;
@@ -152,6 +154,8 @@ export default function OrderConfirmedScreen() {
   const { orderId } = useLocalSearchParams<{ orderId: string }>();
 
   const [status, setStatus] = useState<OrderStatus>("pending");
+  const [dailyNumber, setDailyNumber] = useState<number>(0);
+  const [orderDate, setOrderDate] = useState<string>("");
   const topInset = Platform.OS === "web" ? 80 : insets.top;
   const bottomInset = Platform.OS === "web" ? 34 : insets.bottom;
 
@@ -160,6 +164,11 @@ export default function OrderConfirmedScreen() {
     try {
       const order = await apiGet<Order>(`/orders/${orderId}`);
       setStatus(order.status);
+      if (order.dailyNumber) setDailyNumber(order.dailyNumber);
+      if (order.createdAt) {
+        const d = new Date(order.createdAt);
+        setOrderDate(d.toLocaleDateString("ar-SA", { day: "numeric", month: "long", year: "numeric" }));
+      }
     } catch {
     }
   }, [orderId]);
@@ -194,9 +203,16 @@ export default function OrderConfirmedScreen() {
         <Text style={[styles.headerTitle, { color: colors.gold, fontFamily: F.extra }]}>
           تتبع طلبك
         </Text>
-        <Text style={[styles.headerSub, { color: colors.mutedForeground, fontFamily: F.regular }]}>
-          رقم الطلب: #{orderId}
-        </Text>
+        {dailyNumber > 0 && (
+          <Text style={[styles.headerDailyNum, { color: colors.gold, fontFamily: F.bold }]}>
+            طلب اليوم #{dailyNumber}
+          </Text>
+        )}
+        {orderDate ? (
+          <Text style={[styles.headerSub, { color: colors.mutedForeground, fontFamily: F.regular }]}>
+            {orderDate}
+          </Text>
+        ) : null}
       </View>
 
       <View style={styles.stepsRow}>
@@ -260,6 +276,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   headerTitle: { fontSize: 22 },
+  headerDailyNum: { fontSize: 17, marginTop: 2 },
   headerSub: { fontSize: 14 },
 
   stepsRow: {

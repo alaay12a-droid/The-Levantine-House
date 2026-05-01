@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, ordersTable, menuItemsTable } from "@workspace/db";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, gte, lt, count, and } from "drizzle-orm";
 import { z } from "zod";
 
 const router = Router();
@@ -29,7 +29,23 @@ router.post("/orders", async (req, res) => {
     return;
   }
   const data = parsed.data;
+
+  // Calculate today's order sequence number (resets at midnight, Saudi time UTC+3)
+  const nowUtc = new Date();
+  const offsetMs = 3 * 60 * 60 * 1000; // UTC+3
+  const nowLocal = new Date(nowUtc.getTime() + offsetMs);
+  const todayStart = new Date(Date.UTC(nowLocal.getUTCFullYear(), nowLocal.getUTCMonth(), nowLocal.getUTCDate()) - offsetMs);
+  const tomorrowStart = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
+
+  const [{ value: todayCount }] = await db
+    .select({ value: count() })
+    .from(ordersTable)
+    .where(and(gte(ordersTable.createdAt, todayStart), lt(ordersTable.createdAt, tomorrowStart)));
+
+  const dailyNumber = Number(todayCount) + 1;
+
   const [order] = await db.insert(ordersTable).values({
+    dailyNumber,
     customerName: data.customerName,
     customerPhone: data.customerPhone,
     customerAddress: data.customerAddress ?? null,

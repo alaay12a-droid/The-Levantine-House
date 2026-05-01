@@ -11,6 +11,7 @@ export const orderStatusEnum = pgEnum("order_status", [
 
 export const ordersTable = pgTable("orders", {
   id: serial("id").primaryKey(),
+  dailyNumber: integer("daily_number").notNull().default(0),
   customerName: text("customer_name").notNull(),
   customerPhone: text("customer_phone").notNull(),
   customerAddress: text("customer_address"),

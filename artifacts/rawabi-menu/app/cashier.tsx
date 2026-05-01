@@ -42,6 +42,7 @@ interface OrderItem {
 
 interface Order {
   id: number;
+  dailyNumber: number;
   customerName: string;
   customerPhone: string;
   customerAddress: string | null;
@@ -365,10 +366,9 @@ export default function CashierScreen() {
           {filtered.map((order) => {
             const nextStatus = STATUS_NEXT[order.status];
             const nextLabel = STATUS_NEXT_LABEL[order.status];
-            const time = new Date(order.createdAt).toLocaleTimeString("ar-SA", {
-              hour: "2-digit",
-              minute: "2-digit",
-            });
+            const orderDate = new Date(order.createdAt);
+            const time = orderDate.toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" });
+            const dateStr = orderDate.toLocaleDateString("ar-SA", { day: "numeric", month: "long", year: "numeric" });
             const total = (order.totalPrice / 100).toFixed(2);
             return (
               <View key={order.id} style={[styles.orderCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -379,12 +379,21 @@ export default function CashierScreen() {
                     </Text>
                   </View>
                   <View style={styles.orderMeta}>
-                    <Text style={[styles.orderId, { color: colors.gold, fontFamily: F.extra }]}>
-                      #{order.id}
-                    </Text>
-                    <Text style={[styles.orderTime, { color: colors.mutedForeground, fontFamily: F.regular }]}>
-                      {time}
-                    </Text>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                      <View style={[styles.dailyBadge, { backgroundColor: colors.gold + "22", borderColor: colors.gold }]}>
+                        <Text style={[styles.dailyNumber, { color: colors.gold, fontFamily: F.extra }]}>
+                          طلب اليوم #{order.dailyNumber}
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={{ alignItems: "flex-end", gap: 2 }}>
+                      <Text style={[styles.orderTime, { color: colors.mutedForeground, fontFamily: F.regular }]}>
+                        {time}
+                      </Text>
+                      <Text style={[styles.orderDate, { color: colors.mutedForeground, fontFamily: F.regular }]}>
+                        {dateStr}
+                      </Text>
+                    </View>
                   </View>
                 </View>
 
@@ -568,9 +577,17 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   statusText: { fontSize: 13 },
-  orderMeta: { alignItems: "flex-end", gap: 2 },
+  orderMeta: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", flex: 1 },
   orderId: { fontSize: 18 },
   orderTime: { fontSize: 12 },
+  orderDate: { fontSize: 11 },
+  dailyBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  dailyNumber: { fontSize: 14 },
   cardBody: { padding: 12, gap: 6 },
   customerRow: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 6 },
   customerName: { fontSize: 16 },
