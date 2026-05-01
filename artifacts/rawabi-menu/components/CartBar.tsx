@@ -27,7 +27,7 @@ export function CartBar() {
     <TouchableOpacity
       onPress={handlePress}
       activeOpacity={0.9}
-      style={[styles.fab, Platform.OS === "web" && { bottom: 40 }]}
+      style={[styles.fab, { bottom: Platform.OS === "web" ? 80 : 100 }]}
     >
       <View style={styles.iconWrap}>
         <Feather name="shopping-cart" size={22} color="#fff" />

@@ -17,10 +17,12 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as Location from "expo-location";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useColors } from "@/hooks/useColors";
 import { useCart } from "@/context/CartContext";
 import { useUser } from "@/context/UserContext";
 import { apiPost } from "@/constants/api";
+import { ORDERS_STORAGE_KEY, StoredOrder } from "./(tabs)/orders";
 
 const F = {
   regular: "Cairo_400Regular",
@@ -33,6 +35,7 @@ type PaymentMethod = "cash" | "moyasar";
 
 interface Order {
   id: number;
+  dailyNumber: number;
   status: string;
 }
 
@@ -120,6 +123,21 @@ export default function CheckoutScreen() {
         paymentMethod,
         notes: notes.trim() || null,
       });
+
+      const storedOrder: StoredOrder = {
+        id: order.id,
+        dailyNumber: order.dailyNumber,
+        createdAt: new Date().toISOString(),
+        total: totalPrice,
+        items: items.map((ci) => ({ name: ci.item.name, quantity: ci.quantity })),
+        customerName: user.name,
+      };
+      try {
+        const raw = await AsyncStorage.getItem(ORDERS_STORAGE_KEY);
+        const prev: StoredOrder[] = raw ? JSON.parse(raw) : [];
+        await AsyncStorage.setItem(ORDERS_STORAGE_KEY, JSON.stringify([storedOrder, ...prev]));
+      } catch {}
+
       clearCart();
       router.replace({ pathname: "/order-confirmed", params: { orderId: String(order.id) } });
     } catch (err) {
