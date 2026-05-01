@@ -54,7 +54,7 @@
           "icon": "./assets/images/icon.png",
           "color": "#D4AF37",
           "defaultChannel": "orders",
-          "sounds": ["./assets/sounds/notification.wav"]
+          "sounds": ["./assets/sounds/notification.wav", "./assets/sounds/notification_loop.wav"]
         }
       ]
     ],
