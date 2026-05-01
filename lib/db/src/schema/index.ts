@@ -72,6 +72,22 @@ export const bannersTable = pgTable("banners", {
 
 export type Banner = typeof bannersTable.$inferSelect;
 
+export const combosTable = pgTable("combos", {
+  id: serial("id").primaryKey(),
+  comboId: text("combo_id").notNull().unique(),
+  name: text("name").notNull(),
+  description: text("description"),
+  price: integer("price").notNull(),
+  imageUrl: text("image_url"),
+  imageKey: text("image_key"),
+  components: jsonb("components").notNull().default([]),
+  available: boolean("available").notNull().default(true),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type Combo = typeof combosTable.$inferSelect;
+
 export const appSettingsTable = pgTable("app_settings", {
   key: text("key").primaryKey(),
   value: text("value").notNull(),

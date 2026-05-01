@@ -22,6 +22,8 @@ import { useMenu } from "@/hooks/useMenu";
 import { useOccasions } from "@/hooks/useOccasions";
 import { useBanners } from "@/hooks/useBanners";
 import { BannerCarousel } from "@/components/BannerCarousel";
+import { useCombos, type ApiCombo } from "@/hooks/useCombos";
+import { useCart } from "@/context/CartContext";
 
 const logo = require("@/assets/images/logo.png");
 const deliveryCar = require("@/assets/images/delivery_car.jpg");
@@ -42,6 +44,9 @@ export default function MenuScreen() {
   const { categories } = useMenu();
   const { occasions } = useOccasions();
   const { banners, refresh: refreshBanners } = useBanners();
+  const { combos } = useCombos();
+  const { addItem } = useCart();
+  const availableCombos = combos.filter((c) => c.available);
   const [activeCategory, setActiveCategory] = useState("chicken");
 
   useEffect(() => { refreshBanners(); }, [refreshBanners]);
@@ -283,6 +288,44 @@ export default function MenuScreen() {
           onViewableItemsChanged={onViewableItemsChanged}
           viewabilityConfig={{ itemVisiblePercentThreshold: 10 }}
           contentContainerStyle={{ paddingBottom: Platform.OS === "web" ? 130 : 110 }}
+          ListHeaderComponent={availableCombos.length > 0 ? () => (
+            <View style={{ paddingBottom: 8 }}>
+              <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8, paddingHorizontal: 16, paddingTop: 14, paddingBottom: 8 }}>
+                <Text style={{ color: "#82B1FF", fontFamily: F.extra, fontSize: 16 }}>🎁 الوجبات المجمعة</Text>
+              </View>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 12, gap: 10, flexDirection: "row-reverse" }}>
+                {availableCombos.map((combo) => (
+                  <View key={combo.comboId} style={{ width: 200, backgroundColor: "#0F1A2A", borderRadius: 16, padding: 12, gap: 8, borderWidth: 1, borderColor: "#82B1FF33" }}>
+                    {combo.imageUrl ? (
+                      <Image source={{ uri: combo.imageUrl }} style={{ width: "100%", height: 100, borderRadius: 10 }} resizeMode="cover" />
+                    ) : (
+                      <View style={{ width: "100%", height: 80, borderRadius: 10, backgroundColor: "#1A2A3A", alignItems: "center", justifyContent: "center" }}>
+                        <Text style={{ fontSize: 36 }}>🎁</Text>
+                      </View>
+                    )}
+                    <Text style={{ color: "#fff", fontFamily: F.bold, fontSize: 14, textAlign: "right" }} numberOfLines={2}>{combo.name}</Text>
+                    <View style={{ gap: 3 }}>
+                      {combo.components.map((comp, i) => (
+                        <Text key={i} style={{ color: "#82B1FF99", fontFamily: F.regular, fontSize: 11, textAlign: "right" }}>
+                          {"×" + comp.quantity + " " + comp.name}
+                        </Text>
+                      ))}
+                    </View>
+                    <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", marginTop: 4 }}>
+                      <Text style={{ color: "#FFD700", fontFamily: F.bold, fontSize: 15 }}>{combo.price.toFixed(2)} ر.س</Text>
+                      <TouchableOpacity
+                        onPress={() => addItem({ id: `combo-${combo.comboId}`, name: combo.name, price: combo.price, category: "combo", description: combo.components.map(c => `×${c.quantity} ${c.name}`).join(" | "), imageUrl: combo.imageUrl ?? undefined })}
+                        style={{ backgroundColor: "#82B1FF22", borderWidth: 1, borderColor: "#82B1FF", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, flexDirection: "row-reverse", alignItems: "center", gap: 4 }}
+                      >
+                        <Feather name="plus" size={14} color="#82B1FF" />
+                        <Text style={{ color: "#82B1FF", fontFamily: F.bold, fontSize: 12 }}>أضف</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))}
+              </ScrollView>
+            </View>
+          ) : undefined}
           renderSectionHeader={({ section }) => (
             <View style={[styles.sectionRow, { backgroundColor: colors.background, borderBottomColor: "#2A1A0A", borderTopColor: "#2A1A0A" }]}>
               <Text style={[styles.itemCount, { color: colors.mutedForeground, fontFamily: F.semi }]}>

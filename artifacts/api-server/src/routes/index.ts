@@ -8,6 +8,7 @@ import pushTokensRouter from "./push-tokens";
 import bannersRouter from "./banners";
 import revenueRouter from "./revenue";
 import smsRouter from "./sms";
+import combosRouter from "./combos";
 
 const router: IRouter = Router();
 
@@ -20,5 +21,6 @@ router.use(pushTokensRouter);
 router.use(bannersRouter);
 router.use(revenueRouter);
 router.use(smsRouter);
+router.use(combosRouter);
 
 export default router;

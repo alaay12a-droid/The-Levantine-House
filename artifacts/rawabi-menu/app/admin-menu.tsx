@@ -28,6 +28,7 @@ import { usePaymentSettings } from "@/hooks/usePaymentSettings";
 import { useDiscountCodes, type DiscountCode } from "@/hooks/useDiscountCodes";
 import { useBanners, type ApiBanner } from "@/hooks/useBanners";
 import { useRevenue } from "@/hooks/useRevenue";
+import { useCombos, type ApiCombo, type ComboComponent } from "@/hooks/useCombos";
 import { apiGet, apiPost, apiPut, apiDelete, API_BASE } from "@/constants/api";
 
 const F = {
@@ -218,13 +219,24 @@ export default function AdminMenuScreen() {
     loadPins().then((p) => { setPins(p); setPinsLoaded(true); });
   }, []);
 
-  const [activeTab, setActiveTab] = useState<"menu" | "occasions" | "stock" | "settings" | "banners" | "revenue">("menu");
+  const [activeTab, setActiveTab] = useState<"menu" | "occasions" | "stock" | "settings" | "banners" | "revenue" | "combos">("menu");
   const { config: tabConfig, update: updateTabConfig } = useTabConfig();
   const { settings: paymentSettings, saveSettings: savePaymentSettings } = usePaymentSettings();
   const { codes: discountCodes, addCode, updateCode, deleteCode } = useDiscountCodes();
   const { banners: allBanners, refresh: refreshBanners } = useBanners();
   const { data: revenueData, loading: revenueLoading, refresh: refreshRevenue } = useRevenue();
   const [revenueView, setRevenueView] = useState<"daily" | "monthly">("daily");
+
+  // Combos
+  const { combos, addCombo, updateCombo, deleteCombo } = useCombos();
+  const [showAddComboModal, setShowAddComboModal] = useState(false);
+  const [editCombo, setEditCombo] = useState<ApiCombo | null>(null);
+  const [comboName, setComboName] = useState("");
+  const [comboDesc, setComboDesc] = useState("");
+  const [comboPrice, setComboPrice] = useState("");
+  const [comboImageUrl, setComboImageUrl] = useState("");
+  const [comboComponents, setComboComponents] = useState<ComboComponent[]>([{ name: "", quantity: 1 }]);
+  const [comboLoading, setComboLoading] = useState(false);
 
   // SMS OTP settings
   const [smsEnabled, setSmsEnabled] = useState(false);
@@ -676,11 +688,18 @@ export default function AdminMenuScreen() {
           >
             <Text style={[styles.tabBtnText, { color: activeTab === "revenue" ? "#4CAF50" : colors.mutedForeground, fontFamily: F.bold }]}>📊 الإيرادات</Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setActiveTab("combos")}
+            style={[styles.tabBtn, { backgroundColor: activeTab === "combos" ? "#1A2A3A" : colors.secondary, borderWidth: 1, borderColor: activeTab === "combos" ? "#82B1FF" : "transparent" }]}
+          >
+            <Text style={[styles.tabBtnText, { color: activeTab === "combos" ? "#82B1FF" : colors.mutedForeground, fontFamily: F.bold }]}>🎁 الوجبات</Text>
+          </TouchableOpacity>
         </ScrollView>
         <TouchableOpacity
           onPress={
             activeTab === "menu" ? openAdd
             : activeTab === "occasions" ? () => { setOccName(""); setOccDesc(""); setOccImageUrl(""); setShowAddOccasionModal(true); }
+            : activeTab === "combos" ? () => { setComboName(""); setComboDesc(""); setComboPrice(""); setComboImageUrl(""); setComboComponents([{ name: "", quantity: 1 }]); setEditCombo(null); setShowAddComboModal(true); }
             : undefined
           }
           style={[styles.iconBtn, { backgroundColor: (activeTab === "stock" || activeTab === "settings" || activeTab === "banners" || activeTab === "revenue") ? colors.secondary : colors.gold, opacity: (activeTab === "stock" || activeTab === "settings" || activeTab === "banners" || activeTab === "revenue") ? 0.3 : 1 }]}
@@ -1724,6 +1743,215 @@ export default function AdminMenuScreen() {
           )}
         </ScrollView>
       )}
+
+      {/* ── Combos Tab ── */}
+      {activeTab === "combos" && (
+        <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }}>
+          {combos.length === 0 && (
+            <View style={{ alignItems: "center", marginTop: 48, gap: 12 }}>
+              <Text style={{ fontSize: 40 }}>🎁</Text>
+              <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, textAlign: "center" }}>
+                لا توجد وجبات مجمعة بعد{"\n"}اضغط + لإضافة وجبة جديدة
+              </Text>
+            </View>
+          )}
+          {combos.map((c) => (
+            <View key={c.comboId} style={{ backgroundColor: colors.card, borderRadius: 16, padding: 14, gap: 10, borderWidth: 1, borderColor: c.available ? "#82B1FF44" : colors.border }}>
+              <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 10 }}>
+                <Switch
+                  value={c.available}
+                  onValueChange={async (v) => { try { await updateCombo(c.comboId, { available: v }); } catch {} }}
+                  trackColor={{ false: "#3A1A1A", true: "#1A2A4A" }}
+                  thumbColor={c.available ? "#82B1FF" : "#E57373"}
+                />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: c.available ? colors.foreground : colors.mutedForeground, fontFamily: F.bold, fontSize: 15, textAlign: "right" }}>{c.name}</Text>
+                  <Text style={{ color: colors.gold, fontFamily: F.semi, fontSize: 13, textAlign: "right" }}>{c.price.toFixed(2)} ر.س</Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => {
+                    setEditCombo(c);
+                    setComboName(c.name);
+                    setComboDesc(c.description ?? "");
+                    setComboPrice(String(c.price));
+                    setComboImageUrl(c.imageUrl ?? "");
+                    setComboComponents(c.components.length > 0 ? c.components.map(x => ({ ...x })) : [{ name: "", quantity: 1 }]);
+                    setShowAddComboModal(true);
+                  }}
+                  style={[styles.iconBtn, { backgroundColor: "#1A2A3A" }]}
+                >
+                  <Feather name="edit-2" size={15} color="#82B1FF" />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => Alert.alert("حذف الوجبة", `هل تريد حذف "${c.name}"؟`, [
+                    { text: "إلغاء", style: "cancel" },
+                    { text: "حذف", style: "destructive", onPress: () => deleteCombo(c.comboId) },
+                  ])}
+                  style={[styles.iconBtn, { backgroundColor: "#3A1010" }]}
+                >
+                  <Feather name="trash-2" size={15} color="#E57373" />
+                </TouchableOpacity>
+              </View>
+
+              {/* Components list */}
+              <View style={{ gap: 4 }}>
+                {c.components.map((comp, i) => (
+                  <View key={i} style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6 }}>
+                    <Text style={{ color: "#82B1FF", fontFamily: F.bold, fontSize: 12 }}>×{comp.quantity}</Text>
+                    <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12 }}>{comp.name}</Text>
+                  </View>
+                ))}
+              </View>
+
+              {c.description ? (
+                <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11, textAlign: "right" }}>{c.description}</Text>
+              ) : null}
+
+              <Text style={{ color: c.available ? "#82B1FF" : "#E57373", fontFamily: F.semi, fontSize: 11, textAlign: "right" }}>
+                {c.available ? "✅ متاحة" : "❌ غير متاحة"}
+              </Text>
+            </View>
+          ))}
+        </ScrollView>
+      )}
+
+      {/* Add / Edit Combo Modal */}
+      <Modal visible={showAddComboModal} animationType="slide" transparent>
+        <View style={{ flex: 1, backgroundColor: "#000000AA", justifyContent: "flex-end" }}>
+          <View style={{ backgroundColor: colors.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: "92%", overflow: "hidden" }}>
+            <ScrollView contentContainerStyle={{ padding: 20, gap: 14 }}>
+              <Text style={{ color: "#82B1FF", fontFamily: F.extra, fontSize: 18, textAlign: "center", marginBottom: 4 }}>
+                {editCombo ? "✏️ تعديل الوجبة" : "🎁 إضافة وجبة مجمعة"}
+              </Text>
+
+              <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 13, textAlign: "right" }}>اسم الوجبة *</Text>
+              <TextInput
+                value={comboName} onChangeText={setComboName}
+                placeholder="مثال: الوجبة العائلية الكبرى"
+                placeholderTextColor={colors.mutedForeground}
+                style={{ backgroundColor: colors.secondary, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, color: colors.foreground, fontFamily: F.regular, textAlign: "right", borderWidth: 1, borderColor: colors.border }}
+              />
+
+              <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 13, textAlign: "right" }}>السعر (ر.س) *</Text>
+              <TextInput
+                value={comboPrice} onChangeText={setComboPrice}
+                placeholder="0.00"
+                placeholderTextColor={colors.mutedForeground}
+                keyboardType="decimal-pad"
+                style={{ backgroundColor: colors.secondary, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, color: colors.gold, fontFamily: F.bold, textAlign: "right", borderWidth: 1, borderColor: colors.border }}
+              />
+
+              <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 13, textAlign: "right" }}>وصف الوجبة (اختياري)</Text>
+              <TextInput
+                value={comboDesc} onChangeText={setComboDesc}
+                placeholder="وصف مختصر..."
+                placeholderTextColor={colors.mutedForeground}
+                multiline
+                style={{ backgroundColor: colors.secondary, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, color: colors.foreground, fontFamily: F.regular, textAlign: "right", minHeight: 60, borderWidth: 1, borderColor: colors.border }}
+              />
+
+              <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 13, textAlign: "right" }}>رابط صورة الوجبة (اختياري)</Text>
+              <TextInput
+                value={comboImageUrl} onChangeText={setComboImageUrl}
+                placeholder="https://..."
+                placeholderTextColor={colors.mutedForeground}
+                style={{ backgroundColor: colors.secondary, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, color: colors.foreground, fontFamily: F.regular, textAlign: "right", borderWidth: 1, borderColor: colors.border }}
+              />
+
+              {/* Components */}
+              <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center" }}>
+                <Text style={{ color: "#82B1FF", fontFamily: F.bold, fontSize: 14 }}>📋 محتويات الوجبة</Text>
+                <TouchableOpacity
+                  onPress={() => setComboComponents((prev) => [...prev, { name: "", quantity: 1 }])}
+                  style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4, backgroundColor: "#1A2A3A", paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 }}
+                >
+                  <Feather name="plus" size={14} color="#82B1FF" />
+                  <Text style={{ color: "#82B1FF", fontFamily: F.semi, fontSize: 12 }}>أضف صنف</Text>
+                </TouchableOpacity>
+              </View>
+
+              {comboComponents.map((comp, idx) => (
+                <View key={idx} style={{ flexDirection: "row-reverse", gap: 8, alignItems: "center" }}>
+                  <TextInput
+                    value={comp.name}
+                    onChangeText={(t) => setComboComponents((prev) => prev.map((x, i) => i === idx ? { ...x, name: t } : x))}
+                    placeholder="اسم الصنف"
+                    placeholderTextColor={colors.mutedForeground}
+                    style={{ flex: 1, backgroundColor: colors.secondary, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9, color: colors.foreground, fontFamily: F.regular, textAlign: "right", borderWidth: 1, borderColor: colors.border }}
+                  />
+                  <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4, backgroundColor: colors.secondary, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 6, borderWidth: 1, borderColor: colors.border }}>
+                    <TouchableOpacity onPress={() => setComboComponents((prev) => prev.map((x, i) => i === idx ? { ...x, quantity: x.quantity + 1 } : x))}>
+                      <Feather name="plus" size={16} color={colors.gold} />
+                    </TouchableOpacity>
+                    <Text style={{ color: colors.foreground, fontFamily: F.bold, fontSize: 14, minWidth: 20, textAlign: "center" }}>{comp.quantity}</Text>
+                    <TouchableOpacity onPress={() => setComboComponents((prev) => prev.map((x, i) => i === idx ? { ...x, quantity: Math.max(1, x.quantity - 1) } : x))}>
+                      <Feather name="minus" size={16} color={colors.gold} />
+                    </TouchableOpacity>
+                  </View>
+                  {comboComponents.length > 1 && (
+                    <TouchableOpacity onPress={() => setComboComponents((prev) => prev.filter((_, i) => i !== idx))}>
+                      <Feather name="x" size={18} color="#E57373" />
+                    </TouchableOpacity>
+                  )}
+                </View>
+              ))}
+
+              {/* Save / Cancel */}
+              <View style={{ gap: 10, marginTop: 8 }}>
+                <TouchableOpacity
+                  onPress={async () => {
+                    const price = parseFloat(comboPrice);
+                    if (!comboName.trim() || isNaN(price) || price <= 0) {
+                      Alert.alert("خطأ", "أدخل اسم الوجبة والسعر"); return;
+                    }
+                    const validComponents = comboComponents.filter(c => c.name.trim());
+                    if (validComponents.length === 0) {
+                      Alert.alert("خطأ", "أضف على الأقل صنف واحد في الوجبة"); return;
+                    }
+                    setComboLoading(true);
+                    try {
+                      const data = {
+                        name: comboName.trim(),
+                        description: comboDesc.trim() || null,
+                        price,
+                        imageUrl: comboImageUrl.trim() || null,
+                        imageKey: null,
+                        components: validComponents,
+                        available: true,
+                        sortOrder: 0,
+                      };
+                      if (editCombo) {
+                        await updateCombo(editCombo.comboId, data);
+                      } else {
+                        await addCombo(data);
+                      }
+                      setShowAddComboModal(false);
+                      setEditCombo(null);
+                    } catch {
+                      Alert.alert("خطأ", "تعذّر حفظ الوجبة");
+                    } finally {
+                      setComboLoading(false);
+                    }
+                  }}
+                  disabled={comboLoading}
+                  style={{ paddingVertical: 14, borderRadius: 14, alignItems: "center", backgroundColor: "#82B1FF" }}
+                >
+                  {comboLoading
+                    ? <ActivityIndicator color="#0A1A2A" />
+                    : <Text style={{ color: "#0A1A2A", fontFamily: F.bold, fontSize: 15 }}>{editCombo ? "حفظ التعديلات" : "إضافة الوجبة"}</Text>
+                  }
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => { setShowAddComboModal(false); setEditCombo(null); }}
+                  style={{ paddingVertical: 12, borderRadius: 14, alignItems: "center", backgroundColor: colors.secondary, borderWidth: 1, borderColor: colors.border }}
+                >
+                  <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 14 }}>إلغاء</Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
       {/* Add / Edit Modal */}
       <Modal
