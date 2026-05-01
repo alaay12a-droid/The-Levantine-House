@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { apiGet } from "@/lib/api";
+import { apiGet } from "@/constants/api";
 
 export interface ApiBanner {
   id: number;
