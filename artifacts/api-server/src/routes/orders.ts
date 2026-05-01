@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { db, ordersTable, menuItemsTable } from "@workspace/db";
 import { eq, desc, gte, lt, count, and } from "drizzle-orm";
+import { sendPushToAll } from "../lib/sendPushNotification.js";
 import { z } from "zod";
 
 const router = Router();
@@ -68,6 +69,15 @@ router.post("/orders", async (req, res) => {
 
   req.log.info({ orderId: order.id }, "New order created");
   res.status(201).json(order);
+
+  // Send push notification to all registered cashier devices (fire and forget)
+  const itemsSummary = data.items.map((i) => `${i.quantity}× ${i.name}`).join("، ");
+  sendPushToAll({
+    title: `🔔 طلب جديد #${dailyNumber}`,
+    body: `${data.customerName} — ${itemsSummary}`,
+    sound: "default",
+    data: { orderId: order.id },
+  });
 });
 
 router.get("/orders/:id", async (req, res) => {

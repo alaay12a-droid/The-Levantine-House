@@ -47,7 +47,16 @@
       ],
       "expo-font",
       "expo-web-browser",
-      "expo-updates"
+      "expo-updates",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#D4AF37",
+          "defaultChannel": "orders",
+          "sounds": []
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

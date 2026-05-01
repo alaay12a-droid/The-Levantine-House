@@ -56,3 +56,11 @@ export const occasionsTable = pgTable("occasions", {
 });
 
 export type Occasion = typeof occasionsTable.$inferSelect;
+
+export const pushTokensTable = pgTable("push_tokens", {
+  id: serial("id").primaryKey(),
+  token: text("token").notNull().unique(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type PushToken = typeof pushTokensTable.$inferSelect;
