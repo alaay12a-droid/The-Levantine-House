@@ -15,6 +15,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import { apiGet } from "@/constants/api";
+import { useOrderBadge } from "@/context/OrderBadgeContext";
 
 const F = {
   regular: "Cairo_400Regular",
@@ -77,6 +78,7 @@ export default function OrdersScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const topInset = Platform.OS === "web" ? 20 : insets.top;
+  const { refreshBadge } = useOrderBadge();
 
   const [orders, setOrders] = useState<StoredOrder[]>([]);
   const [liveStatus, setLiveStatus] = useState<Record<number, OrderStatus>>({});
@@ -88,6 +90,7 @@ export default function OrdersScreen() {
       const stored: StoredOrder[] = raw ? JSON.parse(raw) : [];
       stored.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       setOrders(stored);
+      refreshBadge();
 
       const active = stored.filter((o) => {
         const s = liveStatus[o.id];

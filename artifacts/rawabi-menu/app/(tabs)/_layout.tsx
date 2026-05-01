@@ -3,6 +3,7 @@ import React from "react";
 import { Platform } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useTabConfig } from "@/hooks/useTabConfig";
+import { useOrderBadge } from "@/context/OrderBadgeContext";
 
 const GOLD = "#E8920C";
 const MUTED = "#9A7A5A";
@@ -11,6 +12,7 @@ const BORDER = "#3A2410";
 
 export default function TabLayout() {
   const { config, loaded } = useTabConfig();
+  const { activeCount } = useOrderBadge();
 
   if (!loaded) return null;
 
@@ -63,6 +65,8 @@ export default function TabLayout() {
           tabBarIcon: ({ color, size }) => (
             <Feather name="shopping-bag" size={size - 2} color={color} />
           ),
+          tabBarBadge: activeCount > 0 ? activeCount : undefined,
+          tabBarBadgeStyle: { backgroundColor: "#E8920C", color: "#fff", fontSize: 10, fontFamily: "Cairo_700Bold" },
         }}
       />
       <Tabs.Screen

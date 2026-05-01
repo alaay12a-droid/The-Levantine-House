@@ -23,6 +23,7 @@ import { useCart } from "@/context/CartContext";
 import { useUser } from "@/context/UserContext";
 import { apiPost } from "@/constants/api";
 import { useCustomerPushToken } from "@/hooks/useCustomerPushToken";
+import { useOrderBadge } from "@/context/OrderBadgeContext";
 import { ORDERS_STORAGE_KEY, StoredOrder } from "./(tabs)/orders";
 
 const F = {
@@ -48,6 +49,7 @@ export default function CheckoutScreen() {
   const { user } = useUser();
 
   const customerPushToken = useCustomerPushToken();
+  const { incrementBadge } = useOrderBadge();
 
   const [notes, setNotes] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
@@ -140,6 +142,7 @@ export default function CheckoutScreen() {
         const raw = await AsyncStorage.getItem(ORDERS_STORAGE_KEY);
         const prev: StoredOrder[] = raw ? JSON.parse(raw) : [];
         await AsyncStorage.setItem(ORDERS_STORAGE_KEY, JSON.stringify([storedOrder, ...prev]));
+        incrementBadge();
       } catch {}
 
       clearCart();
