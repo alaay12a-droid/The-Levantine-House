@@ -121,7 +121,9 @@ export default function AdminMenuScreen() {
   React.useEffect(() => { refreshOccasions(); }, [refreshOccasions]);
 
   const [authenticated, setAuthenticated] = useState(false);
-  const [activeTab, setActiveTab] = useState<"menu" | "occasions">("menu");
+  const [activeTab, setActiveTab] = useState<"menu" | "occasions" | "stock">("menu");
+  const [stockEdits, setStockEdits] = useState<Record<string, string>>({});
+  const [stockSaving, setStockSaving] = useState<string | null>(null);
 
   const [filterCat, setFilterCat] = useState<string>("all");
   const [showAddModal, setShowAddModal] = useState(false);
@@ -234,6 +236,34 @@ export default function AdminMenuScreen() {
     } finally {
       setLoading(null);
     }
+  };
+
+  const getStockEditValue = (item: ApiMenuItem): string => {
+    if (item.itemId in stockEdits) return stockEdits[item.itemId];
+    return item.stock === null ? "" : String(item.stock);
+  };
+
+  const handleQuickStock = async (itemId: string, rawVal: string) => {
+    const val = rawVal.trim();
+    const stock = val === "" ? null : parseInt(val);
+    if (stock !== null && (isNaN(stock) || stock < 0)) return;
+    setStockSaving(itemId);
+    try {
+      await apiPut(`/menu/${itemId}`, { stock });
+      await refresh();
+      setStockEdits((prev) => { const n = { ...prev }; delete n[itemId]; return n; });
+    } catch {
+      Alert.alert("خطأ", "تعذر تحديث المخزون");
+    } finally {
+      setStockSaving(null);
+    }
+  };
+
+  const adjustStock = (item: ApiMenuItem, delta: number) => {
+    const current = getStockEditValue(item);
+    const currentNum = current === "" ? 0 : parseInt(current);
+    const next = Math.max(0, (isNaN(currentNum) ? 0 : currentNum) + delta);
+    setStockEdits((prev) => ({ ...prev, [item.itemId]: String(next) }));
   };
 
   const handleToggleAvail = async (item: ApiMenuItem) => {
@@ -410,7 +440,7 @@ export default function AdminMenuScreen() {
         <TouchableOpacity onPress={() => router.back()} style={[styles.iconBtn, { backgroundColor: colors.secondary }]}>
           <Feather name="arrow-right" size={20} color={colors.foreground} />
         </TouchableOpacity>
-        <View style={styles.tabRow}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingHorizontal: 4 }}>
           <TouchableOpacity
             onPress={() => setActiveTab("menu")}
             style={[styles.tabBtn, { backgroundColor: activeTab === "menu" ? colors.gold : colors.secondary }]}
@@ -423,12 +453,19 @@ export default function AdminMenuScreen() {
           >
             <Text style={[styles.tabBtnText, { color: activeTab === "occasions" ? "#1A0A00" : colors.mutedForeground, fontFamily: F.bold }]}>المناسبات</Text>
           </TouchableOpacity>
-        </View>
+          <TouchableOpacity
+            onPress={() => setActiveTab("stock")}
+            style={[styles.tabBtn, { backgroundColor: activeTab === "stock" ? "#7B1FA2" : colors.secondary, borderWidth: 1, borderColor: activeTab === "stock" ? "#CE93D8" : "transparent" }]}
+          >
+            <Text style={[styles.tabBtnText, { color: activeTab === "stock" ? "#fff" : colors.mutedForeground, fontFamily: F.bold }]}>📦 المخزون</Text>
+          </TouchableOpacity>
+        </ScrollView>
         <TouchableOpacity
-          onPress={activeTab === "menu" ? openAdd : () => { setOccName(""); setOccDesc(""); setOccImageUrl(""); setShowAddOccasionModal(true); }}
-          style={[styles.iconBtn, { backgroundColor: colors.gold }]}
+          onPress={activeTab === "menu" ? openAdd : activeTab === "occasions" ? () => { setOccName(""); setOccDesc(""); setOccImageUrl(""); setShowAddOccasionModal(true); } : undefined}
+          style={[styles.iconBtn, { backgroundColor: activeTab === "stock" ? colors.secondary : colors.gold, opacity: activeTab === "stock" ? 0.3 : 1 }]}
+          disabled={activeTab === "stock"}
         >
-          <Feather name="plus" size={20} color="#fff" />
+          <Feather name="plus" size={20} color={activeTab === "stock" ? colors.mutedForeground : "#fff"} />
         </TouchableOpacity>
       </View>
 
@@ -535,14 +572,7 @@ export default function AdminMenuScreen() {
                     <Feather name="trash-2" size={15} color="#E57373" />
                     <Text style={[styles.actionText, { color: "#E57373", fontFamily: F.bold }]}>حذف</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={() => { setStockItem(item); setStockInput(item.stock === null ? "" : String(item.stock)); }}
-                    style={[styles.actionBtn, { backgroundColor: "#2A1A3A" }]}
-                  >
-                    <Feather name="package" size={15} color="#CE93D8" />
-                    <Text style={[styles.actionText, { color: "#CE93D8", fontFamily: F.bold }]}>مخزون</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={() => openEdit(item)} style={[styles.actionBtn, { backgroundColor: "#1A2A3A" }]}>
+                  <TouchableOpacity onPress={() => openEdit(item)} style={[styles.actionBtn, { backgroundColor: "#1A2A3A", flex: 2 }]}>
                     <Feather name="edit-2" size={15} color="#64B5F6" />
                     <Text style={[styles.actionText, { color: "#64B5F6", fontFamily: F.bold }]}>تعديل</Text>
                   </TouchableOpacity>
@@ -613,6 +643,154 @@ export default function AdminMenuScreen() {
               </View>
             );
           })}
+        </ScrollView>
+      )}
+
+      {/* ── STOCK TAB ── */}
+      {activeTab === "stock" && (
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={[styles.list, { paddingBottom: bottomInset + 20, gap: 0 }]}
+        >
+          {/* Menu items grouped by category */}
+          {CATEGORIES.map((cat) => {
+            const catItems = items.filter((i) => i.category === cat.id);
+            if (catItems.length === 0) return null;
+            return (
+              <View key={cat.id}>
+                {/* Category header */}
+                <View style={{ backgroundColor: "#1A1008", flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: "#2A1A0A" }}>
+                  <Text style={{ fontSize: 18 }}>{cat.icon}</Text>
+                  <Text style={{ color: colors.gold, fontFamily: F.extra, fontSize: 15 }}>{cat.name}</Text>
+                  <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12, marginRight: "auto" }}>
+                    {catItems.length} صنف
+                  </Text>
+                </View>
+                {catItems.map((item) => {
+                  const editVal = getStockEditValue(item);
+                  const isSaving = stockSaving === item.itemId;
+                  const isUnlimited = editVal === "";
+                  const isDirty = item.itemId in stockEdits;
+                  return (
+                    <View key={item.itemId} style={{ backgroundColor: colors.card, borderBottomWidth: 1, borderBottomColor: colors.border, flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingVertical: 10, gap: 10 }}>
+                      {/* Item name + status */}
+                      <View style={{ flex: 1, gap: 2 }}>
+                        <Text style={{ color: item.available ? colors.foreground : colors.mutedForeground, fontFamily: F.bold, fontSize: 14 }} numberOfLines={1}>
+                          {item.name}
+                        </Text>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                          {item.stock === null ? (
+                            <Text style={{ color: "#4CAF50", fontFamily: F.semi, fontSize: 11 }}>∞ غير محدود</Text>
+                          ) : item.stock === 0 ? (
+                            <Text style={{ color: "#E57373", fontFamily: F.bold, fontSize: 11 }}>⚠️ نافد</Text>
+                          ) : (
+                            <Text style={{ color: item.stock <= 3 ? colors.gold : "#64B5F6", fontFamily: F.semi, fontSize: 11 }}>
+                              {item.stock} متبقي{item.stock <= 3 ? " ⚠️" : ""}
+                            </Text>
+                          )}
+                          {!item.available && <Text style={{ color: "#E57373", fontFamily: F.regular, fontSize: 10 }}>• معطل</Text>}
+                        </View>
+                      </View>
+
+                      {/* Stock controls */}
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                        {/* Unlimited toggle */}
+                        <TouchableOpacity
+                          onPress={() => {
+                            if (isUnlimited) {
+                              setStockEdits((prev) => ({ ...prev, [item.itemId]: "10" }));
+                            } else {
+                              setStockEdits((prev) => ({ ...prev, [item.itemId]: "" }));
+                            }
+                          }}
+                          style={{ paddingHorizontal: 8, paddingVertical: 5, borderRadius: 8, backgroundColor: isUnlimited ? "#1A4A1A" : colors.secondary, borderWidth: 1, borderColor: isUnlimited ? "#4CAF50" : colors.border }}
+                        >
+                          <Text style={{ color: isUnlimited ? "#4CAF50" : colors.mutedForeground, fontFamily: F.bold, fontSize: 12 }}>∞</Text>
+                        </TouchableOpacity>
+
+                        {!isUnlimited && (
+                          <>
+                            <TouchableOpacity
+                              onPress={() => adjustStock(item, -1)}
+                              style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: colors.secondary, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.border }}
+                            >
+                              <Feather name="minus" size={14} color={colors.foreground} />
+                            </TouchableOpacity>
+                            <TextInput
+                              value={editVal}
+                              onChangeText={(t) => setStockEdits((prev) => ({ ...prev, [item.itemId]: t.replace(/[^0-9]/g, "") }))}
+                              keyboardType="number-pad"
+                              style={{ width: 44, height: 32, borderRadius: 8, backgroundColor: colors.secondary, borderWidth: 1, borderColor: isDirty ? colors.gold : colors.border, color: colors.foreground, fontFamily: F.bold, fontSize: 15, textAlign: "center" }}
+                            />
+                            <TouchableOpacity
+                              onPress={() => adjustStock(item, 1)}
+                              style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: colors.secondary, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.border }}
+                            >
+                              <Feather name="plus" size={14} color={colors.foreground} />
+                            </TouchableOpacity>
+                          </>
+                        )}
+
+                        {/* Save */}
+                        {(isDirty || isUnlimited !== (item.stock === null)) && (
+                          isSaving ? (
+                            <ActivityIndicator size="small" color={colors.gold} />
+                          ) : (
+                            <TouchableOpacity
+                              onPress={() => handleQuickStock(item.itemId, editVal)}
+                              style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: colors.gold }}
+                            >
+                              <Text style={{ color: "#1A0A00", fontFamily: F.bold, fontSize: 12 }}>حفظ</Text>
+                            </TouchableOpacity>
+                          )
+                        )}
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            );
+          })}
+
+          {/* Occasions section */}
+          <View style={{ marginTop: 16 }}>
+            <View style={{ backgroundColor: "#1A0D1A", flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderTopWidth: 1, borderColor: "#2A0A2A" }}>
+              <Text style={{ fontSize: 18 }}>🎉</Text>
+              <Text style={{ color: "#CE93D8", fontFamily: F.extra, fontSize: 15 }}>المناسبات</Text>
+              <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12, marginRight: "auto" }}>
+                {allOccasions.length} مناسبة
+              </Text>
+            </View>
+            {allOccasions.length === 0 ? (
+              <View style={{ padding: 24, alignItems: "center" }}>
+                <Text style={{ color: colors.mutedForeground, fontFamily: F.regular }}>لا توجد مناسبات</Text>
+              </View>
+            ) : allOccasions.map((occ) => {
+              const isOccLoading = loading === occ.occasionId;
+              return (
+                <View key={occ.occasionId} style={{ backgroundColor: colors.card, borderBottomWidth: 1, borderBottomColor: colors.border, flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingVertical: 12, gap: 10 }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: occ.active ? colors.foreground : colors.mutedForeground, fontFamily: F.bold, fontSize: 14 }} numberOfLines={1}>
+                      {occ.name}
+                    </Text>
+                    <Text style={{ color: occ.active ? "#CE93D8" : colors.mutedForeground, fontFamily: F.regular, fontSize: 12 }}>
+                      {occ.active ? "✅ مفعّلة" : "⛔ مخفية"}
+                    </Text>
+                  </View>
+                  {isOccLoading ? (
+                    <ActivityIndicator size="small" color="#CE93D8" />
+                  ) : (
+                    <Switch
+                      value={occ.active}
+                      onValueChange={() => handleToggleOccasion(occ)}
+                      trackColor={{ false: "#3A1A1A", true: "#5A2A6A" }}
+                      thumbColor={occ.active ? "#CE93D8" : "#E57373"}
+                    />
+                  )}
+                </View>
+              );
+            })}
+          </View>
         </ScrollView>
       )}
 
