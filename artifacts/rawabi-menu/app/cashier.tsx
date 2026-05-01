@@ -51,8 +51,8 @@ interface Order {
 
 const STATUS_LABELS: Record<OrderStatus, string> = {
   pending: "جديد",
-  preparing: "جاري التحضير",
-  ready: "جاهز للاستلام",
+  preparing: "قريباً يتجهز",
+  ready: "جاري التجهيز",
   done: "تم التسليم",
 };
 
@@ -70,9 +70,9 @@ const STATUS_NEXT: Partial<Record<OrderStatus, OrderStatus>> = {
 };
 
 const STATUS_NEXT_LABEL: Partial<Record<OrderStatus, string>> = {
-  pending: "ابدأ التحضير",
-  preparing: "جاهز",
-  ready: "تم التسليم",
+  pending: "قريبه تجهيز الطلب",
+  preparing: "جاري تحضير الطلب",
+  ready: "تم استلام الطلب",
 };
 
 function PinScreen({ onSuccess }: { onSuccess: () => void }) {

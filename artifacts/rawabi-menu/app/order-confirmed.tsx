@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View,
   Text,
@@ -6,11 +6,14 @@ import {
   StyleSheet,
   Platform,
   StatusBar,
+  Animated,
+  Easing,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
+import { apiGet } from "@/constants/api";
 
 const F = {
   regular: "Cairo_400Regular",
@@ -19,59 +22,268 @@ const F = {
   extra: "Cairo_800ExtraBold",
 };
 
+type OrderStatus = "pending" | "preparing" | "ready" | "done";
+
+interface Order {
+  id: number;
+  status: OrderStatus;
+}
+
+const POLL_INTERVAL = 5000;
+
+function usePulse() {
+  const anim = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(anim, { toValue: 1.08, duration: 700, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
+        Animated.timing(anim, { toValue: 1,    duration: 700, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [anim]);
+  return anim;
+}
+
+function useSpin() {
+  const anim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.timing(anim, { toValue: 1, duration: 1200, useNativeDriver: true, easing: Easing.linear })
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [anim]);
+  return anim.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "360deg"] });
+}
+
+function StatusPending({ colors }: { colors: ReturnType<typeof useColors> }) {
+  const spin = useSpin();
+  return (
+    <View style={styles.statusWrap}>
+      <Animated.View style={{ transform: [{ rotate: spin }], marginBottom: 16 }}>
+        <Feather name="clock" size={64} color={colors.mutedForeground} />
+      </Animated.View>
+      <Text style={[styles.statusTitle, { color: colors.foreground, fontFamily: F.extra }]}>
+        طلبك في الانتظار
+      </Text>
+      <Text style={[styles.statusDesc, { color: colors.mutedForeground, fontFamily: F.regular }]}>
+        سيبدأ فريقنا بتجهيزه قريباً
+      </Text>
+    </View>
+  );
+}
+
+function StatusPreparing({ colors }: { colors: ReturnType<typeof useColors> }) {
+  const pulse = usePulse();
+  return (
+    <View style={styles.statusWrap}>
+      <Animated.View style={{ transform: [{ scale: pulse }], marginBottom: 16 }}>
+        <View style={[styles.iconCircle, { backgroundColor: "#2A3A00", borderColor: "#8BC34A" }]}>
+          <Text style={{ fontSize: 52 }}>👨‍🍳</Text>
+        </View>
+      </Animated.View>
+      <Text style={[styles.statusTitle, { color: "#8BC34A", fontFamily: F.extra }]}>
+        طلبك يتجهز
+      </Text>
+      <Text style={[styles.statusDesc, { color: colors.mutedForeground, fontFamily: F.regular }]}>
+        بدأ فريقنا بتجهيز طلبك بعناية
+      </Text>
+    </View>
+  );
+}
+
+function StatusReady({ colors }: { colors: ReturnType<typeof useColors> }) {
+  const pulse = usePulse();
+  return (
+    <View style={styles.statusWrap}>
+      <Animated.View style={{ transform: [{ scale: pulse }], marginBottom: 16 }}>
+        <View style={[styles.iconCircle, { backgroundColor: "#1A2A00", borderColor: colors.gold }]}>
+          <Text style={{ fontSize: 52 }}>🍽️</Text>
+        </View>
+      </Animated.View>
+      <View style={[styles.hotBadge, { backgroundColor: colors.gold }]}>
+        <Text style={[styles.hotBadgeText, { fontFamily: F.extra }]}>🔥 جاري تجهيز الطلب</Text>
+      </View>
+      <Text style={[styles.statusTitle, { color: colors.gold, fontFamily: F.extra, marginTop: 14 }]}>
+        طلبك على وشك يجهز
+      </Text>
+      <Text style={[styles.statusDesc, { color: colors.mutedForeground, fontFamily: F.regular }]}>
+        يُجهَّز الآن ويوشك على الاكتمال
+      </Text>
+    </View>
+  );
+}
+
+function StatusDone({ colors, onReturn }: { colors: ReturnType<typeof useColors>; onReturn: () => void }) {
+  const scale = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.spring(scale, { toValue: 1, useNativeDriver: true, friction: 5 }).start();
+  }, [scale]);
+  return (
+    <View style={styles.statusWrap}>
+      <Animated.View style={{ transform: [{ scale }], marginBottom: 16 }}>
+        <View style={[styles.iconCircle, { backgroundColor: "#1A3A1A", borderColor: "#4CAF50" }]}>
+          <Feather name="check-circle" size={60} color="#4CAF50" />
+        </View>
+      </Animated.View>
+      <Text style={[styles.statusTitle, { color: "#4CAF50", fontFamily: F.extra }]}>
+        تم استلام الطلب 🎉
+      </Text>
+      <Text style={[styles.statusDesc, { color: colors.mutedForeground, fontFamily: F.regular }]}>
+        شكراً لاختيارك روابي المندي 🍗{"\n"}نتمنى لك وجبة شهية!
+      </Text>
+      <TouchableOpacity
+        onPress={onReturn}
+        style={[styles.returnBtn, { backgroundColor: colors.gold, marginTop: 28 }]}
+        activeOpacity={0.85}
+      >
+        <Text style={[styles.returnBtnText, { fontFamily: F.bold }]}>العودة للقائمة</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
 export default function OrderConfirmedScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { orderId } = useLocalSearchParams<{ orderId: string }>();
 
+  const [status, setStatus] = useState<OrderStatus>("pending");
   const topInset = Platform.OS === "web" ? 80 : insets.top;
   const bottomInset = Platform.OS === "web" ? 34 : insets.bottom;
+
+  const fetchStatus = useCallback(async () => {
+    if (!orderId) return;
+    try {
+      const order = await apiGet<Order>(`/orders/${orderId}`);
+      setStatus(order.status);
+    } catch {
+    }
+  }, [orderId]);
+
+  useEffect(() => {
+    fetchStatus();
+    const interval = setInterval(fetchStatus, POLL_INTERVAL);
+    return () => clearInterval(interval);
+  }, [fetchStatus]);
+
+  const handleReturn = () => router.replace("/(tabs)");
+
+  const steps: { key: OrderStatus; label: string; icon: string }[] = [
+    { key: "pending",   label: "استلام الطلب",   icon: "📋" },
+    { key: "preparing", label: "بدء التجهيز",    icon: "👨‍🍳" },
+    { key: "ready",     label: "جاري التجهيز",   icon: "🍽️" },
+    { key: "done",      label: "تم الاستلام",    icon: "✅" },
+  ];
+  const currentIdx = steps.findIndex((s) => s.key === status);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: topInset, paddingBottom: bottomInset }]}>
       <StatusBar barStyle="light-content" />
 
-      <View style={styles.content}>
-        <View style={[styles.iconCircle, { backgroundColor: "#1A3A1A", borderColor: "#2A6A2A" }]}>
-          <Feather name="check-circle" size={64} color="#4CAF50" />
-        </View>
-
-        <Text style={[styles.title, { color: colors.foreground, fontFamily: F.extra }]}>
-          تم استلام طلبك!
+      <View style={[styles.header, { borderBottomColor: colors.border }]}>
+        <Text style={[styles.headerTitle, { color: colors.gold, fontFamily: F.extra }]}>
+          تتبع طلبك
         </Text>
-        <Text style={[styles.subtitle, { color: colors.mutedForeground, fontFamily: F.regular }]}>
+        <Text style={[styles.headerSub, { color: colors.mutedForeground, fontFamily: F.regular }]}>
           رقم الطلب: #{orderId}
-        </Text>
-        <Text style={[styles.desc, { color: colors.mutedForeground, fontFamily: F.regular }]}>
-          سيتم تحضير طلبك في أقرب وقت.{"\n"}شكراً لاختيارك روابي المندي 🍗
         </Text>
       </View>
 
-      <TouchableOpacity
-        onPress={() => router.replace("/(tabs)")}
-        style={[styles.btn, { backgroundColor: colors.primary }]}
-        activeOpacity={0.85}
-      >
-        <Text style={[styles.btnText, { fontFamily: F.bold }]}>العودة للقائمة</Text>
-      </TouchableOpacity>
+      <View style={styles.stepsRow}>
+        {steps.map((step, idx) => {
+          const done = idx <= currentIdx;
+          const active = idx === currentIdx;
+          return (
+            <React.Fragment key={step.key}>
+              <View style={styles.stepItem}>
+                <View style={[
+                  styles.stepDot,
+                  {
+                    backgroundColor: done ? (active ? colors.gold : "#2A4A2A") : colors.secondary,
+                    borderColor: done ? (active ? colors.gold : "#4CAF50") : colors.border,
+                    borderWidth: active ? 3 : 1.5,
+                  },
+                ]}>
+                  <Text style={{ fontSize: 14 }}>{step.icon}</Text>
+                </View>
+                <Text style={[styles.stepLabel, { color: done ? (active ? colors.gold : "#4CAF50") : colors.mutedForeground, fontFamily: active ? F.bold : F.regular }]} numberOfLines={1}>
+                  {step.label}
+                </Text>
+              </View>
+              {idx < steps.length - 1 && (
+                <View style={[styles.stepLine, { backgroundColor: idx < currentIdx ? "#4CAF50" : colors.border }]} />
+              )}
+            </React.Fragment>
+          );
+        })}
+      </View>
+
+      <View style={styles.mainArea}>
+        {status === "pending"   && <StatusPending   colors={colors} />}
+        {status === "preparing" && <StatusPreparing colors={colors} />}
+        {status === "ready"     && <StatusReady     colors={colors} />}
+        {status === "done"      && <StatusDone      colors={colors} onReturn={handleReturn} />}
+      </View>
+
+      {status !== "done" && (
+        <TouchableOpacity
+          onPress={handleReturn}
+          style={[styles.backBtn, { borderColor: colors.border }]}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.backBtnText, { color: colors.mutedForeground, fontFamily: F.semi }]}>
+            العودة للقائمة
+          </Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: "space-between",
+  container: { flex: 1 },
+  header: {
     alignItems: "center",
-    padding: 32,
+    paddingVertical: 20,
+    paddingHorizontal: 24,
+    borderBottomWidth: 1,
+    gap: 4,
   },
-  content: {
+  headerTitle: { fontSize: 22 },
+  headerSub: { fontSize: 14 },
+
+  stepsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 20,
+  },
+  stepItem: {
+    alignItems: "center",
+    gap: 6,
+    width: 64,
+  },
+  stepDot: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  stepLabel: { fontSize: 10, textAlign: "center" },
+  stepLine: { flex: 1, height: 3, borderRadius: 2, marginBottom: 18 },
+
+  mainArea: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    gap: 20,
+    paddingHorizontal: 24,
   },
+  statusWrap: { alignItems: "center", gap: 8 },
   iconCircle: {
     width: 120,
     height: 120,
@@ -79,29 +291,32 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 2,
-    marginBottom: 12,
   },
-  title: {
-    fontSize: 28,
-    textAlign: "center",
+  statusTitle: { fontSize: 26, textAlign: "center" },
+  statusDesc: { fontSize: 15, textAlign: "center", lineHeight: 26, marginTop: 4 },
+
+  hotBadge: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 30,
+    marginTop: 8,
   },
-  subtitle: {
-    fontSize: 16,
-    textAlign: "center",
+  hotBadgeText: { color: "#1A1008", fontSize: 17 },
+
+  returnBtn: {
+    paddingHorizontal: 40,
+    paddingVertical: 14,
+    borderRadius: 20,
   },
-  desc: {
-    fontSize: 15,
-    textAlign: "center",
-    lineHeight: 26,
-  },
-  btn: {
-    width: "100%",
-    paddingVertical: 16,
+  returnBtnText: { color: "#1A1008", fontSize: 16 },
+
+  backBtn: {
+    marginHorizontal: 24,
+    marginBottom: 16,
+    paddingVertical: 14,
     borderRadius: 16,
     alignItems: "center",
+    borderWidth: 1,
   },
-  btnText: {
-    color: "#fff",
-    fontSize: 17,
-  },
+  backBtnText: { fontSize: 15 },
 });

@@ -43,6 +43,14 @@ router.post("/orders", async (req, res) => {
   res.status(201).json(order);
 });
 
+router.get("/orders/:id", async (req, res) => {
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) { res.status(400).json({ error: "معرّف غير صحيح" }); return; }
+  const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, id));
+  if (!order) { res.status(404).json({ error: "الطلب غير موجود" }); return; }
+  res.json(order);
+});
+
 router.get("/orders", async (req, res) => {
   const orders = await db
     .select()
