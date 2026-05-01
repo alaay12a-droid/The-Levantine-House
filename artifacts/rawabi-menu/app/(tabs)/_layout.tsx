@@ -17,16 +17,16 @@ export default function TabLayout() {
           backgroundColor: BG,
           borderTopColor: BORDER,
           borderTopWidth: 1,
-          height: Platform.OS === "web" ? 62 : 72,
-          paddingBottom: Platform.OS === "web" ? 8 : 14,
-          paddingTop: 6,
+          height: Platform.OS === "web" ? 70 : 80,
+          paddingBottom: Platform.OS === "web" ? 10 : 18,
+          paddingTop: 8,
         },
         tabBarActiveTintColor: GOLD,
         tabBarInactiveTintColor: MUTED,
         tabBarLabelStyle: {
           fontFamily: "Cairo_700Bold",
-          fontSize: 11,
-          marginTop: 0,
+          fontSize: 12,
+          marginTop: 2,
         },
       }}
     >
