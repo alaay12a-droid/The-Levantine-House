@@ -440,7 +440,7 @@ export default function AdminMenuScreen() {
         <TouchableOpacity onPress={() => router.back()} style={[styles.iconBtn, { backgroundColor: colors.secondary }]}>
           <Feather name="arrow-right" size={20} color={colors.foreground} />
         </TouchableOpacity>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingHorizontal: 4 }}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flex: 1 }} contentContainerStyle={{ gap: 6, paddingHorizontal: 4, alignItems: "center" }}>
           <TouchableOpacity
             onPress={() => setActiveTab("menu")}
             style={[styles.tabBtn, { backgroundColor: activeTab === "menu" ? colors.gold : colors.secondary }]}
@@ -1108,7 +1108,7 @@ const styles = StyleSheet.create({
   iconBtn: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
   headerTitle: { flex: 1, fontSize: 20, textAlign: "center" },
   tabRow: { flex: 1, flexDirection: "row", gap: 6, paddingHorizontal: 4 },
-  tabBtn: { flex: 1, paddingVertical: 7, borderRadius: 16, alignItems: "center" },
+  tabBtn: { paddingVertical: 7, paddingHorizontal: 16, borderRadius: 16, alignItems: "center" },
   tabBtnText: { fontSize: 14 },
   filterRow: { paddingHorizontal: 12, paddingVertical: 10, gap: 8 },
   filterTab: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20, borderWidth: 1 },
