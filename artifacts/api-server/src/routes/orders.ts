@@ -21,6 +21,7 @@ const createOrderSchema = z.object({
   totalPrice: z.number().positive(),
   paymentMethod: z.enum(["cash", "moyasar"]).default("cash"),
   notes: z.string().nullable().optional(),
+  customerPushToken: z.string().nullable().optional(),
 });
 
 router.post("/orders", async (req, res) => {
@@ -55,6 +56,7 @@ router.post("/orders", async (req, res) => {
     paymentMethod: data.paymentMethod,
     notes: data.notes ?? null,
     status: "pending",
+    customerPushToken: data.customerPushToken ?? null,
   }).returning();
 
   for (const item of data.items) {
@@ -97,6 +99,21 @@ router.get("/orders", async (req, res) => {
   res.json(orders);
 });
 
+const CUSTOMER_STATUS_MESSAGES: Partial<Record<string, { title: string; body: string }>> = {
+  preparing: {
+    title: "🍳 جاري تحضير طلبك",
+    body: "طلبك قيد التحضير الآن — سيكون جاهز قريباً!",
+  },
+  ready: {
+    title: "✅ طلبك جاهز!",
+    body: "تفضل استلم طلبك الآن 🎉",
+  },
+  done: {
+    title: "🙏 شكراً لك",
+    body: "تم تسليم طلبك — نتمنى تكون استمتعت بوجبتك!",
+  },
+};
+
 router.patch("/orders/:id/status", async (req, res) => {
   const id = parseInt(req.params.id);
   if (isNaN(id)) {
@@ -119,6 +136,23 @@ router.patch("/orders/:id/status", async (req, res) => {
     return;
   }
   res.json(order);
+
+  // Send push notification to customer if they have a token
+  if (order.customerPushToken && CUSTOMER_STATUS_MESSAGES[status]) {
+    const msg = CUSTOMER_STATUS_MESSAGES[status]!;
+    fetch("https://exp.host/--/api/v2/push/send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        to: order.customerPushToken,
+        title: msg.title,
+        body: msg.body,
+        sound: "default",
+        data: { orderId: order.id, status },
+        channelId: "order-status",
+      }),
+    }).catch(() => {});
+  }
 });
 
 export default router;

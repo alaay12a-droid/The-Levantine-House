@@ -22,6 +22,7 @@ import { useColors } from "@/hooks/useColors";
 import { useCart } from "@/context/CartContext";
 import { useUser } from "@/context/UserContext";
 import { apiPost } from "@/constants/api";
+import { useCustomerPushToken } from "@/hooks/useCustomerPushToken";
 import { ORDERS_STORAGE_KEY, StoredOrder } from "./(tabs)/orders";
 
 const F = {
@@ -45,6 +46,8 @@ export default function CheckoutScreen() {
   const router = useRouter();
   const { items, totalPrice, totalItems, clearCart } = useCart();
   const { user } = useUser();
+
+  const customerPushToken = useCustomerPushToken();
 
   const [notes, setNotes] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
@@ -122,6 +125,7 @@ export default function CheckoutScreen() {
         totalPrice,
         paymentMethod,
         notes: notes.trim() || null,
+        customerPushToken: customerPushToken ?? null,
       });
 
       const storedOrder: StoredOrder = {

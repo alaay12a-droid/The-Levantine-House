@@ -20,6 +20,7 @@ export const ordersTable = pgTable("orders", {
   status: orderStatusEnum("status").default("pending").notNull(),
   paymentMethod: text("payment_method").default("cash").notNull(),
   notes: text("notes"),
+  customerPushToken: text("customer_push_token"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
