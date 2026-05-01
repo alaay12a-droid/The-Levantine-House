@@ -10,6 +10,7 @@ export interface ApiMenuItem {
   price: number;
   available: boolean;
   imageKey: string | null;
+  imageUrl: string | null;
   sortOrder: number;
   createdAt: string;
 }
@@ -46,6 +47,7 @@ function buildCategories(apiItems: ApiMenuItem[]): MenuCategoryWithApi[] {
       price: item.price / 100,
       category: item.category,
       imageKey: item.imageKey ?? undefined,
+      imageUrl: item.imageUrl ?? undefined,
       available: item.available,
     });
     categoryMap.set(item.category, existing);

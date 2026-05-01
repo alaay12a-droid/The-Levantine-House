@@ -130,6 +130,8 @@ export default function AdminMenuScreen() {
   const [newName, setNewName] = useState("");
   const [newPrice, setNewPrice] = useState("");
   const [newCategory, setNewCategory] = useState("chicken");
+  const [newImageUrl, setNewImageUrl] = useState("");
+  const [menuImageUploading, setMenuImageUploading] = useState(false);
 
   const [editOccasion, setEditOccasion] = useState<ApiOccasion | null>(null);
   const [showAddOccasionModal, setShowAddOccasionModal] = useState(false);
@@ -137,6 +139,39 @@ export default function AdminMenuScreen() {
   const [occDesc, setOccDesc] = useState("");
   const [occImageUrl, setOccImageUrl] = useState("");
   const [occImageUploading, setOccImageUploading] = useState(false);
+
+  const handlePickMenuImage = async () => {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert("الإذن مطلوب", "يرجى السماح بالوصول إلى الصور في الإعدادات");
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsEditing: true,
+      quality: 0.85,
+    });
+    if (result.canceled || !result.assets.length) return;
+    const asset = result.assets[0];
+    setMenuImageUploading(true);
+    try {
+      const ext = asset.uri.split(".").pop() ?? "jpg";
+      const contentType = `image/${ext === "jpg" ? "jpeg" : ext}`;
+      const urlRes = await fetch(`${API_BASE}/api/storage/uploads/request-url`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: `menu-${Date.now()}.${ext}`, size: asset.fileSize ?? 0, contentType }),
+      });
+      const { uploadURL, objectPath } = await urlRes.json() as { uploadURL: string; objectPath: string };
+      const imageBlob = await fetch(asset.uri).then((r) => r.blob());
+      await fetch(uploadURL, { method: "PUT", headers: { "Content-Type": contentType }, body: imageBlob });
+      setNewImageUrl(`${API_BASE}/api/storage${objectPath}`);
+    } catch {
+      Alert.alert("خطأ", "تعذر رفع الصورة، حاول مرة أخرى");
+    } finally {
+      setMenuImageUploading(false);
+    }
+  };
 
   const handlePickImage = async () => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -221,6 +256,7 @@ export default function AdminMenuScreen() {
     setNewName(item.name);
     setNewPrice((item.price / 100).toString());
     setNewCategory(item.category);
+    setNewImageUrl(item.imageUrl ?? "");
   };
 
   const handleSaveEdit = async () => {
@@ -236,6 +272,7 @@ export default function AdminMenuScreen() {
         name: newName.trim(),
         price: priceNum,
         category: newCategory,
+        imageUrl: newImageUrl || null,
       });
       await refresh();
       setEditItem(null);
@@ -258,12 +295,14 @@ export default function AdminMenuScreen() {
         name: newName.trim(),
         price: priceNum,
         category: newCategory,
+        imageUrl: newImageUrl || null,
       });
       await refresh();
       setShowAddModal(false);
       setNewName("");
       setNewPrice("");
       setNewCategory("chicken");
+      setNewImageUrl("");
     } catch {
       Alert.alert("خطأ", "تعذر الإضافة");
     } finally {
@@ -275,6 +314,7 @@ export default function AdminMenuScreen() {
     setNewName("");
     setNewPrice("");
     setNewCategory("chicken");
+    setNewImageUrl("");
     setShowAddModal(true);
   };
 
@@ -584,6 +624,45 @@ export default function AdminMenuScreen() {
                 </TouchableOpacity>
               ))}
             </ScrollView>
+
+            <Text style={[styles.fieldLabel, { color: colors.mutedForeground, fontFamily: F.semi }]}>صورة الصنف (اختياري)</Text>
+            {newImageUrl ? (
+              <View style={{ alignItems: "center", marginBottom: 10 }}>
+                <Image
+                  source={{ uri: newImageUrl }}
+                  style={{ width: "100%", height: 140, borderRadius: 12, backgroundColor: colors.secondary }}
+                  resizeMode="cover"
+                />
+                <TouchableOpacity onPress={() => setNewImageUrl("")} style={{ marginTop: 6 }}>
+                  <Text style={{ color: "#ef4444", fontFamily: F.semi, fontSize: 13 }}>✕ إزالة الصورة</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <TouchableOpacity
+                onPress={handlePickMenuImage}
+                disabled={menuImageUploading}
+                style={[styles.input, {
+                  backgroundColor: colors.background,
+                  borderColor: colors.gold,
+                  borderStyle: "dashed",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexDirection: "row",
+                  gap: 8,
+                  paddingVertical: 16,
+                  marginBottom: 4,
+                }]}
+              >
+                {menuImageUploading ? (
+                  <ActivityIndicator color={colors.gold} />
+                ) : (
+                  <>
+                    <Feather name="image" size={18} color={colors.gold} />
+                    <Text style={{ color: colors.gold, fontFamily: F.bold, fontSize: 13 }}>اختر صورة من الاستيديو</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            )}
 
             <View style={styles.modalBtns}>
               <TouchableOpacity

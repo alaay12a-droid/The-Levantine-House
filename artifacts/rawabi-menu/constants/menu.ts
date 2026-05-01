@@ -5,6 +5,7 @@ export interface MenuItem {
   category: string;
   description?: string;
   imageKey?: string;
+  imageUrl?: string;
 }
 
 export interface MenuCategory {

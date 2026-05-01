@@ -72,6 +72,7 @@ const createSchema = z.object({
   category: z.string().min(1),
   price: z.number().positive(),
   imageKey: z.string().nullable().optional(),
+  imageUrl: z.string().url().nullable().optional(),
 });
 
 const updateSchema = z.object({
@@ -80,6 +81,7 @@ const updateSchema = z.object({
   price: z.number().positive().optional(),
   available: z.boolean().optional(),
   imageKey: z.string().nullable().optional(),
+  imageUrl: z.string().url().nullable().optional(),
 });
 
 router.get("/menu", async (req, res) => {
@@ -104,6 +106,7 @@ router.post("/menu", async (req, res) => {
     price: Math.round(data.price * 100),
     available: true,
     imageKey: data.imageKey ?? null,
+    imageUrl: data.imageUrl ?? null,
     sortOrder: 999,
   }).returning();
   req.log.info({ itemId: item.itemId }, "Menu item created");
@@ -124,6 +127,7 @@ router.put("/menu/:itemId", async (req, res) => {
   if (data.price !== undefined) updates.price = Math.round(data.price * 100);
   if (data.available !== undefined) updates.available = data.available;
   if (data.imageKey !== undefined) updates.imageKey = data.imageKey;
+  if (data.imageUrl !== undefined) updates.imageUrl = data.imageUrl;
 
   const [item] = await db
     .update(menuItemsTable)

@@ -30,7 +30,9 @@ export function MenuItemCard({ item }: Props) {
   const cartItem = items.find((c) => c.item.id === item.id);
   const quantity = cartItem?.quantity ?? 0;
   const inCart = quantity > 0;
-  const foodImage = item.imageKey ? FOOD_IMAGES[item.imageKey] : null;
+  const foodImage = item.imageUrl
+    ? { uri: item.imageUrl }
+    : item.imageKey ? FOOD_IMAGES[item.imageKey] : null;
   const isDhabiha = item.price === 0;
   const isUnavailable = item.available === false;
 
