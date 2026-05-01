@@ -18,6 +18,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { CartProvider } from "@/context/CartContext";
 import { UserProvider, useUser } from "@/context/UserContext";
 import { OrderBadgeProvider } from "@/context/OrderBadgeContext";
+import { registerCustomerNotifications } from "@/hooks/useCustomerPushToken";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -65,9 +66,18 @@ function AuthGate() {
   return null;
 }
 
+function NotificationSetup() {
+  useEffect(() => {
+    // Request notification permissions immediately on app launch
+    registerCustomerNotifications().catch(() => {});
+  }, []);
+  return null;
+}
+
 function RootLayoutNav() {
   return (
     <>
+      <NotificationSetup />
       <AuthGate />
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="onboarding" options={{ headerShown: false, animation: "fade" }} />

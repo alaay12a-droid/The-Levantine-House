@@ -3,11 +3,23 @@ import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const TOKEN_KEY = "@rawabi_customer_push_token";
+export const TOKEN_KEY = "@rawabi_customer_push_token";
 
-async function setupCustomerNotifications(): Promise<string | null> {
+// Show notifications even when app is foregrounded
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
+
+export async function registerCustomerNotifications(): Promise<string | null> {
   if (Platform.OS === "web") return null;
 
+  // Request permission
   const { status: existing } = await Notifications.getPermissionsAsync();
   let finalStatus = existing;
   if (existing !== "granted") {
@@ -16,6 +28,7 @@ async function setupCustomerNotifications(): Promise<string | null> {
   }
   if (finalStatus !== "granted") return null;
 
+  // Android notification channel
   if (Platform.OS === "android") {
     await Notifications.setNotificationChannelAsync("order-status", {
       name: "حالة طلبك",
@@ -27,6 +40,7 @@ async function setupCustomerNotifications(): Promise<string | null> {
     });
   }
 
+  // Return cached token or fetch new one
   try {
     const cached = await AsyncStorage.getItem(TOKEN_KEY);
     if (cached) return cached;
@@ -43,7 +57,14 @@ export function useCustomerPushToken() {
   const [token, setToken] = useState<string | null>(null);
 
   useEffect(() => {
-    setupCustomerNotifications().then(setToken);
+    // Try to load cached token first (fast path, no permission re-prompt)
+    AsyncStorage.getItem(TOKEN_KEY).then((cached) => {
+      if (cached) {
+        setToken(cached);
+      } else {
+        registerCustomerNotifications().then(setToken);
+      }
+    });
   }, []);
 
   return token;
