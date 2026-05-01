@@ -11,6 +11,9 @@ import {
   RefreshControl,
   Alert,
   ActivityIndicator,
+  Modal,
+  Share,
+  Clipboard,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -139,6 +142,28 @@ export default function CashierScreen() {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<OrderStatus | "all">("all");
+  const [showLinkModal, setShowLinkModal] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const customerUrl = Platform.OS === "web"
+    ? (typeof window !== "undefined" ? window.location.origin + "/" : "")
+    : `https://${process.env.EXPO_PUBLIC_DOMAIN}/`;
+
+  const handleCopyLink = () => {
+    if (Platform.OS === "web" && typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText(customerUrl).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); });
+    } else {
+      Clipboard.setString(customerUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const handleShareLink = async () => {
+    try {
+      await Share.share({ message: `اطلب من روابي المندي: ${customerUrl}`, url: customerUrl });
+    } catch { /* silent */ }
+  };
 
   const topInset = Platform.OS === "web" ? 60 : insets.top;
   const bottomInset = Platform.OS === "web" ? 34 : insets.bottom;
@@ -201,6 +226,13 @@ export default function CashierScreen() {
           )}
         </View>
         <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
+          <TouchableOpacity
+            onPress={() => setShowLinkModal(true)}
+            style={[styles.adminMenuBtn, { backgroundColor: "#1A3A2A" }]}
+          >
+            <Feather name="link" size={15} color="#4CAF50" />
+            <Text style={{ color: "#4CAF50", fontFamily: "Cairo_700Bold", fontSize: 13 }}>رابط العميل</Text>
+          </TouchableOpacity>
           <TouchableOpacity
             onPress={() => router.push("/admin-menu")}
             style={[styles.adminMenuBtn, { backgroundColor: colors.gold }]}
@@ -357,6 +389,63 @@ export default function CashierScreen() {
           })}
         </ScrollView>
       )}
+
+      {/* Customer Link Modal */}
+      <Modal
+        visible={showLinkModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowLinkModal(false)}
+      >
+        <View style={{ flex: 1, justifyContent: "flex-end", backgroundColor: "#00000088" }}>
+          <View style={{ backgroundColor: colors.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, gap: 14 }}>
+            <Text style={{ color: colors.foreground, fontFamily: "Cairo_800ExtraBold", fontSize: 20, textAlign: "center" }}>
+              🔗 رابط موقع العميل
+            </Text>
+            <Text style={{ color: colors.mutedForeground, fontFamily: "Cairo_400Regular", fontSize: 13, textAlign: "center" }}>
+              شارك هذا الرابط مع عملائك ليطلبوا مباشرة من الموقع
+            </Text>
+
+            {/* URL Box */}
+            <TouchableOpacity
+              onPress={handleCopyLink}
+              style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: 14, alignItems: "center" }}
+            >
+              <Text style={{ color: "#4CAF50", fontFamily: "Cairo_700Bold", fontSize: 12, textAlign: "center" }} numberOfLines={2}>
+                {customerUrl}
+              </Text>
+            </TouchableOpacity>
+
+            <View style={{ flexDirection: "row", gap: 10 }}>
+              <TouchableOpacity
+                onPress={handleCopyLink}
+                style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: copied ? "#1A4A1A" : "#1A3A2A", borderRadius: 14, paddingVertical: 14 }}
+              >
+                <Feather name={copied ? "check" : "copy"} size={17} color={copied ? "#81C784" : "#4CAF50"} />
+                <Text style={{ color: copied ? "#81C784" : "#4CAF50", fontFamily: "Cairo_700Bold", fontSize: 14 }}>
+                  {copied ? "تم النسخ ✓" : "نسخ الرابط"}
+                </Text>
+              </TouchableOpacity>
+              {Platform.OS !== "web" && (
+                <TouchableOpacity
+                  onPress={handleShareLink}
+                  style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: "#1A2A3A", borderRadius: 14, paddingVertical: 14 }}
+                >
+                  <Feather name="share-2" size={17} color="#64B5F6" />
+                  <Text style={{ color: "#64B5F6", fontFamily: "Cairo_700Bold", fontSize: 14 }}>مشاركة</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            <TouchableOpacity
+              onPress={() => setShowLinkModal(false)}
+              style={{ alignItems: "center", paddingVertical: 12 }}
+            >
+              <Text style={{ color: colors.mutedForeground, fontFamily: "Cairo_600SemiBold", fontSize: 14 }}>إغلاق</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
