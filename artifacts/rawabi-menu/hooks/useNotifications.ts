@@ -30,9 +30,9 @@ async function registerForPushNotifications(): Promise<string | null> {
     await Notifications.setNotificationChannelAsync("orders", {
       name: "طلبات جديدة",
       importance: Notifications.AndroidImportance.MAX,
-      vibrationPattern: [0, 250, 250, 250],
+      vibrationPattern: [0, 300, 200, 300],
       lightColor: "#D4AF37",
-      sound: "default",
+      sound: "notification",
       enableVibrate: true,
       showBadge: true,
     });
