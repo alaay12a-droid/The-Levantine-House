@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   View,
   Text,
@@ -145,6 +145,34 @@ export default function CashierScreen() {
   const [filter, setFilter] = useState<OrderStatus | "all">("all");
   const [showLinkModal, setShowLinkModal] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [hasNewOrder, setHasNewOrder] = useState(false);
+  const knownOrderIds = useRef<Set<number>>(new Set());
+  const soundEnabled = useRef(false);
+
+  const playNotificationSound = useCallback(() => {
+    try {
+      if (Platform.OS !== "web") return;
+      if (typeof window === "undefined") return;
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const notes = [880, 1108, 1320];
+      notes.forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type = "sine";
+        osc.frequency.value = freq;
+        const start = ctx.currentTime + i * 0.18;
+        gain.gain.setValueAtTime(0, start);
+        gain.gain.linearRampToValueAtTime(0.35, start + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, start + 0.28);
+        osc.start(start);
+        osc.stop(start + 0.3);
+      });
+    } catch { /* silent */ }
+  }, []);
 
   const customerUrl = Platform.OS === "web"
     ? (typeof window !== "undefined" ? window.location.origin + "/" : "")
@@ -173,6 +201,26 @@ export default function CashierScreen() {
     if (!silent) setLoading(true);
     try {
       const data = await apiGet<Order[]>("/orders");
+      const newPending = data.filter((o) => o.status === "pending");
+
+      if (silent && soundEnabled.current) {
+        const newOnes = newPending.filter((o) => !knownOrderIds.current.has(o.id));
+        if (newOnes.length > 0) {
+          playNotificationSound();
+          setHasNewOrder(true);
+          setTimeout(() => setHasNewOrder(false), 4000);
+        }
+      }
+
+      newPending.forEach((o) => knownOrderIds.current.add(o.id));
+
+      if (Platform.OS === "web" && typeof document !== "undefined") {
+        const pendingCount = newPending.length;
+        document.title = pendingCount > 0
+          ? `(${pendingCount}) طلب جديد 🔔 | الكاشير`
+          : "الكاشير | روابي المندي";
+      }
+
       setOrders(data);
     } catch {
       /* silent */
@@ -180,13 +228,20 @@ export default function CashierScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [playNotificationSound]);
 
   useEffect(() => {
     if (!authenticated) return;
     fetchOrders();
+    const initTimer = setTimeout(() => { soundEnabled.current = true; }, 2000);
     const interval = setInterval(() => fetchOrders(true), 10000);
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      clearTimeout(initTimer);
+      if (Platform.OS === "web" && typeof document !== "undefined") {
+        document.title = "روابي المندي";
+      }
+    };
   }, [authenticated, fetchOrders]);
 
   const handleUpdateStatus = async (order: Order, newStatus: OrderStatus) => {
@@ -246,6 +301,17 @@ export default function CashierScreen() {
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* New Order Alert Banner */}
+      {hasNewOrder && (
+        <View style={{ backgroundColor: "#E53935", paddingVertical: 10, paddingHorizontal: 16, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}>
+          <Text style={{ fontSize: 20 }}>🔔</Text>
+          <Text style={{ color: "#fff", fontFamily: "Cairo_800ExtraBold", fontSize: 16, letterSpacing: 0.5 }}>
+            طلب جديد وصل!
+          </Text>
+          <Text style={{ fontSize: 20 }}>🔔</Text>
+        </View>
+      )}
 
       {/* Filter Tabs */}
       <ScrollView
