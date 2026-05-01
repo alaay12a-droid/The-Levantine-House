@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from "react";
+import React, { useState, useRef, useCallback, useEffect } from "react";
 import {
   View,
   Text,
@@ -20,6 +20,8 @@ import { MenuItemCard } from "@/components/MenuItemCard";
 import { CartBar } from "@/components/CartBar";
 import { useMenu } from "@/hooks/useMenu";
 import { useOccasions } from "@/hooks/useOccasions";
+import { useBanners } from "@/hooks/useBanners";
+import { BannerCarousel } from "@/components/BannerCarousel";
 
 const logo = require("@/assets/images/logo.png");
 const deliveryCar = require("@/assets/images/delivery_car.jpg");
@@ -39,7 +41,10 @@ export default function MenuScreen() {
   const router = useRouter();
   const { categories } = useMenu();
   const { occasions } = useOccasions();
+  const { banners, refresh: refreshBanners } = useBanners();
   const [activeCategory, setActiveCategory] = useState("chicken");
+
+  useEffect(() => { refreshBanners(); }, [refreshBanners]);
   const sectionListRef = useRef<SectionList<any>>(null);
   const tabsScrollRef = useRef<ScrollView>(null);
   const isScrollingProgrammatically = useRef(false);
@@ -151,6 +156,9 @@ export default function MenuScreen() {
           })}
         </ScrollView>
       </View>
+
+      {/* ── BANNER CAROUSEL ── */}
+      <BannerCarousel banners={banners} />
 
       {/* ── CONTENT ── */}
       {specialCat?.isDelivery ? (

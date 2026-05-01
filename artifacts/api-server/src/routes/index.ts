@@ -5,6 +5,7 @@ import menuRouter from "./menu";
 import occasionsRouter from "./occasions";
 import storageRouter from "./storage";
 import pushTokensRouter from "./push-tokens";
+import bannersRouter from "./banners";
 
 const router: IRouter = Router();
 
@@ -14,5 +15,6 @@ router.use(menuRouter);
 router.use("/occasions", occasionsRouter);
 router.use(storageRouter);
 router.use(pushTokensRouter);
+router.use(bannersRouter);
 
 export default router;

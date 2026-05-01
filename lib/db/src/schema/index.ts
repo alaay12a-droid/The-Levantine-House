@@ -58,6 +58,19 @@ export const occasionsTable = pgTable("occasions", {
 
 export type Occasion = typeof occasionsTable.$inferSelect;
 
+export const bannersTable = pgTable("banners", {
+  id: serial("id").primaryKey(),
+  bannerId: text("banner_id").notNull().unique(),
+  imageUrl: text("image_url").notNull(),
+  imageKey: text("image_key"),
+  title: text("title"),
+  active: boolean("active").notNull().default(true),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type Banner = typeof bannersTable.$inferSelect;
+
 export const pushTokensTable = pgTable("push_tokens", {
   id: serial("id").primaryKey(),
   token: text("token").notNull().unique(),

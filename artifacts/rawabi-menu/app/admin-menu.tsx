@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import {
   View,
   Text,
@@ -26,6 +26,7 @@ import { useTabConfig, type TabConfig } from "@/hooks/useTabConfig";
 import { loadPins, savePins, isMasterCode, type Pins } from "@/hooks/usePins";
 import { usePaymentSettings } from "@/hooks/usePaymentSettings";
 import { useDiscountCodes, type DiscountCode } from "@/hooks/useDiscountCodes";
+import { useBanners, type ApiBanner } from "@/hooks/useBanners";
 import { apiGet, apiPost, apiPut, apiDelete, API_BASE } from "@/constants/api";
 
 const F = {
@@ -216,10 +217,17 @@ export default function AdminMenuScreen() {
     loadPins().then((p) => { setPins(p); setPinsLoaded(true); });
   }, []);
 
-  const [activeTab, setActiveTab] = useState<"menu" | "occasions" | "stock" | "settings">("menu");
+  const [activeTab, setActiveTab] = useState<"menu" | "occasions" | "stock" | "settings" | "banners">("menu");
   const { config: tabConfig, update: updateTabConfig } = useTabConfig();
   const { settings: paymentSettings, saveSettings: savePaymentSettings } = usePaymentSettings();
   const { codes: discountCodes, addCode, updateCode, deleteCode } = useDiscountCodes();
+  const { banners: allBanners, refresh: refreshBanners } = useBanners();
+  const [bannerTitle, setBannerTitle] = useState("");
+  const [bannerImageUrl, setBannerImageUrl] = useState("");
+  const [bannerUploading, setBannerUploading] = useState(false);
+  const [bannerLoading, setBannerLoading] = useState<string | null>(null);
+
+  useEffect(() => { refreshBanners(); }, [refreshBanners]);
 
   const [dcCode, setDcCode] = useState("");
   const [dcType, setDcType] = useState<"percentage" | "fixed">("percentage");
@@ -537,6 +545,70 @@ export default function AdminMenuScreen() {
     ]);
   };
 
+  const handlePickBannerImage = async () => {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) { Alert.alert("الإذن مطلوب", "يرجى السماح بالوصول إلى الصور في الإعدادات"); return; }
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], allowsEditing: true, aspect: [16, 9], quality: 0.85 });
+    if (result.canceled || !result.assets.length) return;
+    const asset = result.assets[0];
+    setBannerUploading(true);
+    try {
+      const ext = asset.uri.split(".").pop() ?? "jpg";
+      const contentType = `image/${ext === "jpg" ? "jpeg" : ext}`;
+      const urlRes = await fetch(`${API_BASE}/api/storage/uploads/request-url`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: `banner-${Date.now()}.${ext}`, size: asset.fileSize ?? 0, contentType }),
+      });
+      const { uploadURL, objectPath } = await urlRes.json() as { uploadURL: string; objectPath: string };
+      const imageBlob = await fetch(asset.uri).then((r) => r.blob());
+      await fetch(uploadURL, { method: "PUT", headers: { "Content-Type": contentType }, body: imageBlob });
+      setBannerImageUrl(`${API_BASE}/api/storage${objectPath}`);
+    } catch {
+      Alert.alert("خطأ", "تعذر رفع الصورة، حاول مرة أخرى");
+    } finally {
+      setBannerUploading(false);
+    }
+  };
+
+  const handleAddBanner = async () => {
+    if (!bannerImageUrl) { Alert.alert("تنبيه", "يرجى اختيار صورة أولاً"); return; }
+    try {
+      await apiPost("/banners", { imageUrl: bannerImageUrl, title: bannerTitle.trim() || null });
+      setBannerImageUrl("");
+      setBannerTitle("");
+      await refreshBanners();
+    } catch {
+      Alert.alert("خطأ", "تعذر إضافة البانر");
+    }
+  };
+
+  const handleToggleBanner = async (b: ApiBanner) => {
+    setBannerLoading(b.bannerId);
+    try {
+      await apiPut(`/banners/${b.bannerId}`, { active: !b.active });
+      await refreshBanners();
+    } catch {
+      Alert.alert("خطأ", "تعذر تعديل البانر");
+    } finally {
+      setBannerLoading(null);
+    }
+  };
+
+  const handleDeleteBanner = (b: ApiBanner) => {
+    Alert.alert("حذف البانر", "هل تريد حذف هذه الصورة؟", [
+      { text: "إلغاء", style: "cancel" },
+      { text: "حذف", style: "destructive", onPress: async () => {
+        try {
+          await apiDelete(`/banners/${b.bannerId}`);
+          await refreshBanners();
+        } catch {
+          Alert.alert("خطأ", "تعذر الحذف");
+        }
+      }},
+    ]);
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar barStyle="light-content" />
@@ -571,13 +643,23 @@ export default function AdminMenuScreen() {
           >
             <Text style={[styles.tabBtnText, { color: activeTab === "settings" ? "#fff" : colors.mutedForeground, fontFamily: F.bold }]}>⚙️ الإعدادات</Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setActiveTab("banners")}
+            style={[styles.tabBtn, { backgroundColor: activeTab === "banners" ? "#7B3F00" : colors.secondary, borderWidth: 1, borderColor: activeTab === "banners" ? colors.gold : "transparent" }]}
+          >
+            <Text style={[styles.tabBtnText, { color: activeTab === "banners" ? colors.gold : colors.mutedForeground, fontFamily: F.bold }]}>🖼️ البانر</Text>
+          </TouchableOpacity>
         </ScrollView>
         <TouchableOpacity
-          onPress={activeTab === "menu" ? openAdd : activeTab === "occasions" ? () => { setOccName(""); setOccDesc(""); setOccImageUrl(""); setShowAddOccasionModal(true); } : undefined}
-          style={[styles.iconBtn, { backgroundColor: (activeTab === "stock" || activeTab === "settings") ? colors.secondary : colors.gold, opacity: (activeTab === "stock" || activeTab === "settings") ? 0.3 : 1 }]}
-          disabled={activeTab === "stock" || activeTab === "settings"}
+          onPress={
+            activeTab === "menu" ? openAdd
+            : activeTab === "occasions" ? () => { setOccName(""); setOccDesc(""); setOccImageUrl(""); setShowAddOccasionModal(true); }
+            : undefined
+          }
+          style={[styles.iconBtn, { backgroundColor: (activeTab === "stock" || activeTab === "settings" || activeTab === "banners") ? colors.secondary : colors.gold, opacity: (activeTab === "stock" || activeTab === "settings" || activeTab === "banners") ? 0.3 : 1 }]}
+          disabled={activeTab === "stock" || activeTab === "settings" || activeTab === "banners"}
         >
-          <Feather name="plus" size={20} color={(activeTab === "stock" || activeTab === "settings") ? colors.mutedForeground : "#fff"} />
+          <Feather name="plus" size={20} color={(activeTab === "stock" || activeTab === "settings" || activeTab === "banners") ? colors.mutedForeground : "#fff"} />
         </TouchableOpacity>
       </View>
 
@@ -1278,6 +1360,94 @@ export default function AdminMenuScreen() {
               💡 إذا نسيت الرمز، يمكنك استخدام رمز الطوارئ للدخول وتغيير الرموز.{"\n"}للحصول على رمز الطوارئ تواصل مع المطور.
             </Text>
           </View>
+        </ScrollView>
+      )}
+
+      {/* Banners tab */}
+      {activeTab === "banners" && (
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={[styles.list, { paddingBottom: bottomInset + 20 }]}
+        >
+          {/* Add Banner Form */}
+          <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.gold, borderWidth: 1.5 }]}>
+            <Text style={[styles.itemName, { color: colors.gold, fontFamily: F.bold, marginBottom: 12 }]}>➕ إضافة بانر جديد</Text>
+
+            <TouchableOpacity
+              onPress={handlePickBannerImage}
+              disabled={bannerUploading}
+              style={{ borderRadius: 12, overflow: "hidden", marginBottom: 10, height: 140, backgroundColor: "#2A1508", justifyContent: "center", alignItems: "center", borderWidth: 1, borderColor: colors.border, borderStyle: "dashed" }}
+            >
+              {bannerUploading ? (
+                <ActivityIndicator size="large" color={colors.gold} />
+              ) : bannerImageUrl ? (
+                <Image source={{ uri: bannerImageUrl }} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
+              ) : (
+                <View style={{ alignItems: "center", gap: 6 }}>
+                  <Feather name="image" size={32} color={colors.gold} />
+                  <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 13 }}>اضغط لاختيار صورة (أفضل نسبة 16:9)</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+
+            <TextInput
+              value={bannerTitle}
+              onChangeText={setBannerTitle}
+              placeholder="عنوان البانر (اختياري)"
+              placeholderTextColor={colors.mutedForeground}
+              style={[styles.input, { color: colors.foreground, backgroundColor: colors.secondary, borderColor: colors.border, fontFamily: F.regular }]}
+              textAlign="right"
+            />
+
+            <TouchableOpacity
+              onPress={handleAddBanner}
+              disabled={!bannerImageUrl || bannerUploading}
+              style={[styles.saveBtn, { backgroundColor: bannerImageUrl ? colors.gold : "#3A2410", marginTop: 10 }]}
+            >
+              <Text style={[styles.saveBtnText, { color: bannerImageUrl ? "#1A0A00" : colors.mutedForeground, fontFamily: F.bold }]}>
+                حفظ البانر
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Banner List */}
+          {allBanners.length === 0 ? (
+            <View style={styles.empty}>
+              <Text style={{ fontSize: 40 }}>🖼️</Text>
+              <Text style={[styles.emptyText, { color: colors.mutedForeground, fontFamily: F.semi }]}>لا توجد بانرات مضافة بعد</Text>
+            </View>
+          ) : allBanners.map((b) => (
+            <View key={b.bannerId} style={[styles.card, { backgroundColor: colors.card, borderColor: b.active ? colors.border : "#5A2A2A" }]}>
+              <View style={styles.cardTop}>
+                <View style={styles.cardLeft}>
+                  {bannerLoading === b.bannerId ? (
+                    <ActivityIndicator size="small" color={colors.gold} />
+                  ) : (
+                    <Switch
+                      value={b.active}
+                      onValueChange={() => handleToggleBanner(b)}
+                      trackColor={{ false: "#3A1A1A", true: "#2A5A2A" }}
+                      thumbColor={b.active ? "#4CAF50" : "#E57373"}
+                    />
+                  )}
+                </View>
+                <View style={{ flex: 1, gap: 6 }}>
+                  {b.title ? (
+                    <Text style={[styles.itemName, { color: b.active ? colors.foreground : colors.mutedForeground, fontFamily: F.bold }]} numberOfLines={1}>{b.title}</Text>
+                  ) : (
+                    <Text style={[styles.itemCat, { color: colors.mutedForeground, fontFamily: F.regular }]}>بدون عنوان</Text>
+                  )}
+                  <Image source={{ uri: b.imageUrl }} style={{ width: "100%", height: 120, borderRadius: 8 }} resizeMode="cover" />
+                  <Text style={[styles.itemCat, { color: b.active ? "#4CAF50" : "#E57373", fontFamily: F.semi, fontSize: 11 }]}>
+                    {b.active ? "✅ ظاهر" : "❌ مخفي"}
+                  </Text>
+                </View>
+                <TouchableOpacity onPress={() => handleDeleteBanner(b)} style={[styles.iconBtn, { backgroundColor: "#3A1010" }]}>
+                  <Feather name="trash-2" size={16} color="#E57373" />
+                </TouchableOpacity>
+              </View>
+            </View>
+          ))}
         </ScrollView>
       )}
 
