@@ -14,6 +14,7 @@ import {
   Modal,
   Share,
   Clipboard,
+  Linking,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -335,12 +336,19 @@ export default function CashierScreen() {
                     <Feather name="phone" size={14} color={colors.mutedForeground} />
                   </View>
                   {order.customerAddress && (
-                    <View style={styles.customerRow}>
-                      <Text style={[styles.customerPhone, { color: colors.mutedForeground, fontFamily: F.regular }]} numberOfLines={1}>
-                        {order.customerAddress}
+                    <TouchableOpacity
+                      style={styles.customerRow}
+                      onPress={() => order.customerAddress?.startsWith("https://") ? Linking.openURL(order.customerAddress) : undefined}
+                      activeOpacity={order.customerAddress.startsWith("https://") ? 0.6 : 1}
+                    >
+                      <Text
+                        style={[styles.customerPhone, { color: order.customerAddress.startsWith("https://") ? "#4CAF50" : colors.mutedForeground, fontFamily: F.regular }]}
+                        numberOfLines={1}
+                      >
+                        {order.customerAddress.startsWith("https://") ? "📍 فتح الموقع على الخريطة" : order.customerAddress}
                       </Text>
-                      <Feather name="map-pin" size={14} color={colors.mutedForeground} />
-                    </View>
+                      <Feather name="map-pin" size={14} color={order.customerAddress.startsWith("https://") ? "#4CAF50" : colors.mutedForeground} />
+                    </TouchableOpacity>
                   )}
                 </View>
 

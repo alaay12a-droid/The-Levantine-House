@@ -10,11 +10,13 @@ import {
   ActivityIndicator,
   Platform,
   StatusBar,
+  Linking,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import * as Location from "expo-location";
 import { useColors } from "@/hooks/useColors";
 import { useCart } from "@/context/CartContext";
 import { useUser } from "@/context/UserContext";
@@ -44,6 +46,44 @@ export default function CheckoutScreen() {
   const [notes, setNotes] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
   const [loading, setLoading] = useState(false);
+  const [locationUrl, setLocationUrl] = useState<string | null>(null);
+  const [locationLoading, setLocationLoading] = useState(false);
+
+  const handleGetLocation = async () => {
+    setLocationLoading(true);
+    try {
+      if (Platform.OS === "web") {
+        if (!navigator.geolocation) {
+          Alert.alert("غير مدعوم", "متصفحك لا يدعم تحديد الموقع");
+          return;
+        }
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            const url = `https://maps.google.com/?q=${pos.coords.latitude},${pos.coords.longitude}`;
+            setLocationUrl(url);
+            setLocationLoading(false);
+          },
+          () => {
+            Alert.alert("تعذّر التحديد", "يرجى السماح للمتصفح بالوصول للموقع من الإعدادات");
+            setLocationLoading(false);
+          }
+        );
+        return;
+      }
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert("الإذن مرفوض", "يرجى السماح للتطبيق بالوصول لموقعك من إعدادات الجهاز");
+        return;
+      }
+      const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+      const url = `https://maps.google.com/?q=${pos.coords.latitude},${pos.coords.longitude}`;
+      setLocationUrl(url);
+    } catch {
+      Alert.alert("خطأ", "تعذّر تحديد الموقع، حاول مرة أخرى");
+    } finally {
+      setLocationLoading(false);
+    }
+  };
 
   const topInset = Platform.OS === "web" ? 67 : insets.top;
   const bottomInset = Platform.OS === "web" ? 34 : insets.bottom;
@@ -69,7 +109,7 @@ export default function CheckoutScreen() {
       const order = await apiPost<Order>("/orders", {
         customerName: user.name,
         customerPhone: user.phone,
-        customerAddress: user.address || null,
+        customerAddress: locationUrl || user.address || null,
         items: items.map((ci) => ({
           id: ci.item.id,
           name: ci.item.name,
@@ -134,6 +174,59 @@ export default function CheckoutScreen() {
               <Feather name="map-pin" size={16} color={colors.mutedForeground} />
             </View>
           )}
+        </View>
+
+        {/* Location */}
+        <View style={[styles.section, { backgroundColor: colors.card, borderColor: locationUrl ? "#2A5A2A" : colors.border }]}>
+          <Text style={[styles.sectionTitle, { color: colors.gold, fontFamily: F.bold }]}>
+            📍 الموقع (اختياري)
+          </Text>
+
+          {locationUrl ? (
+            <View style={{ gap: 10 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "#1A3A1A", borderRadius: 10, padding: 12 }}>
+                <Feather name="map-pin" size={18} color="#4CAF50" />
+                <Text style={{ flex: 1, color: "#4CAF50", fontFamily: F.semi, fontSize: 13 }}>
+                  تم تحديد موقعك ✓
+                </Text>
+              </View>
+              <View style={{ flexDirection: "row", gap: 8 }}>
+                <TouchableOpacity
+                  onPress={() => Linking.openURL(locationUrl)}
+                  style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: "#1A2A3A", borderRadius: 10, paddingVertical: 10 }}
+                >
+                  <Feather name="external-link" size={14} color="#64B5F6" />
+                  <Text style={{ color: "#64B5F6", fontFamily: F.bold, fontSize: 13 }}>عرض الموقع</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => setLocationUrl(null)}
+                  style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: "#3A1A1A", borderRadius: 10, paddingVertical: 10 }}
+                >
+                  <Feather name="x" size={14} color="#E57373" />
+                  <Text style={{ color: "#E57373", fontFamily: F.bold, fontSize: 13 }}>إزالة الموقع</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            <TouchableOpacity
+              onPress={handleGetLocation}
+              disabled={locationLoading}
+              style={[styles.locationBtn, { borderColor: colors.border, backgroundColor: colors.secondary }]}
+              activeOpacity={0.8}
+            >
+              {locationLoading ? (
+                <ActivityIndicator size="small" color={colors.gold} />
+              ) : (
+                <Feather name="map-pin" size={18} color={colors.gold} />
+              )}
+              <Text style={[styles.locationBtnText, { color: locationLoading ? colors.mutedForeground : colors.foreground, fontFamily: F.bold }]}>
+                {locationLoading ? "جاري تحديد موقعك..." : "تحديد موقعي الحالي 🗺️"}
+              </Text>
+            </TouchableOpacity>
+          )}
+          <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12, textAlign: "center" }}>
+            سيصل رابط موقعك للكاشير مع طلبك
+          </Text>
         </View>
 
         {/* Order Summary */}
@@ -354,6 +447,17 @@ const styles = StyleSheet.create({
     minHeight: 80,
     textAlign: "right",
   },
+  locationBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    borderWidth: 1.5,
+    borderRadius: 12,
+    paddingVertical: 14,
+    borderStyle: "dashed",
+  },
+  locationBtnText: { fontSize: 15 },
   paymentOption: {
     flexDirection: "row",
     alignItems: "center",
