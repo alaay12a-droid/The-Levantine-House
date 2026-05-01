@@ -98,7 +98,11 @@ export default function CheckoutScreen() {
   const topInset = Platform.OS === "web" ? 67 : insets.top;
   const bottomInset = Platform.OS === "web" ? 34 : insets.bottom;
 
+  const deliveryFee = paymentSettings.deliveryFee ?? 0;
+  const grandTotal = totalPrice + deliveryFee;
   const totalStr = totalPrice % 1 === 0 ? totalPrice.toString() : totalPrice.toFixed(2);
+  const grandTotalStr = grandTotal % 1 === 0 ? grandTotal.toString() : grandTotal.toFixed(2);
+  const deliveryFeeStr = deliveryFee % 1 === 0 ? deliveryFee.toString() : deliveryFee.toFixed(2);
 
   const handlePlaceOrder = async () => {
     if (!user) return;
@@ -126,7 +130,7 @@ export default function CheckoutScreen() {
           price: ci.item.price,
           quantity: ci.quantity,
         })),
-        totalPrice,
+        totalPrice: grandTotal,
         paymentMethod,
         notes: notes.trim() || null,
         customerPushToken: customerPushToken ?? null,
@@ -136,7 +140,7 @@ export default function CheckoutScreen() {
         id: order.id,
         dailyNumber: order.dailyNumber,
         createdAt: new Date().toISOString(),
-        total: totalPrice,
+        total: grandTotal,
         items: items.map((ci) => ({ name: ci.item.name, quantity: ci.quantity })),
         customerName: user.name,
       };
@@ -277,11 +281,34 @@ export default function CheckoutScreen() {
           })}
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
           <View style={styles.orderRow}>
-            <Text style={[styles.totalPrice, { color: colors.gold, fontFamily: F.extra }]}>
+            <Text style={[styles.orderPrice, { color: colors.mutedForeground, fontFamily: F.bold }]}>
               {totalStr} ر.س
             </Text>
-            <Text style={[styles.totalLabel, { color: colors.mutedForeground, fontFamily: F.semi }]}>
-              المجموع ({totalItems} صنف)
+            <Text style={[styles.orderName, { color: colors.mutedForeground, fontFamily: F.semi }]}>
+              المجموع الفرعي ({totalItems} صنف)
+            </Text>
+          </View>
+          <View style={styles.orderRow}>
+            {deliveryFee > 0 ? (
+              <Text style={[styles.orderPrice, { color: colors.gold, fontFamily: F.bold }]}>
+                {deliveryFeeStr} ر.س
+              </Text>
+            ) : (
+              <Text style={[styles.orderPrice, { color: "#4CAF50", fontFamily: F.bold }]}>
+                مجاني
+              </Text>
+            )}
+            <Text style={[styles.orderName, { color: colors.foreground, fontFamily: F.semi }]}>
+              🚗 رسوم التوصيل
+            </Text>
+          </View>
+          <View style={[styles.divider, { backgroundColor: colors.gold, opacity: 0.4 }]} />
+          <View style={styles.orderRow}>
+            <Text style={[styles.totalPrice, { color: colors.gold, fontFamily: F.extra }]}>
+              {grandTotalStr} ر.س
+            </Text>
+            <Text style={[styles.totalLabel, { color: colors.foreground, fontFamily: F.bold }]}>
+              الإجمالي
             </Text>
           </View>
         </View>
@@ -398,10 +425,10 @@ export default function CheckoutScreen() {
       <View style={[styles.bottomBar, { backgroundColor: "#1A1008", borderTopColor: colors.border, paddingBottom: bottomInset + 16 }]}>
         <View style={[styles.totalRow, { backgroundColor: colors.secondary }]}>
           <Text style={[styles.bottomTotal, { color: colors.gold, fontFamily: F.extra }]}>
-            {totalStr} ر.س
+            {grandTotalStr} ر.س
           </Text>
           <Text style={[styles.bottomLabel, { color: colors.mutedForeground, fontFamily: F.regular }]}>
-            الإجمالي
+            الإجمالي{deliveryFee > 0 ? ` (شامل التوصيل ${deliveryFeeStr} ر.س)` : " (التوصيل مجاني)"}
           </Text>
         </View>
         <TouchableOpacity

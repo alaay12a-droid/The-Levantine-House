@@ -1114,6 +1114,34 @@ export default function AdminMenuScreen() {
           </Text>
 
           <View style={{ backgroundColor: colors.card, borderRadius: 14, borderWidth: 1, borderColor: colors.border, padding: 16, gap: 14 }}>
+            {/* Delivery Fee */}
+            <View style={{ gap: 8 }}>
+              <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
+                <Text style={{ color: colors.foreground, fontFamily: F.bold, fontSize: 15, textAlign: "right", flex: 1 }}>
+                  🚗 رسوم التوصيل
+                </Text>
+                <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: colors.secondary, borderRadius: 10, borderWidth: 1, borderColor: paymentSettings.deliveryFee > 0 ? colors.gold : colors.border, paddingHorizontal: 12, gap: 6 }}>
+                  <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 13 }}>ر.س</Text>
+                  <TextInput
+                    value={paymentSettings.deliveryFee === 0 ? "" : String(paymentSettings.deliveryFee)}
+                    onChangeText={(v) => {
+                      const num = parseFloat(v) || 0;
+                      savePaymentSettings({ ...paymentSettings, deliveryFee: num });
+                    }}
+                    placeholder="0"
+                    placeholderTextColor={colors.mutedForeground}
+                    keyboardType="decimal-pad"
+                    style={{ color: colors.foreground, fontFamily: F.bold, fontSize: 16, minWidth: 60, textAlign: "center", paddingVertical: 10 }}
+                  />
+                </View>
+              </View>
+              <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12, textAlign: "right" }}>
+                {paymentSettings.deliveryFee === 0 ? "✅ التوصيل مجاني حالياً" : `سيُضاف ${paymentSettings.deliveryFee} ر.س رسوم توصيل على كل طلب`}
+              </Text>
+            </View>
+
+            <View style={{ height: 1, backgroundColor: colors.border }} />
+
             {/* Apple Pay Toggle */}
             <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" }}>
               <View style={{ gap: 3, flex: 1 }}>
