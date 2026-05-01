@@ -19,7 +19,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import { useMenu, type ApiMenuItem } from "@/hooks/useMenu";
-import { apiPost, apiPut, apiDelete } from "@/constants/api";
+import type { ApiOccasion } from "@/hooks/useOccasions";
+import { apiGet, apiPost, apiPut, apiDelete } from "@/constants/api";
 
 const F = {
   regular: "Cairo_400Regular",
@@ -108,7 +109,18 @@ export default function AdminMenuScreen() {
   const topInset = Platform.OS === "web" ? 60 : insets.top;
   const bottomInset = Platform.OS === "web" ? 34 : insets.bottom;
 
+  const [allOccasions, setAllOccasions] = useState<ApiOccasion[]>([]);
+  const refreshOccasions = useCallback(async () => {
+    try {
+      const data = await apiGet<ApiOccasion[]>("/occasions");
+      setAllOccasions(data);
+    } catch { /* keep */ }
+  }, []);
+  React.useEffect(() => { refreshOccasions(); }, [refreshOccasions]);
+
   const [authenticated, setAuthenticated] = useState(false);
+  const [activeTab, setActiveTab] = useState<"menu" | "occasions">("menu");
+
   const [filterCat, setFilterCat] = useState<string>("all");
   const [showAddModal, setShowAddModal] = useState(false);
   const [editItem, setEditItem] = useState<ApiMenuItem | null>(null);
@@ -116,6 +128,12 @@ export default function AdminMenuScreen() {
   const [newName, setNewName] = useState("");
   const [newPrice, setNewPrice] = useState("");
   const [newCategory, setNewCategory] = useState("chicken");
+
+  const [editOccasion, setEditOccasion] = useState<ApiOccasion | null>(null);
+  const [showAddOccasionModal, setShowAddOccasionModal] = useState(false);
+  const [occName, setOccName] = useState("");
+  const [occDesc, setOccDesc] = useState("");
+  const [occImageUrl, setOccImageUrl] = useState("");
 
   if (!authenticated) {
     return <PinScreen onSuccess={() => setAuthenticated(true)} />;
@@ -224,6 +242,67 @@ export default function AdminMenuScreen() {
     setShowAddModal(true);
   };
 
+  const handleToggleOccasion = async (occ: ApiOccasion) => {
+    setLoading(occ.occasionId);
+    try {
+      await apiPut(`/occasions/${occ.occasionId}`, { active: !occ.active });
+      await refreshOccasions();
+    } catch {
+      Alert.alert("خطأ", "تعذر تحديث الحالة");
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  const openEditOccasion = (occ: ApiOccasion) => {
+    setEditOccasion(occ);
+    setOccName(occ.name);
+    setOccDesc(occ.description ?? "");
+    setOccImageUrl(occ.imageUrl ?? "");
+  };
+
+  const handleSaveOccasion = async () => {
+    if (!occName.trim()) { Alert.alert("خطأ", "أدخل اسم المناسبة"); return; }
+    setLoading("occ-save");
+    try {
+      if (editOccasion) {
+        await apiPut(`/occasions/${editOccasion.occasionId}`, {
+          name: occName.trim(),
+          description: occDesc.trim() || undefined,
+          imageUrl: occImageUrl.trim() || undefined,
+        });
+        setEditOccasion(null);
+      } else {
+        await apiPost("/occasions", {
+          name: occName.trim(),
+          description: occDesc.trim() || undefined,
+          imageUrl: occImageUrl.trim() || undefined,
+        });
+        setShowAddOccasionModal(false);
+      }
+      setOccName(""); setOccDesc(""); setOccImageUrl("");
+      await refreshOccasions();
+    } catch {
+      Alert.alert("خطأ", "تعذر الحفظ");
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  const handleDeleteOccasion = (occ: ApiOccasion) => {
+    Alert.alert("حذف المناسبة", `هل تريد حذف "${occ.name}"؟`, [
+      { text: "إلغاء", style: "cancel" },
+      { text: "حذف", style: "destructive", onPress: async () => {
+        try {
+          await apiDelete(`/occasions/${occ.occasionId}`);
+          await refreshOccasions();
+        } catch {
+          Alert.alert("خطأ", "تعذر الحذف");
+        }
+      }},
+    ]);
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar barStyle="light-content" />
@@ -233,16 +312,29 @@ export default function AdminMenuScreen() {
         <TouchableOpacity onPress={() => router.back()} style={[styles.iconBtn, { backgroundColor: colors.secondary }]}>
           <Feather name="arrow-right" size={20} color={colors.foreground} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.foreground, fontFamily: F.bold }]}>
-          إدارة القائمة
-        </Text>
-        <TouchableOpacity onPress={openAdd} style={[styles.iconBtn, { backgroundColor: colors.gold }]}>
+        <View style={styles.tabRow}>
+          <TouchableOpacity
+            onPress={() => setActiveTab("menu")}
+            style={[styles.tabBtn, { backgroundColor: activeTab === "menu" ? colors.gold : colors.secondary }]}
+          >
+            <Text style={[styles.tabBtnText, { color: activeTab === "menu" ? "#1A0A00" : colors.mutedForeground, fontFamily: F.bold }]}>الأصناف</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setActiveTab("occasions")}
+            style={[styles.tabBtn, { backgroundColor: activeTab === "occasions" ? colors.gold : colors.secondary }]}
+          >
+            <Text style={[styles.tabBtnText, { color: activeTab === "occasions" ? "#1A0A00" : colors.mutedForeground, fontFamily: F.bold }]}>المناسبات</Text>
+          </TouchableOpacity>
+        </View>
+        <TouchableOpacity
+          onPress={activeTab === "menu" ? openAdd : () => { setOccName(""); setOccDesc(""); setOccImageUrl(""); setShowAddOccasionModal(true); }}
+          style={[styles.iconBtn, { backgroundColor: colors.gold }]}
+        >
           <Feather name="plus" size={20} color="#fff" />
         </TouchableOpacity>
       </View>
 
-      {/* Category filter */}
-      <ScrollView
+      {activeTab === "menu" && <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.filterRow}
@@ -269,10 +361,10 @@ export default function AdminMenuScreen() {
             </TouchableOpacity>
           );
         })}
-      </ScrollView>
+      </ScrollView>}
 
-      {/* Items list */}
-      <ScrollView
+      {/* Items list — menu tab */}
+      {activeTab === "menu" && <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.list, { paddingBottom: bottomInset + 20 }]}
       >
@@ -337,7 +429,70 @@ export default function AdminMenuScreen() {
             );
           })
         )}
-      </ScrollView>
+      </ScrollView>}
+
+      {/* Occasions tab */}
+      {activeTab === "occasions" && (
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={[styles.list, { paddingBottom: bottomInset + 20 }]}
+        >
+          {allOccasions.length === 0 ? (
+            <View style={styles.empty}>
+              <Text style={{ fontSize: 40 }}>🎉</Text>
+              <Text style={[styles.emptyText, { color: colors.mutedForeground, fontFamily: F.semi }]}>لا توجد مناسبات</Text>
+            </View>
+          ) : allOccasions.map((occ) => {
+            const isOccLoading = loading === occ.occasionId;
+            return (
+              <View key={occ.occasionId} style={[styles.card, { backgroundColor: colors.card, borderColor: occ.active ? colors.border : "#5A2A2A" }]}>
+                <View style={styles.cardTop}>
+                  <View style={styles.cardLeft}>
+                    {isOccLoading ? (
+                      <ActivityIndicator size="small" color={colors.gold} />
+                    ) : (
+                      <Switch
+                        value={occ.active}
+                        onValueChange={() => handleToggleOccasion(occ)}
+                        trackColor={{ false: "#3A1A1A", true: "#2A5A2A" }}
+                        thumbColor={occ.active ? "#4CAF50" : "#E57373"}
+                      />
+                    )}
+                  </View>
+                  <View style={styles.cardInfo}>
+                    <Text style={[styles.itemName, { color: occ.active ? colors.foreground : colors.mutedForeground, fontFamily: F.bold }]} numberOfLines={2}>
+                      {occ.name}
+                    </Text>
+                    {occ.description ? (
+                      <Text style={[styles.itemCat, { color: colors.mutedForeground, fontFamily: F.regular }]} numberOfLines={1}>{occ.description}</Text>
+                    ) : null}
+                    {occ.imageUrl ? (
+                      <Text style={[styles.itemCat, { color: colors.gold, fontFamily: F.regular }]} numberOfLines={1}>🖼️ صورة مخصصة</Text>
+                    ) : (
+                      <Text style={[styles.itemCat, { color: colors.mutedForeground, fontFamily: F.regular }]}>🖼️ صورة افتراضية</Text>
+                    )}
+                    {!occ.active && (
+                      <View style={[styles.unavailBadge, { backgroundColor: "#5A1A1A" }]}>
+                        <Text style={[styles.unavailText, { fontFamily: F.bold }]}>مخفية</Text>
+                      </View>
+                    )}
+                  </View>
+                </View>
+                <View style={[styles.cardActions, { borderTopColor: colors.border }]}>
+                  <TouchableOpacity onPress={() => handleDeleteOccasion(occ)} style={[styles.actionBtn, { backgroundColor: "#3A1A1A" }]}>
+                    <Feather name="trash-2" size={15} color="#E57373" />
+                    <Text style={[styles.actionText, { color: "#E57373", fontFamily: F.bold }]}>حذف</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => openEditOccasion(occ)} style={[styles.actionBtn, { backgroundColor: "#1A2A3A" }]}>
+                    <Feather name="edit-2" size={15} color="#64B5F6" />
+                    <Text style={[styles.actionText, { color: "#64B5F6", fontFamily: F.bold }]}>تعديل</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            );
+          })}
+        </ScrollView>
+      )}
 
       {/* Add / Edit Modal */}
       <Modal
@@ -418,6 +573,76 @@ export default function AdminMenuScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* Add / Edit Occasion Modal */}
+      <Modal
+        visible={showAddOccasionModal || editOccasion !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={() => { setShowAddOccasionModal(false); setEditOccasion(null); }}
+      >
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalBackdrop}>
+          <View style={[styles.modalSheet, { backgroundColor: colors.card }]}>
+            <Text style={[styles.modalTitle, { color: colors.foreground, fontFamily: F.extra }]}>
+              {editOccasion ? "تعديل المناسبة" : "إضافة مناسبة جديدة"}
+            </Text>
+
+            <Text style={[styles.fieldLabel, { color: colors.mutedForeground, fontFamily: F.semi }]}>اسم المناسبة</Text>
+            <TextInput
+              style={[styles.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, fontFamily: F.regular, textAlign: "right" }]}
+              value={occName}
+              onChangeText={setOccName}
+              placeholder="مثال: عروض رمضان الكريم"
+              placeholderTextColor={colors.mutedForeground}
+            />
+
+            <Text style={[styles.fieldLabel, { color: colors.mutedForeground, fontFamily: F.semi }]}>الوصف (اختياري)</Text>
+            <TextInput
+              style={[styles.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, fontFamily: F.regular, textAlign: "right" }]}
+              value={occDesc}
+              onChangeText={setOccDesc}
+              placeholder="مثال: أسعار مميزة طوال الشهر الكريم"
+              placeholderTextColor={colors.mutedForeground}
+            />
+
+            <Text style={[styles.fieldLabel, { color: colors.mutedForeground, fontFamily: F.semi }]}>رابط الصورة (اختياري)</Text>
+            <TextInput
+              style={[styles.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, fontFamily: F.regular, textAlign: "left" }]}
+              value={occImageUrl}
+              onChangeText={setOccImageUrl}
+              placeholder="https://..."
+              placeholderTextColor={colors.mutedForeground}
+              autoCapitalize="none"
+              keyboardType="url"
+            />
+            <Text style={[styles.fieldLabel, { color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11, marginTop: -6 }]}>
+              ارفع الصورة على أي موقع (Google Photos, Imgur...) والصق الرابط هنا
+            </Text>
+
+            <View style={styles.modalBtns}>
+              <TouchableOpacity
+                onPress={() => { setShowAddOccasionModal(false); setEditOccasion(null); }}
+                style={[styles.modalBtn, { backgroundColor: colors.secondary, borderColor: colors.border }]}
+              >
+                <Text style={[styles.modalBtnText, { color: colors.mutedForeground, fontFamily: F.bold }]}>إلغاء</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleSaveOccasion}
+                disabled={loading === "occ-save"}
+                style={[styles.modalBtn, { backgroundColor: colors.gold, flex: 1.5 }]}
+              >
+                {loading === "occ-save" ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={[styles.modalBtnText, { color: "#fff", fontFamily: F.bold }]}>
+                    {editOccasion ? "حفظ التعديلات" : "إضافة المناسبة"}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 }
@@ -434,6 +659,9 @@ const styles = StyleSheet.create({
   },
   iconBtn: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
   headerTitle: { flex: 1, fontSize: 20, textAlign: "center" },
+  tabRow: { flex: 1, flexDirection: "row", gap: 6, paddingHorizontal: 4 },
+  tabBtn: { flex: 1, paddingVertical: 7, borderRadius: 16, alignItems: "center" },
+  tabBtnText: { fontSize: 14 },
   filterRow: { paddingHorizontal: 12, paddingVertical: 10, gap: 8 },
   filterTab: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20, borderWidth: 1 },
   filterText: { fontSize: 13 },

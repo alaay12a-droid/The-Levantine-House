@@ -39,3 +39,17 @@ export const menuItemsTable = pgTable("menu_items", {
 });
 
 export type MenuItem = typeof menuItemsTable.$inferSelect;
+
+export const occasionsTable = pgTable("occasions", {
+  id: serial("id").primaryKey(),
+  occasionId: text("occasion_id").notNull().unique(),
+  name: text("name").notNull(),
+  description: text("description"),
+  imageUrl: text("image_url"),
+  imageKey: text("image_key"),
+  active: boolean("active").notNull().default(true),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type Occasion = typeof occasionsTable.$inferSelect;

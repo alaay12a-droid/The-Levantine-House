@@ -18,6 +18,7 @@ import { FOOD_IMAGES, RESTAURANT_INFO } from "@/constants/menu";
 import { MenuItemCard } from "@/components/MenuItemCard";
 import { CartBar } from "@/components/CartBar";
 import { useMenu } from "@/hooks/useMenu";
+import { useOccasions } from "@/hooks/useOccasions";
 
 const logo = require("@/assets/images/logo.png");
 const deliveryCar = require("@/assets/images/delivery_car.jpg");
@@ -36,6 +37,7 @@ export default function MenuScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { categories } = useMenu();
+  const { occasions } = useOccasions();
   const [activeCategory, setActiveCategory] = useState("chicken");
 
   const activeCat = categories.find((c) => c.id === activeCategory) ?? categories[0];
@@ -203,26 +205,26 @@ export default function MenuScreen() {
             </Text>
           </View>
 
-          {activeCat.items.map((item) => (
+          {occasions.map((occ) => (
             <TouchableOpacity
-              key={item.id}
+              key={occ.occasionId}
               activeOpacity={0.85}
-              onPress={() => handleWhatsApp(`السلام عليكم، أرغب في الاستفسار عن: ${item.name}`)}
+              onPress={() => handleWhatsApp(`السلام عليكم، أرغب في الاستفسار عن: ${occ.name}`)}
               style={[styles.occasionCard, { backgroundColor: colors.card, borderColor: colors.border }]}
             >
-              {FOOD_IMAGES[item.imageKey ?? ""] && (
-                <Image
-                  source={FOOD_IMAGES[item.imageKey!]}
-                  style={styles.occasionImg}
-                  resizeMode="cover"
-                />
-              )}
+              {occ.imageUrl ? (
+                <Image source={{ uri: occ.imageUrl }} style={styles.occasionImg} resizeMode="cover" />
+              ) : occ.imageKey && FOOD_IMAGES[occ.imageKey] ? (
+                <Image source={FOOD_IMAGES[occ.imageKey]} style={styles.occasionImg} resizeMode="cover" />
+              ) : null}
               <View style={[styles.occasionOverlay, { backgroundColor: "#0F0A05CC" }]}>
                 <View style={[styles.occasionBadge, { backgroundColor: colors.gold }]}>
                   <Text style={[styles.occasionBadgeText, { fontFamily: F.bold }]}>عرض خاص</Text>
                 </View>
-                <Text style={[styles.occasionName, { color: "#FFFFFF", fontFamily: F.extra }]}>{item.name}</Text>
-                <Text style={[styles.occasionDesc, { color: "#FFFFFF99", fontFamily: F.semi }]}>{item.description}</Text>
+                <Text style={[styles.occasionName, { color: "#FFFFFF", fontFamily: F.extra }]}>{occ.name}</Text>
+                {occ.description ? (
+                  <Text style={[styles.occasionDesc, { color: "#FFFFFF99", fontFamily: F.semi }]}>{occ.description}</Text>
+                ) : null}
                 <View style={[styles.occasionBtn, { backgroundColor: "#1DBF47" }]}>
                   <Feather name="message-circle" size={15} color="#fff" />
                   <Text style={[styles.occasionBtnText, { fontFamily: F.bold }]}>استفسر عبر واتساب</Text>

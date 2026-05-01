@@ -1,6 +1,7 @@
 import app from "./app";
 import { logger } from "./lib/logger";
 import { seedMenu } from "./routes/menu";
+import { seedOccasions } from "./routes/occasions";
 
 const rawPort = process.env["PORT"];
 
@@ -25,4 +26,5 @@ app.listen(port, "0.0.0.0", (err) => {
   logger.info({ port }, "Server listening");
 
   seedMenu().catch((e) => logger.error({ err: e }, "Menu seed failed"));
+  seedOccasions().catch((e) => logger.error({ err: e }, "Occasions seed failed"));
 });
