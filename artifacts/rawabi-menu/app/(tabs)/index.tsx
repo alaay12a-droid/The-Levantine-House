@@ -128,7 +128,7 @@ export default function MenuScreen() {
           contentContainerStyle={styles.tabsContent}
           style={styles.tabsScroll}
         >
-          {categories.map((cat) => {
+          {categories.filter((c) => !c.isOccasions).map((cat) => {
             const active = activeCategory === cat.id;
             return (
               <TouchableOpacity
