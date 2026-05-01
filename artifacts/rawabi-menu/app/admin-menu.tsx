@@ -24,6 +24,7 @@ import { useMenu, type ApiMenuItem } from "@/hooks/useMenu";
 import type { ApiOccasion } from "@/hooks/useOccasions";
 import { useTabConfig, type TabConfig } from "@/hooks/useTabConfig";
 import { loadPins, savePins, isMasterCode, type Pins } from "@/hooks/usePins";
+import { usePaymentSettings } from "@/hooks/usePaymentSettings";
 import { apiGet, apiPost, apiPut, apiDelete, API_BASE } from "@/constants/api";
 
 const F = {
@@ -216,6 +217,7 @@ export default function AdminMenuScreen() {
 
   const [activeTab, setActiveTab] = useState<"menu" | "occasions" | "stock" | "settings">("menu");
   const { config: tabConfig, update: updateTabConfig } = useTabConfig();
+  const { settings: paymentSettings, saveSettings: savePaymentSettings } = usePaymentSettings();
   const [stockEdits, setStockEdits] = useState<Record<string, string>>({});
   const [stockSaving, setStockSaving] = useState<string | null>(null);
 
@@ -1014,6 +1016,97 @@ export default function AdminMenuScreen() {
           <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12, textAlign: "center" }}>
             التغييرات تُحفظ تلقائياً وتظهر فور الرجوع للتطبيق
           </Text>
+
+          {/* Payment Settings */}
+          <Text style={{ color: colors.gold, fontFamily: F.extra, fontSize: 16, textAlign: "right", marginTop: 8 }}>
+            💳 إعدادات الدفع
+          </Text>
+
+          <View style={{ backgroundColor: colors.card, borderRadius: 14, borderWidth: 1, borderColor: colors.border, padding: 16, gap: 14 }}>
+            {/* Apple Pay Toggle */}
+            <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" }}>
+              <View style={{ gap: 3, flex: 1 }}>
+                <Text style={{ color: colors.foreground, fontFamily: F.bold, fontSize: 15, textAlign: "right" }}>
+                   Apple Pay
+                </Text>
+                <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12, textAlign: "right" }}>
+                  إظهار خيار الدفع بـ Apple Pay في الشاشة الدفع
+                </Text>
+              </View>
+              <Switch
+                value={paymentSettings.applePayEnabled}
+                onValueChange={(val) =>
+                  savePaymentSettings({ ...paymentSettings, applePayEnabled: val })
+                }
+                trackColor={{ false: colors.border, true: "#D4AF37" }}
+                thumbColor={paymentSettings.applePayEnabled ? "#1A0A00" : colors.mutedForeground}
+              />
+            </View>
+
+            <View style={{ height: 1, backgroundColor: colors.border }} />
+
+            {/* Moyasar Publishable Key */}
+            <View style={{ gap: 8 }}>
+              <Text style={{ color: colors.foreground, fontFamily: F.bold, fontSize: 14, textAlign: "right" }}>
+                🔑 Moyasar Publishable Key
+              </Text>
+              <TextInput
+                value={paymentSettings.moyasarPublishableKey}
+                onChangeText={(v) =>
+                  savePaymentSettings({ ...paymentSettings, moyasarPublishableKey: v.trim() })
+                }
+                placeholder="pk_live_xxxxxxxxxxxxxxxxxx"
+                placeholderTextColor={colors.mutedForeground}
+                autoCapitalize="none"
+                autoCorrect={false}
+                style={{
+                  color: colors.foreground,
+                  borderColor: colors.border,
+                  backgroundColor: colors.secondary,
+                  fontFamily: F.regular,
+                  borderWidth: 1,
+                  borderRadius: 10,
+                  padding: 12,
+                  textAlign: "left",
+                  fontSize: 13,
+                }}
+              />
+            </View>
+
+            {/* Moyasar Apple Pay Merchant Identifier */}
+            <View style={{ gap: 8 }}>
+              <Text style={{ color: colors.foreground, fontFamily: F.bold, fontSize: 14, textAlign: "right" }}>
+                🏪 Apple Pay Merchant ID
+              </Text>
+              <TextInput
+                value={paymentSettings.moyasarApplePayIdentifier}
+                onChangeText={(v) =>
+                  savePaymentSettings({ ...paymentSettings, moyasarApplePayIdentifier: v.trim() })
+                }
+                placeholder="merchant.com.rawabialmandi.app"
+                placeholderTextColor={colors.mutedForeground}
+                autoCapitalize="none"
+                autoCorrect={false}
+                style={{
+                  color: colors.foreground,
+                  borderColor: colors.border,
+                  backgroundColor: colors.secondary,
+                  fontFamily: F.regular,
+                  borderWidth: 1,
+                  borderRadius: 10,
+                  padding: 12,
+                  textAlign: "left",
+                  fontSize: 13,
+                }}
+              />
+            </View>
+
+            <View style={{ backgroundColor: colors.secondary, borderRadius: 8, padding: 10 }}>
+              <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12, textAlign: "right", lineHeight: 20 }}>
+                💡 اشغّل Apple Pay بعد إضافة الـ Keys من لوحة تحكم Moyasar.{"\n"}الإعدادات تُحفظ تلقائياً.
+              </Text>
+            </View>
+          </View>
 
           {/* PIN Management */}
           <Text style={{ color: colors.gold, fontFamily: F.extra, fontSize: 16, textAlign: "right", marginTop: 8 }}>

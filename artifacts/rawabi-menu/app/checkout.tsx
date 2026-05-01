@@ -24,6 +24,7 @@ import { useUser } from "@/context/UserContext";
 import { apiPost } from "@/constants/api";
 import { useCustomerPushToken } from "@/hooks/useCustomerPushToken";
 import { useOrderBadge } from "@/context/OrderBadgeContext";
+import { usePaymentSettings } from "@/hooks/usePaymentSettings";
 import { ORDERS_STORAGE_KEY, StoredOrder } from "./(tabs)/orders";
 
 const F = {
@@ -50,6 +51,7 @@ export default function CheckoutScreen() {
 
   const customerPushToken = useCustomerPushToken();
   const { incrementBadge } = useOrderBadge();
+  const { settings: paymentSettings } = usePaymentSettings();
 
   const [notes, setNotes] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
@@ -341,32 +343,54 @@ export default function CheckoutScreen() {
             </View>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            onPress={() => setPaymentMethod("moyasar")}
-            style={[
-              styles.paymentOption,
-              {
-                borderColor: paymentMethod === "moyasar" ? colors.gold : colors.border,
-                backgroundColor: paymentMethod === "moyasar" ? "#2A1A08" : colors.secondary,
-                opacity: 0.6,
-              },
-            ]}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.radioOuter, { borderColor: paymentMethod === "moyasar" ? colors.gold : colors.border }]}>
-              {paymentMethod === "moyasar" && (
-                <View style={[styles.radioInner, { backgroundColor: colors.gold }]} />
-              )}
+          {paymentSettings.applePayEnabled ? (
+            <TouchableOpacity
+              onPress={() => setPaymentMethod("moyasar")}
+              style={[
+                styles.paymentOption,
+                {
+                  borderColor: paymentMethod === "moyasar" ? colors.gold : colors.border,
+                  backgroundColor: paymentMethod === "moyasar" ? "#2A1A08" : colors.secondary,
+                },
+              ]}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.radioOuter, { borderColor: paymentMethod === "moyasar" ? colors.gold : colors.border }]}>
+                {paymentMethod === "moyasar" && (
+                  <View style={[styles.radioInner, { backgroundColor: colors.gold }]} />
+                )}
+              </View>
+              <View style={styles.paymentInfo}>
+                <Text style={[styles.paymentTitle, { color: colors.foreground, fontFamily: F.bold }]}>
+                   Apple Pay
+                </Text>
+                <Text style={[styles.paymentDesc, { color: colors.mutedForeground, fontFamily: F.regular }]}>
+                  ادفع بسهولة عبر Apple Pay
+                </Text>
+              </View>
+            </TouchableOpacity>
+          ) : (
+            <View
+              style={[
+                styles.paymentOption,
+                {
+                  borderColor: colors.border,
+                  backgroundColor: colors.secondary,
+                  opacity: 0.45,
+                },
+              ]}
+            >
+              <View style={[styles.radioOuter, { borderColor: colors.border }]} />
+              <View style={styles.paymentInfo}>
+                <Text style={[styles.paymentTitle, { color: colors.foreground, fontFamily: F.bold }]}>
+                  💳 دفع إلكتروني (قريباً)
+                </Text>
+                <Text style={[styles.paymentDesc, { color: colors.mutedForeground, fontFamily: F.regular }]}>
+                  مدى • فيزا • Apple Pay • STC Pay
+                </Text>
+              </View>
             </View>
-            <View style={styles.paymentInfo}>
-              <Text style={[styles.paymentTitle, { color: colors.foreground, fontFamily: F.bold }]}>
-                💳 دفع إلكتروني (قريباً)
-              </Text>
-              <Text style={[styles.paymentDesc, { color: colors.mutedForeground, fontFamily: F.regular }]}>
-                مدى • فيزا • Apple Pay • STC Pay
-              </Text>
-            </View>
-          </TouchableOpacity>
+          )}
         </View>
       </ScrollView>
 
