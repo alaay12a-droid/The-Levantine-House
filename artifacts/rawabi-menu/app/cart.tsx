@@ -222,25 +222,6 @@ export default function CartScreen() {
               <Text style={styles.checkoutText}>إتمام الطلب</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              onPress={handleOrder}
-              style={[styles.whatsappBtn, { backgroundColor: "#1DBF47" }]}
-              activeOpacity={0.85}
-            >
-              <Feather name="message-circle" size={18} color="#FFFFFF" />
-              <Text style={[styles.whatsappText, { fontSize: 14 }]}>أو أرسل عبر واتساب</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={handleCall}
-              style={[styles.callBtn, { borderColor: colors.border, backgroundColor: colors.secondary }]}
-              activeOpacity={0.8}
-            >
-              <Feather name="phone" size={18} color={colors.gold} />
-              <Text style={[styles.callText, { color: colors.gold }]}>
-                {RESTAURANT_INFO.phone}
-              </Text>
-            </TouchableOpacity>
           </View>
         </>
       )}
