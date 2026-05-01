@@ -145,11 +145,6 @@ export default function OrdersScreen() {
         <Text style={[styles.title, { color: colors.foreground, fontFamily: F.extra }]}>
           الطلبات
         </Text>
-        {orders.length > 0 && (
-          <TouchableOpacity onPress={clearAll} style={styles.clearBtn}>
-            <Feather name="trash-2" size={17} color={colors.mutedForeground} />
-          </TouchableOpacity>
-        )}
       </View>
 
       {orders.length === 0 ? (
