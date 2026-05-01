@@ -9,7 +9,11 @@ import {
   StatusBar,
   Linking,
   Alert,
+  Image,
 } from "react-native";
+
+const snapchatLogo = require("@/assets/images/snapchat.jpg");
+const tiktokLogo = require("@/assets/images/tiktok.jpg");
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
@@ -24,14 +28,14 @@ const F = {
 };
 
 interface SocialLink {
-  icon: string;
-  color: string;
+  image: any;
+  label: string;
   url: string;
 }
 
 const SOCIAL_LINKS: SocialLink[] = [
-  { icon: "👻", color: "#FFFC00", url: `https://www.snapchat.com/add/rawabi-mandi` },
-  { icon: "🎵", color: "#010101", url: `https://www.tiktok.com/@rawabi-mandi` },
+  { image: snapchatLogo, label: "سناب شات", url: `https://www.snapchat.com/add/rawabi-mandi` },
+  { image: tiktokLogo,   label: "تيك توك",   url: `https://www.tiktok.com/@rawabi-mandi` },
 ];
 
 interface MenuItem {
@@ -163,9 +167,10 @@ export default function MoreScreen() {
                 onPress={() => Linking.openURL(s.url).catch(() => {})}
                 style={styles.socialItem}
               >
-                <View style={[styles.socialBtn, { backgroundColor: colors.secondary }]}>
-                  <Text style={styles.socialEmoji}>{s.icon}</Text>
-                </View>
+                <Image source={s.image} style={styles.socialLogo} resizeMode="cover" />
+                <Text style={[styles.socialLabel, { color: colors.foreground, fontFamily: F.bold }]}>
+                  {s.label}
+                </Text>
                 <Text style={[styles.socialHandle, { color: colors.mutedForeground, fontFamily: F.regular }]}>
                   @rawabi-mandi
                 </Text>
@@ -260,14 +265,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 6,
   },
-  socialBtn: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    alignItems: "center",
-    justifyContent: "center",
+  socialLogo: {
+    width: 64,
+    height: 64,
+    borderRadius: 16,
   },
-  socialEmoji: { fontSize: 28 },
+  socialLabel: { fontSize: 13 },
   socialHandle: { fontSize: 11 },
   menuCard: {
     marginHorizontal: 16,
