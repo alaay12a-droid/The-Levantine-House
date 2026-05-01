@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, ordersTable } from "@workspace/db";
+import { db, ordersTable, menuItemsTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
 import { z } from "zod";
 
@@ -39,6 +39,17 @@ router.post("/orders", async (req, res) => {
     notes: data.notes ?? null,
     status: "pending",
   }).returning();
+
+  for (const item of data.items) {
+    const [menuItem] = await db.select().from(menuItemsTable).where(eq(menuItemsTable.itemId, item.id));
+    if (menuItem && menuItem.stock !== null) {
+      const newStock = Math.max(0, menuItem.stock - item.quantity);
+      await db.update(menuItemsTable)
+        .set({ stock: newStock, available: newStock > 0 })
+        .where(eq(menuItemsTable.itemId, item.id));
+    }
+  }
+
   req.log.info({ orderId: order.id }, "New order created");
   res.status(201).json(order);
 });

@@ -11,6 +11,7 @@ export interface ApiMenuItem {
   available: boolean;
   imageKey: string | null;
   imageUrl: string | null;
+  stock: number | null;
   sortOrder: number;
   createdAt: string;
 }

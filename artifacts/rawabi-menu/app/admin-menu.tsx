@@ -132,6 +132,8 @@ export default function AdminMenuScreen() {
   const [newCategory, setNewCategory] = useState("chicken");
   const [newImageUrl, setNewImageUrl] = useState("");
   const [menuImageUploading, setMenuImageUploading] = useState(false);
+  const [stockItem, setStockItem] = useState<ApiMenuItem | null>(null);
+  const [stockInput, setStockInput] = useState("");
 
   const [editOccasion, setEditOccasion] = useState<ApiOccasion | null>(null);
   const [showAddOccasionModal, setShowAddOccasionModal] = useState(false);
@@ -213,6 +215,26 @@ export default function AdminMenuScreen() {
   const filtered = filterCat === "all"
     ? items
     : items.filter((i) => i.category === filterCat);
+
+  const handleSetStock = async () => {
+    if (!stockItem) return;
+    const val = stockInput.trim();
+    const stock = val === "" || val === "∞" ? null : parseInt(val);
+    if (stock !== null && (isNaN(stock) || stock < 0)) {
+      Alert.alert("خطأ", "أدخل رقماً صحيحاً أو اتركه فارغاً للكمية غير المحدودة");
+      return;
+    }
+    setLoading(`stock-${stockItem.itemId}`);
+    try {
+      await apiPut(`/menu/${stockItem.itemId}`, { stock });
+      await refresh();
+      setStockItem(null);
+    } catch {
+      Alert.alert("خطأ", "تعذر تحديث المخزون");
+    } finally {
+      setLoading(null);
+    }
+  };
 
   const handleToggleAvail = async (item: ApiMenuItem) => {
     setLoading(item.itemId);
@@ -484,17 +506,41 @@ export default function AdminMenuScreen() {
                         {priceStr} ر.س
                       </Text>
                     </View>
-                    {!item.available && (
-                      <View style={[styles.unavailBadge, { backgroundColor: "#5A1A1A" }]}>
-                        <Text style={[styles.unavailText, { fontFamily: F.bold }]}>نافد</Text>
-                      </View>
-                    )}
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2, flexWrap: "wrap" }}>
+                      {item.stock === null ? (
+                        <View style={[styles.stockBadge, { backgroundColor: "#1A2A1A", borderColor: "#2A4A2A" }]}>
+                          <Text style={[styles.stockText, { color: "#4CAF50", fontFamily: F.semi }]}>∞ غير محدود</Text>
+                        </View>
+                      ) : item.stock === 0 ? (
+                        <View style={[styles.stockBadge, { backgroundColor: "#5A1A1A", borderColor: "#8A2A2A" }]}>
+                          <Text style={[styles.stockText, { color: "#E57373", fontFamily: F.bold }]}>نافد 0</Text>
+                        </View>
+                      ) : (
+                        <View style={[styles.stockBadge, { backgroundColor: item.stock <= 3 ? "#3A2A00" : "#1A2A3A", borderColor: item.stock <= 3 ? colors.gold : "#2A4A5A" }]}>
+                          <Text style={[styles.stockText, { color: item.stock <= 3 ? colors.gold : "#64B5F6", fontFamily: F.bold }]}>
+                            📦 {item.stock} متبقي{item.stock <= 3 ? " ⚠️" : ""}
+                          </Text>
+                        </View>
+                      )}
+                      {!item.available && item.stock === null && (
+                        <View style={[styles.unavailBadge, { backgroundColor: "#5A1A1A" }]}>
+                          <Text style={[styles.unavailText, { fontFamily: F.bold }]}>معطل</Text>
+                        </View>
+                      )}
+                    </View>
                   </View>
                 </View>
                 <View style={[styles.cardActions, { borderTopColor: colors.border }]}>
                   <TouchableOpacity onPress={() => handleDelete(item)} style={[styles.actionBtn, { backgroundColor: "#3A1A1A" }]}>
                     <Feather name="trash-2" size={15} color="#E57373" />
                     <Text style={[styles.actionText, { color: "#E57373", fontFamily: F.bold }]}>حذف</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => { setStockItem(item); setStockInput(item.stock === null ? "" : String(item.stock)); }}
+                    style={[styles.actionBtn, { backgroundColor: "#2A1A3A" }]}
+                  >
+                    <Feather name="package" size={15} color="#CE93D8" />
+                    <Text style={[styles.actionText, { color: "#CE93D8", fontFamily: F.bold }]}>مخزون</Text>
                   </TouchableOpacity>
                   <TouchableOpacity onPress={() => openEdit(item)} style={[styles.actionBtn, { backgroundColor: "#1A2A3A" }]}>
                     <Feather name="edit-2" size={15} color="#64B5F6" />
@@ -689,6 +735,87 @@ export default function AdminMenuScreen() {
         </KeyboardAvoidingView>
       </Modal>
 
+      {/* Stock Management Modal */}
+      <Modal
+        visible={stockItem !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setStockItem(null)}
+      >
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalBackdrop}>
+          <View style={[styles.modalSheet, { backgroundColor: colors.card }]}>
+            <Text style={[styles.modalTitle, { color: colors.foreground, fontFamily: F.extra }]}>
+              📦 إدارة مخزون
+            </Text>
+            <Text style={[styles.fieldLabel, { color: colors.gold, fontFamily: F.bold, fontSize: 15, textAlign: "center", marginBottom: 4 }]}>
+              {stockItem?.name}
+            </Text>
+
+            <Text style={[styles.fieldLabel, { color: colors.mutedForeground, fontFamily: F.semi }]}>الكمية المتوفرة في المطعم</Text>
+            <TextInput
+              style={[styles.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, fontFamily: F.extra, textAlign: "center", fontSize: 28, letterSpacing: 4 }]}
+              value={stockInput}
+              onChangeText={setStockInput}
+              placeholder="0"
+              placeholderTextColor={colors.mutedForeground}
+              keyboardType="number-pad"
+              maxLength={4}
+            />
+            <Text style={[styles.fieldLabel, { color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12, textAlign: "center", marginTop: -8 }]}>
+              اتركه فارغاً = غير محدود ∞ | 0 = نافد (يُخفى من العميل)
+            </Text>
+
+            <View style={{ flexDirection: "row", gap: 8, marginTop: 8, flexWrap: "wrap", justifyContent: "center" }}>
+              {[0, 1, 2, 3, 5, 10, 15, 20].map((n) => (
+                <TouchableOpacity
+                  key={n}
+                  onPress={() => setStockInput(String(n))}
+                  style={[styles.catChip, {
+                    backgroundColor: stockInput === String(n) ? colors.gold : colors.secondary,
+                    borderColor: stockInput === String(n) ? colors.gold : colors.border,
+                    paddingHorizontal: 14,
+                  }]}
+                >
+                  <Text style={[styles.catChipText, { color: stockInput === String(n) ? "#1A1008" : colors.foreground, fontFamily: F.bold }]}>
+                    {n === 0 ? "نافد 0" : n}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+              <TouchableOpacity
+                onPress={() => setStockInput("")}
+                style={[styles.catChip, {
+                  backgroundColor: stockInput === "" ? colors.gold : colors.secondary,
+                  borderColor: stockInput === "" ? colors.gold : colors.border,
+                  paddingHorizontal: 14,
+                }]}
+              >
+                <Text style={[styles.catChipText, { color: stockInput === "" ? "#1A1008" : colors.foreground, fontFamily: F.bold }]}>∞</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={[styles.modalBtns, { marginTop: 16 }]}>
+              <TouchableOpacity
+                onPress={() => setStockItem(null)}
+                style={[styles.modalBtn, { backgroundColor: colors.secondary, borderColor: colors.border }]}
+              >
+                <Text style={[styles.modalBtnText, { color: colors.mutedForeground, fontFamily: F.bold }]}>إلغاء</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleSetStock}
+                disabled={loading?.startsWith("stock-")}
+                style={[styles.modalBtn, { backgroundColor: "#7B1FA2", flex: 1.5 }]}
+              >
+                {loading?.startsWith("stock-") ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={[styles.modalBtnText, { color: "#fff", fontFamily: F.bold }]}>حفظ الكمية</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
       {/* Add / Edit Occasion Modal */}
       <Modal
         visible={showAddOccasionModal || editOccasion !== null}
@@ -826,6 +953,8 @@ const styles = StyleSheet.create({
   itemPrice: { fontSize: 16 },
   unavailBadge: { alignSelf: "flex-end", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, marginTop: 2 },
   unavailText: { color: "#E57373", fontSize: 11 },
+  stockBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, borderWidth: 1, alignSelf: "flex-start" },
+  stockText: { fontSize: 11 },
   cardActions: { flexDirection: "row", borderTopWidth: 1, gap: 0 },
   actionBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", paddingVertical: 10, gap: 6 },
   actionText: { fontSize: 13 },
