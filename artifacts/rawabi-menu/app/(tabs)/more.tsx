@@ -15,6 +15,7 @@ import {
 const snapchatLogo = require("@/assets/images/snapchat.jpg");
 const tiktokLogo = require("@/assets/images/tiktok.jpg");
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import { RESTAURANT_INFO } from "@/constants/menu";
@@ -48,6 +49,7 @@ interface MenuItem {
 export default function MoreScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const { user, clearUser } = useUser();
   const topInset = Platform.OS === "web" ? 20 : insets.top;
 
@@ -102,11 +104,7 @@ export default function MoreScreen() {
     {
       icon: "file-text",
       label: "الشروط والأحكام",
-      action: () =>
-        Alert.alert(
-          "الشروط والأحكام",
-          "باستخدامك للتطبيق فأنت توافق على شروط وأحكام الاستخدام الخاصة بروابي المندي."
-        ),
+      action: () => router.push("/terms"),
     },
     ...(user
       ? [
