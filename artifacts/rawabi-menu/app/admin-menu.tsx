@@ -25,6 +25,7 @@ import type { ApiOccasion } from "@/hooks/useOccasions";
 import { useTabConfig, type TabConfig } from "@/hooks/useTabConfig";
 import { loadPins, savePins, isMasterCode, type Pins } from "@/hooks/usePins";
 import { usePaymentSettings } from "@/hooks/usePaymentSettings";
+import { useDiscountCodes, type DiscountCode } from "@/hooks/useDiscountCodes";
 import { apiGet, apiPost, apiPut, apiDelete, API_BASE } from "@/constants/api";
 
 const F = {
@@ -218,6 +219,14 @@ export default function AdminMenuScreen() {
   const [activeTab, setActiveTab] = useState<"menu" | "occasions" | "stock" | "settings">("menu");
   const { config: tabConfig, update: updateTabConfig } = useTabConfig();
   const { settings: paymentSettings, saveSettings: savePaymentSettings } = usePaymentSettings();
+  const { codes: discountCodes, addCode, updateCode, deleteCode } = useDiscountCodes();
+
+  const [dcCode, setDcCode] = useState("");
+  const [dcType, setDcType] = useState<"percentage" | "fixed">("percentage");
+  const [dcValue, setDcValue] = useState("");
+  const [dcMinOrder, setDcMinOrder] = useState("");
+  const [dcDesc, setDcDesc] = useState("");
+
   const [stockEdits, setStockEdits] = useState<Record<string, string>>({});
   const [stockSaving, setStockSaving] = useState<string | null>(null);
 
@@ -1106,6 +1115,137 @@ export default function AdminMenuScreen() {
                 💡 اشغّل Apple Pay بعد إضافة الـ Keys من لوحة تحكم Moyasar.{"\n"}الإعدادات تُحفظ تلقائياً.
               </Text>
             </View>
+          </View>
+
+          {/* Discount Codes */}
+          <Text style={{ color: colors.gold, fontFamily: F.extra, fontSize: 16, textAlign: "right", marginTop: 8 }}>
+            🏷️ أكواد الخصم
+          </Text>
+
+          {/* Existing codes list */}
+          {discountCodes.length > 0 && (
+            <View style={{ gap: 10 }}>
+              {discountCodes.map((dc) => (
+                <View key={dc.id} style={{ backgroundColor: colors.card, borderRadius: 12, borderWidth: 1, borderColor: dc.active ? colors.gold : colors.border, padding: 14, gap: 8 }}>
+                  <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" }}>
+                    <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
+                      <View style={{ backgroundColor: dc.active ? "#2A1A08" : colors.secondary, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4, borderWidth: 1, borderColor: dc.active ? colors.gold : colors.border }}>
+                        <Text style={{ color: dc.active ? colors.gold : colors.mutedForeground, fontFamily: F.extra, fontSize: 13 }}>{dc.code}</Text>
+                      </View>
+                      <View style={{ backgroundColor: colors.secondary, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 }}>
+                        <Text style={{ color: colors.foreground, fontFamily: F.bold, fontSize: 12 }}>
+                          {dc.type === "percentage" ? `${dc.value}%` : `${dc.value} ر.س`}
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={{ flexDirection: "row-reverse", gap: 10, alignItems: "center" }}>
+                      <Switch
+                        value={dc.active}
+                        onValueChange={(v) => updateCode(dc.id, { active: v })}
+                        trackColor={{ false: colors.border, true: "#D4AF37" }}
+                        thumbColor={dc.active ? "#1A0A00" : colors.mutedForeground}
+                      />
+                      <TouchableOpacity onPress={() => deleteCode(dc.id)}>
+                        <Feather name="trash-2" size={16} color="#E57373" />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                  {dc.description ? (
+                    <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12, textAlign: "right" }}>{dc.description}</Text>
+                  ) : null}
+                  {dc.minOrder > 0 ? (
+                    <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11, textAlign: "right" }}>الحد الأدنى للطلب: {dc.minOrder} ر.س</Text>
+                  ) : null}
+                </View>
+              ))}
+            </View>
+          )}
+
+          {/* Add new code form */}
+          <View style={{ backgroundColor: colors.card, borderRadius: 14, borderWidth: 1, borderColor: colors.border, padding: 16, gap: 12 }}>
+            <Text style={{ color: colors.foreground, fontFamily: F.bold, fontSize: 14, textAlign: "right" }}>➕ إضافة كود جديد</Text>
+
+            <TextInput
+              value={dcCode}
+              onChangeText={(v) => setDcCode(v.toUpperCase().replace(/\s/g, ""))}
+              placeholder="مثال: RAWABI10"
+              placeholderTextColor={colors.mutedForeground}
+              autoCapitalize="characters"
+              autoCorrect={false}
+              style={{ color: colors.foreground, borderColor: colors.border, backgroundColor: colors.secondary, fontFamily: F.extra, borderWidth: 1, borderRadius: 10, padding: 12, textAlign: "center", fontSize: 15, letterSpacing: 2 }}
+            />
+
+            {/* Type toggle */}
+            <View style={{ flexDirection: "row-reverse", gap: 10 }}>
+              {(["percentage", "fixed"] as const).map((t) => (
+                <TouchableOpacity
+                  key={t}
+                  onPress={() => setDcType(t)}
+                  style={{ flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: "center", backgroundColor: dcType === t ? colors.gold : colors.secondary, borderWidth: 1, borderColor: dcType === t ? colors.gold : colors.border }}
+                >
+                  <Text style={{ color: dcType === t ? "#1A0A00" : colors.mutedForeground, fontFamily: F.bold, fontSize: 13 }}>
+                    {t === "percentage" ? "نسبة مئوية %" : "مبلغ ثابت ر.س"}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <View style={{ flexDirection: "row-reverse", gap: 10 }}>
+              <View style={{ flex: 1, gap: 4 }}>
+                <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 12, textAlign: "right" }}>
+                  {dcType === "percentage" ? "نسبة الخصم %" : "مبلغ الخصم (ر.س)"}
+                </Text>
+                <TextInput
+                  value={dcValue}
+                  onChangeText={setDcValue}
+                  placeholder={dcType === "percentage" ? "10" : "5"}
+                  placeholderTextColor={colors.mutedForeground}
+                  keyboardType="numeric"
+                  style={{ color: colors.foreground, borderColor: colors.border, backgroundColor: colors.secondary, fontFamily: F.bold, borderWidth: 1, borderRadius: 10, padding: 12, textAlign: "center" }}
+                />
+              </View>
+              <View style={{ flex: 1, gap: 4 }}>
+                <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 12, textAlign: "right" }}>الحد الأدنى (ر.س)</Text>
+                <TextInput
+                  value={dcMinOrder}
+                  onChangeText={setDcMinOrder}
+                  placeholder="0"
+                  placeholderTextColor={colors.mutedForeground}
+                  keyboardType="numeric"
+                  style={{ color: colors.foreground, borderColor: colors.border, backgroundColor: colors.secondary, fontFamily: F.bold, borderWidth: 1, borderRadius: 10, padding: 12, textAlign: "center" }}
+                />
+              </View>
+            </View>
+
+            <TextInput
+              value={dcDesc}
+              onChangeText={setDcDesc}
+              placeholder="وصف مختصر (اختياري)"
+              placeholderTextColor={colors.mutedForeground}
+              style={{ color: colors.foreground, borderColor: colors.border, backgroundColor: colors.secondary, fontFamily: F.regular, borderWidth: 1, borderRadius: 10, padding: 12, textAlign: "right" }}
+            />
+
+            <TouchableOpacity
+              onPress={async () => {
+                const val = parseFloat(dcValue);
+                if (!dcCode.trim() || isNaN(val) || val <= 0) {
+                  Alert.alert("تنبيه", "يرجى إدخال كود وقيمة صحيحة");
+                  return;
+                }
+                await addCode({
+                  code: dcCode.trim(),
+                  type: dcType,
+                  value: val,
+                  minOrder: parseFloat(dcMinOrder) || 0,
+                  description: dcDesc.trim(),
+                  active: true,
+                });
+                setDcCode(""); setDcValue(""); setDcMinOrder(""); setDcDesc("");
+              }}
+              style={{ paddingVertical: 13, borderRadius: 12, alignItems: "center", backgroundColor: colors.gold }}
+            >
+              <Text style={{ color: "#1A0A00", fontFamily: F.bold, fontSize: 14 }}>حفظ الكود</Text>
+            </TouchableOpacity>
           </View>
 
           {/* PIN Management */}
