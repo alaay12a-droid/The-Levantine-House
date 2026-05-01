@@ -170,7 +170,13 @@ export default function OrderConfirmedScreen() {
     return () => clearInterval(interval);
   }, [fetchStatus]);
 
-  const handleReturn = () => router.replace("/(tabs)");
+  const handleReturn = () => {
+    if (router.canGoBack()) {
+      router.dismissAll();
+    } else {
+      router.replace("/(tabs)");
+    }
+  };
 
   const steps: { key: OrderStatus; label: string; icon: string }[] = [
     { key: "pending",   label: "استلام الطلب",   icon: "📋" },

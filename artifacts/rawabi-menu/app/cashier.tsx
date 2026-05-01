@@ -268,7 +268,7 @@ export default function CashierScreen() {
       <StatusBar barStyle="light-content" />
 
       <View style={[styles.header, { backgroundColor: "#1A1008", paddingTop: topInset + 8, borderBottomColor: colors.border }]}>
-        <TouchableOpacity onPress={() => router.back()} style={[styles.backBtn, { backgroundColor: colors.secondary }]}>
+        <TouchableOpacity onPress={() => router.replace("/(tabs)")} style={[styles.backBtn, { backgroundColor: colors.secondary }]}>
           <Feather name="arrow-right" size={20} color={colors.foreground} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
