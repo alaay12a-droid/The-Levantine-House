@@ -13,14 +13,16 @@ import {
   Switch,
   Modal,
   KeyboardAvoidingView,
+  Image,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
 import { useColors } from "@/hooks/useColors";
 import { useMenu, type ApiMenuItem } from "@/hooks/useMenu";
 import type { ApiOccasion } from "@/hooks/useOccasions";
-import { apiGet, apiPost, apiPut, apiDelete } from "@/constants/api";
+import { apiGet, apiPost, apiPut, apiDelete, API_BASE } from "@/constants/api";
 
 const F = {
   regular: "Cairo_400Regular",
@@ -134,6 +136,40 @@ export default function AdminMenuScreen() {
   const [occName, setOccName] = useState("");
   const [occDesc, setOccDesc] = useState("");
   const [occImageUrl, setOccImageUrl] = useState("");
+  const [occImageUploading, setOccImageUploading] = useState(false);
+
+  const handlePickImage = async () => {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert("الإذن مطلوب", "يرجى السماح بالوصول إلى الصور في الإعدادات");
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsEditing: true,
+      quality: 0.85,
+    });
+    if (result.canceled || !result.assets.length) return;
+    const asset = result.assets[0];
+    setOccImageUploading(true);
+    try {
+      const ext = asset.uri.split(".").pop() ?? "jpg";
+      const contentType = `image/${ext === "jpg" ? "jpeg" : ext}`;
+      const urlRes = await fetch(`${API_BASE}/api/storage/uploads/request-url`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: `occ-${Date.now()}.${ext}`, size: asset.fileSize ?? 0, contentType }),
+      });
+      const { uploadURL, objectPath } = await urlRes.json() as { uploadURL: string; objectPath: string };
+      const imageBlob = await fetch(asset.uri).then((r) => r.blob());
+      await fetch(uploadURL, { method: "PUT", headers: { "Content-Type": contentType }, body: imageBlob });
+      setOccImageUrl(`${API_BASE}/api/storage${objectPath}`);
+    } catch {
+      Alert.alert("خطأ", "تعذر رفع الصورة، حاول مرة أخرى");
+    } finally {
+      setOccImageUploading(false);
+    }
+  };
 
   if (!authenticated) {
     return <PinScreen onSuccess={() => setAuthenticated(true)} />;
@@ -605,19 +641,47 @@ export default function AdminMenuScreen() {
               placeholderTextColor={colors.mutedForeground}
             />
 
-            <Text style={[styles.fieldLabel, { color: colors.mutedForeground, fontFamily: F.semi }]}>رابط الصورة (اختياري)</Text>
-            <TextInput
-              style={[styles.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground, fontFamily: F.regular, textAlign: "left" }]}
-              value={occImageUrl}
-              onChangeText={setOccImageUrl}
-              placeholder="https://..."
-              placeholderTextColor={colors.mutedForeground}
-              autoCapitalize="none"
-              keyboardType="url"
-            />
-            <Text style={[styles.fieldLabel, { color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11, marginTop: -6 }]}>
-              ارفع الصورة على أي موقع (Google Photos, Imgur...) والصق الرابط هنا
-            </Text>
+            <Text style={[styles.fieldLabel, { color: colors.mutedForeground, fontFamily: F.semi }]}>صورة المناسبة (اختياري)</Text>
+
+            {occImageUrl ? (
+              <View style={{ alignItems: "center", marginBottom: 10 }}>
+                <Image
+                  source={{ uri: occImageUrl }}
+                  style={{ width: "100%", height: 160, borderRadius: 12, backgroundColor: colors.secondary }}
+                  resizeMode="cover"
+                />
+                <TouchableOpacity
+                  onPress={() => setOccImageUrl("")}
+                  style={{ marginTop: 6 }}
+                >
+                  <Text style={{ color: "#ef4444", fontFamily: F.semi, fontSize: 13 }}>✕ إزالة الصورة</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <TouchableOpacity
+                onPress={handlePickImage}
+                disabled={occImageUploading}
+                style={[styles.input, {
+                  backgroundColor: colors.background,
+                  borderColor: colors.gold,
+                  borderStyle: "dashed",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexDirection: "row",
+                  gap: 8,
+                  paddingVertical: 18,
+                }]}
+              >
+                {occImageUploading ? (
+                  <ActivityIndicator color={colors.gold} />
+                ) : (
+                  <>
+                    <Feather name="image" size={20} color={colors.gold} />
+                    <Text style={{ color: colors.gold, fontFamily: F.bold, fontSize: 14 }}>اختر صورة من الاستيديو</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            )}
 
             <View style={styles.modalBtns}>
               <TouchableOpacity
