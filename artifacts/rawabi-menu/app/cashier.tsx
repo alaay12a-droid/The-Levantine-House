@@ -15,6 +15,7 @@ import {
   Share,
   Clipboard,
   Linking,
+  KeyboardAvoidingView,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -22,7 +23,7 @@ import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import { loadPins, isMasterCode } from "@/hooks/usePins";
 import { useNotifications } from "@/hooks/useNotifications";
-import { apiGet, apiPatch, apiPut } from "@/constants/api";
+import { apiGet, apiPatch, apiPut, apiPost } from "@/constants/api";
 import { type ApiMenuItem } from "@/hooks/useMenu";
 
 const F = {
@@ -171,6 +172,21 @@ export default function CashierScreen() {
   const [filter, setFilter] = useState<OrderStatus | "all">("all");
   const [showLinkModal, setShowLinkModal] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  // ─── Chat types ────────────────────────────────────────
+  interface ChatMsg { id: number; orderId: number; text: string; fromCashier: boolean; createdAt: string; readAt: string | null; }
+  type CashierOrder = (typeof orders)[0];
+
+  // ─── Chat state ────────────────────────────────────────
+  const [chatOrder, setChatOrder]           = useState<CashierOrder | null>(null);
+  const [chatMessages, setChatMessages]     = useState<ChatMsg[]>([]);
+  const [chatInput, setChatInput]           = useState("");
+  const [chatSending, setChatSending]       = useState(false);
+  const [chatLoading, setChatLoading]       = useState(false);
+  const [unreadByOrder, setUnreadByOrder]   = useState<Record<number, number>>({});
+  const [totalUnread, setTotalUnread]       = useState(0);
+  const chatScrollRef                        = useRef<ScrollView>(null);
+  const chatPollRef                          = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // ─── Stock state ───────────────────────────────────────
   const [showStockModal, setShowStockModal] = useState(false);
@@ -453,6 +469,67 @@ export default function CashierScreen() {
     }
   };
 
+  // ─── Chat functions ────────────────────────────────────
+  const fetchUnreadCounts = useCallback(async () => {
+    try {
+      type Convo = { orderId: number; unread: number };
+      const convos = await apiGet<Convo[]>("/messages/conversations");
+      const counts: Record<number, number> = {};
+      let total = 0;
+      for (const c of convos) { if (c.unread > 0) { counts[c.orderId] = c.unread; total += c.unread; } }
+      setUnreadByOrder(counts);
+      setTotalUnread(total);
+    } catch {}
+  }, []);
+
+  const openOrderChat = useCallback(async (order: CashierOrder) => {
+    setChatOrder(order);
+    setChatLoading(true);
+    setChatMessages([]);
+    try {
+      const msgs = await apiGet<ChatMsg[]>(`/messages/order/${order.id}`);
+      setChatMessages(msgs);
+      await apiPatch(`/messages/order/${order.id}/read`, { fromCashier: true });
+      setUnreadByOrder(prev => { const n = { ...prev }; delete n[order.id]; return n; });
+      setTotalUnread(prev => Math.max(0, prev - (unreadByOrder[order.id] ?? 0)));
+    } catch {} finally { setChatLoading(false); }
+  }, [unreadByOrder]);
+
+  const sendChatMessage = useCallback(async () => {
+    if (!chatOrder || !chatInput.trim()) return;
+    const text = chatInput.trim();
+    setChatInput("");
+    setChatSending(true);
+    try {
+      const msg = await apiPost<ChatMsg>(`/messages/order/${chatOrder.id}`, { text, fromCashier: true });
+      setChatMessages(prev => [...prev, msg]);
+      setTimeout(() => chatScrollRef.current?.scrollToEnd({ animated: true }), 100);
+    } catch {} finally { setChatSending(false); }
+  }, [chatOrder, chatInput]);
+
+  // Poll messages while chat is open
+  useEffect(() => {
+    if (!chatOrder) {
+      if (chatPollRef.current) { clearInterval(chatPollRef.current); chatPollRef.current = null; }
+      return;
+    }
+    chatPollRef.current = setInterval(async () => {
+      try {
+        const msgs = await apiGet<ChatMsg[]>(`/messages/order/${chatOrder.id}`);
+        setChatMessages(msgs);
+        await apiPatch(`/messages/order/${chatOrder.id}/read`, { fromCashier: true });
+      } catch {}
+    }, 5000);
+    return () => { if (chatPollRef.current) { clearInterval(chatPollRef.current); chatPollRef.current = null; } };
+  }, [chatOrder]);
+
+  // Poll unread counts periodically
+  useEffect(() => {
+    fetchUnreadCounts();
+    const t = setInterval(fetchUnreadCounts, 15000);
+    return () => clearInterval(t);
+  }, [fetchUnreadCounts]);
+
   if (!pinsLoaded) return null;
   if (!authenticated) {
     return <PinScreen onSuccess={() => setAuthenticated(true)} correctPin={cashierPin} />;
@@ -483,6 +560,21 @@ export default function CashierScreen() {
           )}
         </View>
         <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
+          {/* Messages button with unread badge */}
+          <TouchableOpacity
+            onPress={() => { const first = orders.find(o => unreadByOrder[o.id]); if (first) openOrderChat(first); }}
+            style={[styles.adminMenuBtn, { backgroundColor: "#0D2030", borderWidth: 1, borderColor: totalUnread > 0 ? "#3A8ABF" : "#1E4A6A" }]}
+          >
+            <View style={{ position: "relative" }}>
+              <Feather name="message-circle" size={15} color={totalUnread > 0 ? "#64B5F6" : "#3A6A8A"} />
+              {totalUnread > 0 && (
+                <View style={{ position: "absolute", top: -6, right: -6, backgroundColor: "#E53935", borderRadius: 9, minWidth: 16, height: 16, alignItems: "center", justifyContent: "center", paddingHorizontal: 3 }}>
+                  <Text style={{ color: "#fff", fontSize: 9, fontFamily: "Cairo_700Bold" }}>{totalUnread > 9 ? "9+" : totalUnread}</Text>
+                </View>
+              )}
+            </View>
+            <Text style={{ color: totalUnread > 0 ? "#64B5F6" : "#3A6A8A", fontFamily: "Cairo_700Bold", fontSize: 13 }}>الرسائل</Text>
+          </TouchableOpacity>
           <TouchableOpacity
             onPress={() => setShowStockModal(true)}
             style={[styles.adminMenuBtn, { backgroundColor: "#1A2A3A" }]}
@@ -679,6 +771,25 @@ export default function CashierScreen() {
                   </TouchableOpacity>
                 )}
 
+                {/* Chat button */}
+                <TouchableOpacity
+                  onPress={() => openOrderChat(order)}
+                  style={[styles.actionBtn, { backgroundColor: "#0D2030", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, borderWidth: 1, borderColor: "#1E4A6A" }]}
+                  activeOpacity={0.8}
+                >
+                  <View style={{ position: "relative" }}>
+                    <Feather name="message-circle" size={16} color="#64B5F6" />
+                    {!!unreadByOrder[order.id] && (
+                      <View style={{ position: "absolute", top: -5, right: -5, backgroundColor: "#E53935", borderRadius: 8, minWidth: 14, height: 14, alignItems: "center", justifyContent: "center", paddingHorizontal: 2 }}>
+                        <Text style={{ color: "#fff", fontSize: 8, fontFamily: F.bold }}>{unreadByOrder[order.id]}</Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text style={[styles.actionBtnText, { fontFamily: F.bold, color: "#64B5F6" }]}>
+                    مراسلة العميل{unreadByOrder[order.id] ? `  •  ${unreadByOrder[order.id]} جديدة` : ""}
+                  </Text>
+                </TouchableOpacity>
+
                 {Platform.OS === "web" && (
                   <TouchableOpacity
                     onPress={() => handlePrint(order)}
@@ -825,6 +936,81 @@ export default function CashierScreen() {
             </TouchableOpacity>
           </View>
         </View>
+      </Modal>
+
+      {/* ── Chat Modal ── */}
+      <Modal visible={!!chatOrder} animationType="slide" onRequestClose={() => setChatOrder(null)}>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+          <View style={{ flex: 1, backgroundColor: colors.background }}>
+            {/* Header */}
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingTop: insets.top + 12, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: "#0D1F30" }}>
+              <TouchableOpacity onPress={() => setChatOrder(null)} style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: colors.secondary, alignItems: "center", justifyContent: "center" }}>
+                <Feather name="x" size={20} color={colors.foreground} />
+              </TouchableOpacity>
+              <View style={{ alignItems: "center", gap: 3 }}>
+                <Text style={{ color: colors.foreground, fontFamily: F.extra, fontSize: 16 }}>💬 مراسلة العميل</Text>
+                {chatOrder && (
+                  <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12 }}>
+                    طلب #{chatOrder.dailyNumber} — {chatOrder.customerName}
+                  </Text>
+                )}
+              </View>
+              <View style={{ width: 36 }} />
+            </View>
+
+            {/* Messages list */}
+            <ScrollView
+              ref={chatScrollRef}
+              style={{ flex: 1 }}
+              contentContainerStyle={{ padding: 14, gap: 10 }}
+              onContentSizeChange={() => chatScrollRef.current?.scrollToEnd({ animated: false })}
+            >
+              {chatLoading ? (
+                <ActivityIndicator size="large" color={colors.gold} style={{ margin: 40 }} />
+              ) : chatMessages.length === 0 ? (
+                <View style={{ alignItems: "center", padding: 40, gap: 12 }}>
+                  <Text style={{ fontSize: 44 }}>💬</Text>
+                  <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 14, textAlign: "center" }}>
+                    لا توجد رسائل بعد{"\n"}ابدأ المحادثة مع العميل
+                  </Text>
+                </View>
+              ) : chatMessages.map((msg) => {
+                const time = new Date(msg.createdAt).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" });
+                return (
+                  <View key={msg.id} style={{ alignItems: msg.fromCashier ? "flex-end" : "flex-start" }}>
+                    <View style={{ maxWidth: "80%", backgroundColor: msg.fromCashier ? "#2A1800" : colors.secondary, borderRadius: 18, borderTopRightRadius: msg.fromCashier ? 4 : 18, borderTopLeftRadius: msg.fromCashier ? 18 : 4, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1, borderColor: msg.fromCashier ? colors.gold + "55" : colors.border }}>
+                      <Text style={{ color: msg.fromCashier ? colors.gold : colors.foreground, fontFamily: F.semi, fontSize: 14, textAlign: msg.fromCashier ? "right" : "left" }}>{msg.text}</Text>
+                      <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 10, marginTop: 4, textAlign: msg.fromCashier ? "right" : "left" }}>
+                        {time}{msg.fromCashier ? " • أنت" : " • العميل"}
+                      </Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </ScrollView>
+
+            {/* Input bar */}
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 14, paddingVertical: 12, paddingBottom: insets.bottom + 12, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.card }}>
+              <TouchableOpacity
+                onPress={sendChatMessage}
+                disabled={chatSending || !chatInput.trim()}
+                style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: chatInput.trim() ? colors.gold : colors.secondary, alignItems: "center", justifyContent: "center" }}
+              >
+                {chatSending ? <ActivityIndicator size="small" color="#1A0A00" /> : <Feather name="send" size={18} color={chatInput.trim() ? "#1A0A00" : colors.mutedForeground} />}
+              </TouchableOpacity>
+              <TextInput
+                value={chatInput}
+                onChangeText={setChatInput}
+                placeholder="اكتب رسالتك للعميل…"
+                placeholderTextColor={colors.mutedForeground}
+                style={{ flex: 1, backgroundColor: colors.background, borderRadius: 22, paddingHorizontal: 16, paddingVertical: 10, color: colors.foreground, fontFamily: F.regular, fontSize: 14, borderWidth: 1, borderColor: colors.border, textAlign: "right" }}
+                onSubmitEditing={sendChatMessage}
+                returnKeyType="send"
+                multiline
+              />
+            </View>
+          </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Stock Modal */}

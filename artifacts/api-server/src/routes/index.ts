@@ -11,6 +11,7 @@ import smsRouter from "./sms";
 import combosRouter from "./combos";
 import walletRouter from "./wallet";
 import { hoursRouter } from "./hours";
+import messagesRouter from "./messages";
 
 const router: IRouter = Router();
 
@@ -26,5 +27,6 @@ router.use(smsRouter);
 router.use(combosRouter);
 router.use("/wallet", walletRouter);
 router.use(hoursRouter);
+router.use(messagesRouter);
 
 export default router;

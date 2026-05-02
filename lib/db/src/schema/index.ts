@@ -130,3 +130,14 @@ export const walletTransactionsTable = pgTable("wallet_transactions", {
 });
 
 export type WalletTransaction = typeof walletTransactionsTable.$inferSelect;
+
+export const messagesTable = pgTable("messages", {
+  id: serial("id").primaryKey(),
+  orderId: integer("order_id").notNull(),
+  text: text("text").notNull(),
+  fromCashier: boolean("from_cashier").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  readAt: timestamp("read_at"),
+});
+
+export type Message = typeof messagesTable.$inferSelect;
