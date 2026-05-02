@@ -22,6 +22,7 @@ import * as Notifications from "expo-notifications";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import { apiGet, apiPatch, apiPost } from "@/constants/api";
+import { useChatUnreadAlert } from "@/hooks/useChatSound";
 import { useOrderBadge } from "@/context/OrderBadgeContext";
 import { useLanguage } from "@/context/LanguageContext";
 
@@ -346,6 +347,9 @@ export default function OrdersScreen() {
     const t = setInterval(() => { if (screenActive.current && !chatOpenRef.current) checkUnread(); }, 20000);
     return () => clearInterval(t);
   }, [checkUnread]);
+
+  const totalUnreadFromCashier = Object.values(unreadByOrder).reduce((s, n) => s + n, 0);
+  useChatUnreadAlert(totalUnreadFromCashier);
 
   const cancelOrder = async (id: number) => {
     setCancellingId(id);

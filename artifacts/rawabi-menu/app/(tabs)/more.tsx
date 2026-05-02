@@ -28,6 +28,7 @@ import { useLanguage } from "@/context/LanguageContext";
 import { useTranslation } from "@/hooks/useTranslation";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { apiGet, apiPost, apiPatch } from "@/constants/api";
+import { useChatUnreadAlert } from "@/hooks/useChatSound";
 
 const F = {
   regular: "Cairo_400Regular",
@@ -69,6 +70,8 @@ export default function MoreScreen() {
   const [unreadTotal, setUnreadTotal]   = useState(0);
   const chatScrollRef                    = useRef<ScrollView>(null);
   const isEn = language === "en";
+
+  useChatUnreadAlert(unreadTotal);
 
   const fetchChatMsgs = useCallback(async (orderId: number) => {
     try {

@@ -24,6 +24,7 @@ import { useColors } from "@/hooks/useColors";
 import { loadPins, isMasterCode } from "@/hooks/usePins";
 import { useNotifications } from "@/hooks/useNotifications";
 import { apiGet, apiPatch, apiPut, apiPost } from "@/constants/api";
+import { useChatUnreadAlert } from "@/hooks/useChatSound";
 import { type ApiMenuItem } from "@/hooks/useMenu";
 
 const F = {
@@ -529,6 +530,8 @@ export default function CashierScreen() {
     const t = setInterval(fetchUnreadCounts, 15000);
     return () => clearInterval(t);
   }, [fetchUnreadCounts]);
+
+  useChatUnreadAlert(totalUnread);
 
   if (!pinsLoaded) return null;
   if (!authenticated) {
