@@ -27,6 +27,7 @@ import { useOrderBadge } from "@/context/OrderBadgeContext";
 import { usePaymentSettings } from "@/hooks/usePaymentSettings";
 import { ORDERS_STORAGE_KEY, StoredOrder } from "./(tabs)/orders";
 import { useTranslation } from "@/hooks/useTranslation";
+import { useLanguage } from "@/context/LanguageContext";
 
 const F = {
   regular: "Cairo_400Regular",
@@ -55,6 +56,8 @@ export default function CheckoutScreen() {
   const { settings: paymentSettings } = usePaymentSettings();
 
   const { t } = useTranslation();
+  const { language } = useLanguage();
+  const isEn = language === "en";
   const [notes, setNotes] = useState("");
   const [orderType, setOrderType] = useState<"delivery" | "pickup">("delivery");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
@@ -81,7 +84,7 @@ export default function CheckoutScreen() {
     try {
       if (Platform.OS === "web") {
         if (!navigator.geolocation) {
-          Alert.alert("غير مدعوم", "متصفحك لا يدعم تحديد الموقع");
+          Alert.alert(isEn ? "Not Supported" : "غير مدعوم", isEn ? "Your browser does not support location." : "متصفحك لا يدعم تحديد الموقع");
           return;
         }
         navigator.geolocation.getCurrentPosition(
@@ -91,7 +94,7 @@ export default function CheckoutScreen() {
             setLocationLoading(false);
           },
           () => {
-            Alert.alert("تعذّر التحديد", "يرجى السماح للمتصفح بالوصول للموقع من الإعدادات");
+            Alert.alert(isEn ? "Location Failed" : "تعذّر التحديد", isEn ? "Please allow location access in your browser settings." : "يرجى السماح للمتصفح بالوصول للموقع من الإعدادات");
             setLocationLoading(false);
           }
         );
@@ -99,14 +102,14 @@ export default function CheckoutScreen() {
       }
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted") {
-        Alert.alert("الإذن مرفوض", "يرجى السماح للتطبيق بالوصول لموقعك من إعدادات الجهاز");
+        Alert.alert(isEn ? "Permission Denied" : "الإذن مرفوض", isEn ? "Please allow location access in device settings." : "يرجى السماح للتطبيق بالوصول لموقعك من إعدادات الجهاز");
         return;
       }
       const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
       const url = `https://maps.google.com/?q=${pos.coords.latitude},${pos.coords.longitude}`;
       setLocationUrl(url);
     } catch {
-      Alert.alert("خطأ", "تعذّر تحديد الموقع، حاول مرة أخرى");
+      Alert.alert(isEn ? "Error" : "خطأ", isEn ? "Could not get location. Please try again." : "تعذّر تحديد الموقع، حاول مرة أخرى");
     } finally {
       setLocationLoading(false);
     }
@@ -132,7 +135,7 @@ export default function CheckoutScreen() {
       setOtpStep("sent");
       setOtpCode("");
     } catch {
-      Alert.alert("خطأ", "تعذر إرسال الرمز، حاول مرة أخرى.");
+      Alert.alert(isEn ? "Error" : "خطأ", isEn ? "Could not send code. Please try again." : "تعذر إرسال الرمز، حاول مرة أخرى.");
     } finally {
       setOtpLoading(false);
     }
@@ -141,7 +144,7 @@ export default function CheckoutScreen() {
   const submitOrder = async () => {
     if (!user) return;
     if (paymentMethod === "moyasar") {
-      Alert.alert("قريباً", "الدفع الإلكتروني سيكون متاحاً قريباً. يرجى اختيار الدفع عند الاستلام.", [{ text: "حسناً" }]);
+      Alert.alert(isEn ? "Coming Soon" : "قريباً", isEn ? "Online payment will be available soon. Please choose Cash on Delivery." : "الدفع الإلكتروني سيكون متاحاً قريباً. يرجى اختيار الدفع عند الاستلام.", [{ text: isEn ? "OK" : "حسناً" }]);
       return;
     }
     if (paymentMethod === "wallet") {
@@ -198,7 +201,7 @@ export default function CheckoutScreen() {
       clearCart();
       router.replace({ pathname: "/order-confirmed", params: { orderId: String(order.id) } });
     } catch {
-      Alert.alert("خطأ", "تعذر إرسال الطلب، يرجى المحاولة مرة أخرى.");
+      Alert.alert(isEn ? "Error" : "خطأ", isEn ? "Could not place order. Please try again." : "تعذر إرسال الطلب، يرجى المحاولة مرة أخرى.");
     } finally {
       setLoading(false);
     }
@@ -229,7 +232,7 @@ export default function CheckoutScreen() {
     try {
       const branchStatus = await apiGet<{ isOpen: boolean; message: string | null }>("/branch-status");
       if (!branchStatus.isOpen) {
-        Alert.alert("الفرع مغلق 🔒", branchStatus.message ?? "الفرع مغلق حالياً، يرجى المحاولة لاحقاً");
+        Alert.alert(isEn ? "Branch Closed 🔒" : "الفرع مغلق 🔒", branchStatus.message ?? (isEn ? "The branch is currently closed. Please try again later." : "الفرع مغلق حالياً، يرجى المحاولة لاحقاً"));
         return;
       }
     } catch {}
@@ -261,7 +264,7 @@ export default function CheckoutScreen() {
           <Feather name="arrow-right" size={20} color={colors.foreground} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.foreground, fontFamily: F.bold }]}>
-          إتمام الطلب
+          {isEn ? "Checkout" : "إتمام الطلب"}
         </Text>
         <View style={{ width: 36 }} />
       </View>
@@ -271,7 +274,7 @@ export default function CheckoutScreen() {
         {/* Customer Info */}
         <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Text style={[styles.sectionTitle, { color: colors.gold, fontFamily: F.bold }]}>
-            بيانات العميل
+            {isEn ? "Customer Info" : "بيانات العميل"}
           </Text>
           <View style={styles.infoRow}>
             <Text style={[styles.infoValue, { color: colors.foreground, fontFamily: F.semi }]}>
@@ -299,7 +302,7 @@ export default function CheckoutScreen() {
         {paymentSettings.deliveryEnabled && (
           <View style={[styles.section, { backgroundColor: colors.card, borderColor: orderType === "delivery" ? colors.gold : "#2A5A2A" }]}>
             <Text style={[styles.sectionTitle, { color: colors.gold, fontFamily: F.bold }]}>
-              نوع الطلب
+              {isEn ? "Order Type" : "نوع الطلب"}
             </Text>
             <View style={{ flexDirection: "row-reverse", gap: 10 }}>
               <TouchableOpacity
@@ -312,11 +315,11 @@ export default function CheckoutScreen() {
                 }}
               >
                 <Text style={{ fontSize: 26 }}>🚗</Text>
-                <Text style={{ color: orderType === "delivery" ? colors.gold : colors.foreground, fontFamily: F.bold, fontSize: 14 }}>توصيل</Text>
+                <Text style={{ color: orderType === "delivery" ? colors.gold : colors.foreground, fontFamily: F.bold, fontSize: 14 }}>{isEn ? "Delivery" : "توصيل"}</Text>
                 {paymentSettings.deliveryFee > 0 ? (
-                  <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }}>+{paymentSettings.deliveryFee} ر.س</Text>
+                  <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }}>+{paymentSettings.deliveryFee} {isEn ? "SAR" : "ر.س"}</Text>
                 ) : (
-                  <Text style={{ color: "#4CAF50", fontFamily: F.semi, fontSize: 11 }}>مجاني</Text>
+                  <Text style={{ color: "#4CAF50", fontFamily: F.semi, fontSize: 11 }}>{isEn ? "Free" : "مجاني"}</Text>
                 )}
               </TouchableOpacity>
               <TouchableOpacity
@@ -329,8 +332,8 @@ export default function CheckoutScreen() {
                 }}
               >
                 <Text style={{ fontSize: 26 }}>🏪</Text>
-                <Text style={{ color: orderType === "pickup" ? "#4CAF50" : colors.foreground, fontFamily: F.bold, fontSize: 14 }}>استلام من الفرع</Text>
-                <Text style={{ color: "#4CAF50", fontFamily: F.semi, fontSize: 11 }}>بدون رسوم</Text>
+                <Text style={{ color: orderType === "pickup" ? "#4CAF50" : colors.foreground, fontFamily: F.bold, fontSize: 14 }}>{isEn ? "Pickup" : "استلام من الفرع"}</Text>
+                <Text style={{ color: "#4CAF50", fontFamily: F.semi, fontSize: 11 }}>{isEn ? "No fee" : "بدون رسوم"}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -340,7 +343,7 @@ export default function CheckoutScreen() {
         {(!paymentSettings.deliveryEnabled || orderType === "delivery") && (
         <View style={[styles.section, { backgroundColor: colors.card, borderColor: locationUrl ? "#2A5A2A" : colors.border }]}>
           <Text style={[styles.sectionTitle, { color: colors.gold, fontFamily: F.bold }]}>
-            📍 الموقع (اختياري)
+            📍 {isEn ? "Location (Optional)" : "الموقع (اختياري)"}
           </Text>
 
           {locationUrl ? (
@@ -348,7 +351,7 @@ export default function CheckoutScreen() {
               <View style={{ flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "#1A3A1A", borderRadius: 10, padding: 12 }}>
                 <Feather name="map-pin" size={18} color="#4CAF50" />
                 <Text style={{ flex: 1, color: "#4CAF50", fontFamily: F.semi, fontSize: 13 }}>
-                  تم تحديد موقعك ✓
+                  {isEn ? "Location confirmed ✓" : "تم تحديد موقعك ✓"}
                 </Text>
               </View>
               <View style={{ flexDirection: "row", gap: 8 }}>
@@ -357,14 +360,14 @@ export default function CheckoutScreen() {
                   style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: "#1A2A3A", borderRadius: 10, paddingVertical: 10 }}
                 >
                   <Feather name="external-link" size={14} color="#64B5F6" />
-                  <Text style={{ color: "#64B5F6", fontFamily: F.bold, fontSize: 13 }}>عرض الموقع</Text>
+                  <Text style={{ color: "#64B5F6", fontFamily: F.bold, fontSize: 13 }}>{isEn ? "View Location" : "عرض الموقع"}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => setLocationUrl(null)}
                   style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: "#3A1A1A", borderRadius: 10, paddingVertical: 10 }}
                 >
                   <Feather name="x" size={14} color="#E57373" />
-                  <Text style={{ color: "#E57373", fontFamily: F.bold, fontSize: 13 }}>إزالة الموقع</Text>
+                  <Text style={{ color: "#E57373", fontFamily: F.bold, fontSize: 13 }}>{isEn ? "Remove Location" : "إزالة الموقع"}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -381,12 +384,12 @@ export default function CheckoutScreen() {
                 <Feather name="map-pin" size={18} color={colors.gold} />
               )}
               <Text style={[styles.locationBtnText, { color: locationLoading ? colors.mutedForeground : colors.foreground, fontFamily: F.bold }]}>
-                {locationLoading ? "جاري تحديد موقعك..." : "تحديد موقعي الحالي 🗺️"}
+                {locationLoading ? (isEn ? "Getting location..." : "جاري تحديد موقعك...") : (isEn ? "Use My Current Location 🗺️" : "تحديد موقعي الحالي 🗺️")}
               </Text>
             </TouchableOpacity>
           )}
           <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12, textAlign: "center" }}>
-            سيصل رابط موقعك للكاشير مع طلبك
+            {isEn ? "Your location link will be sent with the order." : "سيصل رابط موقعك للكاشير مع طلبك"}
           </Text>
         </View>
         )}
@@ -394,7 +397,7 @@ export default function CheckoutScreen() {
         {/* Order Summary */}
         <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Text style={[styles.sectionTitle, { color: colors.gold, fontFamily: F.bold }]}>
-            ملخص الطلب
+            {isEn ? "Order Summary" : "ملخص الطلب"}
           </Text>
           {items.map((ci) => {
             const lineTotal = ci.item.price * ci.quantity;
@@ -402,10 +405,10 @@ export default function CheckoutScreen() {
             return (
               <View key={ci.item.id} style={styles.orderRow}>
                 <Text style={[styles.orderPrice, { color: colors.gold, fontFamily: F.bold }]}>
-                  {lineTotalStr} ر.س
+                  {lineTotalStr} {isEn ? "SAR" : "ر.س"}
                 </Text>
                 <Text style={[styles.orderName, { color: colors.foreground, fontFamily: F.semi }]} numberOfLines={1}>
-                  {ci.item.name} × {ci.quantity}
+                  {isEn && ci.item.nameEn ? ci.item.nameEn : ci.item.name} × {ci.quantity}
                 </Text>
               </View>
             );
@@ -413,35 +416,37 @@ export default function CheckoutScreen() {
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
           <View style={styles.orderRow}>
             <Text style={[styles.orderPrice, { color: colors.mutedForeground, fontFamily: F.bold }]}>
-              {totalStr} ر.س
+              {totalStr} {isEn ? "SAR" : "ر.س"}
             </Text>
             <Text style={[styles.orderName, { color: colors.mutedForeground, fontFamily: F.semi }]}>
-              المجموع الفرعي ({totalItems} صنف)
+              {isEn ? `Subtotal (${totalItems} item${totalItems !== 1 ? "s" : ""})` : `المجموع الفرعي (${totalItems} صنف)`}
             </Text>
           </View>
           {paymentSettings.deliveryEnabled && (
             <View style={styles.orderRow}>
               {deliveryFee > 0 ? (
                 <Text style={[styles.orderPrice, { color: colors.gold, fontFamily: F.bold }]}>
-                  {deliveryFeeStr} ر.س
+                  {deliveryFeeStr} {isEn ? "SAR" : "ر.س"}
                 </Text>
               ) : (
                 <Text style={[styles.orderPrice, { color: "#4CAF50", fontFamily: F.bold }]}>
-                  مجاني
+                  {isEn ? "Free" : "مجاني"}
                 </Text>
               )}
               <Text style={[styles.orderName, { color: colors.foreground, fontFamily: F.semi }]}>
-                {orderType === "delivery" ? "🚗 رسوم التوصيل" : "🏪 استلام من الفرع"}
+                {orderType === "delivery"
+                  ? (isEn ? "🚗 Delivery Fee" : "🚗 رسوم التوصيل")
+                  : (isEn ? "🏪 Branch Pickup" : "🏪 استلام من الفرع")}
               </Text>
             </View>
           )}
           <View style={[styles.divider, { backgroundColor: colors.gold, opacity: 0.4 }]} />
           <View style={styles.orderRow}>
             <Text style={[styles.totalPrice, { color: colors.gold, fontFamily: F.extra }]}>
-              {grandTotalStr} ر.س
+              {grandTotalStr} {isEn ? "SAR" : "ر.س"}
             </Text>
             <Text style={[styles.totalLabel, { color: colors.foreground, fontFamily: F.bold }]}>
-              الإجمالي
+              {isEn ? "Total" : "الإجمالي"}
             </Text>
           </View>
         </View>
@@ -449,12 +454,12 @@ export default function CheckoutScreen() {
         {/* Notes */}
         <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Text style={[styles.sectionTitle, { color: colors.gold, fontFamily: F.bold }]}>
-            ملاحظات (اختياري)
+            {isEn ? "Notes (Optional)" : "ملاحظات (اختياري)"}
           </Text>
           <TextInput
             value={notes}
             onChangeText={setNotes}
-            placeholder="أي ملاحظات على الطلب..."
+            placeholder={isEn ? "Any notes about your order..." : "أي ملاحظات على الطلب..."}
             placeholderTextColor={colors.mutedForeground}
             multiline
             numberOfLines={3}
@@ -554,7 +559,7 @@ export default function CheckoutScreen() {
                    Apple Pay
                 </Text>
                 <Text style={[styles.paymentDesc, { color: colors.mutedForeground, fontFamily: F.regular }]}>
-                  ادفع بسهولة عبر Apple Pay
+                  {isEn ? "Pay easily with Apple Pay" : "ادفع بسهولة عبر Apple Pay"}
                 </Text>
               </View>
             </TouchableOpacity>
@@ -572,10 +577,10 @@ export default function CheckoutScreen() {
               <View style={[styles.radioOuter, { borderColor: colors.border }]} />
               <View style={styles.paymentInfo}>
                 <Text style={[styles.paymentTitle, { color: colors.foreground, fontFamily: F.bold }]}>
-                  💳 دفع إلكتروني (قريباً)
+                  💳 {isEn ? "Online Payment (Coming Soon)" : "دفع إلكتروني (قريباً)"}
                 </Text>
                 <Text style={[styles.paymentDesc, { color: colors.mutedForeground, fontFamily: F.regular }]}>
-                  مدى • فيزا • Apple Pay • STC Pay
+                  Mada • Visa • Apple Pay • STC Pay
                 </Text>
               </View>
             </View>
@@ -587,16 +592,16 @@ export default function CheckoutScreen() {
       <View style={[styles.bottomBar, { backgroundColor: "#1A1008", borderTopColor: colors.border, paddingBottom: bottomInset + 16 }]}>
         <View style={[styles.totalRow, { backgroundColor: colors.secondary }]}>
           <Text style={[styles.bottomTotal, { color: colors.gold, fontFamily: F.extra }]}>
-            {grandTotalStr} ر.س
+            {grandTotalStr} {isEn ? "SAR" : "ر.س"}
           </Text>
           <Text style={[styles.bottomLabel, { color: colors.mutedForeground, fontFamily: F.regular }]}>
             {paymentSettings.deliveryEnabled
               ? (orderType === "pickup"
-                ? "استلام من الفرع"
+                ? (isEn ? "Branch Pickup" : "استلام من الفرع")
                 : deliveryFee > 0
-                  ? `شامل التوصيل ${deliveryFeeStr} ر.س`
-                  : "توصيل مجاني")
-              : "الإجمالي"}
+                  ? (isEn ? `Incl. delivery ${deliveryFeeStr} SAR` : `شامل التوصيل ${deliveryFeeStr} ر.س`)
+                  : (isEn ? "Free Delivery" : "توصيل مجاني"))
+              : (isEn ? "Total" : "الإجمالي")}
           </Text>
         </View>
         <TouchableOpacity
@@ -610,7 +615,7 @@ export default function CheckoutScreen() {
           ) : (
             <>
               <Feather name="check-circle" size={20} color="#fff" />
-              <Text style={[styles.orderBtnText, { fontFamily: F.bold }]}>إرسال الطلب</Text>
+              <Text style={[styles.orderBtnText, { fontFamily: F.bold }]}>{isEn ? "Place Order" : "إرسال الطلب"}</Text>
             </>
           )}
         </TouchableOpacity>
@@ -620,9 +625,11 @@ export default function CheckoutScreen() {
       {otpStep === "sent" && (
         <View style={{ position: "absolute", bottom: 0, left: 0, right: 0, top: 0, backgroundColor: "#000000BB", justifyContent: "flex-end" }}>
           <View style={{ backgroundColor: "#1A1008", borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, gap: 16 }}>
-            <Text style={{ color: "#FFD700", fontFamily: F.extra, fontSize: 18, textAlign: "center" }}>📱 التحقق من رقمك</Text>
+            <Text style={{ color: "#FFD700", fontFamily: F.extra, fontSize: 18, textAlign: "center" }}>
+              📱 {isEn ? "Verify Your Number" : "التحقق من رقمك"}
+            </Text>
             <Text style={{ color: "#ccc", fontFamily: F.regular, fontSize: 14, textAlign: "center" }}>
-              تم إرسال رمز مكون من 4 أرقام إلى{"\n"}
+              {isEn ? "A 4-digit code was sent to" : "تم إرسال رمز مكون من 4 أرقام إلى"}{"\n"}
               <Text style={{ color: "#fff", fontFamily: F.bold }}>{user?.phone}</Text>
             </Text>
             <TextInput
@@ -653,14 +660,14 @@ export default function CheckoutScreen() {
             >
               {otpLoading
                 ? <ActivityIndicator color="#1A0A00" />
-                : <Text style={{ color: "#1A0A00", fontFamily: F.bold, fontSize: 16 }}>✅ تحقق وأكمل الطلب</Text>
+                : <Text style={{ color: "#1A0A00", fontFamily: F.bold, fontSize: 16 }}>✅ {isEn ? "Verify & Place Order" : "تحقق وأكمل الطلب"}</Text>
               }
             </TouchableOpacity>
             <TouchableOpacity onPress={handleSendOtp} disabled={otpLoading} style={{ alignItems: "center" }}>
-              <Text style={{ color: "#aaa", fontFamily: F.regular, fontSize: 13 }}>لم تصلك الرسالة؟ أعد الإرسال</Text>
+              <Text style={{ color: "#aaa", fontFamily: F.regular, fontSize: 13 }}>{isEn ? "Didn't receive the code? Resend" : "لم تصلك الرسالة؟ أعد الإرسال"}</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => setOtpStep("idle")} style={{ alignItems: "center" }}>
-              <Text style={{ color: "#E57373", fontFamily: F.regular, fontSize: 13 }}>إلغاء</Text>
+              <Text style={{ color: "#E57373", fontFamily: F.regular, fontSize: 13 }}>{isEn ? "Cancel" : "إلغاء"}</Text>
             </TouchableOpacity>
           </View>
         </View>

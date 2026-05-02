@@ -18,6 +18,7 @@ import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import { apiGet, apiPatch } from "@/constants/api";
 import { useOrderBadge } from "@/context/OrderBadgeContext";
+import { useLanguage } from "@/context/LanguageContext";
 
 const F = {
   regular: "Cairo_400Regular",
@@ -44,12 +45,20 @@ interface LiveOrder {
   status: OrderStatus;
 }
 
-const STATUS_LABEL: Record<OrderStatus, string> = {
+const STATUS_LABEL_AR: Record<OrderStatus, string> = {
   pending: "في الانتظار",
   preparing: "جاري التحضير",
   ready: "جاهز للاستلام",
   done: "مكتمل",
   cancelled: "ملغى",
+};
+
+const STATUS_LABEL_EN: Record<OrderStatus, string> = {
+  pending: "Pending",
+  preparing: "Preparing",
+  ready: "Ready for Pickup",
+  done: "Completed",
+  cancelled: "Cancelled",
 };
 
 const STATUS_COLOR: Record<OrderStatus, string> = {
@@ -68,9 +77,9 @@ const STATUS_ICON: Record<OrderStatus, string> = {
   cancelled: "x-circle",
 };
 
-function formatDate(iso: string) {
+function formatDate(iso: string, isEn: boolean) {
   const d = new Date(iso);
-  return d.toLocaleDateString("ar-SA", {
+  return d.toLocaleDateString(isEn ? "en-US" : "ar-SA", {
     day: "numeric",
     month: "short",
     hour: "2-digit",
@@ -84,6 +93,8 @@ export default function OrdersScreen() {
   const router = useRouter();
   const topInset = Platform.OS === "web" ? 20 : insets.top;
   const { refreshBadge } = useOrderBadge();
+  const { language } = useLanguage();
+  const isEn = language === "en";
 
   const [orders, setOrders] = useState<StoredOrder[]>([]);
   const [liveStatus, setLiveStatus] = useState<Record<number, OrderStatus>>({});
@@ -103,7 +114,6 @@ export default function OrdersScreen() {
         const s = liveStatus[o.id];
         return !s || s === "pending" || s === "preparing" || s === "ready";
       });
-      // also fetch cancel setting
       apiGet<{ allowed: boolean }>("/settings/customer-cancel")
         .then((r) => setAllowCancel(r.allowed))
         .catch(() => {});
@@ -148,12 +158,14 @@ export default function OrdersScreen() {
       const updated = await apiPatch<LiveOrder>(`/orders/${id}/cancel`, {});
       setLiveStatus((prev) => ({ ...prev, [id]: updated.status }));
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "حدث خطأ";
-      Alert.alert("تعذّر الإلغاء", msg);
+      const msg = e instanceof Error ? e.message : isEn ? "An error occurred" : "حدث خطأ";
+      Alert.alert(isEn ? "Cancellation Failed" : "تعذّر الإلغاء", msg);
     } finally {
       setCancellingId(null);
     }
   };
+
+  const STATUS_LABEL = isEn ? STATUS_LABEL_EN : STATUS_LABEL_AR;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -170,7 +182,7 @@ export default function OrdersScreen() {
         ]}
       >
         <Text style={[styles.title, { color: colors.foreground, fontFamily: F.extra }]}>
-          الطلبات
+          {isEn ? "Orders" : "الطلبات"}
         </Text>
       </View>
 
@@ -178,16 +190,20 @@ export default function OrdersScreen() {
         <View style={styles.emptyWrap}>
           <Feather name="shopping-bag" size={56} color={colors.border} />
           <Text style={[styles.emptyTitle, { color: colors.foreground, fontFamily: F.bold }]}>
-            لا توجد طلبات
+            {isEn ? "No Orders Yet" : "لا توجد طلبات"}
           </Text>
           <Text style={[styles.emptyText, { color: colors.mutedForeground, fontFamily: F.semi }]}>
-            لم تقم بتنفيذ أي طلب حتى الآن!{"\n"}قم بتصفح القائمة الآن
+            {isEn
+              ? "You haven't placed any orders yet!\nBrowse the menu now."
+              : "لم تقم بتنفيذ أي طلب حتى الآن!\nقم بتصفح القائمة الآن"}
           </Text>
           <TouchableOpacity
             style={[styles.browseBtn, { backgroundColor: colors.gold }]}
             onPress={() => router.push("/")}
           >
-            <Text style={[styles.browseBtnText, { fontFamily: F.bold }]}>تصفح القائمة</Text>
+            <Text style={[styles.browseBtnText, { fontFamily: F.bold }]}>
+              {isEn ? "Browse Menu" : "تصفح القائمة"}
+            </Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -245,7 +261,7 @@ export default function OrdersScreen() {
                   {order.items.map((item, i) => (
                     <Text
                       key={i}
-                      style={[styles.itemRow, { color: colors.foreground, fontFamily: F.semi }]}
+                      style={[styles.itemRow, { color: colors.foreground, fontFamily: F.semi, textAlign: isEn ? "left" : "right" }]}
                     >
                       {item.name}
                       <Text style={{ color: colors.mutedForeground, fontFamily: F.regular }}>
@@ -259,10 +275,10 @@ export default function OrdersScreen() {
 
                 <View style={styles.cardFooter}>
                   <Text style={[styles.date, { color: colors.mutedForeground, fontFamily: F.regular }]}>
-                    {formatDate(order.createdAt)}
+                    {formatDate(order.createdAt, isEn)}
                   </Text>
                   <Text style={[styles.total, { color: colors.gold, fontFamily: F.extra }]}>
-                    {order.total % 1 === 0 ? order.total : order.total.toFixed(1)} ر.س
+                    {order.total % 1 === 0 ? order.total : order.total.toFixed(1)} {isEn ? "SAR" : "ر.س"}
                   </Text>
                 </View>
 
@@ -270,10 +286,14 @@ export default function OrdersScreen() {
                   <TouchableOpacity
                     style={[styles.cancelBtn, { borderColor: "#E53935" }]}
                     onPress={() =>
-                      Alert.alert("إلغاء الطلب", "هل تريد إلغاء هذا الطلب؟", [
-                        { text: "لا", style: "cancel" },
-                        { text: "نعم، إلغاء", style: "destructive", onPress: () => cancelOrder(order.id) },
-                      ])
+                      Alert.alert(
+                        isEn ? "Cancel Order" : "إلغاء الطلب",
+                        isEn ? "Do you want to cancel this order?" : "هل تريد إلغاء هذا الطلب؟",
+                        [
+                          { text: isEn ? "No" : "لا", style: "cancel" },
+                          { text: isEn ? "Yes, Cancel" : "نعم، إلغاء", style: "destructive", onPress: () => cancelOrder(order.id) },
+                        ]
+                      )
                     }
                     disabled={isCancelling}
                   >
@@ -282,7 +302,9 @@ export default function OrdersScreen() {
                     ) : (
                       <>
                         <Feather name="x" size={14} color="#E53935" />
-                        <Text style={[styles.cancelBtnText, { fontFamily: F.bold }]}>إلغاء الطلب</Text>
+                        <Text style={[styles.cancelBtnText, { fontFamily: F.bold }]}>
+                          {isEn ? "Cancel Order" : "إلغاء الطلب"}
+                        </Text>
                       </>
                     )}
                   </TouchableOpacity>
@@ -347,7 +369,7 @@ const styles = StyleSheet.create({
   orderNum: { fontSize: 18 },
   divider: { height: 1 },
   itemsList: { gap: 4 },
-  itemRow: { fontSize: 14, textAlign: "right" },
+  itemRow: { fontSize: 14 },
   cardFooter: {
     flexDirection: "row-reverse",
     alignItems: "center",

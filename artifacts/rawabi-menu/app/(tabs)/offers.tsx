@@ -15,6 +15,7 @@ import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import { useOccasions } from "@/hooks/useOccasions";
 import { useDiscountCodes } from "@/hooks/useDiscountCodes";
+import { useLanguage } from "@/context/LanguageContext";
 
 const F = {
   regular: "Cairo_400Regular",
@@ -28,6 +29,8 @@ export default function OffersScreen() {
   const insets = useSafeAreaInsets();
   const topInset = Platform.OS === "web" ? 20 : insets.top;
   const [activeTab, setActiveTab] = useState<"offers" | "codes">("offers");
+  const { language } = useLanguage();
+  const isEn = language === "en";
 
   const { occasions, loading: occasionsLoading } = useOccasions();
   const { activeCodes, loaded: codesLoaded } = useDiscountCodes();
@@ -37,7 +40,9 @@ export default function OffersScreen() {
       <StatusBar barStyle="light-content" />
 
       <View style={[styles.header, { backgroundColor: colors.card, paddingTop: topInset + 8, borderBottomColor: colors.border }]}>
-        <Text style={[styles.title, { color: colors.foreground, fontFamily: F.extra }]}>العروض</Text>
+        <Text style={[styles.title, { color: colors.foreground, fontFamily: F.extra }]}>
+          {isEn ? "Offers" : "العروض"}
+        </Text>
       </View>
 
       <View style={[styles.subTabRow, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
@@ -46,7 +51,7 @@ export default function OffersScreen() {
           onPress={() => setActiveTab("offers")}
         >
           <Text style={[styles.subTabText, { fontFamily: F.bold, color: activeTab === "offers" ? colors.gold : colors.mutedForeground }]}>
-            العروض
+            {isEn ? "Offers" : "العروض"}
           </Text>
         </TouchableOpacity>
 
@@ -56,7 +61,7 @@ export default function OffersScreen() {
         >
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
             <Text style={[styles.subTabText, { fontFamily: F.bold, color: activeTab === "codes" ? colors.gold : colors.mutedForeground }]}>
-              أكواد الخصم
+              {isEn ? "Discount Codes" : "أكواد الخصم"}
             </Text>
             {activeCodes.length > 0 && (
               <View style={{ backgroundColor: colors.gold, borderRadius: 10, minWidth: 18, height: 18, alignItems: "center", justifyContent: "center", paddingHorizontal: 4 }}>
@@ -77,7 +82,9 @@ export default function OffersScreen() {
           <View style={styles.emptyWrap}>
             <Feather name="tag" size={52} color={colors.border} />
             <Text style={[styles.emptyText, { color: colors.mutedForeground, fontFamily: F.semi }]}>
-              {"لا توجد عروض حالياً،\nالرجاء زيارة هذه الصفحة لاحقاً\nلاستعراض أحدث العروض"}
+              {isEn
+                ? "No offers available right now.\nCheck back later for the latest deals."
+                : "لا توجد عروض حالياً،\nالرجاء زيارة هذه الصفحة لاحقاً\nلاستعراض أحدث العروض"}
             </Text>
           </View>
         ) : (
@@ -95,11 +102,11 @@ export default function OffersScreen() {
                   </View>
                 )}
                 <View style={styles.occasionBody}>
-                  <Text style={{ color: colors.foreground, fontFamily: F.extra, fontSize: 16, textAlign: "right" }}>
+                  <Text style={{ color: colors.foreground, fontFamily: F.extra, fontSize: 16, textAlign: isEn ? "left" : "right" }}>
                     {occ.name}
                   </Text>
                   {occ.description ? (
-                    <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 13, textAlign: "right", lineHeight: 22 }}>
+                    <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 13, textAlign: isEn ? "left" : "right", lineHeight: 22 }}>
                       {occ.description}
                     </Text>
                   ) : null}
@@ -120,13 +127,15 @@ export default function OffersScreen() {
           <View style={styles.emptyWrap}>
             <Feather name="percent" size={52} color={colors.border} />
             <Text style={[styles.emptyText, { color: colors.mutedForeground, fontFamily: F.semi }]}>
-              لا توجد أكواد خصم متاحة حالياً
+              {isEn ? "No discount codes available right now." : "لا توجد أكواد خصم متاحة حالياً"}
             </Text>
           </View>
         ) : (
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, gap: 14 }}>
-            <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 13, textAlign: "right" }}>
-              استخدم أحد الأكواد التالية عند تأكيد طلبك للحصول على خصم 🎉
+            <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 13, textAlign: isEn ? "left" : "right" }}>
+              {isEn
+                ? "Use one of the codes below when confirming your order to get a discount 🎉"
+                : "استخدم أحد الأكواد التالية عند تأكيد طلبك للحصول على خصم 🎉"}
             </Text>
             {activeCodes.map((dc) => (
               <View key={dc.id} style={[styles.codeCard, { backgroundColor: colors.card, borderColor: colors.gold }]}>
@@ -138,12 +147,14 @@ export default function OffersScreen() {
                   </View>
                   <View style={[styles.discountBadge, { backgroundColor: colors.gold }]}>
                     <Text style={{ color: "#1A0A00", fontFamily: F.extra, fontSize: 15 }}>
-                      {dc.type === "percentage" ? `${dc.value}% خصم` : `خصم ${dc.value} ر.س`}
+                      {dc.type === "percentage"
+                        ? isEn ? `${dc.value}% OFF` : `${dc.value}% خصم`
+                        : isEn ? `${dc.value} SAR OFF` : `خصم ${dc.value} ر.س`}
                     </Text>
                   </View>
                 </View>
                 {dc.description ? (
-                  <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 13, textAlign: "right", marginTop: 6 }}>
+                  <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 13, textAlign: isEn ? "left" : "right", marginTop: 6 }}>
                     {dc.description}
                   </Text>
                 ) : null}
@@ -151,7 +162,7 @@ export default function OffersScreen() {
                   <View style={[styles.minOrderRow, { backgroundColor: colors.secondary }]}>
                     <Feather name="info" size={12} color={colors.mutedForeground} />
                     <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12 }}>
-                      الحد الأدنى للطلب: {dc.minOrder} ر.س
+                      {isEn ? `Min. order: ${dc.minOrder} SAR` : `الحد الأدنى للطلب: ${dc.minOrder} ر.س`}
                     </Text>
                   </View>
                 ) : null}

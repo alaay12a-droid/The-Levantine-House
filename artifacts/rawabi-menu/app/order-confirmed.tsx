@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import { apiGet } from "@/constants/api";
+import { useLanguage } from "@/context/LanguageContext";
 
 const F = {
   regular: "Cairo_400Regular",
@@ -60,7 +61,7 @@ function useSpin() {
   return anim.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "360deg"] });
 }
 
-function StatusPending({ colors }: { colors: ReturnType<typeof useColors> }) {
+function StatusPending({ colors, isEn }: { colors: ReturnType<typeof useColors>; isEn: boolean }) {
   const spin = useSpin();
   return (
     <View style={styles.statusWrap}>
@@ -68,16 +69,16 @@ function StatusPending({ colors }: { colors: ReturnType<typeof useColors> }) {
         <Feather name="clock" size={64} color={colors.mutedForeground} />
       </Animated.View>
       <Text style={[styles.statusTitle, { color: colors.foreground, fontFamily: F.extra }]}>
-        طلبك في الانتظار
+        {isEn ? "Order Received" : "طلبك في الانتظار"}
       </Text>
       <Text style={[styles.statusDesc, { color: colors.mutedForeground, fontFamily: F.regular }]}>
-        سيبدأ فريقنا بتجهيزه قريباً
+        {isEn ? "Our team will start preparing it shortly." : "سيبدأ فريقنا بتجهيزه قريباً"}
       </Text>
     </View>
   );
 }
 
-function StatusPreparing({ colors }: { colors: ReturnType<typeof useColors> }) {
+function StatusPreparing({ colors, isEn }: { colors: ReturnType<typeof useColors>; isEn: boolean }) {
   const pulse = usePulse();
   return (
     <View style={styles.statusWrap}>
@@ -87,16 +88,16 @@ function StatusPreparing({ colors }: { colors: ReturnType<typeof useColors> }) {
         </View>
       </Animated.View>
       <Text style={[styles.statusTitle, { color: "#8BC34A", fontFamily: F.extra }]}>
-        طلبك يتجهز
+        {isEn ? "Being Prepared" : "طلبك يتجهز"}
       </Text>
       <Text style={[styles.statusDesc, { color: colors.mutedForeground, fontFamily: F.regular }]}>
-        بدأ فريقنا بتجهيز طلبك بعناية
+        {isEn ? "Our team is carefully preparing your order." : "بدأ فريقنا بتجهيز طلبك بعناية"}
       </Text>
     </View>
   );
 }
 
-function StatusReady({ colors }: { colors: ReturnType<typeof useColors> }) {
+function StatusReady({ colors, isEn }: { colors: ReturnType<typeof useColors>; isEn: boolean }) {
   const pulse = usePulse();
   return (
     <View style={styles.statusWrap}>
@@ -106,19 +107,21 @@ function StatusReady({ colors }: { colors: ReturnType<typeof useColors> }) {
         </View>
       </Animated.View>
       <View style={[styles.hotBadge, { backgroundColor: colors.gold }]}>
-        <Text style={[styles.hotBadgeText, { fontFamily: F.extra }]}>🔥 جاري تجهيز الطلب</Text>
+        <Text style={[styles.hotBadgeText, { fontFamily: F.extra }]}>
+          {isEn ? "🔥 Almost Ready" : "🔥 جاري تجهيز الطلب"}
+        </Text>
       </View>
       <Text style={[styles.statusTitle, { color: colors.gold, fontFamily: F.extra, marginTop: 14 }]}>
-        طلبك على وشك يجهز
+        {isEn ? "Your Order is Almost Ready" : "طلبك على وشك يجهز"}
       </Text>
       <Text style={[styles.statusDesc, { color: colors.mutedForeground, fontFamily: F.regular }]}>
-        يُجهَّز الآن ويوشك على الاكتمال
+        {isEn ? "Being prepared and almost complete." : "يُجهَّز الآن ويوشك على الاكتمال"}
       </Text>
     </View>
   );
 }
 
-function StatusDone({ colors, onReturn }: { colors: ReturnType<typeof useColors>; onReturn: () => void }) {
+function StatusDone({ colors, onReturn, isEn }: { colors: ReturnType<typeof useColors>; onReturn: () => void; isEn: boolean }) {
   const scale = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     Animated.spring(scale, { toValue: 1, useNativeDriver: true, friction: 5 }).start();
@@ -131,17 +134,21 @@ function StatusDone({ colors, onReturn }: { colors: ReturnType<typeof useColors>
         </View>
       </Animated.View>
       <Text style={[styles.statusTitle, { color: "#4CAF50", fontFamily: F.extra }]}>
-        تم استلام الطلب 🎉
+        {isEn ? "Order Completed 🎉" : "تم استلام الطلب 🎉"}
       </Text>
       <Text style={[styles.statusDesc, { color: colors.mutedForeground, fontFamily: F.regular }]}>
-        شكراً لاختيارك روابي المندي 🍗{"\n"}نتمنى لك وجبة شهية!
+        {isEn
+          ? "Thank you for choosing Rawabi Al-Mandi 🍗\nEnjoy your meal!"
+          : "شكراً لاختيارك روابي المندي 🍗\nنتمنى لك وجبة شهية!"}
       </Text>
       <TouchableOpacity
         onPress={onReturn}
         style={[styles.returnBtn, { backgroundColor: colors.gold, marginTop: 28 }]}
         activeOpacity={0.85}
       >
-        <Text style={[styles.returnBtnText, { fontFamily: F.bold }]}>العودة للقائمة</Text>
+        <Text style={[styles.returnBtnText, { fontFamily: F.bold }]}>
+          {isEn ? "Back to Menu" : "العودة للقائمة"}
+        </Text>
       </TouchableOpacity>
     </View>
   );
@@ -152,6 +159,8 @@ export default function OrderConfirmedScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { orderId } = useLocalSearchParams<{ orderId: string }>();
+  const { language } = useLanguage();
+  const isEn = language === "en";
 
   const [status, setStatus] = useState<OrderStatus>("pending");
   const [dailyNumber, setDailyNumber] = useState<number>(0);
@@ -167,11 +176,11 @@ export default function OrderConfirmedScreen() {
       if (order.dailyNumber) setDailyNumber(order.dailyNumber);
       if (order.createdAt) {
         const d = new Date(order.createdAt);
-        setOrderDate(d.toLocaleDateString("ar-SA", { day: "numeric", month: "long", year: "numeric" }));
+        setOrderDate(d.toLocaleDateString(isEn ? "en-US" : "ar-SA", { day: "numeric", month: "long", year: "numeric" }));
       }
     } catch {
     }
-  }, [orderId]);
+  }, [orderId, isEn]);
 
   useEffect(() => {
     fetchStatus();
@@ -187,11 +196,11 @@ export default function OrderConfirmedScreen() {
     }
   };
 
-  const steps: { key: OrderStatus; label: string; icon: string }[] = [
-    { key: "pending",   label: "استلام الطلب",   icon: "📋" },
-    { key: "preparing", label: "بدء التجهيز",    icon: "👨‍🍳" },
-    { key: "ready",     label: "جاري التجهيز",   icon: "🍽️" },
-    { key: "done",      label: "تم الاستلام",    icon: "✅" },
+  const steps: { key: OrderStatus; label: string; labelEn: string; icon: string }[] = [
+    { key: "pending",   label: "استلام الطلب",   labelEn: "Received",   icon: "📋" },
+    { key: "preparing", label: "بدء التجهيز",    labelEn: "Preparing",  icon: "👨‍🍳" },
+    { key: "ready",     label: "جاري التجهيز",   labelEn: "Almost Ready", icon: "🍽️" },
+    { key: "done",      label: "تم الاستلام",    labelEn: "Done",       icon: "✅" },
   ];
   const currentIdx = steps.findIndex((s) => s.key === status);
 
@@ -201,11 +210,11 @@ export default function OrderConfirmedScreen() {
 
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <Text style={[styles.headerTitle, { color: colors.gold, fontFamily: F.extra }]}>
-          تتبع طلبك
+          {isEn ? "Track Your Order" : "تتبع طلبك"}
         </Text>
         {dailyNumber > 0 && (
           <Text style={[styles.headerDailyNum, { color: colors.gold, fontFamily: F.bold }]}>
-            طلب اليوم #{dailyNumber}
+            {isEn ? `Today's Order #${dailyNumber}` : `طلب اليوم #${dailyNumber}`}
           </Text>
         )}
         {orderDate ? (
@@ -233,7 +242,7 @@ export default function OrderConfirmedScreen() {
                   <Text style={{ fontSize: 14 }}>{step.icon}</Text>
                 </View>
                 <Text style={[styles.stepLabel, { color: done ? (active ? colors.gold : "#4CAF50") : colors.mutedForeground, fontFamily: active ? F.bold : F.regular }]} numberOfLines={1}>
-                  {step.label}
+                  {isEn ? step.labelEn : step.label}
                 </Text>
               </View>
               {idx < steps.length - 1 && (
@@ -245,10 +254,10 @@ export default function OrderConfirmedScreen() {
       </View>
 
       <View style={styles.mainArea}>
-        {status === "pending"   && <StatusPending   colors={colors} />}
-        {status === "preparing" && <StatusPreparing colors={colors} />}
-        {status === "ready"     && <StatusReady     colors={colors} />}
-        {status === "done"      && <StatusDone      colors={colors} onReturn={handleReturn} />}
+        {status === "pending"   && <StatusPending   colors={colors} isEn={isEn} />}
+        {status === "preparing" && <StatusPreparing colors={colors} isEn={isEn} />}
+        {status === "ready"     && <StatusReady     colors={colors} isEn={isEn} />}
+        {status === "done"      && <StatusDone      colors={colors} onReturn={handleReturn} isEn={isEn} />}
       </View>
 
       {status !== "done" && (
@@ -258,7 +267,7 @@ export default function OrderConfirmedScreen() {
           activeOpacity={0.7}
         >
           <Text style={[styles.backBtnText, { color: colors.mutedForeground, fontFamily: F.semi }]}>
-            العودة للقائمة
+            {isEn ? "Back to Menu" : "العودة للقائمة"}
           </Text>
         </TouchableOpacity>
       )}
