@@ -101,6 +101,11 @@ export default function MoreScreen() {
         ),
     },
     {
+      icon: "credit-card",
+      label: t("paymentMethods"),
+      action: () => router.push("/payment-methods" as any),
+    },
+    {
       icon: "lock",
       label: t("privacy"),
       action: () => Alert.alert("سياسة الخصوصية", "نحرص على حفظ خصوصية بياناتك وعدم مشاركتها مع أطراف ثالثة."),

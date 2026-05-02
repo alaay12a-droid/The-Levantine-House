@@ -50,6 +50,7 @@ export const translations = {
     customerPhone: "جوال العميل",
     rechargeAmount: "مبلغ الشحن",
     rechargeNote: "سبب الشحن",
+    paymentMethods: "طريقة الدفع",
   },
   en: {
     menu: "Menu",
@@ -102,6 +103,7 @@ export const translations = {
     customerPhone: "Customer Phone",
     rechargeAmount: "Recharge Amount",
     rechargeNote: "Reason for recharge",
+    paymentMethods: "Payment Methods",
   },
 };
 
