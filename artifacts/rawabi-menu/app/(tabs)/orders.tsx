@@ -256,38 +256,6 @@ export default function OrdersScreen() {
     } catch {}
   }, [fetchStatuses]);
 
-  // ── screen focus / blur lifecycle ────────────────────────────────────────
-  useFocusEffect(
-    useCallback(() => {
-      screenActive.current = true;
-
-      // 1. show cached statuses instantly (no pending flash)
-      loadCachedStatus().then(() => {
-        // 2. then fetch fresh from server + start polling
-        loadOrders().then(() => {
-          if (screenActive.current) startPolling();
-        });
-      });
-
-      // 3. fetch unread message counts immediately on focus
-      checkUnread();
-
-      return () => {
-        screenActive.current = false;
-        stopPolling();
-      };
-    }, [loadCachedStatus, loadOrders, startPolling, stopPolling, checkUnread])
-  );
-
-  // cleanup on unmount
-  useEffect(() => () => stopPolling(), [stopPolling]);
-
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await loadOrders();
-    setRefreshing(false);
-  };
-
   // ─── Chat functions ────────────────────────────────────
   const fetchChatMsgs = useCallback(async (orderId: number, markRead = true) => {
     try {
@@ -352,6 +320,38 @@ export default function OrdersScreen() {
 
   const totalUnreadFromCashier = Object.values(unreadByOrder).reduce((s, n) => s + n, 0);
   useChatUnreadAlert(totalUnreadFromCashier);
+
+  // ── screen focus / blur lifecycle ────────────────────────────────────────
+  useFocusEffect(
+    useCallback(() => {
+      screenActive.current = true;
+
+      // 1. show cached statuses instantly (no pending flash)
+      loadCachedStatus().then(() => {
+        // 2. then fetch fresh from server + start polling
+        loadOrders().then(() => {
+          if (screenActive.current) startPolling();
+        });
+      });
+
+      // 3. fetch unread message counts immediately on focus
+      checkUnread();
+
+      return () => {
+        screenActive.current = false;
+        stopPolling();
+      };
+    }, [loadCachedStatus, loadOrders, startPolling, stopPolling, checkUnread])
+  );
+
+  // cleanup on unmount
+  useEffect(() => () => stopPolling(), [stopPolling]);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadOrders();
+    setRefreshing(false);
+  };
 
   const cancelOrder = async (id: number) => {
     setCancellingId(id);
