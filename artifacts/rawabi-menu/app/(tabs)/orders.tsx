@@ -540,8 +540,9 @@ export default function OrdersScreen() {
           </TouchableOpacity>
         </View>
       ) : (
+        <View style={{ flex: 1 }}>
         <ScrollView
-          contentContainerStyle={{ padding: 16, gap: 12 }}
+          contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 100 }}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -660,6 +661,68 @@ export default function OrdersScreen() {
             );
           })}
         </ScrollView>
+
+        {/* ── Floating Chat FAB ── */}
+        {(() => {
+          const activeOrder = orders.find(o => {
+            const s = liveStatus[o.id] ?? "pending";
+            return s === "pending" || s === "preparing" || s === "ready";
+          }) ?? orders[0];
+          if (!activeOrder) return null;
+          const totalUnread = totalUnreadFromCashier;
+          return (
+            <TouchableOpacity
+              onPress={() => openChat(activeOrder.id)}
+              activeOpacity={0.85}
+              style={{
+                position: "absolute",
+                bottom: insets.bottom + 20,
+                left: 20,
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 10,
+                backgroundColor: "#0D2030",
+                borderRadius: 30,
+                paddingHorizontal: 18,
+                paddingVertical: 13,
+                borderWidth: 1.5,
+                borderColor: "#1E4A6A",
+                shadowColor: "#000",
+                shadowOpacity: 0.4,
+                shadowRadius: 12,
+                shadowOffset: { width: 0, height: 4 },
+                elevation: 10,
+              }}
+            >
+              {/* Badge */}
+              <View style={{ position: "relative" }}>
+                <Feather name="message-circle" size={22} color="#64B5F6" />
+                {totalUnread > 0 && (
+                  <View style={{
+                    position: "absolute",
+                    top: -5,
+                    right: -5,
+                    backgroundColor: "#E53935",
+                    borderRadius: 9,
+                    minWidth: 17,
+                    height: 17,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    paddingHorizontal: 3,
+                    borderWidth: 1.5,
+                    borderColor: "#0D2030",
+                  }}>
+                    <Text style={{ color: "#fff", fontSize: 9, fontFamily: F.bold }}>{totalUnread}</Text>
+                  </View>
+                )}
+              </View>
+              <Text style={{ color: "#64B5F6", fontFamily: F.bold, fontSize: 14 }}>
+                {isEn ? "Chat with us" : "تواصل معنا"}
+              </Text>
+            </TouchableOpacity>
+          );
+        })()}
+        </View>
       )}
     </View>
   );
