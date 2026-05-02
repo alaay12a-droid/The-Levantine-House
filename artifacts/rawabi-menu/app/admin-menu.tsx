@@ -1031,64 +1031,72 @@ export default function AdminMenuScreen() {
             );
           })}
 
-          {/* ── EDIT VIEW ── */}
+          {/* ── LIVE EDIT VIEW ── */}
           {stockViewMode === "edit" && CATEGORIES.map((cat) => {
             const catItems = items.filter((i) => i.category === cat.id);
             if (catItems.length === 0) return null;
             return (
-              <View key={cat.id}>
+              <View key={cat.id} style={{ marginBottom: 14 }}>
                 <View style={{ backgroundColor: "#1A1008", flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: "#2A1A0A" }}>
                   <Text style={{ fontSize: 18 }}>{cat.icon}</Text>
                   <Text style={{ color: colors.gold, fontFamily: F.extra, fontSize: 15 }}>{cat.name}</Text>
                   <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12, marginRight: "auto" }}>{catItems.length} صنف</Text>
                 </View>
-                {catItems.map((item) => {
+                {catItems.map((item, idx) => {
                   const editVal = getStockEditValue(item);
                   const isSaving = stockSaving === item.itemId;
                   const isUnlimited = editVal === "";
                   const isDirty = item.itemId in stockEdits;
+                  const liveQty = isUnlimited ? null : (parseInt(editVal) || 0);
+                  const liveColor = liveQty === null ? "#4CAF50" : liveQty === 0 ? "#E57373" : liveQty <= 3 ? colors.gold : "#64B5F6";
+                  const liveBg   = liveQty === null ? "#1A3A1A"  : liveQty === 0 ? "#3A1A1A"  : liveQty <= 3 ? "#3A2A00"  : "#1A2A3A";
+                  const liveLabel = liveQty === null ? "غير محدود" : liveQty === 0 ? "نافد" : liveQty <= 3 ? "منخفض" : "متاح";
+                  const rowBg = idx % 2 === 0 ? colors.card : "#130D06";
                   return (
-                    <View key={item.itemId} style={{ backgroundColor: colors.card, borderBottomWidth: 1, borderBottomColor: colors.border, flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingVertical: 10, gap: 10 }}>
-                      <View style={{ flex: 1, gap: 2 }}>
-                        <Text style={{ color: item.available ? colors.foreground : colors.mutedForeground, fontFamily: F.bold, fontSize: 14 }} numberOfLines={1}>{item.name}</Text>
-                        <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                          {item.stock === null ? (
-                            <Text style={{ color: "#4CAF50", fontFamily: F.semi, fontSize: 11 }}>∞ غير محدود</Text>
-                          ) : item.stock === 0 ? (
-                            <Text style={{ color: "#E57373", fontFamily: F.bold, fontSize: 11 }}>⚠️ نافد</Text>
-                          ) : (
-                            <Text style={{ color: item.stock <= 3 ? colors.gold : "#64B5F6", fontFamily: F.semi, fontSize: 11 }}>{item.stock} متبقي{item.stock <= 3 ? " ⚠️" : ""}</Text>
-                          )}
-                          {!item.available && <Text style={{ color: "#E57373", fontFamily: F.regular, fontSize: 10 }}>• معطل</Text>}
+                    <View key={item.itemId} style={{ backgroundColor: rowBg, borderBottomWidth: 1, borderBottomColor: colors.border, paddingHorizontal: 14, paddingVertical: 10, gap: 8 }}>
+                      {/* Row top: name + live preview */}
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                        <Text style={{ flex: 1, color: item.available ? colors.foreground : colors.mutedForeground, fontFamily: F.bold, fontSize: 14 }} numberOfLines={1}>{item.name}</Text>
+                        {/* Live quantity badge */}
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                          <Text style={{ color: liveColor, fontFamily: F.extra, fontSize: 22, minWidth: 36, textAlign: "center" }}>
+                            {liveQty === null ? "∞" : liveQty}
+                          </Text>
+                          <View style={{ backgroundColor: liveBg, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: liveColor + "55" }}>
+                            <Text style={{ color: liveColor, fontFamily: F.bold, fontSize: 11 }}>{liveLabel}</Text>
+                          </View>
+                          {isDirty && <Text style={{ color: colors.gold, fontFamily: F.bold, fontSize: 10 }}>● معدّل</Text>}
                         </View>
                       </View>
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                      {/* Row bottom: controls */}
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                         <TouchableOpacity
                           onPress={() => { isUnlimited ? setStockEdits((prev) => ({ ...prev, [item.itemId]: "10" })) : setStockEdits((prev) => ({ ...prev, [item.itemId]: "" })); }}
-                          style={{ paddingHorizontal: 8, paddingVertical: 5, borderRadius: 8, backgroundColor: isUnlimited ? "#1A4A1A" : colors.secondary, borderWidth: 1, borderColor: isUnlimited ? "#4CAF50" : colors.border }}
+                          style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: isUnlimited ? "#1A4A1A" : colors.secondary, borderWidth: 1, borderColor: isUnlimited ? "#4CAF50" : colors.border }}
                         >
-                          <Text style={{ color: isUnlimited ? "#4CAF50" : colors.mutedForeground, fontFamily: F.bold, fontSize: 12 }}>∞</Text>
+                          <Text style={{ color: isUnlimited ? "#4CAF50" : colors.mutedForeground, fontFamily: F.bold, fontSize: 13 }}>∞</Text>
                         </TouchableOpacity>
                         {!isUnlimited && (
-                          <>
-                            <TouchableOpacity onPress={() => adjustStock(item, -1)} style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: colors.secondary, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.border }}>
-                              <Feather name="minus" size={14} color={colors.foreground} />
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flex: 1 }}>
+                            <TouchableOpacity onPress={() => adjustStock(item, -1)} style={{ width: 36, height: 36, borderRadius: 8, backgroundColor: "#3A1A1A", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "#E5737344" }}>
+                              <Feather name="minus" size={16} color="#E57373" />
                             </TouchableOpacity>
                             <TextInput
                               value={editVal}
                               onChangeText={(t) => setStockEdits((prev) => ({ ...prev, [item.itemId]: t.replace(/[^0-9]/g, "") }))}
                               keyboardType="number-pad"
-                              style={{ width: 44, height: 32, borderRadius: 8, backgroundColor: colors.secondary, borderWidth: 1, borderColor: isDirty ? colors.gold : colors.border, color: colors.foreground, fontFamily: F.bold, fontSize: 15, textAlign: "center" }}
+                              style={{ flex: 1, height: 36, borderRadius: 8, backgroundColor: colors.secondary, borderWidth: 1, borderColor: isDirty ? colors.gold : colors.border, color: colors.foreground, fontFamily: F.bold, fontSize: 16, textAlign: "center" }}
                             />
-                            <TouchableOpacity onPress={() => adjustStock(item, 1)} style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: colors.secondary, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.border }}>
-                              <Feather name="plus" size={14} color={colors.foreground} />
+                            <TouchableOpacity onPress={() => adjustStock(item, 1)} style={{ width: 36, height: 36, borderRadius: 8, backgroundColor: "#1A3A1A", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "#4CAF5044" }}>
+                              <Feather name="plus" size={16} color="#4CAF50" />
                             </TouchableOpacity>
-                          </>
+                          </View>
                         )}
+                        {isUnlimited && <View style={{ flex: 1 }} />}
                         {(isDirty || isUnlimited !== (item.stock === null)) && (
                           isSaving ? <ActivityIndicator size="small" color={colors.gold} /> : (
-                            <TouchableOpacity onPress={() => handleQuickStock(item.itemId, editVal)} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: colors.gold }}>
-                              <Text style={{ color: "#1A0A00", fontFamily: F.bold, fontSize: 12 }}>حفظ</Text>
+                            <TouchableOpacity onPress={() => handleQuickStock(item.itemId, editVal)} style={{ paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, backgroundColor: colors.gold }}>
+                              <Text style={{ color: "#1A0A00", fontFamily: F.bold, fontSize: 13 }}>حفظ ✓</Text>
                             </TouchableOpacity>
                           )
                         )}
