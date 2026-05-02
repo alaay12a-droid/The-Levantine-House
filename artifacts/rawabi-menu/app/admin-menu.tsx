@@ -2160,6 +2160,68 @@ export default function AdminMenuScreen() {
                   ))}
                 </View>
 
+                {/* ── علاء الباسطي Commission Card ── */}
+                {(() => {
+                  const COMMISSION_RATE = 0.05;
+                  const commissionBase  = pd.totalRevenue;
+                  const commission      = commissionBase * COMMISSION_RATE;
+                  const netAfter        = commissionBase - commission;
+                  return (
+                    <View style={{
+                      borderRadius: 16, overflow: "hidden",
+                      borderWidth: 1.5, borderColor: "#E8920C88",
+                      backgroundColor: "#110D00",
+                    }}>
+                      {/* Header */}
+                      <View style={{
+                        backgroundColor: "#E8920C",
+                        paddingVertical: 10, paddingHorizontal: 16,
+                        flexDirection: "row-reverse", alignItems: "center", gap: 8,
+                      }}>
+                        <Text style={{ fontSize: 16 }}>🤝</Text>
+                        <Text style={{ color: "#1A1008", fontFamily: F.extra, fontSize: 13, flex: 1, textAlign: "right" }}>
+                          عمولة علاء الباسطي
+                        </Text>
+                        <View style={{ backgroundColor: "#1A1008", paddingHorizontal: 10, paddingVertical: 3, borderRadius: 20 }}>
+                          <Text style={{ color: "#E8920C", fontFamily: F.extra, fontSize: 12 }}>5%</Text>
+                        </View>
+                      </View>
+
+                      {/* Rows */}
+                      <View style={{ padding: 14, gap: 0 }}>
+                        {/* Base */}
+                        <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: "#E8920C22" }}>
+                          <Text style={{ color: "#9A7A5A", fontFamily: F.regular, fontSize: 12 }}>قاعدة الحساب (الإجمالي)</Text>
+                          <Text style={{ color: colors.foreground, fontFamily: F.semi, fontSize: 12 }}>{commissionBase.toFixed(2)} ر.س</Text>
+                        </View>
+                        {/* Rate */}
+                        <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: "#E8920C22" }}>
+                          <Text style={{ color: "#9A7A5A", fontFamily: F.regular, fontSize: 12 }}>نسبة العمولة</Text>
+                          <Text style={{ color: "#E8920C", fontFamily: F.semi, fontSize: 12 }}>5%</Text>
+                        </View>
+                        {/* Commission amount — highlighted */}
+                        <View style={{
+                          flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center",
+                          paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: "#E8920C22",
+                          backgroundColor: "#E8920C11", marginHorizontal: -14, paddingHorizontal: 14,
+                        }}>
+                          <Text style={{ color: "#E8920C", fontFamily: F.bold, fontSize: 13 }}>💰 عمولة علاء الباسطي</Text>
+                          <Text style={{ color: "#E8920C", fontFamily: F.extra, fontSize: 18 }}>{commission.toFixed(2)} ر.س</Text>
+                        </View>
+                        {/* Net after commission */}
+                        <View style={{
+                          flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center",
+                          paddingVertical: 12, backgroundColor: "#0A1A0A", marginHorizontal: -14, paddingHorizontal: 14,
+                          marginBottom: -14, borderBottomLeftRadius: 14, borderBottomRightRadius: 14,
+                        }}>
+                          <Text style={{ color: "#4CAF50", fontFamily: F.bold, fontSize: 13 }}>✅ الإجمالي بعد العمولة</Text>
+                          <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 18 }}>{netAfter.toFixed(2)} ر.س</Text>
+                        </View>
+                      </View>
+                    </View>
+                  );
+                })()}
+
                 {/* ── View toggle ── */}
                 <View style={{ flexDirection: "row-reverse", gap: 6 }}>
                   {([
