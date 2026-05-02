@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db, ordersTable, menuItemsTable, appSettingsTable } from "@workspace/db";
 import { eq, desc, gte, lt, count, and } from "drizzle-orm";
 import { sendPushToAll } from "../lib/sendPushNotification.js";
+import { sendSms } from "../lib/sendSms.js";
 import { z } from "zod";
 
 const router = Router();
@@ -158,6 +159,14 @@ router.patch("/orders/:id/status", async (req, res) => {
         channelId: "order-status",
       }),
     }).catch(() => {});
+  }
+
+  // Send SMS to customer on cancellation (works for web users who have no push token)
+  if (status === "cancelled" && order.customerPhone) {
+    sendSms(
+      order.customerPhone,
+      `عزيزنا ${order.customerName}، نأسف لإبلاغك بأنه تم إلغاء طلبك رقم #${order.dailyNumber} من روابي المندي. للاستفسار تواصل معنا مباشرة. شكراً لتفهمك 🙏`
+    ).catch(() => {});
   }
 });
 
