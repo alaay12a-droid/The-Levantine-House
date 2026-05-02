@@ -1,5 +1,4 @@
 import { pgTable, serial, text, integer, jsonb, timestamp, boolean, pgEnum } from "drizzle-orm/pg-core";
-import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 export const orderStatusEnum = pgEnum("order_status", [
@@ -26,7 +25,19 @@ export const ordersTable = pgTable("orders", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-export const insertOrderSchema = createInsertSchema(ordersTable).omit({ id: true, createdAt: true });
+export const insertOrderSchema = z.object({
+  dailyNumber: z.number().int().optional(),
+  customerName: z.string(),
+  customerPhone: z.string(),
+  customerAddress: z.string().nullable().optional(),
+  items: z.unknown(),
+  totalPrice: z.number().int(),
+  deliveryFee: z.number().int().optional(),
+  status: z.enum(["pending", "preparing", "ready", "done", "cancelled"]).optional(),
+  paymentMethod: z.string().optional(),
+  notes: z.string().nullable().optional(),
+  customerPushToken: z.string().nullable().optional(),
+});
 export type InsertOrder = z.infer<typeof insertOrderSchema>;
 export type Order = typeof ordersTable.$inferSelect;
 

@@ -125,6 +125,7 @@ export default function OrdersScreen() {
   const chatScrollRef                        = useRef<ScrollView>(null);
 
   const ordersRef    = useRef<StoredOrder[]>([]);
+  const liveRef      = useRef<Record<number, OrderStatus>>({});
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const screenActive = useRef(false);
   const bannerAnim   = useRef(new Animated.Value(0)).current;

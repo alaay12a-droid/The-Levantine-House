@@ -10,7 +10,7 @@ const SOUND_ASSET = require("@/assets/sounds/notification.wav");
    - Native → expo-av Audio.Sound (already installed)
 ────────────────────────────────────────────────────────────── */
 
-let avSoundRef: { stopAsync: () => Promise<void>; setPositionAsync: (ms: number) => Promise<void>; playAsync: () => Promise<void> } | null = null;
+let avSoundRef: { stopAsync: () => Promise<unknown>; setPositionAsync: (ms: number) => Promise<unknown>; playAsync: () => Promise<unknown> } | null = null;
 
 async function getAvSound() {
   if (Platform.OS === "web") return null;

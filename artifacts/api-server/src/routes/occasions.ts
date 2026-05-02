@@ -36,7 +36,7 @@ router.post("/", async (req, res) => {
     imageKey: z.string().optional(),
   });
   const parsed = schema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: "بيانات غير صحيحة" });
+  if (!parsed.success) { res.status(400).json({ error: "بيانات غير صحيحة" }); return; }
 
   const maxOrder = await db
     .select({ sortOrder: occasionsTable.sortOrder })
@@ -63,14 +63,14 @@ router.put("/:occasionId", async (req, res) => {
     sortOrder: z.number().optional(),
   });
   const parsed = schema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: "بيانات غير صحيحة" });
+  if (!parsed.success) { res.status(400).json({ error: "بيانات غير صحيحة" }); return; }
 
   const [updated] = await db
     .update(occasionsTable)
     .set(parsed.data)
     .where(eq(occasionsTable.occasionId, req.params.occasionId))
     .returning();
-  if (!updated) return res.status(404).json({ error: "المناسبة غير موجودة" });
+  if (!updated) { res.status(404).json({ error: "المناسبة غير موجودة" }); return; }
   res.json(updated);
 });
 
