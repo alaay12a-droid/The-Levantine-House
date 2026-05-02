@@ -34,6 +34,7 @@ import { BannerCarousel } from "@/components/BannerCarousel";
 import { useCombos, type ApiCombo } from "@/hooks/useCombos";
 import { useCart } from "@/context/CartContext";
 import { useBranchStatus } from "@/hooks/useBranchStatus";
+import { useLanguage } from "@/context/LanguageContext";
 
 const logo = require("@/assets/images/logo.png");
 const deliveryCar = require("@/assets/images/delivery_car.jpg");
@@ -60,6 +61,8 @@ export default function MenuScreen() {
   const { combos } = useCombos();
   const { addItem } = useCart();
   const { isOpen, message: closedMessage } = useBranchStatus();
+  const { language } = useLanguage();
+  const isEn = language === "en";
   const availableCombos = combos.filter((c) => c.available);
   const [activeCategory, setActiveCategory] = useState("chicken");
 
@@ -101,7 +104,7 @@ export default function MenuScreen() {
   const sections = regularCats.map((cat) => ({
     id: cat.id,
     icon: cat.icon,
-    name: cat.name,
+    name: isEn ? (cat.nameEn ?? cat.name) : cat.name,
     count: cat.items.length,
     data: cat.items,
   }));
@@ -160,9 +163,11 @@ export default function MenuScreen() {
           </View>
 
           <View style={styles.titleBlock}>
-            <Text style={[styles.brandName, { fontFamily: F.extra }]}>روابي المندي</Text>
+            <Text style={[styles.brandName, { fontFamily: F.extra }]}>
+              {isEn ? RESTAURANT_INFO.nameEn : RESTAURANT_INFO.name}
+            </Text>
             <Text style={[styles.tagline, { color: colors.gold, fontFamily: F.semi }]}>
-              للمذاق فن وأصول
+              {isEn ? RESTAURANT_INFO.taglineEn : RESTAURANT_INFO.tagline}
             </Text>
           </View>
 
@@ -171,10 +176,10 @@ export default function MenuScreen() {
 
         {/* ── BRANCH CLOSED BANNER ── */}
         {!isOpen && (
-          <View style={{ backgroundColor: "#7B1FA2", paddingVertical: 10, paddingHorizontal: 16, flexDirection: "row-reverse", alignItems: "center", gap: 10 }}>
+          <View style={{ backgroundColor: "#7B1FA2", paddingVertical: 10, paddingHorizontal: 16, flexDirection: isEn ? "row" : "row-reverse", alignItems: "center", gap: 10 }}>
             <Text style={{ fontSize: 18 }}>🔒</Text>
-            <Text style={{ color: "#fff", fontFamily: F.bold, fontSize: 13, flex: 1, textAlign: "right" }}>
-              {closedMessage ?? "الفرع مغلق حالياً"}
+            <Text style={{ color: "#fff", fontFamily: F.bold, fontSize: 13, flex: 1, textAlign: isEn ? "left" : "right" }}>
+              {closedMessage ?? (isEn ? "Branch is currently closed" : "الفرع مغلق حالياً")}
             </Text>
           </View>
         )}
@@ -203,7 +208,7 @@ export default function MenuScreen() {
               >
                 <Text style={styles.tabIcon}>{cat.icon}</Text>
                 <Text style={[styles.tabLabel, { color: active ? "#fff" : colors.mutedForeground, fontFamily: F.bold }]}>
-                  {cat.name}
+                  {isEn ? (cat.nameEn ?? cat.name) : cat.name}
                 </Text>
               </TouchableOpacity>
             );
@@ -219,21 +224,24 @@ export default function MenuScreen() {
           <View style={[styles.deliveryCard, { backgroundColor: colors.card, borderColor: colors.gold }]}>
             <Image source={deliveryCar} style={styles.carImage} resizeMode="cover" />
             <View style={[styles.deliveryOverlay, { backgroundColor: "#0F0A05EE" }]}>
-              <Text style={[styles.deliveryTitle, { color: colors.gold, fontFamily: F.extra }]}>خدمة التوصيل</Text>
+              <Text style={[styles.deliveryTitle, { color: colors.gold, fontFamily: F.extra }]}>
+                {isEn ? "Delivery Service" : "خدمة التوصيل"}
+              </Text>
               <Text style={[styles.deliverySubtitle, { color: colors.foreground, fontFamily: F.bold }]}>
-                نوصل طلبك لباب بيتك
+                {isEn ? "We deliver to your door" : "نوصل طلبك لباب بيتك"}
               </Text>
               <Text style={[styles.deliveryLocation, { color: colors.mutedForeground, fontFamily: F.semi }]}>
-                📍 تبوك - حي الروضة وما حولها
+                📍 {isEn ? RESTAURANT_INFO.locationEn : "تبوك - حي الروضة وما حولها"}
               </Text>
-
               <View style={styles.deliveryBtns}>
                 <TouchableOpacity
-                  onPress={() => handleWhatsApp("السلام عليكم، أرغب في طلب توصيل")}
+                  onPress={() => handleWhatsApp(isEn ? "Hello, I would like to order delivery" : "السلام عليكم، أرغب في طلب توصيل")}
                   style={[styles.deliveryBtn, { backgroundColor: "#1DBF47" }]}
                 >
                   <Feather name="message-circle" size={18} color="#fff" />
-                  <Text style={[styles.deliveryBtnText, { fontFamily: F.bold }]}>اطلب توصيل واتساب</Text>
+                  <Text style={[styles.deliveryBtnText, { fontFamily: F.bold }]}>
+                    {isEn ? "Order via WhatsApp" : "اطلب توصيل واتساب"}
+                  </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={handleCall}
@@ -259,9 +267,11 @@ export default function MenuScreen() {
           ))}
 
           <View style={[styles.bookBox, { backgroundColor: "#1F130A", borderColor: "#E8920C" }]}>
-            <Text style={[styles.bookTitle, { color: colors.gold, fontFamily: F.extra }]}>حجز الذبائح</Text>
+            <Text style={[styles.bookTitle, { color: colors.gold, fontFamily: F.extra }]}>
+              {isEn ? "Book a Whole Animal" : "حجز الذبائح"}
+            </Text>
             <Text style={[styles.bookDesc, { color: colors.mutedForeground, fontFamily: F.regular }]}>
-              للحجز والاستفسار عن الأسعار تواصل معنا على الرقم المخصص
+              {isEn ? "Contact us for reservations and pricing" : "للحجز والاستفسار عن الأسعار تواصل معنا على الرقم المخصص"}
             </Text>
             <View style={[styles.dhabihaPhoneRow, { borderColor: colors.gold }]}>
               <Feather name="phone" size={16} color={colors.gold} />
@@ -271,18 +281,18 @@ export default function MenuScreen() {
             </View>
             <View style={styles.bookBtns}>
               <TouchableOpacity
-                onPress={() => Linking.openURL(`https://wa.me/${RESTAURANT_INFO.dhabihaWhatsapp}?text=${encodeURIComponent("السلام عليكم، أرغب في حجز ذبيحة والاستفسار عن الأسعار")}`)}
+                onPress={() => Linking.openURL(`https://wa.me/${RESTAURANT_INFO.dhabihaWhatsapp}?text=${encodeURIComponent(isEn ? "Hello, I would like to inquire about a whole animal reservation and pricing" : "السلام عليكم، أرغب في حجز ذبيحة والاستفسار عن الأسعار")}`)}
                 style={[styles.bookBtn, { backgroundColor: "#1DBF47" }]}
               >
                 <Feather name="message-circle" size={16} color="#fff" />
-                <Text style={[styles.bookBtnText, { fontFamily: F.bold }]}>واتساب</Text>
+                <Text style={[styles.bookBtnText, { fontFamily: F.bold }]}>{isEn ? "WhatsApp" : "واتساب"}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => Linking.openURL(`tel:${RESTAURANT_INFO.dhabihaPhone}`)}
                 style={[styles.bookBtn, { backgroundColor: colors.primary }]}
               >
                 <Feather name="phone" size={16} color="#fff" />
-                <Text style={[styles.bookBtnText, { fontFamily: F.bold }]}>اتصل الآن</Text>
+                <Text style={[styles.bookBtnText, { fontFamily: F.bold }]}>{isEn ? "Call Now" : "اتصل الآن"}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -292,9 +302,11 @@ export default function MenuScreen() {
         <Animated.ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.list} onScroll={scrollHandler} scrollEventThrottle={16}>
           <BannerCarousel banners={banners} />
           <View style={[styles.occasionsHeader, { backgroundColor: "#1A0D00", borderColor: colors.gold }]}>
-            <Text style={[styles.occasionsTitle, { color: colors.gold, fontFamily: F.extra }]}>🎉 عروض المناسبات</Text>
+            <Text style={[styles.occasionsTitle, { color: colors.gold, fontFamily: F.extra }]}>
+              🎉 {isEn ? "Special Offers" : "عروض المناسبات"}
+            </Text>
             <Text style={[styles.occasionsSub, { color: colors.mutedForeground, fontFamily: F.semi }]}>
-              عروض خاصة لكل مناسبة — تواصل معنا لمعرفة التفاصيل
+              {isEn ? "Special deals for every occasion — contact us for details" : "عروض خاصة لكل مناسبة — تواصل معنا لمعرفة التفاصيل"}
             </Text>
           </View>
 
@@ -302,7 +314,7 @@ export default function MenuScreen() {
             <TouchableOpacity
               key={occ.occasionId}
               activeOpacity={0.85}
-              onPress={() => handleWhatsApp(`السلام عليكم، أرغب في الاستفسار عن: ${occ.name}`)}
+              onPress={() => handleWhatsApp(isEn ? `Hello, I would like to inquire about: ${occ.name}` : `السلام عليكم، أرغب في الاستفسار عن: ${occ.name}`)}
               style={[styles.occasionCard, { backgroundColor: colors.card, borderColor: colors.border }]}
             >
               {occ.imageUrl ? (
@@ -312,7 +324,9 @@ export default function MenuScreen() {
               ) : null}
               <View style={[styles.occasionOverlay, { backgroundColor: "#0F0A05CC" }]}>
                 <View style={[styles.occasionBadge, { backgroundColor: colors.gold }]}>
-                  <Text style={[styles.occasionBadgeText, { fontFamily: F.bold }]}>عرض خاص</Text>
+                  <Text style={[styles.occasionBadgeText, { fontFamily: F.bold }]}>
+                    {isEn ? "Special Offer" : "عرض خاص"}
+                  </Text>
                 </View>
                 <Text style={[styles.occasionName, { color: "#FFFFFF", fontFamily: F.extra }]}>{occ.name}</Text>
                 {occ.description ? (
@@ -320,7 +334,9 @@ export default function MenuScreen() {
                 ) : null}
                 <View style={[styles.occasionBtn, { backgroundColor: "#1DBF47" }]}>
                   <Feather name="message-circle" size={15} color="#fff" />
-                  <Text style={[styles.occasionBtnText, { fontFamily: F.bold }]}>استفسر عبر واتساب</Text>
+                  <Text style={[styles.occasionBtnText, { fontFamily: F.bold }]}>
+                    {isEn ? "Inquire via WhatsApp" : "استفسر عبر واتساب"}
+                  </Text>
                 </View>
               </View>
             </TouchableOpacity>
@@ -348,7 +364,9 @@ export default function MenuScreen() {
               {availableCombos.length > 0 && (
               <View style={{ paddingBottom: 8 }}>
               <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8, paddingHorizontal: 16, paddingTop: 14, paddingBottom: 8 }}>
-                <Text style={{ color: "#82B1FF", fontFamily: F.extra, fontSize: 16 }}>🎁 الوجبات المجمعة</Text>
+                <Text style={{ color: "#82B1FF", fontFamily: F.extra, fontSize: 16 }}>
+                  🎁 {isEn ? "Meal Combos" : "الوجبات المجمعة"}
+                </Text>
               </View>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 12, gap: 10, flexDirection: "row-reverse" }}>
                 {availableCombos.map((combo) => (
@@ -375,7 +393,7 @@ export default function MenuScreen() {
                         style={{ backgroundColor: "#82B1FF22", borderWidth: 1, borderColor: "#82B1FF", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, flexDirection: "row-reverse", alignItems: "center", gap: 4 }}
                       >
                         <Feather name="plus" size={14} color="#82B1FF" />
-                        <Text style={{ color: "#82B1FF", fontFamily: F.bold, fontSize: 12 }}>أضف</Text>
+                        <Text style={{ color: "#82B1FF", fontFamily: F.bold, fontSize: 12 }}>{isEn ? "Add" : "أضف"}</Text>
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -388,7 +406,7 @@ export default function MenuScreen() {
           renderSectionHeader={({ section }) => (
             <View style={[styles.sectionRow, { backgroundColor: colors.background, borderBottomColor: "#2A1A0A", borderTopColor: "#2A1A0A" }]}>
               <Text style={[styles.itemCount, { color: colors.mutedForeground, fontFamily: F.semi }]}>
-                {section.count} أصناف
+                {section.count} {isEn ? "items" : "أصناف"}
               </Text>
               <View style={styles.sectionTitle}>
                 <Text style={[styles.sectionName, { color: colors.foreground, fontFamily: F.extra }]}>

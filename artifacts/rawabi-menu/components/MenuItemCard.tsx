@@ -11,6 +11,7 @@ import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useColors } from "@/hooks/useColors";
 import { useCart } from "@/context/CartContext";
+import { useLanguage } from "@/context/LanguageContext";
 import { MenuItem, FOOD_IMAGES, RESTAURANT_INFO } from "@/constants/menu";
 
 const F = {
@@ -21,12 +22,15 @@ const F = {
 };
 
 interface Props {
-  item: MenuItem & { available?: boolean };
+  item: MenuItem & { available?: boolean; nameEn?: string; descriptionEn?: string };
 }
 
 export function MenuItemCard({ item }: Props) {
   const colors = useColors();
   const { items, addItem, updateQuantity } = useCart();
+  const { language } = useLanguage();
+  const isEn = language === "en";
+
   const cartItem = items.find((c) => c.item.id === item.id);
   const quantity = cartItem?.quantity ?? 0;
   const inCart = quantity > 0;
@@ -36,10 +40,16 @@ export function MenuItemCard({ item }: Props) {
   const isDhabiha = item.price === 0;
   const isUnavailable = item.available === false;
 
+  const displayName = isEn && item.nameEn ? item.nameEn : item.name;
+  const displayDesc = isEn && item.descriptionEn ? item.descriptionEn : item.description;
+
   const handleAdd = () => {
     if (isUnavailable) return;
     if (isDhabiha) {
-      Linking.openURL(`https://wa.me/${RESTAURANT_INFO.whatsapp}?text=${encodeURIComponent(`السلام عليكم، أرغب في الاستفسار عن: ${item.name}`)}`);
+      const msg = isEn
+        ? `Hello, I would like to inquire about: ${displayName}`
+        : `السلام عليكم، أرغب في الاستفسار عن: ${item.name}`;
+      Linking.openURL(`https://wa.me/${RESTAURANT_INFO.whatsapp}?text=${encodeURIComponent(msg)}`);
       return;
     }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -67,7 +77,9 @@ export function MenuItemCard({ item }: Props) {
     >
       {isUnavailable && (
         <View style={styles.unavailableBanner}>
-          <Text style={[styles.unavailableText, { fontFamily: F.bold }]}>نافد</Text>
+          <Text style={[styles.unavailableText, { fontFamily: F.bold }]}>
+            {isEn ? "Out of Stock" : "نافد"}
+          </Text>
         </View>
       )}
       <View style={styles.inner}>
@@ -115,23 +127,30 @@ export function MenuItemCard({ item }: Props) {
         </View>
 
         {/* Center: info */}
-        <View style={styles.infoBlock}>
-          <Text style={[styles.name, { color: colors.foreground, fontFamily: F.bold }]} numberOfLines={2}>
-            {item.name}
+        <View style={[styles.infoBlock, { alignItems: isEn ? "flex-start" : "flex-end" }]}>
+          <Text
+            style={[styles.name, { color: colors.foreground, fontFamily: F.bold, textAlign: isEn ? "left" : "right" }]}
+            numberOfLines={2}
+          >
+            {displayName}
           </Text>
-          {item.description ? (
-            <Text style={[styles.desc, { color: colors.mutedForeground, fontFamily: F.regular }]}>
-              {item.description}
+          {displayDesc ? (
+            <Text style={[styles.desc, { color: colors.mutedForeground, fontFamily: F.regular, textAlign: isEn ? "left" : "right" }]}>
+              {displayDesc}
             </Text>
           ) : null}
           <View style={styles.priceRow}>
             {isDhabiha ? (
               <View style={[styles.callBadge, { backgroundColor: "#1DBF4722", borderColor: "#1DBF47" }]}>
-                <Text style={[styles.callText, { color: "#1DBF47", fontFamily: F.bold }]}>اتصل للسعر</Text>
+                <Text style={[styles.callText, { color: "#1DBF47", fontFamily: F.bold }]}>
+                  {isEn ? "Call for price" : "اتصل للسعر"}
+                </Text>
               </View>
             ) : (
               <>
-                <Text style={[styles.currency, { color: colors.mutedForeground, fontFamily: F.regular }]}>ر.س</Text>
+                <Text style={[styles.currency, { color: colors.mutedForeground, fontFamily: F.regular }]}>
+                  {isEn ? "SAR" : "ر.س"}
+                </Text>
                 <Text style={[styles.price, { color: inCart ? colors.gold : colors.accent, fontFamily: F.extra }]}>
                   {priceStr}
                 </Text>
@@ -210,17 +229,14 @@ const styles = StyleSheet.create({
   },
   infoBlock: {
     flex: 1,
-    alignItems: "flex-end",
     gap: 4,
   },
   name: {
     fontSize: 15,
-    textAlign: "right",
     lineHeight: 22,
   },
   desc: {
     fontSize: 12,
-    textAlign: "right",
   },
   priceRow: {
     flexDirection: "row",

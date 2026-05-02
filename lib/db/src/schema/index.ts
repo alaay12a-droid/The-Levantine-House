@@ -34,6 +34,7 @@ export const menuItemsTable = pgTable("menu_items", {
   id: serial("id").primaryKey(),
   itemId: text("item_id").notNull().unique(),
   name: text("name").notNull(),
+  nameEn: text("name_en"),
   category: text("category").notNull(),
   price: integer("price").notNull(),
   available: boolean("available").notNull().default(true),

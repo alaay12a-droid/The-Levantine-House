@@ -18,6 +18,7 @@ import { useColors } from "@/hooks/useColors";
 import { useCart } from "@/context/CartContext";
 import { useUser } from "@/context/UserContext";
 import { RESTAURANT_INFO } from "@/constants/menu";
+import { useLanguage } from "@/context/LanguageContext";
 
 export default function CartScreen() {
   const colors = useColors();
@@ -25,6 +26,8 @@ export default function CartScreen() {
   const router = useRouter();
   const { items, updateQuantity, removeItem, clearCart, totalItems, totalPrice } = useCart();
   const { user } = useUser();
+  const { language } = useLanguage();
+  const isEn = language === "en";
 
   const topInset = Platform.OS === "web" ? 67 : insets.top;
   const bottomInset = Platform.OS === "web" ? 34 : insets.bottom;
@@ -49,7 +52,8 @@ export default function CartScreen() {
     items.forEach((cartItem, i) => {
       const itemTotal = cartItem.item.price * cartItem.quantity;
       const priceStr = itemTotal % 1 === 0 ? itemTotal.toString() : itemTotal.toFixed(1);
-      message += `${i + 1}. ${cartItem.item.name}\n   × ${cartItem.quantity} = ${priceStr} ر.س\n`;
+      const itemName = isEn && cartItem.item.nameEn ? cartItem.item.nameEn : cartItem.item.name;
+      message += `${i + 1}. ${itemName}\n   × ${cartItem.quantity} = ${priceStr} ر.س\n`;
     });
     const totalStr = totalPrice % 1 === 0 ? totalPrice.toString() : totalPrice.toFixed(1);
     message += `\n💰 *الإجمالي: ${totalStr} ر.س*`;
@@ -148,7 +152,7 @@ export default function CartScreen() {
                         <Feather name="x" size={14} color={colors.mutedForeground} />
                       </TouchableOpacity>
                       <Text style={[styles.cartItemName, { color: colors.foreground }]} numberOfLines={2}>
-                        {cartItem.item.name}
+                        {isEn && cartItem.item.nameEn ? cartItem.item.nameEn : cartItem.item.name}
                       </Text>
                     </View>
 

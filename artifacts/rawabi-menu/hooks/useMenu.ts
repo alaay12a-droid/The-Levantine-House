@@ -6,6 +6,7 @@ export interface ApiMenuItem {
   id: number;
   itemId: string;
   name: string;
+  nameEn: string | null;
   category: string;
   price: number;
   available: boolean;
@@ -19,32 +20,34 @@ export interface ApiMenuItem {
 export interface MenuCategoryWithApi {
   id: string;
   name: string;
+  nameEn: string;
   icon: string;
   isDelivery?: boolean;
   isDhabiha?: boolean;
   isOccasions?: boolean;
-  items: (MenuItem & { available: boolean })[];
+  items: (MenuItem & { available: boolean; nameEn?: string })[];
 }
 
-const CATEGORY_META: Record<string, { name: string; icon: string; isDelivery?: boolean; isDhabiha?: boolean; isOccasions?: boolean }> = {
-  chicken:  { name: "الدجاج",              icon: "🍗" },
-  meat:     { name: "اللحوم",              icon: "🥩" },
-  mains:    { name: "الأطباق الرئيسية",    icon: "🍽️" },
-  sides:    { name: "الإيدامات",           icon: "🥘" },
-  salads:   { name: "السلطات",             icon: "🥗" },
-  desserts: { name: "الحلويات",            icon: "🍮" },
-  drinks:   { name: "المشروبات",           icon: "🥤" },
-  extras:   { name: "إضافات",              icon: "✨" },
+const CATEGORY_META: Record<string, { name: string; nameEn: string; icon: string; isDelivery?: boolean; isDhabiha?: boolean; isOccasions?: boolean }> = {
+  chicken:  { name: "الدجاج",              nameEn: "Chicken",        icon: "🍗" },
+  meat:     { name: "اللحوم",              nameEn: "Meat",           icon: "🥩" },
+  mains:    { name: "الأطباق الرئيسية",    nameEn: "Main Dishes",    icon: "🍽️" },
+  sides:    { name: "الإيدامات",           nameEn: "Sides",          icon: "🥘" },
+  salads:   { name: "السلطات",             nameEn: "Salads",         icon: "🥗" },
+  desserts: { name: "الحلويات",            nameEn: "Desserts",       icon: "🍮" },
+  drinks:   { name: "المشروبات",           nameEn: "Drinks",         icon: "🥤" },
+  extras:   { name: "إضافات",              nameEn: "Extras",         icon: "✨" },
 };
 
 function buildCategories(apiItems: ApiMenuItem[]): MenuCategoryWithApi[] {
-  const categoryMap = new Map<string, (MenuItem & { available: boolean })[]>();
+  const categoryMap = new Map<string, (MenuItem & { available: boolean; nameEn?: string })[]>();
 
   for (const item of apiItems) {
     const existing = categoryMap.get(item.category) ?? [];
     existing.push({
       id: item.itemId,
       name: item.name,
+      nameEn: item.nameEn ?? undefined,
       price: item.price / 100,
       category: item.category,
       imageKey: item.imageKey ?? undefined,
@@ -68,7 +71,11 @@ function buildCategories(apiItems: ApiMenuItem[]): MenuCategoryWithApi[] {
 
   const staticSpecial = MENU_CATEGORIES.filter(
     (c) => c.isDelivery || c.isDhabiha || c.isOccasions
-  ) as MenuCategoryWithApi[];
+  ).map((c) => ({
+    ...c,
+    nameEn: c.nameEn ?? c.name,
+    items: c.items.map((i) => ({ ...i, available: true })),
+  })) as MenuCategoryWithApi[];
 
   return [...result, ...staticSpecial];
 }
@@ -77,6 +84,7 @@ export function useMenu() {
   const [categories, setCategories] = useState<MenuCategoryWithApi[]>(() => {
     return MENU_CATEGORIES.map((c) => ({
       ...c,
+      nameEn: c.nameEn ?? c.name,
       items: c.items.map((i) => ({ ...i, available: true })),
     })) as MenuCategoryWithApi[];
   });

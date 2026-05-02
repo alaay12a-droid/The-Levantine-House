@@ -315,6 +315,7 @@ export default function AdminMenuScreen() {
   const [editItem, setEditItem] = useState<ApiMenuItem | null>(null);
   const [loading, setLoading] = useState<string | null>(null);
   const [newName, setNewName] = useState("");
+  const [newNameEn, setNewNameEn] = useState("");
   const [newPrice, setNewPrice] = useState("");
   const [newCategory, setNewCategory] = useState("chicken");
   const [newImageUrl, setNewImageUrl] = useState("");
@@ -492,6 +493,7 @@ export default function AdminMenuScreen() {
   const openEdit = (item: ApiMenuItem) => {
     setEditItem(item);
     setNewName(item.name);
+    setNewNameEn(item.nameEn ?? "");
     setNewPrice((item.price / 100).toString());
     setNewCategory(item.category);
     setNewImageUrl(item.imageUrl ?? "");
@@ -508,6 +510,7 @@ export default function AdminMenuScreen() {
     try {
       await apiPut(`/menu/${editItem.itemId}`, {
         name: newName.trim(),
+        nameEn: newNameEn.trim() || undefined,
         price: priceNum,
         category: newCategory,
         imageUrl: newImageUrl || null,
@@ -531,6 +534,7 @@ export default function AdminMenuScreen() {
     try {
       await apiPost("/menu", {
         name: newName.trim(),
+        nameEn: newNameEn.trim() || undefined,
         price: priceNum,
         category: newCategory,
         imageUrl: newImageUrl || null,
@@ -538,6 +542,7 @@ export default function AdminMenuScreen() {
       await refresh();
       setShowAddModal(false);
       setNewName("");
+      setNewNameEn("");
       setNewPrice("");
       setNewCategory("chicken");
       setNewImageUrl("");
@@ -550,6 +555,7 @@ export default function AdminMenuScreen() {
 
   const openAdd = () => {
     setNewName("");
+    setNewNameEn("");
     setNewPrice("");
     setNewCategory("chicken");
     setNewImageUrl("");
@@ -2238,7 +2244,7 @@ export default function AdminMenuScreen() {
               {editItem ? "تعديل الصنف" : "إضافة صنف جديد"}
             </Text>
 
-            <Text style={[styles.fieldLabel, { color: colors.mutedForeground, fontFamily: F.semi }]}>اسم الصنف</Text>
+            <Text style={[styles.fieldLabel, { color: colors.mutedForeground, fontFamily: F.semi }]}>اسم الصنف (عربي) *</Text>
             <TextInput
               value={newName}
               onChangeText={setNewName}
@@ -2246,6 +2252,16 @@ export default function AdminMenuScreen() {
               placeholderTextColor={colors.mutedForeground}
               style={[styles.input, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.secondary, fontFamily: F.regular }]}
               textAlign="right"
+            />
+
+            <Text style={[styles.fieldLabel, { color: colors.mutedForeground, fontFamily: F.semi }]}>Item Name (English)</Text>
+            <TextInput
+              value={newNameEn}
+              onChangeText={setNewNameEn}
+              placeholder="e.g. Whole Chicken Mandi"
+              placeholderTextColor={colors.mutedForeground}
+              style={[styles.input, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.secondary, fontFamily: F.regular }]}
+              textAlign="left"
             />
 
             <Text style={[styles.fieldLabel, { color: colors.mutedForeground, fontFamily: F.semi }]}>السعر (ريال)</Text>
