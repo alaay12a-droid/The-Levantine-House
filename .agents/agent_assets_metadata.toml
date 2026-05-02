@@ -11,3 +11,9 @@ id = "NgFkFuxj9j6w4gMZGqCvA"
 uri = "file://AsalaAlMamlakah.zip"
 type = "unspecified"
 title = "AsalaAlMamlakah - Android Studio Project"
+
+[[outputs]]
+id = "uCj9nv55iXqztHqRMC2Uo"
+uri = "file://RawabiAlMandi.zip"
+type = "unspecified"
+title = "روابي المندي — Android Studio Project"
