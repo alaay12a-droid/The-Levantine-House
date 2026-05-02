@@ -60,7 +60,6 @@
     "babel-preset-expo": "^55.0.18",
     "expo-av": "^16.0.8",
     "expo-notifications": "~0.32.17",
-    "expo-updates": "~29.0.17",
-    "firebase": "^12.12.1"
+    "expo-updates": "~29.0.17"
   }
 }

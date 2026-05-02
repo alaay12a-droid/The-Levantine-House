@@ -29,7 +29,6 @@ import { useTranslation } from "@/hooks/useTranslation";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { apiGet, apiPost, apiPatch } from "@/constants/api";
 import { useChatUnreadAlert } from "@/hooks/useChatSound";
-import { auth } from "@/config/firebase";
 
 const F = {
   regular: "Cairo_400Regular",
@@ -166,7 +165,6 @@ export default function MoreScreen() {
 
   const handleLogout = async () => {
     await clearUser();
-    try { await auth.signOut(); } catch {}
     router.replace("/onboarding");
   };
 
