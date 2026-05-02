@@ -18,9 +18,6 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { signInWithPhoneNumber, ConfirmationResult } from "firebase/auth";
-import { auth } from "@/config/firebase";
-
 import { useUser } from "@/context/UserContext";
 
 const C = {
@@ -42,7 +39,7 @@ const F = {
   extra: "Cairo_800ExtraBold",
 };
 
-type Step = "name" | "phone" | "otp" | "location";
+type Step = "name" | "phone" | "location";
 
 export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
@@ -52,67 +49,23 @@ export default function OnboardingScreen() {
   const [step, setStep] = useState<Step>("name");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
-  const [otp, setOtp] = useState("");
   const [address, setAddress] = useState("");
   const [lat, setLat] = useState<number | undefined>();
   const [lng, setLng] = useState<number | undefined>();
   const [locLoading, setLocLoading] = useState(false);
-  const [sendingOtp, setSendingOtp] = useState(false);
-  const [verifyingOtp, setVerifyingOtp] = useState(false);
-  const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
 
   const phoneRef = useRef<TextInput>(null);
-  const otpRef = useRef<TextInput>(null);
   const addressRef = useRef<TextInput>(null);
 
-  const stepIndex = step === "name" ? 0 : step === "phone" ? 1 : step === "otp" ? 2 : 3;
+  const stepIndex = step === "name" ? 0 : step === "phone" ? 1 : 2;
 
-  const formatPhoneNumber = (raw: string) => {
-    let num = raw.replace(/\D/g, "");
-    if (num.startsWith("0")) num = num.slice(1);
-    if (!num.startsWith("966")) num = "966" + num;
-    return "+" + num;
-  };
+  const steps: { id: Step; icon: string; title: string; subtitle: string }[] = [
+    { id: "name",     icon: "user",    title: "ما اسمك؟",          subtitle: "حتى نخاطبك بالاسم في طلبك" },
+    { id: "phone",   icon: "phone",   title: "رقم جوالك",         subtitle: "للتواصل معك عند التوصيل" },
+    { id: "location", icon: "map-pin", title: "موقعك أو عنوانك",   subtitle: "لنوصل طلبك بسرعة" },
+  ];
 
-  const handleSendOtp = async () => {
-    if (phone.trim().length < 9) {
-      Alert.alert("", "يرجى إدخال رقم جوال صحيح");
-      return;
-    }
-    setSendingOtp(true);
-    try {
-      const formattedPhone = formatPhoneNumber(phone.trim());
-      const result = await signInWithPhoneNumber(auth, formattedPhone);
-      setConfirmationResult(result);
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      setStep("otp");
-      setTimeout(() => otpRef.current?.focus(), 300);
-    } catch (e: any) {
-      Alert.alert("خطأ", "تعذر إرسال رمز التحقق. تأكد من الرقم وحاول مجدداً.");
-    }
-    setSendingOtp(false);
-  };
-
-  const handleVerifyOtp = async () => {
-    if (otp.trim().length !== 6) {
-      Alert.alert("", "يرجى إدخال الرمز المكون من 6 أرقام");
-      return;
-    }
-    if (!confirmationResult) {
-      Alert.alert("خطأ", "يرجى إعادة إرسال الرمز");
-      return;
-    }
-    setVerifyingOtp(true);
-    try {
-      await confirmationResult.confirm(otp.trim());
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      setStep("location");
-      setTimeout(() => addressRef.current?.focus(), 300);
-    } catch (e: any) {
-      Alert.alert("رمز خاطئ", "الرمز الذي أدخلته غير صحيح. حاول مجدداً.");
-    }
-    setVerifyingOtp(false);
-  };
+  const current = steps[stepIndex];
 
   const handleNext = () => {
     if (step === "name") {
@@ -121,9 +74,10 @@ export default function OnboardingScreen() {
       setStep("phone");
       setTimeout(() => phoneRef.current?.focus(), 300);
     } else if (step === "phone") {
-      handleSendOtp();
-    } else if (step === "otp") {
-      handleVerifyOtp();
+      if (phone.trim().length < 9) { Alert.alert("", "يرجى إدخال رقم جوال صحيح"); return; }
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      setStep("location");
+      setTimeout(() => addressRef.current?.focus(), 300);
     } else {
       if (!address.trim()) { Alert.alert("", "يرجى إدخال عنوانك أو تحديد موقعك"); return; }
       handleSave();
@@ -142,7 +96,10 @@ export default function OnboardingScreen() {
       const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
       setLat(loc.coords.latitude);
       setLng(loc.coords.longitude);
-      const geocode = await Location.reverseGeocodeAsync({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
+      const geocode = await Location.reverseGeocodeAsync({
+        latitude: loc.coords.latitude,
+        longitude: loc.coords.longitude,
+      });
       if (geocode.length > 0) {
         const g = geocode[0];
         const parts = [g.street, g.district, g.city].filter(Boolean);
@@ -163,15 +120,6 @@ export default function OnboardingScreen() {
     router.replace("/(tabs)");
   };
 
-  const steps: { id: Step; icon: string; title: string; subtitle: string }[] = [
-    { id: "name",     icon: "user",      title: "ما اسمك؟",            subtitle: "حتى نخاطبك بالاسم في طلبك" },
-    { id: "phone",    icon: "phone",     title: "رقم جوالك",           subtitle: "سنرسل لك رمز تحقق عبر SMS" },
-    { id: "otp",      icon: "shield",    title: "رمز التحقق",          subtitle: `أرسلنا رمزاً إلى ${phone}` },
-    { id: "location", icon: "map-pin",   title: "موقعك أو عنوانك",     subtitle: "لنوصل طلبك بسرعة" },
-  ];
-
-  const current = steps[stepIndex];
-
   return (
     <KeyboardAvoidingView
       style={{ flex: 1, backgroundColor: C.bg }}
@@ -180,7 +128,10 @@ export default function OnboardingScreen() {
       <StatusBar barStyle="light-content" />
 
       <ScrollView
-        contentContainerStyle={[styles.scroll, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 32 }]}
+        contentContainerStyle={[
+          styles.scroll,
+          { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 32 },
+        ]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
@@ -243,40 +194,6 @@ export default function OnboardingScreen() {
             />
           )}
 
-          {step === "otp" && (
-            <View style={{ width: "100%", gap: 12 }}>
-              <View style={styles.otpRow}>
-                {[0,1,2,3,4,5].map(i => (
-                  <View
-                    key={i}
-                    style={[
-                      styles.otpBox,
-                      { borderColor: otp.length === i ? C.gold : otp.length > i ? C.green : C.border },
-                    ]}
-                  >
-                    <Text style={[styles.otpChar, { color: C.fg }]}>
-                      {otp[i] || ""}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-              <TextInput
-                ref={otpRef}
-                style={styles.hiddenInput}
-                value={otp}
-                onChangeText={v => setOtp(v.replace(/\D/g, "").slice(0, 6))}
-                keyboardType="number-pad"
-                maxLength={6}
-                autoFocus
-              />
-              <TouchableOpacity onPress={handleSendOtp} disabled={sendingOtp}>
-                <Text style={[styles.resendText, { color: C.gold }]}>
-                  {sendingOtp ? "جاري الإرسال..." : "إعادة إرسال الرمز"}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
           {step === "location" && (
             <View style={styles.locationBlock}>
               <TouchableOpacity
@@ -315,7 +232,12 @@ export default function OnboardingScreen() {
               />
 
               {lat && lng && (
-                <View style={[styles.locBadge, { backgroundColor: C.green + "22", borderColor: C.green + "44" }]}>
+                <View
+                  style={[
+                    styles.locBadge,
+                    { backgroundColor: C.green + "22", borderColor: C.green + "44" },
+                  ]}
+                >
                   <Feather name="check-circle" size={14} color={C.green} />
                   <Text style={[styles.locBadgeText, { color: C.green }]}>تم تحديد الموقع</Text>
                 </View>
@@ -324,28 +246,26 @@ export default function OnboardingScreen() {
           )}
 
           <TouchableOpacity
-            style={[styles.nextBtn, { backgroundColor: C.primary, opacity: (sendingOtp || verifyingOtp) ? 0.7 : 1 }]}
+            style={[styles.nextBtn, { backgroundColor: C.primary }]}
             onPress={handleNext}
             activeOpacity={0.85}
-            disabled={sendingOtp || verifyingOtp}
           >
-            {(sendingOtp || verifyingOtp) ? (
-              <ActivityIndicator color="#FFF" size="small" />
-            ) : (
-              <>
-                <Text style={styles.nextBtnText}>
-                  {step === "location" ? "ابدأ الطلب 🍗" : step === "phone" ? "إرسال رمز التحقق" : step === "otp" ? "تحقق" : "التالي"}
-                </Text>
-                {step !== "location" && step !== "otp" && (
-                  <Feather name="arrow-left" size={18} color="#FFF" />
-                )}
-              </>
+            <Text style={styles.nextBtnText}>
+              {step === "location" ? "ابدأ الطلب 🍗" : "التالي"}
+            </Text>
+            {step !== "location" && (
+              <Feather name="arrow-left" size={18} color="#FFF" />
             )}
           </TouchableOpacity>
         </View>
 
         {step === "location" && (
-          <TouchableOpacity onPress={() => { setAddress("غير محدد"); setTimeout(handleSave, 100); }}>
+          <TouchableOpacity
+            onPress={() => {
+              setAddress("غير محدد");
+              setTimeout(handleSave, 100);
+            }}
+          >
             <Text style={[styles.skipText, { color: C.muted }]}>تخطي الآن وتحديده لاحقاً</Text>
           </TouchableOpacity>
         )}
@@ -364,30 +284,42 @@ const styles = StyleSheet.create({
   dotActive: { backgroundColor: "#C8171A", width: 24 },
   dotDone: { backgroundColor: "#E8920C" },
   card: {
-    width: "100%", backgroundColor: "#1A1008", borderRadius: 20, borderWidth: 1,
-    overflow: "hidden", alignItems: "center", paddingHorizontal: 24, paddingBottom: 28, gap: 16,
+    width: "100%",
+    backgroundColor: "#1A1008",
+    borderRadius: 20,
+    borderWidth: 1,
+    overflow: "hidden",
+    alignItems: "center",
+    paddingHorizontal: 24,
+    paddingBottom: 28,
+    gap: 16,
   },
   cardAccent: { width: "100%", height: 4, marginBottom: 8 },
   logo: { width: 160, height: 100, marginBottom: 4 },
   stepTitle: { fontSize: 22, fontFamily: "Cairo_800ExtraBold", color: "#F5ECD7", textAlign: "center" },
   stepSub: { fontSize: 13, fontFamily: "Cairo_400Regular", color: "#8A7560", textAlign: "center", marginTop: -8 },
   input: {
-    width: "100%", backgroundColor: "#231508", borderRadius: 12, borderWidth: 1,
-    borderColor: "#2E1F0E", paddingHorizontal: 16, paddingVertical: 14,
-    fontSize: 17, fontFamily: "Cairo_700Bold", color: "#F5ECD7", textAlign: "right",
+    width: "100%",
+    backgroundColor: "#231508",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#2E1F0E",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 17,
+    fontFamily: "Cairo_700Bold",
+    color: "#F5ECD7",
+    textAlign: "right",
   },
-  otpRow: { flexDirection: "row", justifyContent: "center", gap: 10, width: "100%" },
-  otpBox: {
-    width: 44, height: 54, borderRadius: 12, borderWidth: 2,
-    backgroundColor: "#231508", alignItems: "center", justifyContent: "center",
-  },
-  otpChar: { fontSize: 22, fontFamily: "Cairo_700Bold" },
-  hiddenInput: { position: "absolute", opacity: 0, width: 1, height: 1 },
-  resendText: { fontSize: 13, fontFamily: "Cairo_600SemiBold", textAlign: "center", textDecorationLine: "underline" },
   locationBlock: { width: "100%", gap: 12 },
   gpsBtn: {
-    flexDirection: "row", alignItems: "center", justifyContent: "center",
-    gap: 10, paddingVertical: 14, borderRadius: 12, borderWidth: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1,
   },
   gpsBtnText: { fontSize: 15, fontFamily: "Cairo_700Bold" },
   orRow: { flexDirection: "row", alignItems: "center", gap: 10 },
@@ -395,14 +327,25 @@ const styles = StyleSheet.create({
   orText: { fontSize: 13, fontFamily: "Cairo_400Regular" },
   addressInput: { minHeight: 80, paddingTop: 14 },
   locBadge: {
-    flexDirection: "row", alignItems: "center", gap: 6,
-    paddingHorizontal: 12, paddingVertical: 7, borderRadius: 8,
-    borderWidth: 1, alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignSelf: "flex-start",
   },
   locBadgeText: { fontSize: 12, fontFamily: "Cairo_600SemiBold" },
   nextBtn: {
-    width: "100%", flexDirection: "row", alignItems: "center",
-    justifyContent: "center", gap: 10, paddingVertical: 15, borderRadius: 14, marginTop: 4,
+    width: "100%",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    paddingVertical: 15,
+    borderRadius: 14,
+    marginTop: 4,
   },
   nextBtnText: { fontSize: 17, fontFamily: "Cairo_800ExtraBold", color: "#FFFFFF" },
   skipText: { fontSize: 13, fontFamily: "Cairo_400Regular", textDecorationLine: "underline", marginTop: -8 },
