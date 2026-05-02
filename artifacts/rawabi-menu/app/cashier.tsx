@@ -35,12 +35,14 @@ const F = {
 const CASHIER_PIN_DEFAULT = "Aa@000";
 
 const CATEGORIES = [
-  { id: "chicken",  name: "الدجاج",   icon: "🍗" },
-  { id: "meat",     name: "اللحوم",   icon: "🥩" },
-  { id: "rice",     name: "الأرز",    icon: "🍚" },
-  { id: "sides",    name: "الجانبية", icon: "🥗" },
-  { id: "drinks",   name: "المشروبات",icon: "🥤" },
-  { id: "desserts", name: "الحلويات", icon: "🍮" },
+  { id: "chicken",  name: "الدجاج",             icon: "🍗" },
+  { id: "meat",     name: "اللحوم",             icon: "🥩" },
+  { id: "mains",    name: "الأطباق الرئيسية",   icon: "🍽️" },
+  { id: "sides",    name: "الإيدامات",          icon: "🥘" },
+  { id: "salads",   name: "السلطات",            icon: "🥗" },
+  { id: "desserts", name: "الحلويات",           icon: "🍮" },
+  { id: "drinks",   name: "المشروبات",          icon: "🥤" },
+  { id: "extras",   name: "إضافات",             icon: "✨" },
 ];
 
 type OrderStatus = "pending" | "preparing" | "ready" | "done" | "cancelled";
@@ -175,6 +177,7 @@ export default function CashierScreen() {
   const [menuItems, setMenuItems] = useState<ApiMenuItem[]>([]);
   const [stockEdits, setStockEdits] = useState<Record<string, string>>({});
   const [stockSaving, setStockSaving] = useState<string | null>(null);
+  const [stockViewMode, setStockViewMode] = useState<"table" | "edit">("table");
 
   const fetchMenuItems = useCallback(async () => {
     try {
@@ -842,8 +845,81 @@ export default function CashierScreen() {
             </TouchableOpacity>
           </View>
 
+          {/* ── View mode toggle ── */}
+          <View style={{ flexDirection: "row", gap: 8, padding: 12, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+            <TouchableOpacity
+              onPress={() => setStockViewMode("table")}
+              style={{ flex: 1, paddingVertical: 9, borderRadius: 10, alignItems: "center", backgroundColor: stockViewMode === "table" ? "#7B1FA2" : colors.secondary, borderWidth: 1, borderColor: stockViewMode === "table" ? "#CE93D8" : colors.border }}
+            >
+              <Text style={{ color: stockViewMode === "table" ? "#fff" : colors.mutedForeground, fontFamily: F.bold, fontSize: 13 }}>📋 جدول المخزون</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setStockViewMode("edit")}
+              style={{ flex: 1, paddingVertical: 9, borderRadius: 10, alignItems: "center", backgroundColor: stockViewMode === "edit" ? colors.gold : colors.secondary, borderWidth: 1, borderColor: stockViewMode === "edit" ? colors.gold : colors.border }}
+            >
+              <Text style={{ color: stockViewMode === "edit" ? "#1A0A00" : colors.mutedForeground, fontFamily: F.bold, fontSize: 13 }}>✏️ تعديل الكميات</Text>
+            </TouchableOpacity>
+          </View>
+
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}>
-            {CATEGORIES.map((cat) => {
+            {/* loading guard */}
+            {menuItems.length === 0 && (
+              <View style={{ padding: 40, alignItems: "center", gap: 12 }}>
+                <ActivityIndicator size="large" color="#7B1FA2" />
+                <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 14 }}>جار تحميل بيانات المخزون…</Text>
+              </View>
+            )}
+
+            {/* ── TABLE VIEW ── */}
+            {stockViewMode === "table" && CATEGORIES.map((cat) => {
+              const catItems = menuItems.filter((i) => i.category === cat.id);
+              if (catItems.length === 0) return null;
+              const totalStock = catItems.reduce((s, i) => s + (i.stock ?? 0), 0);
+              const outCount   = catItems.filter((i) => i.stock === 0).length;
+              const lowCount   = catItems.filter((i) => i.stock !== null && i.stock > 0 && i.stock <= 3).length;
+              return (
+                <View key={cat.id} style={{ marginBottom: 14 }}>
+                  <View style={{ backgroundColor: "#1A1008", flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 14, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: "#2A1A0A" }}>
+                    <Text style={{ fontSize: 18 }}>{cat.icon}</Text>
+                    <Text style={{ color: colors.gold, fontFamily: F.extra, fontSize: 15, flex: 1 }}>{cat.name}</Text>
+                    {outCount > 0 && <Text style={{ color: "#E57373", fontFamily: F.bold, fontSize: 11 }}>⚠️ {outCount} نافد</Text>}
+                    {lowCount > 0 && <Text style={{ color: colors.gold, fontFamily: F.bold, fontSize: 11, marginStart: 6 }}>⬇️ {lowCount} منخفض</Text>}
+                  </View>
+                  <View style={{ flexDirection: "row", backgroundColor: "#120A02", borderBottomWidth: 1, borderBottomColor: "#2A1A0A", paddingHorizontal: 14, paddingVertical: 6 }}>
+                    <Text style={{ flex: 1, color: colors.mutedForeground, fontFamily: F.semi, fontSize: 11 }}>الصنف</Text>
+                    <Text style={{ width: 64, color: colors.mutedForeground, fontFamily: F.semi, fontSize: 11, textAlign: "center" }}>الكمية</Text>
+                    <Text style={{ width: 72, color: colors.mutedForeground, fontFamily: F.semi, fontSize: 11, textAlign: "center" }}>الحالة</Text>
+                  </View>
+                  {catItems.map((item, idx) => {
+                    const isLast = idx === catItems.length - 1;
+                    const rowBg = idx % 2 === 0 ? colors.card : "#130D06";
+                    const stockColor = item.stock === null ? "#4CAF50" : item.stock === 0 ? "#E57373" : item.stock <= 3 ? colors.gold : "#64B5F6";
+                    const statusLabel = item.stock === null ? "غير محدود" : item.stock === 0 ? "نافد" : item.stock <= 3 ? "منخفض" : "متاح";
+                    const statusBg = item.stock === null ? "#1A3A1A" : item.stock === 0 ? "#3A1A1A" : item.stock <= 3 ? "#3A2A00" : "#1A2A3A";
+                    return (
+                      <View key={item.itemId} style={{ flexDirection: "row", alignItems: "center", backgroundColor: rowBg, borderBottomWidth: isLast ? 0 : 1, borderBottomColor: colors.border, paddingHorizontal: 14, paddingVertical: 11 }}>
+                        <Text style={{ flex: 1, color: item.available ? colors.foreground : colors.mutedForeground, fontFamily: F.bold, fontSize: 13 }} numberOfLines={1}>{item.name}</Text>
+                        <Text style={{ width: 64, color: stockColor, fontFamily: F.extra, fontSize: 16, textAlign: "center" }}>{item.stock === null ? "∞" : item.stock}</Text>
+                        <View style={{ width: 72, alignItems: "center" }}>
+                          <View style={{ backgroundColor: statusBg, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 }}>
+                            <Text style={{ color: stockColor, fontFamily: F.bold, fontSize: 11 }}>{statusLabel}</Text>
+                          </View>
+                        </View>
+                      </View>
+                    );
+                  })}
+                  <View style={{ flexDirection: "row", backgroundColor: "#0E0800", paddingHorizontal: 14, paddingVertical: 7, borderTopWidth: 1, borderTopColor: "#2A1A0A" }}>
+                    <Text style={{ flex: 1, color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }}>{catItems.length} صنف</Text>
+                    <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 11 }}>
+                      إجمالي المخزون المحدود: <Text style={{ color: colors.gold, fontFamily: F.bold }}>{totalStock}</Text>
+                    </Text>
+                  </View>
+                </View>
+              );
+            })}
+
+            {/* ── EDIT VIEW ── */}
+            {stockViewMode === "edit" && CATEGORIES.map((cat) => {
               const catItems = menuItems.filter((i) => i.category === cat.id);
               if (catItems.length === 0) return null;
               return (
@@ -861,43 +937,28 @@ export default function CashierScreen() {
                     return (
                       <View key={item.itemId} style={{ backgroundColor: colors.card, borderBottomWidth: 1, borderBottomColor: colors.border, flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingVertical: 10, gap: 10 }}>
                         <View style={{ flex: 1, gap: 2 }}>
-                          <Text style={{ color: item.available ? colors.foreground : colors.mutedForeground, fontFamily: F.bold, fontSize: 14 }} numberOfLines={1}>
-                            {item.name}
-                          </Text>
+                          <Text style={{ color: item.available ? colors.foreground : colors.mutedForeground, fontFamily: F.bold, fontSize: 14 }} numberOfLines={1}>{item.name}</Text>
                           <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
                             {item.stock === null ? (
                               <Text style={{ color: "#4CAF50", fontFamily: F.semi, fontSize: 11 }}>∞ غير محدود</Text>
                             ) : item.stock === 0 ? (
                               <Text style={{ color: "#E57373", fontFamily: F.bold, fontSize: 11 }}>⚠️ نافد</Text>
                             ) : (
-                              <Text style={{ color: item.stock <= 3 ? colors.gold : "#64B5F6", fontFamily: F.semi, fontSize: 11 }}>
-                                {item.stock} متبقي{item.stock <= 3 ? " ⚠️" : ""}
-                              </Text>
+                              <Text style={{ color: item.stock <= 3 ? colors.gold : "#64B5F6", fontFamily: F.semi, fontSize: 11 }}>{item.stock} متبقي{item.stock <= 3 ? " ⚠️" : ""}</Text>
                             )}
                             {!item.available && <Text style={{ color: "#E57373", fontFamily: F.regular, fontSize: 10 }}>• معطل</Text>}
                           </View>
                         </View>
-
                         <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                           <TouchableOpacity
-                            onPress={() => {
-                              if (isUnlimited) {
-                                setStockEdits((prev) => ({ ...prev, [item.itemId]: "10" }));
-                              } else {
-                                setStockEdits((prev) => ({ ...prev, [item.itemId]: "" }));
-                              }
-                            }}
+                            onPress={() => { isUnlimited ? setStockEdits((prev) => ({ ...prev, [item.itemId]: "10" })) : setStockEdits((prev) => ({ ...prev, [item.itemId]: "" })); }}
                             style={{ paddingHorizontal: 8, paddingVertical: 5, borderRadius: 8, backgroundColor: isUnlimited ? "#1A4A1A" : colors.secondary, borderWidth: 1, borderColor: isUnlimited ? "#4CAF50" : colors.border }}
                           >
                             <Text style={{ color: isUnlimited ? "#4CAF50" : colors.mutedForeground, fontFamily: F.bold, fontSize: 12 }}>∞</Text>
                           </TouchableOpacity>
-
                           {!isUnlimited && (
                             <>
-                              <TouchableOpacity
-                                onPress={() => adjustStock(item, -1)}
-                                style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: colors.secondary, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.border }}
-                              >
+                              <TouchableOpacity onPress={() => adjustStock(item, -1)} style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: colors.secondary, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.border }}>
                                 <Feather name="minus" size={14} color={colors.foreground} />
                               </TouchableOpacity>
                               <TextInput
@@ -906,23 +967,14 @@ export default function CashierScreen() {
                                 keyboardType="number-pad"
                                 style={{ width: 44, height: 32, borderRadius: 8, backgroundColor: colors.secondary, borderWidth: 1, borderColor: isDirty ? colors.gold : colors.border, color: colors.foreground, fontFamily: F.bold, fontSize: 15, textAlign: "center" }}
                               />
-                              <TouchableOpacity
-                                onPress={() => adjustStock(item, 1)}
-                                style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: colors.secondary, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.border }}
-                              >
+                              <TouchableOpacity onPress={() => adjustStock(item, 1)} style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: colors.secondary, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.border }}>
                                 <Feather name="plus" size={14} color={colors.foreground} />
                               </TouchableOpacity>
                             </>
                           )}
-
                           {(isDirty || isUnlimited !== (item.stock === null)) && (
-                            isSaving ? (
-                              <ActivityIndicator size="small" color={colors.gold} />
-                            ) : (
-                              <TouchableOpacity
-                                onPress={() => handleQuickStock(item.itemId, editVal)}
-                                style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: colors.gold }}
-                              >
+                            isSaving ? <ActivityIndicator size="small" color={colors.gold} /> : (
+                              <TouchableOpacity onPress={() => handleQuickStock(item.itemId, editVal)} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: colors.gold }}>
                                 <Text style={{ color: "#1A0A00", fontFamily: F.bold, fontSize: 12 }}>حفظ</Text>
                               </TouchableOpacity>
                             )
