@@ -1,4 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from "react";
+import { useFocusEffect } from "expo-router";
 import {
   View,
   Text,
@@ -55,7 +56,7 @@ export default function MenuScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { categories } = useMenu();
+  const { categories, refresh: refreshMenu } = useMenu();
   const { occasions } = useOccasions();
   const { banners, refresh: refreshBanners } = useBanners();
   const { combos } = useCombos();
@@ -65,6 +66,8 @@ export default function MenuScreen() {
   const isEn = language === "en";
   const availableCombos = combos.filter((c) => c.available);
   const [activeCategory, setActiveCategory] = useState("chicken");
+
+  useFocusEffect(useCallback(() => { refreshMenu(); }, [refreshMenu]));
 
   useEffect(() => { refreshBanners(); }, [refreshBanners]);
   const sectionListRef = useRef<any>(null);

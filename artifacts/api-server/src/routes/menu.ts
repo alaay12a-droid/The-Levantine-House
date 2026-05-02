@@ -97,6 +97,7 @@ const updateSchema = z.object({
 });
 
 router.get("/menu", async (req, res) => {
+  res.setHeader("Cache-Control", "no-store");
   const items = await db
     .select()
     .from(menuItemsTable)
