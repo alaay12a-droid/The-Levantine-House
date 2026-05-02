@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   Platform,
   Alert,
   StatusBar,
+  Image,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -16,6 +17,8 @@ import * as Haptics from "expo-haptics";
 import { useColors } from "@/hooks/useColors";
 import { useCart } from "@/context/CartContext";
 import { useLanguage } from "@/context/LanguageContext";
+import { useMenu } from "@/hooks/useMenu";
+import { FOOD_IMAGES } from "@/constants/menu";
 
 const F = {
   regular: "Cairo_400Regular",
@@ -24,16 +27,36 @@ const F = {
   extra: "Cairo_800ExtraBold",
 };
 
+// Categories to show as recommendations (sides, salads, extras, desserts, drinks)
+const RECOMMENDED_CATS = ["salads", "sides", "extras", "desserts", "drinks"];
+
 export default function CartScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { items, updateQuantity, removeItem, clearCart, totalItems, totalPrice } = useCart();
+  const { items, updateQuantity, removeItem, clearCart, addItem, totalItems, totalPrice } = useCart();
   const { language } = useLanguage();
+  const { categories } = useMenu();
   const isEn = language === "en";
 
   const topInset = Platform.OS === "web" ? 67 : insets.top;
   const bottomInset = Platform.OS === "web" ? 34 : insets.bottom;
+
+  // Build recommended items list — exclude items already in cart
+  const cartItemIds = useMemo(() => new Set(items.map((ci) => ci.item.id)), [items]);
+
+  const recommendedItems = useMemo(() => {
+    const result: Array<{ id: string; name: string; nameEn?: string; price: number; imageKey?: string; imageUrl?: string; category: string }> = [];
+    for (const cat of categories) {
+      if (!RECOMMENDED_CATS.includes(cat.id)) continue;
+      for (const item of cat.items) {
+        if (item.available && !cartItemIds.has(item.id)) {
+          result.push(item);
+        }
+      }
+    }
+    return result.slice(0, 12); // max 12 recommendations
+  }, [categories, cartItemIds]);
 
   const confirmClear = () => {
     Alert.alert(
@@ -44,6 +67,25 @@ export default function CartScreen() {
         { text: isEn ? "Clear" : "مسح", style: "destructive", onPress: () => clearCart() },
       ]
     );
+  };
+
+  const handleAddRecommended = (item: typeof recommendedItems[0]) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    addItem({
+      id: item.id,
+      name: item.name,
+      nameEn: item.nameEn,
+      price: item.price,
+      category: item.category,
+      imageKey: item.imageKey,
+      imageUrl: item.imageUrl,
+    });
+  };
+
+  const getItemImage = (item: typeof recommendedItems[0]) => {
+    if (item.imageUrl) return { uri: item.imageUrl };
+    if (item.imageKey && FOOD_IMAGES[item.imageKey]) return FOOD_IMAGES[item.imageKey];
+    return null;
   };
 
   return (
@@ -61,7 +103,6 @@ export default function CartScreen() {
           },
         ]}
       >
-        {/* Left: trash / clear */}
         {items.length > 0 ? (
           <TouchableOpacity onPress={confirmClear} style={styles.headerSide} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
             <Feather name="trash-2" size={20} color={colors.mutedForeground} />
@@ -70,12 +111,10 @@ export default function CartScreen() {
           <View style={styles.headerSide} />
         )}
 
-        {/* Center title */}
         <Text style={[styles.headerTitle, { color: colors.foreground, fontFamily: F.bold }]}>
           {isEn ? "My Cart" : "السلة"}
         </Text>
 
-        {/* Right: back arrow */}
         <TouchableOpacity
           onPress={() => router.back()}
           style={styles.headerSide}
@@ -112,7 +151,7 @@ export default function CartScreen() {
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{ paddingBottom: 200, paddingTop: 8 }}
           >
-            {/* Items list */}
+            {/* ── Cart items ── */}
             <View style={[styles.itemsCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
               {items.map((cartItem, index) => {
                 const itemTotal = cartItem.item.price * cartItem.quantity;
@@ -128,7 +167,6 @@ export default function CartScreen() {
                       <View style={[styles.itemDivider, { backgroundColor: colors.border }]} />
                     )}
                     <View style={styles.itemRow}>
-                      {/* Right: item info */}
                       <View style={styles.itemInfo}>
                         <Text style={[styles.itemName, { color: colors.foreground, fontFamily: F.bold }]} numberOfLines={2}>
                           {itemName}
@@ -138,9 +176,7 @@ export default function CartScreen() {
                         </Text>
                       </View>
 
-                      {/* Left: controls + price */}
                       <View style={styles.itemRight}>
-                        {/* X remove button */}
                         <TouchableOpacity
                           onPress={() => removeItem(cartItem.item.id)}
                           style={[styles.removeBtn, { backgroundColor: colors.secondary }]}
@@ -149,12 +185,10 @@ export default function CartScreen() {
                           <Feather name="x" size={14} color={colors.mutedForeground} />
                         </TouchableOpacity>
 
-                        {/* Price */}
                         <Text style={[styles.itemTotal, { color: colors.gold, fontFamily: F.extra }]}>
                           {totalStr} {isEn ? "SAR" : "ر.س"}
                         </Text>
 
-                        {/* Qty controls */}
                         <View style={styles.qtyRow}>
                           <TouchableOpacity
                             onPress={() => {
@@ -185,7 +219,60 @@ export default function CartScreen() {
               })}
             </View>
 
-            {/* Summary card */}
+            {/* ── Recommended items ── */}
+            {recommendedItems.length > 0 && (
+              <View style={styles.recSection}>
+                <Text style={[styles.recTitle, { color: colors.foreground, fontFamily: F.extra }]}>
+                  {isEn ? "You might also like" : "أصناف مرغوبة"}
+                </Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.recScroll}
+                  decelerationRate="fast"
+                >
+                  {recommendedItems.map((item) => {
+                    const img = getItemImage(item);
+                    const priceStr = item.price % 1 === 0 ? item.price.toString() : item.price.toFixed(1);
+                    const name = isEn && item.nameEn ? item.nameEn : item.name;
+                    return (
+                      <TouchableOpacity
+                        key={item.id}
+                        style={[styles.recCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+                        onPress={() => handleAddRecommended(item)}
+                        activeOpacity={0.8}
+                      >
+                        {/* Image */}
+                        <View style={[styles.recImageWrap, { backgroundColor: colors.secondary }]}>
+                          {img ? (
+                            <Image source={img} style={styles.recImage} resizeMode="cover" />
+                          ) : (
+                            <Text style={{ fontSize: 28 }}>🍽️</Text>
+                          )}
+                        </View>
+
+                        {/* Name */}
+                        <Text style={[styles.recName, { color: colors.foreground, fontFamily: F.bold }]} numberOfLines={2}>
+                          {name}
+                        </Text>
+
+                        {/* Price + add button */}
+                        <View style={styles.recBottom}>
+                          <Text style={[styles.recPrice, { color: colors.gold, fontFamily: F.extra }]}>
+                            {priceStr} {isEn ? "SAR" : "ر.س"}
+                          </Text>
+                          <View style={[styles.recAddBtn, { backgroundColor: colors.gold }]}>
+                            <Feather name="plus" size={14} color="#FFFFFF" />
+                          </View>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            )}
+
+            {/* ── Summary card ── */}
             <View style={[styles.summaryCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <View style={styles.summaryRow}>
                 <Text style={[styles.summaryValue, { color: colors.mutedForeground, fontFamily: F.bold }]}>
@@ -251,14 +338,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     justifyContent: "space-between",
   },
-  headerSide: {
-    width: 36,
-    alignItems: "center",
-  },
-  headerTitle: {
-    fontSize: 20,
-    textAlign: "center",
-  },
+  headerSide: { width: 36, alignItems: "center" },
+  headerTitle: { fontSize: 20, textAlign: "center" },
 
   emptyContainer: {
     flex: 1,
@@ -284,6 +365,7 @@ const styles = StyleSheet.create({
   },
   browseBtnText: { color: "#FFFFFF", fontSize: 16 },
 
+  // Cart items card
   itemsCard: {
     marginHorizontal: 16,
     marginTop: 8,
@@ -299,21 +381,10 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   itemDivider: { height: 1, marginHorizontal: 16 },
-  itemInfo: {
-    flex: 1,
-    alignItems: "flex-end",
-    gap: 4,
-  },
-  itemName: {
-    fontSize: 15,
-    textAlign: "right",
-    lineHeight: 22,
-  },
+  itemInfo: { flex: 1, alignItems: "flex-end", gap: 4 },
+  itemName: { fontSize: 15, textAlign: "right", lineHeight: 22 },
   unitPrice: { fontSize: 12 },
-  itemRight: {
-    alignItems: "center",
-    gap: 8,
-  },
+  itemRight: { alignItems: "center", gap: 8 },
   removeBtn: {
     width: 26,
     height: 26,
@@ -321,14 +392,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  itemTotal: {
-    fontSize: 16,
-  },
-  qtyRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
+  itemTotal: { fontSize: 16 },
+  qtyRow: { flexDirection: "row", alignItems: "center", gap: 10 },
   qtyBtn: {
     width: 30,
     height: 30,
@@ -336,12 +401,64 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  qtyNum: {
-    fontSize: 16,
-    minWidth: 20,
-    textAlign: "center",
+  qtyNum: { fontSize: 16, minWidth: 20, textAlign: "center" },
+
+  // Recommended section
+  recSection: {
+    marginTop: 20,
+    gap: 12,
+  },
+  recTitle: {
+    fontSize: 18,
+    marginHorizontal: 16,
+    textAlign: "right",
+  },
+  recScroll: {
+    paddingHorizontal: 16,
+    gap: 10,
+    flexDirection: "row",
+  },
+  recCard: {
+    width: 120,
+    borderRadius: 14,
+    borderWidth: 1,
+    overflow: "hidden",
+    padding: 10,
+    gap: 7,
+  },
+  recImageWrap: {
+    width: "100%",
+    height: 80,
+    borderRadius: 10,
+    overflow: "hidden",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  recImage: {
+    width: "100%",
+    height: "100%",
+  },
+  recName: {
+    fontSize: 12,
+    textAlign: "right",
+    lineHeight: 17,
+    minHeight: 34,
+  },
+  recBottom: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  recPrice: { fontSize: 13 },
+  recAddBtn: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
   },
 
+  // Summary card
   summaryCard: {
     marginHorizontal: 16,
     marginTop: 12,
@@ -362,6 +479,7 @@ const styles = StyleSheet.create({
   summaryValue: { fontSize: 14 },
   summaryTotal: { fontSize: 22 },
 
+  // Bottom bar
   bottomBar: {
     position: "absolute",
     bottom: 0,
@@ -386,12 +504,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
-  checkoutTotal: {
-    color: "#FFFFFF",
-    fontSize: 16,
-  },
-  checkoutText: {
-    color: "#FFFFFF",
-    fontSize: 17,
-  },
+  checkoutTotal: { color: "#FFFFFF", fontSize: 16 },
+  checkoutText: { color: "#FFFFFF", fontSize: 17 },
 });
