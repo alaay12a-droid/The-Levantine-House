@@ -230,9 +230,11 @@ export default function MenuScreen() {
               <Text style={[styles.deliverySubtitle, { color: colors.foreground, fontFamily: F.bold }]}>
                 {isEn ? "We deliver to your door" : "نوصل طلبك لباب بيتك"}
               </Text>
-              <Text style={[styles.deliveryLocation, { color: colors.mutedForeground, fontFamily: F.semi }]}>
-                📍 {isEn ? RESTAURANT_INFO.locationEn : "تبوك - حي الروضة وما حولها"}
-              </Text>
+              <TouchableOpacity onPress={() => Linking.openURL("https://maps.app.goo.gl/DiAZzzLKBAmGNv19A")}>
+                <Text style={[styles.deliveryLocation, { color: colors.mutedForeground, fontFamily: F.semi }]}>
+                  📍 {isEn ? RESTAURANT_INFO.locationEn : "تبوك - حي الروضة وما حولها"}
+                </Text>
+              </TouchableOpacity>
               <View style={styles.deliveryBtns}>
                 <TouchableOpacity
                   onPress={() => handleWhatsApp(isEn ? "Hello, I would like to order delivery" : "السلام عليكم، أرغب في طلب توصيل")}

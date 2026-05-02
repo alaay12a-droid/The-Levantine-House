@@ -94,7 +94,7 @@ export default function MoreScreen() {
     {
       icon: "map-pin",
       label: `${t("location")} — ${RESTAURANT_INFO.location}`,
-      action: () => Linking.openURL("https://maps.google.com/?q=تبوك+حي+الروضة"),
+      action: () => Linking.openURL("https://maps.app.goo.gl/DiAZzzLKBAmGNv19A"),
     },
     {
       icon: "info",
