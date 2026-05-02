@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db, messagesTable, ordersTable } from "@workspace/db";
 import { eq, desc, and, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
+import { sendPushToAll, sendPushToToken } from "../lib/sendPushNotification.js";
 
 const router = Router();
 
@@ -101,6 +102,36 @@ router.post("/messages/order/:orderId", async (req, res) => {
       fromCashier: parsed.data.fromCashier,
     }).returning();
     res.json(msg);
+
+    // Fire-and-forget push notifications
+    if (parsed.data.fromCashier) {
+      // Cashier → customer: push to the customer's device token stored on the order
+      const [order] = await db
+        .select({ customerPushToken: ordersTable.customerPushToken, dailyNumber: ordersTable.dailyNumber })
+        .from(ordersTable)
+        .where(eq(ordersTable.id, orderId));
+      if (order?.customerPushToken) {
+        sendPushToToken(order.customerPushToken, {
+          title: "💬 رسالة من الكاشير",
+          body: parsed.data.text.length > 80 ? parsed.data.text.slice(0, 77) + "…" : parsed.data.text,
+          sound: "default",
+          data: { orderId, type: "message" },
+          channelId: "order-status",
+        }).catch(() => {});
+      }
+    } else {
+      // Customer → cashier: push to all registered cashier devices
+      const [order] = await db
+        .select({ dailyNumber: ordersTable.dailyNumber, customerName: ordersTable.customerName })
+        .from(ordersTable)
+        .where(eq(ordersTable.id, orderId));
+      sendPushToAll({
+        title: `💬 رسالة من عميل — طلب #${order?.dailyNumber ?? orderId}`,
+        body: `${order?.customerName ?? ""}: ${parsed.data.text.length > 60 ? parsed.data.text.slice(0, 57) + "…" : parsed.data.text}`,
+        sound: "default",
+        data: { orderId, type: "message" },
+      }).catch(() => {});
+    }
   } catch {
     res.status(500).json({ error: "فشل إرسال الرسالة" });
   }

@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
-import { apiPost, apiDelete } from "@/constants/api";
+import { apiPost } from "@/constants/api";
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -47,29 +47,26 @@ async function registerForPushNotifications(): Promise<string | null> {
 }
 
 export function useNotifications() {
-  const tokenRef = useRef<string | null>(null);
   const notificationListener = useRef<Notifications.EventSubscription | null>(null);
   const responseListener = useRef<Notifications.EventSubscription | null>(null);
 
   useEffect(() => {
+    // Register and persist token — never delete it on unmount so background
+    // push notifications keep working when the app is closed or backgrounded.
     registerForPushNotifications().then(async (token) => {
       if (!token) return;
-      tokenRef.current = token;
       try {
         await apiPost("/push-tokens", { token });
       } catch {}
     });
 
     notificationListener.current = Notifications.addNotificationReceivedListener(() => {});
-
     responseListener.current = Notifications.addNotificationResponseReceivedListener(() => {});
 
     return () => {
       notificationListener.current?.remove();
       responseListener.current?.remove();
-      if (tokenRef.current) {
-        apiDelete(`/push-tokens/${encodeURIComponent(tokenRef.current)}`).catch(() => {});
-      }
+      // Token intentionally NOT deleted here — it must survive app backgrounding/closing
     };
   }, []);
 }
