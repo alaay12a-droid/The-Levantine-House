@@ -29,6 +29,7 @@ import { useTranslation } from "@/hooks/useTranslation";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { apiGet, apiPost, apiPatch } from "@/constants/api";
 import { useChatUnreadAlert } from "@/hooks/useChatSound";
+import { auth } from "@/config/firebase";
 
 const F = {
   regular: "Cairo_400Regular",
@@ -165,11 +166,19 @@ export default function MoreScreen() {
 
   const handleLogout = () => {
     Alert.alert(
-      "مسح البيانات",
-      "هل تريد مسح بياناتك الشخصية المحفوظة؟",
+      "حذف الحساب",
+      "هل تريد حذف حسابك ومسح جميع بياناتك الشخصية؟",
       [
         { text: "إلغاء", style: "cancel" },
-        { text: "مسح", style: "destructive", onPress: () => clearUser() },
+        {
+          text: "حذف الحساب",
+          style: "destructive",
+          onPress: async () => {
+            await clearUser();
+            try { await auth.signOut(); } catch {}
+            router.replace("/onboarding");
+          },
+        },
       ]
     );
   };
