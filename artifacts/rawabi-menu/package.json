@@ -58,7 +58,6 @@
   "dependencies": {
     "@expo-google-fonts/cairo": "^0.4.2",
     "babel-preset-expo": "^55.0.18",
-    "expo-audio": "^55.0.14",
     "expo-av": "^16.0.8",
     "expo-notifications": "~0.32.17",
     "expo-updates": "~29.0.17"

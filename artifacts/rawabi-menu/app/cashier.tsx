@@ -531,7 +531,10 @@ export default function CashierScreen() {
     return () => clearInterval(t);
   }, [fetchUnreadCounts]);
 
+  const pendingCount = orders.filter((o) => o.status === "pending").length;
+
   useChatUnreadAlert(totalUnread);
+  useChatUnreadAlert(pendingCount);
 
   if (!pinsLoaded) return null;
   if (!authenticated) {
@@ -541,8 +544,6 @@ export default function CashierScreen() {
   const filtered = filter === "all"
     ? orders.filter((o) => o.status !== "done" && o.status !== "cancelled")
     : orders.filter((o) => o.status === filter);
-
-  const pendingCount = orders.filter((o) => o.status === "pending").length;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
