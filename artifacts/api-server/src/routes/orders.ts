@@ -114,6 +114,10 @@ const CUSTOMER_STATUS_MESSAGES: Partial<Record<string, { title: string; body: st
     title: "🙏 شكراً لك",
     body: "تم تسليم طلبك — نتمنى تكون استمتعت بوجبتك!",
   },
+  cancelled: {
+    title: "❌ تم إلغاء طلبك",
+    body: "نأسف، تم إلغاء طلبك من قِبل المطعم. للاستفسار تواصل معنا مباشرة.",
+  },
 };
 
 router.patch("/orders/:id/status", async (req, res) => {
