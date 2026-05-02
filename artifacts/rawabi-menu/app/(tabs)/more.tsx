@@ -166,12 +166,12 @@ export default function MoreScreen() {
 
   const handleLogout = () => {
     Alert.alert(
-      "حذف الحساب",
-      "هل تريد حذف حسابك ومسح جميع بياناتك الشخصية؟",
+      "تسجيل خروج",
+      "هل تريد تسجيل الخروج ومسح بياناتك الشخصية؟",
       [
         { text: "إلغاء", style: "cancel" },
         {
-          text: "حذف الحساب",
+          text: "تسجيل خروج",
           style: "destructive",
           onPress: async () => {
             await clearUser();
