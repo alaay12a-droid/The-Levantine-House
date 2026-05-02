@@ -13,6 +13,7 @@ import walletRouter from "./wallet";
 import { hoursRouter } from "./hours";
 import messagesRouter from "./messages";
 import notificationsRouter from "./notifications";
+import pinOtpRouter from "./pin-otp";
 
 const router: IRouter = Router();
 
@@ -30,5 +31,6 @@ router.use("/wallet", walletRouter);
 router.use(hoursRouter);
 router.use(messagesRouter);
 router.use(notificationsRouter);
+router.use(pinOtpRouter);
 
 export default router;

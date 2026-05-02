@@ -110,14 +110,43 @@ function PinScreen({ onSuccess, correctPin }: { onSuccess: () => void; correctPi
   );
 }
 
+// step: "idle" | "sending" | "otp" | "verifying" | "change"
 function PinEditor({ label, current, onSave }: { label: string; current: string; onSave: (pin: string) => Promise<void> }) {
   const colors = useColors();
-  const [editing, setEditing] = useState(false);
-  const [newPin, setNewPin] = useState("");
+  const [step, setStep]       = useState<"idle"|"sending"|"otp"|"verifying"|"change">("idle");
+  const [otpCode, setOtpCode] = useState("");
+  const [newPin, setNewPin]   = useState("");
   const [confirm, setConfirm] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const [err, setErr] = useState("");
+  const [saving, setSaving]   = useState(false);
+  const [saved, setSaved]     = useState(false);
+  const [err, setErr]         = useState("");
+
+  const reset = () => { setStep("idle"); setOtpCode(""); setNewPin(""); setConfirm(""); setErr(""); };
+
+  const requestOtp = async () => {
+    setErr("");
+    setStep("sending");
+    try {
+      const res = await apiPost<{ ok: boolean }>("/auth/pin-otp/send", {});
+      if (res.ok) setStep("otp");
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : "فشل إرسال الرمز");
+      setStep("idle");
+    }
+  };
+
+  const verifyOtp = async () => {
+    if (otpCode.length !== 6) { setErr("أدخل الرمز المكوّن من 6 أرقام"); return; }
+    setErr("");
+    setStep("verifying");
+    try {
+      const res = await apiPost<{ ok: boolean }>("/auth/pin-otp/verify", { code: otpCode });
+      if (res.ok) { setStep("change"); setOtpCode(""); }
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : "الرمز غير صحيح");
+      setStep("otp");
+    }
+  };
 
   const handleSave = async () => {
     if (newPin.length < 4) { setErr("الرمز لازم يكون 4 أحرف على الأقل"); return; }
@@ -126,38 +155,90 @@ function PinEditor({ label, current, onSave }: { label: string; current: string;
     await onSave(newPin);
     setSaving(false);
     setSaved(true);
-    setEditing(false);
-    setNewPin("");
-    setConfirm("");
-    setErr("");
+    reset();
     setTimeout(() => setSaved(false), 2500);
   };
 
   return (
     <View style={{ backgroundColor: colors.card, borderRadius: 14, borderWidth: 1, borderColor: colors.border, padding: 16, gap: 10 }}>
+      {/* Header row */}
       <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" }}>
         <Text style={{ color: colors.foreground, fontFamily: F.bold, fontSize: 15 }}>{label}</Text>
         <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
           {saved && <Text style={{ color: "#4CAF50", fontFamily: F.semi, fontSize: 12 }}>✓ تم الحفظ</Text>}
-          <TouchableOpacity
-            onPress={() => { setEditing(!editing); setErr(""); setNewPin(""); setConfirm(""); }}
-            style={{ paddingHorizontal: 14, paddingVertical: 6, borderRadius: 8, backgroundColor: editing ? colors.secondary : colors.gold }}
-          >
-            <Text style={{ color: editing ? colors.mutedForeground : "#1A0A00", fontFamily: F.bold, fontSize: 12 }}>
-              {editing ? "إلغاء" : "تغيير الرمز"}
-            </Text>
-          </TouchableOpacity>
+          {step === "idle" ? (
+            <TouchableOpacity
+              onPress={requestOtp}
+              style={{ paddingHorizontal: 14, paddingVertical: 6, borderRadius: 8, backgroundColor: colors.gold }}
+            >
+              <Text style={{ color: "#1A0A00", fontFamily: F.bold, fontSize: 12 }}>تغيير الرمز</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              onPress={reset}
+              style={{ paddingHorizontal: 14, paddingVertical: 6, borderRadius: 8, backgroundColor: colors.secondary }}
+            >
+              <Text style={{ color: colors.mutedForeground, fontFamily: F.bold, fontSize: 12 }}>إلغاء</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
-      {!editing && (
+      {/* Current PIN dots */}
+      {step === "idle" && (
         <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 13, textAlign: "right" }}>
           الرمز الحالي: {"•".repeat(current.length)}
         </Text>
       )}
 
-      {editing && (
+      {/* Sending indicator */}
+      {step === "sending" && (
+        <View style={{ alignItems: "center", paddingVertical: 12, gap: 8 }}>
+          <ActivityIndicator size="small" color={colors.gold} />
+          <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 13 }}>جاري إرسال الرمز إلى بريدك الإلكتروني…</Text>
+        </View>
+      )}
+
+      {/* OTP entry */}
+      {step === "otp" && (
         <View style={{ gap: 10 }}>
+          <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 13, textAlign: "right" }}>
+            📧 تم إرسال رمز التحقق إلى بريدك الإلكتروني. أدخله هنا:
+          </Text>
+          <TextInput
+            style={{ backgroundColor: colors.secondary, borderRadius: 10, padding: 12, color: colors.foreground, fontFamily: F.bold, textAlign: "center", borderWidth: 1, borderColor: err ? "#E53935" : colors.gold, fontSize: 22, letterSpacing: 8 }}
+            value={otpCode}
+            onChangeText={(t) => { setOtpCode(t.replace(/\D/g, "").slice(0, 6)); setErr(""); }}
+            keyboardType="numeric"
+            maxLength={6}
+            placeholder="• • • • • •"
+            placeholderTextColor={colors.mutedForeground}
+          />
+          {err !== "" && <Text style={{ color: "#E53935", fontFamily: F.semi, fontSize: 12, textAlign: "right" }}>{err}</Text>}
+          <TouchableOpacity
+            onPress={verifyOtp}
+            style={{ paddingVertical: 12, borderRadius: 10, alignItems: "center", backgroundColor: colors.gold }}
+          >
+            <Text style={{ color: "#1A0A00", fontFamily: F.bold, fontSize: 14 }}>تحقق من الرمز</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={requestOtp} style={{ alignItems: "center" }}>
+            <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12 }}>لم يصلك الرمز؟ إعادة إرسال</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Verifying indicator */}
+      {step === "verifying" && (
+        <View style={{ alignItems: "center", paddingVertical: 12, gap: 8 }}>
+          <ActivityIndicator size="small" color={colors.gold} />
+          <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 13 }}>جاري التحقق…</Text>
+        </View>
+      )}
+
+      {/* Change PIN form */}
+      {step === "change" && (
+        <View style={{ gap: 10 }}>
+          <Text style={{ color: "#4CAF50", fontFamily: F.semi, fontSize: 13, textAlign: "right" }}>✓ تم التحقق — أدخل الرمز الجديد</Text>
           <TextInput
             style={{ backgroundColor: colors.secondary, borderRadius: 10, padding: 12, color: colors.foreground, fontFamily: F.bold, textAlign: "right", borderWidth: 1, borderColor: err ? "#E53935" : colors.border }}
             value={newPin}
@@ -176,9 +257,7 @@ function PinEditor({ label, current, onSave }: { label: string; current: string;
             placeholder="تأكيد الرمز"
             placeholderTextColor={colors.mutedForeground}
           />
-          {err !== "" && (
-            <Text style={{ color: "#E53935", fontFamily: F.semi, fontSize: 12, textAlign: "right" }}>{err}</Text>
-          )}
+          {err !== "" && <Text style={{ color: "#E53935", fontFamily: F.semi, fontSize: 12, textAlign: "right" }}>{err}</Text>}
           <TouchableOpacity
             onPress={handleSave}
             disabled={saving}
