@@ -1,7 +1,84 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const STORAGE_KEY = "@rawabi_app_config_v1";
+const STORAGE_KEY = "@rawabi_app_config_v2";
+
+export type BgThemeKey = "dark-brown" | "dark-gray" | "dark-blue" | "dark-green" | "dark-red" | "dark-purple";
+
+export interface BgTheme {
+  background: string;
+  card: string;
+  secondary: string;
+  border: string;
+  surface: string;
+}
+
+export const BG_THEMES: Record<BgThemeKey, BgTheme> = {
+  "dark-brown": {
+    background: "#0F0A05",
+    card: "#1A1008",
+    secondary: "#2A1A0A",
+    border: "#3A2410",
+    surface: "#1F130A",
+  },
+  "dark-gray": {
+    background: "#0A0A0A",
+    card: "#161616",
+    secondary: "#222222",
+    border: "#2E2E2E",
+    surface: "#121212",
+  },
+  "dark-blue": {
+    background: "#05080F",
+    card: "#0A1020",
+    secondary: "#0F1830",
+    border: "#1A2840",
+    surface: "#080D18",
+  },
+  "dark-green": {
+    background: "#050A05",
+    card: "#0D180D",
+    secondary: "#152015",
+    border: "#1E2E1E",
+    surface: "#0A120A",
+  },
+  "dark-red": {
+    background: "#0A0505",
+    card: "#180A0A",
+    secondary: "#2A1010",
+    border: "#3A1818",
+    surface: "#130808",
+  },
+  "dark-purple": {
+    background: "#080510",
+    card: "#120A20",
+    secondary: "#1A1030",
+    border: "#281840",
+    surface: "#0D0818",
+  },
+};
+
+export const ACCENT_COLORS = [
+  { label: "ذهبي",    value: "#E8920C" },
+  { label: "عنبري",   value: "#F59E0B" },
+  { label: "برتقالي", value: "#F97316" },
+  { label: "أخضر",   value: "#22C55E" },
+  { label: "أزرق",   value: "#3B82F6" },
+  { label: "سماوي",  value: "#06B6D4" },
+  { label: "بنفسجي", value: "#A855F7" },
+  { label: "وردي",   value: "#EC4899" },
+  { label: "أحمر",   value: "#EF4444" },
+  { label: "ذهبي كلاسيك", value: "#D4AF37" },
+];
+
+export const BG_THEME_META: Record<BgThemeKey, { label: string; preview: string }> = {
+  "dark-brown":  { label: "بني داكن",    preview: "#1A1008" },
+  "dark-gray":   { label: "رمادي داكن",  preview: "#161616" },
+  "dark-blue":   { label: "أزرق داكن",   preview: "#0A1020" },
+  "dark-green":  { label: "أخضر داكن",   preview: "#0D180D" },
+  "dark-red":    { label: "أحمر داكن",   preview: "#180A0A" },
+  "dark-purple": { label: "بنفسجي داكن", preview: "#120A20" },
+};
 
 export interface AppConfig {
   cardPadding: number;
@@ -19,6 +96,9 @@ export interface AppConfig {
   tabHeight: number;
   tabPaddingBottom: number;
   tabFontSize: number;
+
+  accentColor: string;
+  bgTheme: BgThemeKey;
 }
 
 export const DEFAULT_CONFIG: AppConfig = {
@@ -37,6 +117,9 @@ export const DEFAULT_CONFIG: AppConfig = {
   tabHeight: 70,
   tabPaddingBottom: 10,
   tabFontSize: 12,
+
+  accentColor: "#E8920C",
+  bgTheme: "dark-brown",
 };
 
 interface AppConfigContextValue {
@@ -46,7 +129,7 @@ interface AppConfigContextValue {
   reset: () => Promise<void>;
 }
 
-const AppConfigContext = createContext<AppConfigContextValue>({
+export const AppConfigContext = createContext<AppConfigContextValue>({
   config: DEFAULT_CONFIG,
   loaded: false,
   update: async () => {},

@@ -15,7 +15,15 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
-import { useAppConfig, DEFAULT_CONFIG, AppConfig } from "@/context/AppConfigContext";
+import {
+  useAppConfig,
+  DEFAULT_CONFIG,
+  AppConfig,
+  ACCENT_COLORS,
+  BG_THEME_META,
+  BG_THEMES,
+  BgThemeKey,
+} from "@/context/AppConfigContext";
 
 const F = {
   regular: "Cairo_400Regular",
@@ -25,7 +33,7 @@ const F = {
 };
 
 /* ──────────────────────────────────────────────
-   Custom Slider (no external dependency)
+   Custom Slider
 ────────────────────────────────────────────── */
 interface SliderProps {
   label: string;
@@ -47,7 +55,6 @@ function SliderRow({ label, value, min, max, step, unit = "", onValueChange }: S
     (x: number) => Math.min(max, Math.max(min, Math.round(x / step) * step)),
     [min, max, step]
   );
-
   const fromPx = useCallback(
     (px: number) => clamp(min + (px / trackWidth.current) * (max - min)),
     [min, max, clamp]
@@ -92,25 +99,14 @@ function SliderRow({ label, value, min, max, step, unit = "", onValueChange }: S
           {label}
         </Text>
       </View>
-
       <View
         style={[slStyles.track, { backgroundColor: colors.secondary }]}
         onLayout={onLayout}
         {...panResponder.panHandlers}
       >
         <View style={[slStyles.fill, { width: `${pct}%`, backgroundColor: colors.gold }]} />
-        <View
-          style={[
-            slStyles.thumb,
-            {
-              left: `${pct}%`,
-              backgroundColor: colors.gold,
-              borderColor: colors.card,
-            },
-          ]}
-        />
+        <View style={[slStyles.thumb, { left: `${pct}%`, backgroundColor: colors.gold, borderColor: colors.card }]} />
       </View>
-
       <View style={slStyles.minMax}>
         <Text style={[slStyles.bound, { color: colors.mutedForeground, fontFamily: F.regular }]}>{max}{unit}</Text>
         <Text style={[slStyles.bound, { color: colors.mutedForeground, fontFamily: F.regular }]}>{min}{unit}</Text>
@@ -121,44 +117,20 @@ function SliderRow({ label, value, min, max, step, unit = "", onValueChange }: S
 
 const slStyles = StyleSheet.create({
   row: { gap: 8, paddingVertical: 10 },
-  labelRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
+  labelRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   label: { fontSize: 14 },
   value: { fontSize: 14 },
-  track: {
-    height: 36,
-    borderRadius: 18,
-    justifyContent: "center",
-    position: "relative",
-  },
-  fill: {
-    height: "100%",
-    borderRadius: 18,
-    position: "absolute",
-    left: 0,
-    top: 0,
-  },
+  track: { height: 36, borderRadius: 18, justifyContent: "center", position: "relative" },
+  fill: { height: "100%", borderRadius: 18, position: "absolute", left: 0, top: 0 },
   thumb: {
     position: "absolute",
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    borderWidth: 3,
-    marginLeft: -14,
-    top: 4,
+    width: 28, height: 28, borderRadius: 14, borderWidth: 3,
+    marginLeft: -14, top: 4,
     elevation: 4,
-    shadowColor: "#000",
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
+    shadowColor: "#000", shadowOpacity: 0.2, shadowRadius: 4,
     shadowOffset: { width: 0, height: 2 },
   },
-  minMax: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
+  minMax: { flexDirection: "row", justifyContent: "space-between" },
   bound: { fontSize: 11 },
 });
 
@@ -168,23 +140,15 @@ const slStyles = StyleSheet.create({
 function SectionHeader({ title, icon }: { title: string; icon: string }) {
   const colors = useColors();
   return (
-    <View style={[secStyles.wrap]}>
-      <Text style={[secStyles.title, { color: colors.gold, fontFamily: F.extra }]}>
-        {title}
-      </Text>
-      <Text style={secStyles.icon}>{icon}</Text>
+    <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8, marginBottom: 4 }}>
+      <Text style={{ color: colors.gold, fontFamily: F.extra, fontSize: 15 }}>{title}</Text>
+      <Text style={{ fontSize: 18 }}>{icon}</Text>
     </View>
   );
 }
 
-const secStyles = StyleSheet.create({
-  wrap: { flexDirection: "row-reverse", alignItems: "center", gap: 8, marginBottom: 4 },
-  title: { fontSize: 15 },
-  icon: { fontSize: 18 },
-});
-
 /* ──────────────────────────────────────────────
-   Section card wrapper
+   Section card
 ────────────────────────────────────────────── */
 function SectionCard({ children }: { children: React.ReactNode }) {
   const colors = useColors();
@@ -196,25 +160,16 @@ function SectionCard({ children }: { children: React.ReactNode }) {
 }
 
 const cardStyles = StyleSheet.create({
-  card: {
-    marginHorizontal: 16,
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 16,
-    gap: 4,
-  },
+  card: { marginHorizontal: 16, borderRadius: 16, borderWidth: 1, padding: 16, gap: 4 },
 });
 
-/* ──────────────────────────────────────────────
-   Divider inside a card
-────────────────────────────────────────────── */
 function Div() {
   const colors = useColors();
   return <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 4 }} />;
 }
 
 /* ──────────────────────────────────────────────
-   Preview mini-card
+   Live Preview Card
 ────────────────────────────────────────────── */
 function PreviewCard({ config }: { config: AppConfig }) {
   const colors = useColors();
@@ -258,12 +213,135 @@ function PreviewCard({ config }: { config: AppConfig }) {
           </Text>
         </View>
       </View>
+      <TouchableOpacity
+        style={{
+          backgroundColor: colors.gold,
+          borderRadius: config.borderRadius - 4,
+          paddingVertical: 10,
+          alignItems: "center",
+        }}
+        activeOpacity={0.8}
+      >
+        <Text style={{ color: "#fff", fontFamily: F.bold, fontSize: config.bodySize }}>
+          أضف للسلة
+        </Text>
+      </TouchableOpacity>
     </View>
   );
 }
 
 /* ──────────────────────────────────────────────
-   Main Screen
+   Color Swatch
+────────────────────────────────────────────── */
+function ColorSwatch({
+  color,
+  label,
+  selected,
+  onPress,
+}: {
+  color: string;
+  label: string;
+  selected: boolean;
+  onPress: () => void;
+}) {
+  const colors = useColors();
+  return (
+    <TouchableOpacity style={swatchStyles.item} onPress={onPress} activeOpacity={0.8}>
+      <View
+        style={[
+          swatchStyles.circle,
+          { backgroundColor: color },
+          selected && { borderWidth: 3, borderColor: colors.foreground },
+        ]}
+      >
+        {selected && <Feather name="check" size={16} color="#fff" />}
+      </View>
+      <Text style={[swatchStyles.label, { color: colors.mutedForeground, fontFamily: F.regular }]}>
+        {label}
+      </Text>
+    </TouchableOpacity>
+  );
+}
+
+const swatchStyles = StyleSheet.create({
+  item: { alignItems: "center", gap: 6, minWidth: 52 },
+  circle: {
+    width: 44, height: 44, borderRadius: 22,
+    alignItems: "center", justifyContent: "center",
+    elevation: 3,
+    shadowColor: "#000", shadowOpacity: 0.25, shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  label: { fontSize: 10, textAlign: "center" },
+});
+
+/* ──────────────────────────────────────────────
+   Background theme swatch
+────────────────────────────────────────────── */
+function BgSwatch({
+  themeKey,
+  accent,
+  selected,
+  onPress,
+}: {
+  themeKey: BgThemeKey;
+  accent: string;
+  selected: boolean;
+  onPress: () => void;
+}) {
+  const colors = useColors();
+  const meta = BG_THEME_META[themeKey];
+  const theme = BG_THEMES[themeKey];
+
+  return (
+    <TouchableOpacity style={bgSwatchStyles.item} onPress={onPress} activeOpacity={0.8}>
+      <View
+        style={[
+          bgSwatchStyles.preview,
+          { backgroundColor: theme.background },
+          selected && { borderWidth: 3, borderColor: colors.foreground },
+        ]}
+      >
+        <View style={[bgSwatchStyles.previewCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
+          <View style={{ width: 14, height: 4, borderRadius: 2, backgroundColor: accent, marginBottom: 3, alignSelf: "flex-end" }} />
+          <View style={{ width: "100%", height: 3, borderRadius: 1, backgroundColor: theme.secondary }} />
+          <View style={{ width: "70%", height: 3, borderRadius: 1, backgroundColor: theme.secondary, alignSelf: "flex-end" }} />
+        </View>
+        {selected && (
+          <View style={[bgSwatchStyles.checkWrap, { backgroundColor: accent }]}>
+            <Feather name="check" size={10} color="#fff" />
+          </View>
+        )}
+      </View>
+      <Text style={[bgSwatchStyles.label, { color: colors.mutedForeground, fontFamily: F.regular }]}>
+        {meta.label}
+      </Text>
+    </TouchableOpacity>
+  );
+}
+
+const bgSwatchStyles = StyleSheet.create({
+  item: { alignItems: "center", gap: 6 },
+  preview: {
+    width: 64, height: 48, borderRadius: 10, borderWidth: 1,
+    padding: 6, justifyContent: "center",
+    borderColor: "transparent",
+    position: "relative",
+  },
+  previewCard: {
+    borderRadius: 5, borderWidth: 1,
+    padding: 5, gap: 3,
+  },
+  checkWrap: {
+    position: "absolute", top: 3, left: 3,
+    width: 18, height: 18, borderRadius: 9,
+    alignItems: "center", justifyContent: "center",
+  },
+  label: { fontSize: 10, textAlign: "center" },
+});
+
+/* ──────────────────────────────────────────────
+   Main Settings Screen
 ────────────────────────────────────────────── */
 export default function AppSettingsScreen() {
   const colors = useColors();
@@ -280,11 +358,7 @@ export default function AppSettingsScreen() {
       "هل تريد إعادة جميع الإعدادات إلى القيم الافتراضية؟",
       [
         { text: "إلغاء", style: "cancel" },
-        {
-          text: "إعادة ضبط",
-          style: "destructive",
-          onPress: () => reset(),
-        },
+        { text: "إعادة ضبط", style: "destructive", onPress: () => reset() },
       ]
     );
   };
@@ -297,30 +371,16 @@ export default function AppSettingsScreen() {
       <View
         style={[
           styles.header,
-          {
-            backgroundColor: colors.card,
-            paddingTop: topInset + 10,
-            borderBottomColor: colors.border,
-          },
+          { backgroundColor: colors.card, paddingTop: topInset + 10, borderBottomColor: colors.border },
         ]}
       >
-        <TouchableOpacity
-          onPress={confirmReset}
-          style={styles.headerSide}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
+        <TouchableOpacity onPress={confirmReset} style={styles.headerSide} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Feather name="refresh-ccw" size={18} color={colors.mutedForeground} />
         </TouchableOpacity>
-
         <Text style={[styles.headerTitle, { color: colors.foreground, fontFamily: F.bold }]}>
           إعدادات التطبيق
         </Text>
-
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={styles.headerSide}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
+        <TouchableOpacity onPress={() => router.back()} style={styles.headerSide} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Feather name="arrow-right" size={22} color={colors.foreground} />
         </TouchableOpacity>
       </View>
@@ -332,70 +392,64 @@ export default function AppSettingsScreen() {
         {/* Live Preview */}
         <PreviewCard config={config} />
 
+        {/* ── Colors: Accent ── */}
+        <View style={{ gap: 8, marginHorizontal: 16 }}>
+          <SectionHeader title="لون التطبيق الرئيسي" icon="🎨" />
+        </View>
+        <SectionCard>
+          <Text style={[styles.colorHint, { color: colors.mutedForeground, fontFamily: F.regular }]}>
+            اضغط على اللون لتطبيقه فوراً
+          </Text>
+          <View style={styles.colorGrid}>
+            {ACCENT_COLORS.map((c) => (
+              <ColorSwatch
+                key={c.value}
+                color={c.value}
+                label={c.label}
+                selected={config.accentColor === c.value}
+                onPress={() => update({ accentColor: c.value })}
+              />
+            ))}
+          </View>
+        </SectionCard>
+
+        {/* ── Colors: Background Theme ── */}
+        <View style={{ gap: 8, marginHorizontal: 16 }}>
+          <SectionHeader title="سمة الخلفية" icon="🌑" />
+        </View>
+        <SectionCard>
+          <Text style={[styles.colorHint, { color: colors.mutedForeground, fontFamily: F.regular }]}>
+            اختر لون خلفية التطبيق
+          </Text>
+          <View style={styles.bgGrid}>
+            {(Object.keys(BG_THEMES) as BgThemeKey[]).map((key) => (
+              <BgSwatch
+                key={key}
+                themeKey={key}
+                accent={config.accentColor}
+                selected={config.bgTheme === key}
+                onPress={() => update({ bgTheme: key })}
+              />
+            ))}
+          </View>
+        </SectionCard>
+
         {/* ── Spacing ── */}
         <View style={{ gap: 8, marginHorizontal: 16 }}>
           <SectionHeader title="المسافات" icon="📐" />
         </View>
         <SectionCard>
-          <SliderRow
-            label="حشو الكرت (داخلي)"
-            value={config.cardPadding}
-            min={8}
-            max={28}
-            step={1}
-            unit="px"
-            onValueChange={(v) => update({ cardPadding: v })}
-          />
+          <SliderRow label="حشو الكرت" value={config.cardPadding} min={8} max={28} step={1} unit="px" onValueChange={(v) => update({ cardPadding: v })} />
           <Div />
-          <SliderRow
-            label="مسافة بين الأقسام"
-            value={config.sectionGap}
-            min={4}
-            max={28}
-            step={1}
-            unit="px"
-            onValueChange={(v) => update({ sectionGap: v })}
-          />
+          <SliderRow label="مسافة بين الأقسام" value={config.sectionGap} min={4} max={28} step={1} unit="px" onValueChange={(v) => update({ sectionGap: v })} />
           <Div />
-          <SliderRow
-            label="حشو الصف الرأسي"
-            value={config.itemPaddingV}
-            min={6}
-            max={26}
-            step={1}
-            unit="px"
-            onValueChange={(v) => update({ itemPaddingV: v })}
-          />
+          <SliderRow label="حشو الصف الرأسي" value={config.itemPaddingV} min={6} max={26} step={1} unit="px" onValueChange={(v) => update({ itemPaddingV: v })} />
           <Div />
-          <SliderRow
-            label="المسافة الأفقية"
-            value={config.horizontalMargin}
-            min={8}
-            max={28}
-            step={1}
-            unit="px"
-            onValueChange={(v) => update({ horizontalMargin: v })}
-          />
+          <SliderRow label="الهامش الأفقي" value={config.horizontalMargin} min={8} max={28} step={1} unit="px" onValueChange={(v) => update({ horizontalMargin: v })} />
           <Div />
-          <SliderRow
-            label="انحناء الزوايا"
-            value={config.borderRadius}
-            min={4}
-            max={28}
-            step={1}
-            unit="px"
-            onValueChange={(v) => update({ borderRadius: v })}
-          />
+          <SliderRow label="انحناء الزوايا" value={config.borderRadius} min={4} max={28} step={1} unit="px" onValueChange={(v) => update({ borderRadius: v })} />
           <Div />
-          <SliderRow
-            label="حجم الصورة"
-            value={config.imageSize}
-            min={50}
-            max={140}
-            step={5}
-            unit="px"
-            onValueChange={(v) => update({ imageSize: v })}
-          />
+          <SliderRow label="حجم الصورة" value={config.imageSize} min={50} max={140} step={5} unit="px" onValueChange={(v) => update({ imageSize: v })} />
         </SectionCard>
 
         {/* ── Font Sizes ── */}
@@ -403,45 +457,13 @@ export default function AppSettingsScreen() {
           <SectionHeader title="الخطوط" icon="✍️" />
         </View>
         <SectionCard>
-          <SliderRow
-            label="حجم العنوان"
-            value={config.titleSize}
-            min={14}
-            max={28}
-            step={1}
-            unit="pt"
-            onValueChange={(v) => update({ titleSize: v })}
-          />
+          <SliderRow label="حجم العنوان" value={config.titleSize} min={14} max={28} step={1} unit="pt" onValueChange={(v) => update({ titleSize: v })} />
           <Div />
-          <SliderRow
-            label="حجم النص الأساسي"
-            value={config.bodySize}
-            min={11}
-            max={20}
-            step={1}
-            unit="pt"
-            onValueChange={(v) => update({ bodySize: v })}
-          />
+          <SliderRow label="النص الأساسي" value={config.bodySize} min={11} max={20} step={1} unit="pt" onValueChange={(v) => update({ bodySize: v })} />
           <Div />
-          <SliderRow
-            label="حجم النص الثانوي"
-            value={config.captionSize}
-            min={9}
-            max={16}
-            step={1}
-            unit="pt"
-            onValueChange={(v) => update({ captionSize: v })}
-          />
+          <SliderRow label="النص الثانوي" value={config.captionSize} min={9} max={16} step={1} unit="pt" onValueChange={(v) => update({ captionSize: v })} />
           <Div />
-          <SliderRow
-            label="حجم السعر"
-            value={config.priceSize}
-            min={12}
-            max={26}
-            step={1}
-            unit="pt"
-            onValueChange={(v) => update({ priceSize: v })}
-          />
+          <SliderRow label="حجم السعر" value={config.priceSize} min={12} max={26} step={1} unit="pt" onValueChange={(v) => update({ priceSize: v })} />
         </SectionCard>
 
         {/* ── Tab Bar ── */}
@@ -449,38 +471,14 @@ export default function AppSettingsScreen() {
           <SectionHeader title="الشريط السفلي" icon="📱" />
         </View>
         <SectionCard>
-          <SliderRow
-            label="ارتفاع الشريط"
-            value={config.tabHeight}
-            min={50}
-            max={100}
-            step={2}
-            unit="px"
-            onValueChange={(v) => update({ tabHeight: v })}
-          />
+          <SliderRow label="ارتفاع الشريط" value={config.tabHeight} min={50} max={100} step={2} unit="px" onValueChange={(v) => update({ tabHeight: v })} />
           <Div />
-          <SliderRow
-            label="الحشو السفلي"
-            value={config.tabPaddingBottom}
-            min={0}
-            max={28}
-            step={1}
-            unit="px"
-            onValueChange={(v) => update({ tabPaddingBottom: v })}
-          />
+          <SliderRow label="الحشو السفلي" value={config.tabPaddingBottom} min={0} max={28} step={1} unit="px" onValueChange={(v) => update({ tabPaddingBottom: v })} />
           <Div />
-          <SliderRow
-            label="حجم خط التبويب"
-            value={config.tabFontSize}
-            min={9}
-            max={16}
-            step={1}
-            unit="pt"
-            onValueChange={(v) => update({ tabFontSize: v })}
-          />
+          <SliderRow label="حجم خط التبويب" value={config.tabFontSize} min={9} max={16} step={1} unit="pt" onValueChange={(v) => update({ tabFontSize: v })} />
         </SectionCard>
 
-        {/* Reset button */}
+        {/* Reset */}
         <TouchableOpacity
           onPress={confirmReset}
           style={[styles.resetBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
@@ -499,19 +497,28 @@ export default function AppSettingsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingBottom: 14,
-    borderBottomWidth: 1,
-    justifyContent: "space-between",
+    flexDirection: "row", alignItems: "center",
+    paddingHorizontal: 20, paddingBottom: 14,
+    borderBottomWidth: 1, justifyContent: "space-between",
   },
   headerSide: { width: 36, alignItems: "center" },
   headerTitle: { fontSize: 18, textAlign: "center" },
+  colorHint: { fontSize: 12, textAlign: "right", marginBottom: 10 },
+  colorGrid: {
+    flexDirection: "row-reverse",
+    flexWrap: "wrap",
+    gap: 14,
+    justifyContent: "flex-start",
+  },
+  bgGrid: {
+    flexDirection: "row-reverse",
+    flexWrap: "wrap",
+    gap: 14,
+    justifyContent: "flex-start",
+  },
   resetBtn: {
     marginHorizontal: 16,
-    borderRadius: 14,
-    borderWidth: 1,
+    borderRadius: 14, borderWidth: 1,
     padding: 16,
     flexDirection: "row-reverse",
     alignItems: "center",
