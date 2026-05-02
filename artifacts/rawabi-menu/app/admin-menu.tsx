@@ -1241,6 +1241,33 @@ export default function AdminMenuScreen() {
 
           {/* ══════════════════ APPEARANCE ══════════════════ */}
           {settingsSection === "appearance" && (<>
+
+          {/* Colors & Spacing shortcut */}
+          <TouchableOpacity
+            onPress={() => router.push("/app-settings" as any)}
+            activeOpacity={0.85}
+            style={{
+              backgroundColor: colors.card, borderRadius: 16, borderWidth: 1.5,
+              borderColor: colors.gold + "66", padding: 18,
+              flexDirection: "row-reverse", alignItems: "center", gap: 14,
+            }}
+          >
+            <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: colors.gold + "22", alignItems: "center", justifyContent: "center" }}>
+              <Text style={{ fontSize: 24 }}>🎨</Text>
+            </View>
+            <View style={{ flex: 1, gap: 4 }}>
+              <Text style={{ color: colors.foreground, fontFamily: F.extra, fontSize: 15, textAlign: "right" }}>
+                الألوان والمسافات والخطوط
+              </Text>
+              <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12, textAlign: "right" }}>
+                تخصيص لون التطبيق • سمة الخلفية • حجم الخطوط • المسافات
+              </Text>
+            </View>
+            <Feather name="chevron-left" size={20} color={colors.gold} />
+          </TouchableOpacity>
+
+          <View style={{ height: 1, backgroundColor: colors.border }} />
+
           <Text style={{ color: colors.gold, fontFamily: F.extra, fontSize: 16, textAlign: "right" }}>
             ⚙️ إعدادات التاب بار
           </Text>
