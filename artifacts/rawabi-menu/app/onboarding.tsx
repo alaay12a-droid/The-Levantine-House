@@ -18,10 +18,8 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { FirebaseRecaptchaVerifierModal } from "expo-firebase-recaptcha";
-import { PhoneAuthProvider, signInWithCredential } from "firebase/auth";
+import { signInWithPhoneNumber, ConfirmationResult } from "firebase/auth";
 import { auth } from "@/config/firebase";
-import app from "@/config/firebase";
 
 import { useUser } from "@/context/UserContext";
 
@@ -50,7 +48,6 @@ export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { saveUser } = useUser();
-  const recaptchaVerifier = useRef<FirebaseRecaptchaVerifierModal>(null);
 
   const [step, setStep] = useState<Step>("name");
   const [name, setName] = useState("");
@@ -62,7 +59,7 @@ export default function OnboardingScreen() {
   const [locLoading, setLocLoading] = useState(false);
   const [sendingOtp, setSendingOtp] = useState(false);
   const [verifyingOtp, setVerifyingOtp] = useState(false);
-  const [verificationId, setVerificationId] = useState<string>("");
+  const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
 
   const phoneRef = useRef<TextInput>(null);
   const otpRef = useRef<TextInput>(null);
@@ -85,12 +82,8 @@ export default function OnboardingScreen() {
     setSendingOtp(true);
     try {
       const formattedPhone = formatPhoneNumber(phone.trim());
-      const provider = new PhoneAuthProvider(auth);
-      const id = await provider.verifyPhoneNumber(
-        formattedPhone,
-        recaptchaVerifier.current!
-      );
-      setVerificationId(id);
+      const result = await signInWithPhoneNumber(auth, formattedPhone);
+      setConfirmationResult(result);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       setStep("otp");
       setTimeout(() => otpRef.current?.focus(), 300);
@@ -105,10 +98,13 @@ export default function OnboardingScreen() {
       Alert.alert("", "يرجى إدخال الرمز المكون من 6 أرقام");
       return;
     }
+    if (!confirmationResult) {
+      Alert.alert("خطأ", "يرجى إعادة إرسال الرمز");
+      return;
+    }
     setVerifyingOtp(true);
     try {
-      const credential = PhoneAuthProvider.credential(verificationId, otp.trim());
-      await signInWithCredential(auth, credential);
+      await confirmationResult.confirm(otp.trim());
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setStep("location");
       setTimeout(() => addressRef.current?.focus(), 300);
@@ -182,12 +178,6 @@ export default function OnboardingScreen() {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <StatusBar barStyle="light-content" />
-
-      <FirebaseRecaptchaVerifierModal
-        ref={recaptchaVerifier}
-        firebaseConfig={app.options}
-        attemptInvisibleVerification
-      />
 
       <ScrollView
         contentContainerStyle={[styles.scroll, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 32 }]}
