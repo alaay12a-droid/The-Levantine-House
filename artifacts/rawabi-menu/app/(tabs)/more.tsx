@@ -164,23 +164,10 @@ export default function MoreScreen() {
     setChatLoading(false);
   };
 
-  const handleLogout = () => {
-    Alert.alert(
-      "تسجيل خروج",
-      "هل تريد تسجيل الخروج ومسح بياناتك الشخصية؟",
-      [
-        { text: "إلغاء", style: "cancel" },
-        {
-          text: "تسجيل خروج",
-          style: "destructive",
-          onPress: async () => {
-            await clearUser();
-            try { await auth.signOut(); } catch {}
-            router.replace("/onboarding");
-          },
-        },
-      ]
-    );
+  const handleLogout = async () => {
+    await clearUser();
+    try { await auth.signOut(); } catch {}
+    router.replace("/onboarding");
   };
 
   const menuItems: MenuItem[] = [
