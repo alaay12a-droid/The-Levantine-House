@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -22,108 +22,115 @@ import { useLanguage } from "@/context/LanguageContext";
 
 const F = {
   regular: "Cairo_400Regular",
-  semi: "Cairo_600SemiBold",
-  bold: "Cairo_700Bold",
-  extra: "Cairo_800ExtraBold",
+  semi:    "Cairo_600SemiBold",
+  bold:    "Cairo_700Bold",
+  extra:   "Cairo_800ExtraBold",
 };
 
-export const ORDERS_STORAGE_KEY = "@rawabi_my_orders";
+export const ORDERS_STORAGE_KEY      = "@rawabi_my_orders";
+const        LIVE_STATUS_STORAGE_KEY = "@rawabi_live_status";
+const        POLL_INTERVAL_MS        = 12_000; // 12 seconds
 
 export interface StoredOrder {
-  id: number;
-  dailyNumber: number;
-  createdAt: string;
-  total: number;
-  items: { name: string; quantity: number }[];
+  id:           number;
+  dailyNumber:  number;
+  createdAt:    string;
+  total:        number;
+  items:        { name: string; quantity: number }[];
   customerName: string;
 }
 
 type OrderStatus = "pending" | "preparing" | "ready" | "done" | "cancelled";
 
 interface LiveOrder {
-  id: number;
+  id:     number;
   status: OrderStatus;
 }
 
 const STATUS_LABEL_AR: Record<OrderStatus, string> = {
-  pending: "في الانتظار",
+  pending:   "في الانتظار",
   preparing: "جاري التحضير",
-  ready: "جاهز للاستلام",
-  done: "مكتمل",
+  ready:     "جاهز للاستلام",
+  done:      "مكتمل",
   cancelled: "ملغى",
 };
 
 const STATUS_LABEL_EN: Record<OrderStatus, string> = {
-  pending: "Pending",
+  pending:   "Pending",
   preparing: "Preparing",
-  ready: "Ready for Pickup",
-  done: "Completed",
+  ready:     "Ready for Pickup",
+  done:      "Completed",
   cancelled: "Cancelled",
 };
 
 const STATUS_COLOR: Record<OrderStatus, string> = {
-  pending: "#E8920C",
+  pending:   "#E8920C",
   preparing: "#3B82F6",
-  ready: "#22C55E",
-  done: "#9A7A5A",
+  ready:     "#22C55E",
+  done:      "#9A7A5A",
   cancelled: "#E53935",
 };
 
 const STATUS_ICON: Record<OrderStatus, string> = {
-  pending: "clock",
+  pending:   "clock",
   preparing: "loader",
-  ready: "check-circle",
-  done: "archive",
+  ready:     "check-circle",
+  done:      "archive",
   cancelled: "x-circle",
 };
 
 function formatDate(iso: string, isEn: boolean) {
   const d = new Date(iso);
   return d.toLocaleDateString(isEn ? "en-US" : "ar-SA", {
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
+    day:    "numeric",
+    month:  "short",
+    hour:   "2-digit",
     minute: "2-digit",
   });
 }
 
 export default function OrdersScreen() {
-  const colors = useColors();
-  const insets = useSafeAreaInsets();
-  const router = useRouter();
+  const colors   = useColors();
+  const insets   = useSafeAreaInsets();
+  const router   = useRouter();
   const topInset = Platform.OS === "web" ? 20 : insets.top;
   const { refreshBadge } = useOrderBadge();
   const { language } = useLanguage();
   const isEn = language === "en";
 
-  const [orders, setOrders] = useState<StoredOrder[]>([]);
-  const [liveStatus, setLiveStatus] = useState<Record<number, OrderStatus>>({});
-  const [refreshing, setRefreshing] = useState(false);
+  const [orders, setOrders]           = useState<StoredOrder[]>([]);
+  const [liveStatus, setLiveStatus]   = useState<Record<number, OrderStatus>>({});
+  const [refreshing, setRefreshing]   = useState(false);
   const [allowCancel, setAllowCancel] = useState(false);
   const [cancellingId, setCancellingId] = useState<number | null>(null);
 
-  const loadOrders = useCallback(async () => {
-    try {
-      const raw = await AsyncStorage.getItem(ORDERS_STORAGE_KEY);
-      const stored: StoredOrder[] = raw ? JSON.parse(raw) : [];
-      stored.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-      setOrders(stored);
-      refreshBadge();
+  const ordersRef    = useRef<StoredOrder[]>([]);
+  const liveRef      = useRef<Record<number, OrderStatus>>({});
+  const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const screenActive = useRef(false);
 
-      const active = stored.filter((o) => {
-        const s = liveStatus[o.id];
-        return !s || s === "pending" || s === "preparing" || s === "ready";
-      });
-      apiGet<{ allowed: boolean }>("/settings/customer-cancel")
-        .then((r) => setAllowCancel(r.allowed))
-        .catch(() => {});
-      if (active.length > 0) {
-        await fetchStatuses(active.map((o) => o.id));
+  // ── persist live-status cache to storage ──────────────────────────────────
+  const saveLiveStatus = useCallback(async (map: Record<number, OrderStatus>) => {
+    try {
+      await AsyncStorage.setItem(LIVE_STATUS_STORAGE_KEY, JSON.stringify(map));
+    } catch {}
+  }, []);
+
+  // ── load cached live-status from storage (instant, no flash) ─────────────
+  const loadCachedStatus = useCallback(async () => {
+    try {
+      const raw = await AsyncStorage.getItem(LIVE_STATUS_STORAGE_KEY);
+      if (raw) {
+        const map: Record<number, OrderStatus> = JSON.parse(raw);
+        liveRef.current = { ...liveRef.current, ...map };
+        setLiveStatus((prev) => ({ ...map, ...prev }));
       }
     } catch {}
-  }, [liveStatus]);
+  }, []);
 
-  const fetchStatuses = async (ids: number[]) => {
+  // ── fetch live statuses for a list of order IDs ───────────────────────────
+  const fetchStatuses = useCallback(async (ids: number[]) => {
+    if (ids.length === 0) return;
     const results = await Promise.allSettled(
       ids.map((id) => apiGet<LiveOrder>(`/orders/${id}`))
     );
@@ -131,14 +138,88 @@ export default function OrdersScreen() {
     results.forEach((r) => {
       if (r.status === "fulfilled") map[r.value.id] = r.value.status;
     });
-    setLiveStatus((prev) => ({ ...prev, ...map }));
-  };
+    const merged = { ...liveRef.current, ...map };
+    liveRef.current = merged;
+    setLiveStatus(merged);
+    await saveLiveStatus(merged);
+    refreshBadge();
+  }, [saveLiveStatus, refreshBadge]);
 
+  // ── IDs of orders that are still "alive" (need polling) ──────────────────
+  const getActiveIds = useCallback(() => {
+    return ordersRef.current
+      .filter((o) => {
+        const s = liveRef.current[o.id];
+        return !s || s === "pending" || s === "preparing" || s === "ready";
+      })
+      .map((o) => o.id);
+  }, []);
+
+  // ── one polling tick ──────────────────────────────────────────────────────
+  const pollTick = useCallback(async () => {
+    const ids = getActiveIds();
+    if (ids.length > 0) await fetchStatuses(ids);
+  }, [getActiveIds, fetchStatuses]);
+
+  // ── start / stop polling ──────────────────────────────────────────────────
+  const startPolling = useCallback(() => {
+    if (pollTimerRef.current) return;
+    pollTimerRef.current = setInterval(pollTick, POLL_INTERVAL_MS);
+  }, [pollTick]);
+
+  const stopPolling = useCallback(() => {
+    if (pollTimerRef.current) {
+      clearInterval(pollTimerRef.current);
+      pollTimerRef.current = null;
+    }
+  }, []);
+
+  // ── load orders from AsyncStorage + initial status fetch ─────────────────
+  const loadOrders = useCallback(async () => {
+    try {
+      const raw     = await AsyncStorage.getItem(ORDERS_STORAGE_KEY);
+      const stored: StoredOrder[] = raw ? JSON.parse(raw) : [];
+      stored.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      ordersRef.current = stored;
+      setOrders(stored);
+
+      apiGet<{ allowed: boolean }>("/settings/customer-cancel")
+        .then((r) => setAllowCancel(r.allowed))
+        .catch(() => {});
+
+      const ids = stored
+        .filter((o) => {
+          const s = liveRef.current[o.id];
+          return !s || s === "pending" || s === "preparing" || s === "ready";
+        })
+        .map((o) => o.id);
+
+      if (ids.length > 0) await fetchStatuses(ids);
+    } catch {}
+  }, [fetchStatuses]);
+
+  // ── screen focus / blur lifecycle ────────────────────────────────────────
   useFocusEffect(
     useCallback(() => {
-      loadOrders();
-    }, [])
+      screenActive.current = true;
+
+      // 1. show cached statuses instantly (no pending flash)
+      loadCachedStatus().then(() => {
+        // 2. then fetch fresh from server + start polling
+        loadOrders().then(() => {
+          if (screenActive.current) startPolling();
+        });
+      });
+
+      return () => {
+        screenActive.current = false;
+        stopPolling();
+      };
+    }, [loadCachedStatus, loadOrders, startPolling, stopPolling])
   );
+
+  // cleanup on unmount
+  useEffect(() => () => stopPolling(), [stopPolling]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -150,7 +231,11 @@ export default function OrdersScreen() {
     setCancellingId(id);
     try {
       const updated = await apiPatch<LiveOrder>(`/orders/${id}/cancel`, {});
-      setLiveStatus((prev) => ({ ...prev, [id]: updated.status }));
+      const merged  = { ...liveRef.current, [id]: updated.status };
+      liveRef.current = merged;
+      setLiveStatus(merged);
+      await saveLiveStatus(merged);
+      refreshBadge();
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : isEn ? "An error occurred" : "حدث خطأ";
       Alert.alert(isEn ? "Cancellation Failed" : "تعذّر الإلغاء", msg);
@@ -204,8 +289,8 @@ export default function OrdersScreen() {
           }
         >
           {orders.map((order) => {
-            const status = liveStatus[order.id] ?? "pending";
-            const isDone = status === "done" || status === "cancelled";
+            const status      = liveStatus[order.id] ?? "pending";
+            const isDone      = status === "done" || status === "cancelled";
             const isCancelling = cancellingId === order.id;
             const statusColor = STATUS_COLOR[status];
 
@@ -303,91 +388,91 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   header: {
     paddingHorizontal: 20,
-    paddingBottom: 14,
+    paddingBottom:     14,
     borderBottomWidth: 1,
-    alignItems: "center",
+    alignItems:        "center",
   },
   title: { fontSize: 20 },
 
   emptyWrap: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 14,
+    flex:              1,
+    alignItems:        "center",
+    justifyContent:    "center",
+    gap:               14,
     paddingHorizontal: 40,
   },
   emptyIcon: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
-    alignItems: "center",
+    width:          90,
+    height:         90,
+    borderRadius:   45,
+    alignItems:     "center",
     justifyContent: "center",
   },
   emptyTitle: { fontSize: 20, marginTop: 4 },
-  emptyText: { fontSize: 14, textAlign: "center", lineHeight: 24 },
+  emptyText:  { fontSize: 14, textAlign: "center", lineHeight: 24 },
   browseBtn: {
-    marginTop: 6,
+    marginTop:         6,
     paddingHorizontal: 32,
-    paddingVertical: 13,
-    borderRadius: 14,
+    paddingVertical:   13,
+    borderRadius:      14,
   },
   browseBtnText: { color: "#fff", fontSize: 15 },
 
   card: {
     borderRadius: 16,
-    borderWidth: 1,
-    overflow: "hidden",
+    borderWidth:  1,
+    overflow:     "hidden",
   },
   cardHeader: {
-    flexDirection: "row-reverse",
-    alignItems: "center",
-    justifyContent: "space-between",
+    flexDirection:   "row-reverse",
+    alignItems:      "center",
+    justifyContent:  "space-between",
     paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingVertical:   12,
   },
   statusBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    borderRadius: 20,
+    flexDirection:     "row",
+    alignItems:        "center",
+    gap:               5,
+    borderRadius:      20,
     paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingVertical:   5,
   },
   statusText: { fontSize: 13 },
-  orderNum: { fontSize: 20 },
+  orderNum:   { fontSize: 20 },
 
   divider: { height: 1 },
 
   itemsList: {
     paddingHorizontal: 14,
-    paddingVertical: 10,
-    gap: 6,
+    paddingVertical:   10,
+    gap:               6,
   },
   itemRow: {
     flexDirection: "row-reverse",
-    alignItems: "center",
-    gap: 8,
+    alignItems:    "center",
+    gap:           8,
   },
-  itemQty: { fontSize: 13 },
+  itemQty:  { fontSize: 13 },
   itemName: { fontSize: 14, flex: 1, textAlign: "right" },
 
   cardFooter: {
-    flexDirection: "row-reverse",
-    alignItems: "center",
-    justifyContent: "space-between",
+    flexDirection:     "row-reverse",
+    alignItems:        "center",
+    justifyContent:    "space-between",
     paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingVertical:   12,
   },
   total: { fontSize: 17 },
-  date: { fontSize: 12 },
+  date:  { fontSize: 12 },
 
   cancelBtn: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection:  "row",
+    alignItems:     "center",
     justifyContent: "center",
-    gap: 6,
-    borderWidth: 1,
-    borderRadius: 0,
+    gap:            6,
+    borderWidth:    1,
+    borderRadius:   0,
     paddingVertical: 10,
   },
   cancelBtnText: { color: "#E53935", fontSize: 14 },
