@@ -1,8 +1,13 @@
 uploads = []
-outputs = []
 
 [[generated]]
 id = "amMdbeZTjrPYMfZrXzQuX"
 uri = "file://artifacts/rawabi-menu/assets/images/icon.png"
 type = "image"
 title = "rawabi mandi restaurant icon"
+
+[[outputs]]
+id = "NgFkFuxj9j6w4gMZGqCvA"
+uri = "file://AsalaAlMamlakah.zip"
+type = "unspecified"
+title = "AsalaAlMamlakah - Android Studio Project"
