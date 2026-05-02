@@ -162,13 +162,11 @@ export default function MenuScreen() {
         </ScrollView>
       </View>
 
-      {/* ── BANNER CAROUSEL ── */}
-      <BannerCarousel banners={banners} />
-
       {/* ── CONTENT ── */}
       {specialCat?.isDelivery ? (
         /* ── DELIVERY SECTION ── */
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.list}>
+          <BannerCarousel banners={banners} />
           <View style={[styles.deliveryCard, { backgroundColor: colors.card, borderColor: colors.gold }]}>
             <Image source={deliveryCar} style={styles.carImage} resizeMode="cover" />
             <View style={[styles.deliveryOverlay, { backgroundColor: "#0F0A05EE" }]}>
@@ -202,6 +200,7 @@ export default function MenuScreen() {
       ) : specialCat?.isDhabiha ? (
         /* ── DHABIHA SECTION ── */
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.list}>
+          <BannerCarousel banners={banners} />
           <View style={[styles.dhabihaHero, { borderColor: "#E8920C" }]}>
             <Image source={dhabihaPoster} style={styles.dhabihaImg} resizeMode="cover" />
           </View>
@@ -242,6 +241,7 @@ export default function MenuScreen() {
       ) : specialCat?.isOccasions ? (
         /* ── OCCASIONS SECTION ── */
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.list}>
+          <BannerCarousel banners={banners} />
           <View style={[styles.occasionsHeader, { backgroundColor: "#1A0D00", borderColor: colors.gold }]}>
             <Text style={[styles.occasionsTitle, { color: colors.gold, fontFamily: F.extra }]}>🎉 عروض المناسبات</Text>
             <Text style={[styles.occasionsSub, { color: colors.mutedForeground, fontFamily: F.semi }]}>
@@ -288,8 +288,14 @@ export default function MenuScreen() {
           onViewableItemsChanged={onViewableItemsChanged}
           viewabilityConfig={{ itemVisiblePercentThreshold: 10 }}
           contentContainerStyle={{ paddingBottom: Platform.OS === "web" ? 130 : 110 }}
-          ListHeaderComponent={availableCombos.length > 0 ? () => (
-            <View style={{ paddingBottom: 8 }}>
+          ListHeaderComponent={() => (
+            <View>
+              {/* ── BANNER inside scroll ── */}
+              <BannerCarousel banners={banners} />
+
+              {/* ── COMBOS ── */}
+              {availableCombos.length > 0 && (
+              <View style={{ paddingBottom: 8 }}>
               <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8, paddingHorizontal: 16, paddingTop: 14, paddingBottom: 8 }}>
                 <Text style={{ color: "#82B1FF", fontFamily: F.extra, fontSize: 16 }}>🎁 الوجبات المجمعة</Text>
               </View>
@@ -325,7 +331,9 @@ export default function MenuScreen() {
                 ))}
               </ScrollView>
             </View>
-          ) : undefined}
+              )}
+            </View>
+          )}
           renderSectionHeader={({ section }) => (
             <View style={[styles.sectionRow, { backgroundColor: colors.background, borderBottomColor: "#2A1A0A", borderTopColor: "#2A1A0A" }]}>
               <Text style={[styles.itemCount, { color: colors.mutedForeground, fontFamily: F.semi }]}>
