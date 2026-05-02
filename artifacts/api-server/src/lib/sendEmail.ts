@@ -1,8 +1,9 @@
 import { Resend } from "resend";
 
+// Resend free tier: can only send to the account owner's email
+// To add more recipients, verify a domain at resend.com/domains
 const ADMIN_EMAILS = [
   "alaay12a@gmail.com",
-  "ala738120797@gmail.com",
 ];
 
 export async function sendPinOtpEmail(code: string): Promise<void> {
