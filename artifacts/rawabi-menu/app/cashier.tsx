@@ -587,60 +587,67 @@ export default function CashierScreen() {
       <StatusBar barStyle="light-content" />
 
       <View style={[styles.header, { backgroundColor: "#1A1008", paddingTop: topInset + 8, borderBottomColor: colors.border }]}>
-        <TouchableOpacity onPress={() => router.replace("/(tabs)")} style={[styles.backBtn, { backgroundColor: colors.secondary }]}>
-          <Feather name="arrow-right" size={20} color={colors.foreground} />
-        </TouchableOpacity>
-        <View style={styles.headerCenter}>
-          <Text style={[styles.headerTitle, { color: colors.foreground, fontFamily: F.bold }]}>
-            لوحة الكاشير
-          </Text>
-          {pendingCount > 0 && (
-            <View style={[styles.badge, { backgroundColor: "#E53935" }]}>
-              <Text style={styles.badgeText}>{pendingCount}</Text>
-            </View>
-          )}
+        {/* ── Row 1: back · title · refresh ── */}
+        <View style={styles.headerRow1}>
+          <TouchableOpacity onPress={() => router.replace("/(tabs)")} style={[styles.backBtn, { backgroundColor: colors.secondary }]}>
+            <Feather name="arrow-right" size={20} color={colors.foreground} />
+          </TouchableOpacity>
+          <View style={styles.headerCenter}>
+            <Text style={[styles.headerTitle, { color: colors.foreground, fontFamily: F.bold }]}>
+              لوحة الكاشير
+            </Text>
+            {pendingCount > 0 && (
+              <View style={[styles.badge, { backgroundColor: "#E53935" }]}>
+                <Text style={styles.badgeText}>{pendingCount}</Text>
+              </View>
+            )}
+          </View>
+          <TouchableOpacity onPress={() => fetchOrders()} style={[styles.refreshBtn, { backgroundColor: colors.secondary }]}>
+            <Feather name="refresh-cw" size={18} color={colors.gold} />
+          </TouchableOpacity>
         </View>
-        <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
-          {/* Messages button with unread badge */}
+
+        {/* ── Row 2: action buttons ── */}
+        <View style={styles.headerRow2}>
           <TouchableOpacity
             onPress={() => { const first = orders.find(o => unreadByOrder[o.id]); if (first) openOrderChat(first); }}
-            style={[styles.adminMenuBtn, { backgroundColor: "#0D2030", borderWidth: 1, borderColor: totalUnread > 0 ? "#3A8ABF" : "#1E4A6A" }]}
+            style={[styles.headerActionBtn, { backgroundColor: "#0D2030", borderWidth: 1, borderColor: totalUnread > 0 ? "#3A8ABF" : "#1E4A6A" }]}
           >
             <View style={{ position: "relative" }}>
-              <Feather name="message-circle" size={15} color={totalUnread > 0 ? "#64B5F6" : "#3A6A8A"} />
+              <Feather name="message-circle" size={14} color={totalUnread > 0 ? "#64B5F6" : "#3A6A8A"} />
               {totalUnread > 0 && (
-                <View style={{ position: "absolute", top: -6, right: -6, backgroundColor: "#E53935", borderRadius: 9, minWidth: 16, height: 16, alignItems: "center", justifyContent: "center", paddingHorizontal: 3 }}>
-                  <Text style={{ color: "#fff", fontSize: 9, fontFamily: "Cairo_700Bold" }}>{totalUnread > 9 ? "9+" : totalUnread}</Text>
+                <View style={{ position: "absolute", top: -5, right: -5, backgroundColor: "#E53935", borderRadius: 8, minWidth: 14, height: 14, alignItems: "center", justifyContent: "center", paddingHorizontal: 2 }}>
+                  <Text style={{ color: "#fff", fontSize: 8, fontFamily: "Cairo_700Bold" }}>{totalUnread > 9 ? "9+" : totalUnread}</Text>
                 </View>
               )}
             </View>
-            <Text style={{ color: totalUnread > 0 ? "#64B5F6" : "#3A6A8A", fontFamily: "Cairo_700Bold", fontSize: 13 }}>الرسائل</Text>
+            <Text style={{ color: totalUnread > 0 ? "#64B5F6" : "#3A6A8A", fontFamily: "Cairo_700Bold", fontSize: 12 }}>الرسائل</Text>
           </TouchableOpacity>
+
           <TouchableOpacity
             onPress={() => setShowBroadcastModal(true)}
-            style={[styles.adminMenuBtn, { backgroundColor: "#1A2A1A", borderWidth: 1, borderColor: "#2A5A2A" }]}
+            style={[styles.headerActionBtn, { backgroundColor: "#1A2A1A", borderWidth: 1, borderColor: "#2A5A2A" }]}
           >
-            <Feather name="bell" size={15} color="#81C784" />
-            <Text style={{ color: "#81C784", fontFamily: "Cairo_700Bold", fontSize: 13 }}>
+            <Feather name="bell" size={14} color="#81C784" />
+            <Text style={{ color: "#81C784", fontFamily: "Cairo_700Bold", fontSize: 12 }}>
               إشعار{broadcastRemaining !== null ? ` (${broadcastRemaining})` : ""}
             </Text>
           </TouchableOpacity>
+
           <TouchableOpacity
             onPress={() => setShowStockModal(true)}
-            style={[styles.adminMenuBtn, { backgroundColor: "#1A2A3A" }]}
+            style={[styles.headerActionBtn, { backgroundColor: "#1A2A3A", borderWidth: 1, borderColor: "#1E3A5A" }]}
           >
-            <Feather name="package" size={15} color="#64B5F6" />
-            <Text style={{ color: "#64B5F6", fontFamily: "Cairo_700Bold", fontSize: 13 }}>المخزون</Text>
+            <Feather name="package" size={14} color="#64B5F6" />
+            <Text style={{ color: "#64B5F6", fontFamily: "Cairo_700Bold", fontSize: 12 }}>المخزون</Text>
           </TouchableOpacity>
+
           <TouchableOpacity
             onPress={() => router.push("/admin-menu")}
-            style={[styles.adminMenuBtn, { backgroundColor: colors.gold }]}
+            style={[styles.headerActionBtn, { backgroundColor: colors.gold }]}
           >
-            <Feather name="settings" size={15} color="#1A0A00" />
-            <Text style={{ color: "#1A0A00", fontFamily: "Cairo_700Bold", fontSize: 13 }}>إدارة القائمة</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => fetchOrders()} style={[styles.refreshBtn, { backgroundColor: colors.secondary }]}>
-            <Feather name="refresh-cw" size={18} color={colors.gold} />
+            <Feather name="settings" size={14} color="#1A0A00" />
+            <Text style={{ color: "#1A0A00", fontFamily: "Cairo_700Bold", fontSize: 12 }}>القائمة</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -1320,12 +1327,31 @@ export default function CashierScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   header: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: "column",
     paddingHorizontal: 16,
-    paddingBottom: 14,
+    paddingBottom: 12,
     borderBottomWidth: 1,
     gap: 10,
+  },
+  headerRow1: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  headerRow2: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  headerActionBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 5,
+    paddingHorizontal: 6,
+    paddingVertical: 8,
+    borderRadius: 16,
   },
   backBtn: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
   headerCenter: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
