@@ -116,7 +116,11 @@ export default function MoreScreen() {
     } catch {}
   }, []);
 
-  useEffect(() => { checkUnread(); }, [checkUnread]);
+  useEffect(() => {
+    checkUnread();
+    const t = setInterval(checkUnread, 10000);
+    return () => clearInterval(t);
+  }, [checkUnread]);
 
   const openSupportChat = async () => {
     try {
