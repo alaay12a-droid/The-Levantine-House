@@ -71,6 +71,10 @@ export default function CheckoutScreen() {
   const [otpCode, setOtpCode] = useState("");
   const [otpLoading, setOtpLoading] = useState(false);
 
+  const [forOtherExpanded, setForOtherExpanded] = useState(false);
+  const [otherName, setOtherName] = useState("");
+  const [otherPhone, setOtherPhone] = useState("");
+
   React.useEffect(() => {
     if (user?.phone) {
       apiGet<{ phone: string; balance: number }>(`/wallet?phone=${encodeURIComponent(user.phone)}`)
@@ -202,6 +206,9 @@ export default function CheckoutScreen() {
             ? (orderType === "delivery" ? "🚗 توصيل" : "🏪 استلام من الفرع")
             : null,
           paymentMethod === "wallet" ? "💰 محفظة" : null,
+          forOtherExpanded && (otherName.trim() || otherPhone.trim())
+            ? `👤 لشخص آخر: ${otherName.trim()} ${otherPhone.trim()}`.trim()
+            : null,
           notes.trim() || null,
         ].filter(Boolean).join(" | ") || null,
         customerPushToken: customerPushToken ?? null,
@@ -475,6 +482,23 @@ export default function CheckoutScreen() {
           </View>
         )}
 
+        {/* ── Estimated time row ── */}
+        {(!paymentSettings.deliveryEnabled || orderType === "delivery" || orderType === "pickup") && (
+          <View style={[styles.listCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={styles.listRow}>
+              <Text style={[styles.rowValue, { color: GOLD, fontFamily: F.bold, fontSize: 15 }]}>
+                {orderType === "delivery" ? "~ 45 – 60 دقيقة" : "~ 15 – 20 دقيقة"}
+              </Text>
+              <View style={styles.rowLeft}>
+                <Feather name="clock" size={16} color={colors.mutedForeground} />
+                <Text style={[styles.rowLabel, { color: colors.mutedForeground, fontFamily: F.regular }]}>
+                  {isEn ? "Est. prep / delivery time" : "الوقت المتوقع للتجهيز والتوصيل"}
+                </Text>
+              </View>
+            </View>
+          </View>
+        )}
+
         {/* ── Notes row ── */}
         <View style={[styles.listCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <TouchableOpacity
@@ -503,6 +527,48 @@ export default function CheckoutScreen() {
                 style={[styles.notesInput, { color: colors.foreground, backgroundColor: colors.secondary, fontFamily: F.regular }]}
                 textAlignVertical="top"
               />
+            </>
+          )}
+        </View>
+
+        {/* ── Order for someone else ── */}
+        <View style={[styles.listCard, { backgroundColor: colors.card, borderColor: forOtherExpanded ? GOLD + "60" : colors.border }]}>
+          <TouchableOpacity
+            style={styles.listRow}
+            onPress={() => setForOtherExpanded(!forOtherExpanded)}
+            activeOpacity={0.7}
+          >
+            <Feather name={forOtherExpanded ? "chevron-up" : "chevron-left"} size={16} color={forOtherExpanded ? GOLD : colors.mutedForeground} />
+            <View style={styles.rowLeft}>
+              <Feather name="user-plus" size={16} color={forOtherExpanded ? GOLD : colors.mutedForeground} />
+              <Text style={[styles.rowLabel, { color: forOtherExpanded ? GOLD : colors.mutedForeground, fontFamily: forOtherExpanded ? F.bold : F.regular }]}>
+                {isEn ? "Order for someone else" : "الطلب لشخص آخر"}
+              </Text>
+            </View>
+          </TouchableOpacity>
+          {forOtherExpanded && (
+            <>
+              <View style={[styles.rowDivider, { backgroundColor: colors.border }]} />
+              <View style={{ paddingHorizontal: 16, paddingBottom: 14, gap: 10 }}>
+                <TextInput
+                  value={otherName}
+                  onChangeText={setOtherName}
+                  placeholder={isEn ? "Recipient's name" : "اسم المستلم"}
+                  placeholderTextColor={colors.mutedForeground}
+                  style={[styles.otherInput, { color: colors.foreground, backgroundColor: colors.secondary, borderColor: colors.border, fontFamily: F.regular }]}
+                  textAlign="right"
+                  returnKeyType="next"
+                />
+                <TextInput
+                  value={otherPhone}
+                  onChangeText={setOtherPhone}
+                  placeholder={isEn ? "Recipient's phone" : "جوال المستلم"}
+                  placeholderTextColor={colors.mutedForeground}
+                  keyboardType="phone-pad"
+                  style={[styles.otherInput, { color: colors.foreground, backgroundColor: colors.secondary, borderColor: colors.border, fontFamily: F.regular }]}
+                  textAlign="right"
+                />
+              </View>
             </>
           )}
         </View>
@@ -816,6 +882,14 @@ const styles = StyleSheet.create({
     padding: 14,
     fontSize: 14,
     minHeight: 80,
+    textAlign: "right",
+  },
+  otherInput: {
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 14,
     textAlign: "right",
   },
 
