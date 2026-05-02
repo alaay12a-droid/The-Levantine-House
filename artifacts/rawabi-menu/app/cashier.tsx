@@ -185,7 +185,6 @@ export default function CashierScreen() {
   const [chatSending, setChatSending]       = useState(false);
   const [chatLoading, setChatLoading]       = useState(false);
   const [unreadByOrder, setUnreadByOrder]   = useState<Record<number, number>>({});
-  const [totalUnread, setTotalUnread]       = useState(0);
   const chatScrollRef                        = useRef<ScrollView>(null);
   const chatPollRef                          = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -513,10 +512,8 @@ export default function CashierScreen() {
       type Convo = { orderId: number; unread: number };
       const convos = await apiGet<Convo[]>("/messages/conversations");
       const counts: Record<number, number> = {};
-      let total = 0;
-      for (const c of convos) { if (c.unread > 0) { counts[c.orderId] = c.unread; total += c.unread; } }
+      for (const c of convos) { if (c.unread > 0) counts[c.orderId] = c.unread; }
       setUnreadByOrder(counts);
-      setTotalUnread(total);
     } catch {}
   }, []);
 
@@ -529,9 +526,8 @@ export default function CashierScreen() {
       setChatMessages(msgs);
       await apiPatch(`/messages/order/${order.id}/read`, { fromCashier: true });
       setUnreadByOrder(prev => { const n = { ...prev }; delete n[order.id]; return n; });
-      setTotalUnread(prev => Math.max(0, prev - (unreadByOrder[order.id] ?? 0)));
     } catch {} finally { setChatLoading(false); }
-  }, [unreadByOrder]);
+  }, []);
 
   const sendChatMessage = useCallback(async () => {
     if (!chatOrder || !chatInput.trim()) return;
@@ -569,6 +565,7 @@ export default function CashierScreen() {
   }, [fetchUnreadCounts]);
 
   const pendingCount = orders.filter((o) => o.status === "pending").length;
+  const totalUnread  = Object.values(unreadByOrder).reduce((s, n) => s + n, 0);
 
   useChatUnreadAlert(totalUnread);
   useChatUnreadAlert(pendingCount);

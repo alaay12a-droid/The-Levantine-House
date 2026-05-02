@@ -269,11 +269,14 @@ export default function OrdersScreen() {
         });
       });
 
+      // 3. fetch unread message counts immediately on focus
+      checkUnread();
+
       return () => {
         screenActive.current = false;
         stopPolling();
       };
-    }, [loadCachedStatus, loadOrders, startPolling, stopPolling])
+    }, [loadCachedStatus, loadOrders, startPolling, stopPolling, checkUnread])
   );
 
   // cleanup on unmount
@@ -327,25 +330,23 @@ export default function OrdersScreen() {
     return () => clearInterval(t);
   }, [chatOrderId, fetchChatMsgs]);
 
-  // Check for unread cashier messages while screen is active
+  // Check for unread cashier messages — single API call returns all counts at once
   const checkUnread = useCallback(async () => {
-    const recent = ordersRef.current.slice(0, 8);
-    if (recent.length === 0) return;
+    const myIds = new Set(ordersRef.current.map(o => o.id));
+    if (myIds.size === 0) return;
     try {
-      const results = await Promise.allSettled(recent.map(o => apiGet<ChatMsg[]>(`/messages/order/${o.id}`)));
+      const data = await apiGet<Record<number, number>>("/messages/unread-customer");
       const counts: Record<number, number> = {};
-      results.forEach((r, i) => {
-        if (r.status === "fulfilled") {
-          const unread = r.value.filter((m: ChatMsg) => m.fromCashier && !m.readAt).length;
-          if (unread > 0) counts[recent[i].id] = unread;
-        }
-      });
+      for (const [idStr, cnt] of Object.entries(data)) {
+        const id = Number(idStr);
+        if (myIds.has(id) && cnt > 0) counts[id] = cnt;
+      }
       setUnreadByOrder(counts);
     } catch {}
   }, []);
 
   useEffect(() => {
-    const t = setInterval(() => { if (screenActive.current && !chatOpenRef.current) checkUnread(); }, 20000);
+    const t = setInterval(() => { if (screenActive.current && !chatOpenRef.current) checkUnread(); }, 10000);
     return () => clearInterval(t);
   }, [checkUnread]);
 

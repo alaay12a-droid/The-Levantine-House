@@ -73,6 +73,22 @@ router.get("/messages/conversations", async (req, res) => {
   }
 });
 
+// GET /messages/unread-customer — unread cashier→customer messages per order (for customer badge)
+router.get("/messages/unread-customer", async (req, res) => {
+  try {
+    const rows = await db
+      .select({ orderId: messagesTable.orderId, cnt: sql<number>`count(*)` })
+      .from(messagesTable)
+      .where(and(eq(messagesTable.fromCashier, true), isNull(messagesTable.readAt)))
+      .groupBy(messagesTable.orderId);
+    const result: Record<number, number> = {};
+    for (const r of rows) result[r.orderId] = Number(r.cnt);
+    res.json(result);
+  } catch {
+    res.status(500).json({ error: "فشل" });
+  }
+});
+
 // GET /messages/order/:orderId — messages for one order
 router.get("/messages/order/:orderId", async (req, res) => {
   const orderId = parseInt(req.params.orderId);
