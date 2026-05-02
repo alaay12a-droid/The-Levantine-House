@@ -33,6 +33,7 @@ import { useBanners } from "@/hooks/useBanners";
 import { BannerCarousel } from "@/components/BannerCarousel";
 import { useCombos, type ApiCombo } from "@/hooks/useCombos";
 import { useCart } from "@/context/CartContext";
+import { useBranchStatus } from "@/hooks/useBranchStatus";
 
 const logo = require("@/assets/images/logo.png");
 const deliveryCar = require("@/assets/images/delivery_car.jpg");
@@ -58,6 +59,7 @@ export default function MenuScreen() {
   const { banners, refresh: refreshBanners } = useBanners();
   const { combos } = useCombos();
   const { addItem } = useCart();
+  const { isOpen, message: closedMessage } = useBranchStatus();
   const availableCombos = combos.filter((c) => c.available);
   const [activeCategory, setActiveCategory] = useState("chicken");
 
@@ -166,6 +168,16 @@ export default function MenuScreen() {
 
           <Image source={logo} style={styles.logo} resizeMode="contain" />
         </Animated.View>
+
+        {/* ── BRANCH CLOSED BANNER ── */}
+        {!isOpen && (
+          <View style={{ backgroundColor: "#7B1FA2", paddingVertical: 10, paddingHorizontal: 16, flexDirection: "row-reverse", alignItems: "center", gap: 10 }}>
+            <Text style={{ fontSize: 18 }}>🔒</Text>
+            <Text style={{ color: "#fff", fontFamily: F.bold, fontSize: 13, flex: 1, textAlign: "right" }}>
+              {closedMessage ?? "الفرع مغلق حالياً"}
+            </Text>
+          </View>
+        )}
 
         {/* ── CATEGORY TABS ── */}
         <ScrollView

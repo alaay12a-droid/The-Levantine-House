@@ -246,6 +246,23 @@ export default function AdminMenuScreen() {
   const [smsLoading, setSmsLoading] = useState(false);
   const [allowCustomerCancel, setAllowCustomerCancel] = useState(false);
 
+  // Branch hours
+  interface DaySchedule { enabled: boolean; open: string; close: string; }
+  interface BranchHours { enabled: boolean; days: DaySchedule[]; }
+  const DAY_NAMES = ["الأحد","الاثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت"];
+  const defaultHours: BranchHours = {
+    enabled: false,
+    days: [0,1,2,3,4,5,6].map(() => ({ enabled: true, open: "09:00", close: "23:00" })),
+  };
+  const [branchHours, setBranchHours] = useState<BranchHours>(defaultHours);
+  const [hoursLoading, setHoursLoading] = useState(false);
+  const loadBranchHours = useCallback(async () => {
+    try {
+      const r = await apiGet<BranchHours>("/branch-hours");
+      setBranchHours(r);
+    } catch {}
+  }, []);
+
   // Wallet management
   const [walletPhone, setWalletPhone] = useState("");
   const [walletAmount, setWalletAmount] = useState("");
@@ -280,8 +297,9 @@ export default function AdminMenuScreen() {
     if (activeTab === "settings") {
       loadSmsSettings();
       loadCancelSetting();
+      loadBranchHours();
     }
-  }, [activeTab, loadSmsSettings, loadCancelSetting]);
+  }, [activeTab, loadSmsSettings, loadCancelSetting, loadBranchHours]);
 
   const [dcCode, setDcCode] = useState("");
   const [dcType, setDcType] = useState<"percentage" | "fixed">("percentage");
@@ -1060,6 +1078,122 @@ export default function AdminMenuScreen() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ padding: 20, gap: 20 }}
         >
+
+          {/* ── Branch Hours ── */}
+          <Text style={{ color: colors.gold, fontFamily: F.extra, fontSize: 16, textAlign: "right" }}>
+            🕐 أوقات عمل الفرع
+          </Text>
+          <View style={{ backgroundColor: colors.card, borderRadius: 14, padding: 16, gap: 14, borderWidth: 1, borderColor: colors.border }}>
+
+            {/* Master toggle */}
+            <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center" }}>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: colors.foreground, fontFamily: F.semi, fontSize: 14, textAlign: "right" }}>
+                  تفعيل قيود أوقات العمل
+                </Text>
+                <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12, textAlign: "right", marginTop: 3 }}>
+                  {branchHours.enabled
+                    ? "✅ مفعّل — الطلبات تُقبل فقط في ساعات العمل"
+                    : "❌ موقوف — الطلبات مقبولة في أي وقت"}
+                </Text>
+              </View>
+              <Switch
+                value={branchHours.enabled}
+                onValueChange={(v) => setBranchHours({ ...branchHours, enabled: v })}
+                trackColor={{ false: colors.border, true: "#7B1FA2" + "88" }}
+                thumbColor={branchHours.enabled ? "#CE93D8" : colors.mutedForeground}
+              />
+            </View>
+
+            {branchHours.enabled && (
+              <View style={{ gap: 10 }}>
+                {DAY_NAMES.map((name, i) => {
+                  const day = branchHours.days[i] ?? { enabled: true, open: "09:00", close: "23:00" };
+                  return (
+                    <View key={i} style={{ backgroundColor: colors.secondary, borderRadius: 10, padding: 12, gap: 8, borderWidth: 1, borderColor: day.enabled ? colors.border : "#3A1A1A" }}>
+                      <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center" }}>
+                        <Text style={{ color: day.enabled ? colors.foreground : colors.mutedForeground, fontFamily: F.bold, fontSize: 14 }}>
+                          {name}
+                        </Text>
+                        <Switch
+                          value={day.enabled}
+                          onValueChange={(v) => {
+                            const days = [...branchHours.days];
+                            days[i] = { ...day, enabled: v };
+                            setBranchHours({ ...branchHours, days });
+                          }}
+                          trackColor={{ false: "#3A1A1A", true: "#1A4A2A" }}
+                          thumbColor={day.enabled ? "#4CAF50" : "#E57373"}
+                        />
+                      </View>
+                      {day.enabled && (
+                        <View style={{ flexDirection: "row-reverse", gap: 12 }}>
+                          <View style={{ flex: 1 }}>
+                            <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 11, textAlign: "right", marginBottom: 4 }}>يفتح</Text>
+                            <TextInput
+                              value={day.open}
+                              onChangeText={(v) => {
+                                const days = [...branchHours.days];
+                                days[i] = { ...day, open: v };
+                                setBranchHours({ ...branchHours, days });
+                              }}
+                              placeholder="09:00"
+                              placeholderTextColor={colors.mutedForeground}
+                              keyboardType="numbers-and-punctuation"
+                              maxLength={5}
+                              style={{ backgroundColor: colors.background, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, color: "#4CAF50", fontFamily: F.bold, textAlign: "center", borderWidth: 1, borderColor: colors.border }}
+                            />
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 11, textAlign: "right", marginBottom: 4 }}>يغلق</Text>
+                            <TextInput
+                              value={day.close}
+                              onChangeText={(v) => {
+                                const days = [...branchHours.days];
+                                days[i] = { ...day, close: v };
+                                setBranchHours({ ...branchHours, days });
+                              }}
+                              placeholder="23:00"
+                              placeholderTextColor={colors.mutedForeground}
+                              keyboardType="numbers-and-punctuation"
+                              maxLength={5}
+                              style={{ backgroundColor: colors.background, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, color: "#E57373", fontFamily: F.bold, textAlign: "center", borderWidth: 1, borderColor: colors.border }}
+                            />
+                          </View>
+                        </View>
+                      )}
+                      {!day.enabled && (
+                        <Text style={{ color: "#E57373", fontFamily: F.semi, fontSize: 12, textAlign: "right" }}>مغلق</Text>
+                      )}
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+
+            {/* Save button */}
+            <TouchableOpacity
+              onPress={async () => {
+                setHoursLoading(true);
+                try {
+                  await apiPut("/branch-hours", branchHours);
+                  Alert.alert("✅ تم الحفظ", "تم حفظ أوقات العمل بنجاح");
+                } catch {
+                  Alert.alert("خطأ", "تعذر حفظ الإعدادات");
+                } finally {
+                  setHoursLoading(false);
+                }
+              }}
+              disabled={hoursLoading}
+              style={{ backgroundColor: "#7B1FA2", borderRadius: 12, paddingVertical: 13, alignItems: "center", marginTop: 4 }}
+            >
+              {hoursLoading
+                ? <ActivityIndicator color="#fff" />
+                : <Text style={{ color: "#fff", fontFamily: F.bold, fontSize: 15 }}>💾 حفظ أوقات العمل</Text>
+              }
+            </TouchableOpacity>
+          </View>
+
           <Text style={{ color: colors.gold, fontFamily: F.extra, fontSize: 16, textAlign: "right" }}>
             ⚙️ إعدادات التاب بار
           </Text>

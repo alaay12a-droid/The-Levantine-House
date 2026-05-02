@@ -225,6 +225,15 @@ export default function CheckoutScreen() {
     if (!user) return;
     if (items.length === 0) return;
 
+    // Check if branch is open
+    try {
+      const branchStatus = await apiGet<{ isOpen: boolean; message: string | null }>("/branch-status");
+      if (!branchStatus.isOpen) {
+        Alert.alert("الفرع مغلق 🔒", branchStatus.message ?? "الفرع مغلق حالياً، يرجى المحاولة لاحقاً");
+        return;
+      }
+    } catch {}
+
     // Check if SMS OTP is required
     if (otpStep !== "verified") {
       try {
