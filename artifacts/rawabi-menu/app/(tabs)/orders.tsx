@@ -116,10 +116,11 @@ export default function OrdersScreen() {
 
   const showCancelBanner = useCallback((orderNum: number, name: string) => {
     if (bannerTimer.current) clearTimeout(bannerTimer.current);
+    bannerAnim.setValue(0);
     setCancelBanner({ orderNum, name });
-    Animated.spring(bannerAnim, { toValue: 1, useNativeDriver: true, tension: 80, friction: 10 }).start();
+    Animated.spring(bannerAnim, { toValue: 1, useNativeDriver: false, tension: 80, friction: 10 }).start();
     bannerTimer.current = setTimeout(() => {
-      Animated.timing(bannerAnim, { toValue: 0, duration: 300, useNativeDriver: true }).start(() => {
+      Animated.timing(bannerAnim, { toValue: 0, duration: 300, useNativeDriver: false }).start(() => {
         setCancelBanner(null);
       });
     }, 5000);
@@ -158,8 +159,8 @@ export default function OrdersScreen() {
     // ── detect newly-cancelled orders and alert the customer ──────────────
     for (const [idStr, newStatus] of Object.entries(map)) {
       const id        = Number(idStr);
-      const oldStatus = liveRef.current[id];
-      if (newStatus === "cancelled" && oldStatus && oldStatus !== "cancelled") {
+      const oldStatus = liveRef.current[id] ?? "pending"; // treat unseen orders as pending
+      if (newStatus === "cancelled" && oldStatus !== "cancelled") {
         const order = ordersRef.current.find((o) => o.id === id);
         if (order) {
           showCancelBanner(order.dailyNumber, order.customerName);
