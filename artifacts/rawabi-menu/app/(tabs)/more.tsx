@@ -20,6 +20,8 @@ import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import { RESTAURANT_INFO } from "@/constants/menu";
 import { useUser } from "@/context/UserContext";
+import { useLanguage } from "@/context/LanguageContext";
+import { useTranslation } from "@/hooks/useTranslation";
 
 const F = {
   regular: "Cairo_400Regular",
@@ -51,6 +53,8 @@ export default function MoreScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user, clearUser } = useUser();
+  const { language, setLanguage } = useLanguage();
+  const { t } = useTranslation();
   const topInset = Platform.OS === "web" ? 20 : insets.top;
 
   const handleLogout = () => {
@@ -71,12 +75,12 @@ export default function MoreScreen() {
   const menuItems: MenuItem[] = [
     {
       icon: "phone",
-      label: "اتصل بنا",
+      label: t("callUs"),
       action: () => Linking.openURL(`tel:${RESTAURANT_INFO.phone}`),
     },
     {
       icon: "message-circle",
-      label: "واتساب",
+      label: t("whatsapp"),
       action: () =>
         Linking.openURL(
           `https://wa.me/${RESTAURANT_INFO.whatsapp}?text=${encodeURIComponent("السلام عليكم، أرغب في الاستفسار")}`
@@ -84,12 +88,12 @@ export default function MoreScreen() {
     },
     {
       icon: "map-pin",
-      label: `موقعنا — ${RESTAURANT_INFO.location}`,
+      label: `${t("location")} — ${RESTAURANT_INFO.location}`,
       action: () => Linking.openURL("https://maps.google.com/?q=تبوك+حي+الروضة"),
     },
     {
       icon: "info",
-      label: "من نحن",
+      label: t("aboutUs"),
       action: () =>
         Alert.alert(
           "روابي المندي",
@@ -98,19 +102,19 @@ export default function MoreScreen() {
     },
     {
       icon: "lock",
-      label: "سياسة الخصوصية",
+      label: t("privacy"),
       action: () => Alert.alert("سياسة الخصوصية", "نحرص على حفظ خصوصية بياناتك وعدم مشاركتها مع أطراف ثالثة."),
     },
     {
       icon: "file-text",
-      label: "الشروط والأحكام",
+      label: t("terms"),
       action: () => router.push("/terms"),
     },
     ...(user
       ? [
           {
             icon: "log-out",
-            label: "مسح بياناتي",
+            label: t("clearData"),
             action: handleLogout,
             danger: true,
           } as MenuItem,
@@ -133,11 +137,67 @@ export default function MoreScreen() {
         ]}
       >
         <Text style={[styles.title, { color: colors.foreground, fontFamily: F.extra }]}>
-          المزيد
+          {t("more")}
         </Text>
       </View>
 
       <ScrollView contentContainerStyle={{ paddingBottom: 32 }}>
+
+        {/* Language Toggle */}
+        <View style={[styles.langCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[styles.sectionLabel, { color: colors.mutedForeground, fontFamily: F.semi }]}>
+            {t("language")}
+          </Text>
+          <View style={[styles.langToggle, { backgroundColor: colors.secondary }]}>
+            <TouchableOpacity
+              onPress={() => setLanguage("ar")}
+              style={[
+                styles.langBtn,
+                language === "ar" && { backgroundColor: colors.card, elevation: 3 },
+              ]}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.langBtnText, { color: language === "ar" ? colors.foreground : colors.mutedForeground, fontFamily: F.bold }]}>
+                العربية
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setLanguage("en")}
+              style={[
+                styles.langBtn,
+                language === "en" && { backgroundColor: colors.card, elevation: 3 },
+              ]}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.langBtnText, { color: language === "en" ? colors.foreground : colors.mutedForeground, fontFamily: F.bold }]}>
+                EN
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Wallet Card */}
+        {user && (
+          <TouchableOpacity
+            onPress={() => router.push("/wallet")}
+            style={[styles.walletCard, { backgroundColor: "#2A1A0A", borderColor: colors.gold + "60" }]}
+            activeOpacity={0.85}
+          >
+            <Feather name="chevron-left" size={18} color={colors.mutedForeground} />
+            <View style={{ flex: 1, alignItems: "flex-end", gap: 3 }}>
+              <Text style={[{ fontSize: 17, color: colors.gold, fontFamily: F.bold }]}>
+                {t("wallet")}
+              </Text>
+              <Text style={[{ fontSize: 12, color: colors.mutedForeground, fontFamily: F.regular }]}>
+                {t("walletDesc")}
+              </Text>
+            </View>
+            <View style={[styles.walletIcon, { backgroundColor: colors.gold + "22" }]}>
+              <Feather name="credit-card" size={24} color={colors.gold} />
+            </View>
+          </TouchableOpacity>
+        )}
+
         {user && (
           <View style={[styles.profileCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <View style={[styles.avatar, { backgroundColor: colors.secondary }]}>
@@ -156,7 +216,7 @@ export default function MoreScreen() {
 
         <View style={[styles.socialCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Text style={[styles.sectionLabel, { color: colors.mutedForeground, fontFamily: F.semi }]}>
-            تواصل معنا
+            {t("contactUs")}
           </Text>
           <View style={styles.socialRow}>
             {SOCIAL_LINKS.map((s, i) => (
@@ -290,5 +350,43 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 24,
     marginBottom: 8,
+  },
+  langCard: {
+    margin: 16,
+    marginBottom: 0,
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 16,
+    gap: 12,
+  },
+  langToggle: {
+    flexDirection: "row",
+    borderRadius: 12,
+    padding: 4,
+    gap: 4,
+  },
+  langBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    alignItems: "center",
+  },
+  langBtnText: { fontSize: 15 },
+  walletCard: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 16,
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 14,
+  },
+  walletIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: "center",
+    justifyContent: "center",
   },
 });

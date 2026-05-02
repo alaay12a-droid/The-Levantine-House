@@ -26,6 +26,7 @@ import { useCustomerPushToken } from "@/hooks/useCustomerPushToken";
 import { useOrderBadge } from "@/context/OrderBadgeContext";
 import { usePaymentSettings } from "@/hooks/usePaymentSettings";
 import { ORDERS_STORAGE_KEY, StoredOrder } from "./(tabs)/orders";
+import { useTranslation } from "@/hooks/useTranslation";
 
 const F = {
   regular: "Cairo_400Regular",
@@ -34,7 +35,7 @@ const F = {
   extra: "Cairo_800ExtraBold",
 };
 
-type PaymentMethod = "cash" | "moyasar";
+type PaymentMethod = "cash" | "moyasar" | "wallet";
 
 interface Order {
   id: number;
@@ -53,17 +54,27 @@ export default function CheckoutScreen() {
   const { incrementBadge } = useOrderBadge();
   const { settings: paymentSettings } = usePaymentSettings();
 
+  const { t } = useTranslation();
   const [notes, setNotes] = useState("");
   const [orderType, setOrderType] = useState<"delivery" | "pickup">("delivery");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
   const [loading, setLoading] = useState(false);
   const [locationUrl, setLocationUrl] = useState<string | null>(null);
   const [locationLoading, setLocationLoading] = useState(false);
+  const [walletBalance, setWalletBalance] = useState<number | null>(null);
 
   // SMS OTP
   const [otpStep, setOtpStep] = useState<"idle" | "sent" | "verified">("idle");
   const [otpCode, setOtpCode] = useState("");
   const [otpLoading, setOtpLoading] = useState(false);
+
+  React.useEffect(() => {
+    if (user?.phone) {
+      apiGet<{ phone: string; balance: number }>(`/wallet?phone=${encodeURIComponent(user.phone)}`)
+        .then((w) => setWalletBalance(w.balance))
+        .catch(() => {});
+    }
+  }, [user?.phone]);
 
   const handleGetLocation = async () => {
     setLocationLoading(true);
@@ -133,6 +144,12 @@ export default function CheckoutScreen() {
       Alert.alert("قريباً", "الدفع الإلكتروني سيكون متاحاً قريباً. يرجى اختيار الدفع عند الاستلام.", [{ text: "حسناً" }]);
       return;
     }
+    if (paymentMethod === "wallet") {
+      if (walletBalance === null || walletBalance < grandTotal) {
+        Alert.alert(t("error"), t("insufficientBalance") + ` (${walletBalance ?? 0} ${t("sar")})`);
+        return;
+      }
+    }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setLoading(true);
     try {
@@ -153,10 +170,17 @@ export default function CheckoutScreen() {
           paymentSettings.deliveryEnabled
             ? (orderType === "delivery" ? "🚗 توصيل" : "🏪 استلام من الفرع")
             : null,
+          paymentMethod === "wallet" ? "💰 محفظة" : null,
           notes.trim() || null,
         ].filter(Boolean).join(" | ") || null,
         customerPushToken: customerPushToken ?? null,
       });
+      if (paymentMethod === "wallet") {
+        try {
+          await apiPost("/wallet/pay", { phone: user.phone, amount: grandTotal, orderId: order.id });
+          setWalletBalance((prev) => (prev !== null ? prev - grandTotal : null));
+        } catch {}
+      }
       const storedOrder: StoredOrder = {
         id: order.id,
         dailyNumber: order.dailyNumber,
@@ -441,7 +465,7 @@ export default function CheckoutScreen() {
         {/* Payment Method */}
         <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Text style={[styles.sectionTitle, { color: colors.gold, fontFamily: F.bold }]}>
-            طريقة الدفع
+            {t("paymentMethod")}
           </Text>
 
           <TouchableOpacity
@@ -462,13 +486,42 @@ export default function CheckoutScreen() {
             </View>
             <View style={styles.paymentInfo}>
               <Text style={[styles.paymentTitle, { color: colors.foreground, fontFamily: F.bold }]}>
-                💵 الدفع عند الاستلام
+                {t("cash")}
               </Text>
               <Text style={[styles.paymentDesc, { color: colors.mutedForeground, fontFamily: F.regular }]}>
-                ادفع نقداً أو بطاقة عند استلام طلبك
+                {t("cashDesc")}
               </Text>
             </View>
           </TouchableOpacity>
+
+          {walletBalance !== null && walletBalance > 0 && (
+            <TouchableOpacity
+              onPress={() => setPaymentMethod("wallet")}
+              style={[
+                styles.paymentOption,
+                {
+                  borderColor: paymentMethod === "wallet" ? colors.gold : colors.border,
+                  backgroundColor: paymentMethod === "wallet" ? "#2A1A08" : colors.secondary,
+                },
+              ]}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.radioOuter, { borderColor: paymentMethod === "wallet" ? colors.gold : colors.border }]}>
+                {paymentMethod === "wallet" && (
+                  <View style={[styles.radioInner, { backgroundColor: colors.gold }]} />
+                )}
+              </View>
+              <View style={styles.paymentInfo}>
+                <Text style={[styles.paymentTitle, { color: colors.foreground, fontFamily: F.bold }]}>
+                  {t("payWallet")}
+                </Text>
+                <Text style={[styles.paymentDesc, { color: walletBalance >= grandTotal ? "#22C55E" : "#E53935", fontFamily: F.regular }]}>
+                  {t("walletBalance")}: {walletBalance} {t("sar")}
+                  {walletBalance < grandTotal ? ` (${t("insufficientBalance")})` : ""}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          )}
 
           {paymentSettings.applePayEnabled ? (
             <TouchableOpacity

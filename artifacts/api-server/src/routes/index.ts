@@ -9,6 +9,7 @@ import bannersRouter from "./banners";
 import revenueRouter from "./revenue";
 import smsRouter from "./sms";
 import combosRouter from "./combos";
+import walletRouter from "./wallet";
 
 const router: IRouter = Router();
 
@@ -22,5 +23,6 @@ router.use(bannersRouter);
 router.use(revenueRouter);
 router.use(smsRouter);
 router.use(combosRouter);
+router.use("/wallet", walletRouter);
 
 export default router;

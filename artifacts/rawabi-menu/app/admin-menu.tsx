@@ -245,6 +245,15 @@ export default function AdminMenuScreen() {
   const [smsSender, setSmsSender] = useState("روابي المندي");
   const [smsLoading, setSmsLoading] = useState(false);
   const [allowCustomerCancel, setAllowCustomerCancel] = useState(false);
+
+  // Wallet management
+  const [walletPhone, setWalletPhone] = useState("");
+  const [walletAmount, setWalletAmount] = useState("");
+  const [walletNote, setWalletNote] = useState("");
+  const [walletLoading, setWalletLoading] = useState(false);
+  const [walletSearchBalance, setWalletSearchBalance] = useState<number | null>(null);
+  const [walletSearchPhone, setWalletSearchPhone] = useState("");
+
   const [bannerTitle, setBannerTitle] = useState("");
   const [bannerImageUrl, setBannerImageUrl] = useState("");
   const [bannerUploading, setBannerUploading] = useState(false);
@@ -1469,6 +1478,95 @@ export default function AdminMenuScreen() {
             </View>
           </View>
 
+          {/* Wallet Management */}
+          <Text style={{ color: colors.gold, fontFamily: F.extra, fontSize: 16, textAlign: "right", marginTop: 8 }}>
+            💰 إدارة المحافظ
+          </Text>
+          <View style={{ backgroundColor: colors.card, borderRadius: 14, padding: 16, gap: 12, borderWidth: 1, borderColor: colors.border }}>
+            <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 13, textAlign: "right" }}>
+              اشحن محفظة زبون عبر رقم جواله
+            </Text>
+
+            {/* Search balance */}
+            <View style={{ flexDirection: "row-reverse", gap: 8 }}>
+              <TextInput
+                value={walletSearchPhone}
+                onChangeText={setWalletSearchPhone}
+                placeholder="05xxxxxxxx"
+                placeholderTextColor={colors.mutedForeground}
+                keyboardType="phone-pad"
+                style={{ flex: 1, backgroundColor: colors.secondary, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, color: colors.foreground, fontFamily: F.regular, textAlign: "right", borderWidth: 1, borderColor: colors.border }}
+              />
+              <TouchableOpacity
+                onPress={async () => {
+                  if (!walletSearchPhone.trim()) return;
+                  try {
+                    const w = await apiGet<{ balance: number }>(`/wallet?phone=${encodeURIComponent(walletSearchPhone.trim())}`);
+                    setWalletSearchBalance(w.balance);
+                    setWalletPhone(walletSearchPhone.trim());
+                  } catch { Alert.alert("خطأ", "تعذر البحث"); }
+                }}
+                style={{ backgroundColor: colors.secondary, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1, borderColor: colors.border, justifyContent: "center" }}
+              >
+                <Feather name="search" size={18} color={colors.gold} />
+              </TouchableOpacity>
+            </View>
+
+            {walletSearchBalance !== null && (
+              <View style={{ backgroundColor: "#2A1A0A", borderRadius: 10, padding: 12, flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center" }}>
+                <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 13 }}>الرصيد الحالي</Text>
+                <Text style={{ color: colors.gold, fontFamily: F.extra, fontSize: 20 }}>{walletSearchBalance} ر.س</Text>
+              </View>
+            )}
+
+            <TextInput
+              value={walletAmount}
+              onChangeText={setWalletAmount}
+              placeholder="مبلغ الشحن (ر.س)"
+              placeholderTextColor={colors.mutedForeground}
+              keyboardType="number-pad"
+              style={{ backgroundColor: colors.secondary, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, color: colors.gold, fontFamily: F.bold, textAlign: "right", borderWidth: 1, borderColor: colors.border, fontSize: 18 }}
+            />
+            <TextInput
+              value={walletNote}
+              onChangeText={setWalletNote}
+              placeholder="سبب الشحن (اختياري)"
+              placeholderTextColor={colors.mutedForeground}
+              style={{ backgroundColor: colors.secondary, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, color: colors.foreground, fontFamily: F.regular, textAlign: "right", borderWidth: 1, borderColor: colors.border }}
+            />
+            <TouchableOpacity
+              onPress={async () => {
+                const amount = parseInt(walletAmount);
+                if (!walletPhone.trim() || isNaN(amount) || amount <= 0) {
+                  Alert.alert("خطأ", "أدخل رقم الجوال والمبلغ");
+                  return;
+                }
+                setWalletLoading(true);
+                try {
+                  const r = await apiPost<{ balance: number }>("/wallet/deposit", {
+                    phone: walletPhone.trim(),
+                    amount,
+                    note: walletNote.trim() || "شحن من الأدمن",
+                  });
+                  setWalletSearchBalance(r.balance);
+                  setWalletAmount("");
+                  setWalletNote("");
+                  Alert.alert("✅ تم الشحن", `رصيد الزبون أصبح ${r.balance} ر.س`);
+                } catch {
+                  Alert.alert("خطأ", "تعذر الشحن");
+                } finally {
+                  setWalletLoading(false);
+                }
+              }}
+              disabled={walletLoading}
+              style={{ backgroundColor: "#4CAF50", borderRadius: 12, paddingVertical: 14, alignItems: "center" }}
+            >
+              {walletLoading ? <ActivityIndicator color="#fff" /> : (
+                <Text style={{ color: "#fff", fontFamily: F.bold, fontSize: 15 }}>💰 شحن المحفظة</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+
           {/* SMS OTP Settings */}
           <Text style={{ color: colors.gold, fontFamily: F.extra, fontSize: 16, textAlign: "right", marginTop: 8 }}>
             📱 التحقق برسالة SMS
@@ -1622,9 +1720,9 @@ export default function AdminMenuScreen() {
             <TouchableOpacity
               onPress={handleAddBanner}
               disabled={!bannerImageUrl || bannerUploading}
-              style={[styles.saveBtn, { backgroundColor: bannerImageUrl ? colors.gold : "#3A2410", marginTop: 10 }]}
+              style={{ borderRadius: 12, paddingVertical: 14, alignItems: "center" as const, backgroundColor: bannerImageUrl ? colors.gold : "#3A2410", marginTop: 10 }}
             >
-              <Text style={[styles.saveBtnText, { color: bannerImageUrl ? "#1A0A00" : colors.mutedForeground, fontFamily: F.bold }]}>
+              <Text style={{ fontSize: 15, fontWeight: "700" as const, color: bannerImageUrl ? "#1A0A00" : colors.mutedForeground, fontFamily: F.bold }}>
                 حفظ البانر
               </Text>
             </TouchableOpacity>

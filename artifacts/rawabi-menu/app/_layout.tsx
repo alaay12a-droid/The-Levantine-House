@@ -18,6 +18,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { CartProvider } from "@/context/CartContext";
 import { UserProvider, useUser } from "@/context/UserContext";
 import { OrderBadgeProvider } from "@/context/OrderBadgeContext";
+import { LanguageProvider } from "@/context/LanguageContext";
 import { registerCustomerNotifications } from "@/hooks/useCustomerPushToken";
 
 SplashScreen.preventAutoHideAsync();
@@ -88,6 +89,7 @@ function RootLayoutNav() {
         <Stack.Screen name="cashier" options={{ headerShown: false }} />
         <Stack.Screen name="admin-menu" options={{ headerShown: false }} />
         <Stack.Screen name="terms" options={{ headerShown: false }} />
+        <Stack.Screen name="wallet" options={{ headerShown: false }} />
       </Stack>
     </>
   );
@@ -113,17 +115,19 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <ErrorBoundary>
         <QueryClientProvider client={queryClient}>
-          <UserProvider>
-            <CartProvider>
-              <OrderBadgeProvider>
-                <GestureHandlerRootView>
-                  <KeyboardProvider>
-                    <RootLayoutNav />
-                  </KeyboardProvider>
-                </GestureHandlerRootView>
-              </OrderBadgeProvider>
-            </CartProvider>
-          </UserProvider>
+          <LanguageProvider>
+            <UserProvider>
+              <CartProvider>
+                <OrderBadgeProvider>
+                  <GestureHandlerRootView>
+                    <KeyboardProvider>
+                      <RootLayoutNav />
+                    </KeyboardProvider>
+                  </GestureHandlerRootView>
+                </OrderBadgeProvider>
+              </CartProvider>
+            </UserProvider>
+          </LanguageProvider>
         </QueryClientProvider>
       </ErrorBoundary>
     </SafeAreaProvider>
