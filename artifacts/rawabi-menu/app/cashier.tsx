@@ -189,6 +189,43 @@ export default function CashierScreen() {
   const chatScrollRef                        = useRef<ScrollView>(null);
   const chatPollRef                          = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // ─── Broadcast notification state ──────────────────────
+  const [showBroadcastModal, setShowBroadcastModal] = useState(false);
+  const [broadcastTitle, setBroadcastTitle]         = useState("");
+  const [broadcastBody, setBroadcastBody]           = useState("");
+  const [broadcastSending, setBroadcastSending]     = useState(false);
+  const [broadcastRemaining, setBroadcastRemaining] = useState<number | null>(null);
+
+  const fetchBroadcastQuota = useCallback(async () => {
+    try {
+      const data = await apiGet<{ sent: number; remaining: number; limit: number }>("/notifications/broadcast");
+      setBroadcastRemaining(data.remaining);
+    } catch {}
+  }, []);
+
+  useEffect(() => { if (showBroadcastModal) fetchBroadcastQuota(); }, [showBroadcastModal, fetchBroadcastQuota]);
+
+  const sendBroadcast = useCallback(async () => {
+    if (!broadcastTitle.trim() || !broadcastBody.trim()) return;
+    setBroadcastSending(true);
+    try {
+      const res = await apiPost<{ ok: boolean; remaining: number }>("/notifications/broadcast", {
+        title: broadcastTitle.trim(),
+        body:  broadcastBody.trim(),
+      });
+      setBroadcastRemaining(res.remaining);
+      setBroadcastTitle("");
+      setBroadcastBody("");
+      Alert.alert("تم الإرسال ✓", `تم إرسال الإشعار لجميع المستخدمين\nالمتبقي هذا الأسبوع: ${res.remaining}`);
+      setShowBroadcastModal(false);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "تعذّر الإرسال";
+      Alert.alert("خطأ", msg);
+    } finally {
+      setBroadcastSending(false);
+    }
+  }, [broadcastTitle, broadcastBody]);
+
   // ─── Stock state ───────────────────────────────────────
   const [showStockModal, setShowStockModal] = useState(false);
   const [menuItems, setMenuItems] = useState<ApiMenuItem[]>([]);
@@ -578,6 +615,15 @@ export default function CashierScreen() {
               )}
             </View>
             <Text style={{ color: totalUnread > 0 ? "#64B5F6" : "#3A6A8A", fontFamily: "Cairo_700Bold", fontSize: 13 }}>الرسائل</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setShowBroadcastModal(true)}
+            style={[styles.adminMenuBtn, { backgroundColor: "#1A2A1A", borderWidth: 1, borderColor: "#2A5A2A" }]}
+          >
+            <Feather name="bell" size={15} color="#81C784" />
+            <Text style={{ color: "#81C784", fontFamily: "Cairo_700Bold", fontSize: 13 }}>
+              إشعار{broadcastRemaining !== null ? ` (${broadcastRemaining})` : ""}
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => setShowStockModal(true)}
@@ -1186,6 +1232,87 @@ export default function CashierScreen() {
           </ScrollView>
         </View>
       </Modal>
+
+      {/* ─── Broadcast Notification Modal ─────────────────── */}
+      <Modal
+        visible={showBroadcastModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowBroadcastModal(false)}
+      >
+        <View style={{ flex: 1, justifyContent: "flex-end", backgroundColor: "#00000099" }}>
+          <View style={{ backgroundColor: colors.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, gap: 16, borderTopWidth: 1, borderColor: colors.border }}>
+
+            {/* Header */}
+            <View style={{ alignItems: "center", gap: 6 }}>
+              <Text style={{ fontSize: 30 }}>🔔</Text>
+              <Text style={{ color: colors.foreground, fontFamily: F.extra, fontSize: 19, textAlign: "center" }}>
+                إشعار جماعي للعملاء
+              </Text>
+              <View style={{ backgroundColor: broadcastRemaining === 0 ? "#3A1A1A" : "#1A2A1A", borderRadius: 20, paddingHorizontal: 14, paddingVertical: 4 }}>
+                <Text style={{ color: broadcastRemaining === 0 ? "#EF9A9A" : "#81C784", fontFamily: F.bold, fontSize: 13 }}>
+                  {broadcastRemaining === null ? "جارٍ التحقق..." : broadcastRemaining === 0 ? "انتهت إشعارات هذا الأسبوع" : `المتبقي هذا الأسبوع: ${broadcastRemaining} من 4`}
+                </Text>
+              </View>
+            </View>
+
+            {/* Title input */}
+            <View style={{ gap: 6 }}>
+              <Text style={{ color: colors.mutedForeground, fontFamily: F.bold, fontSize: 13, textAlign: "right" }}>عنوان الإشعار</Text>
+              <TextInput
+                value={broadcastTitle}
+                onChangeText={setBroadcastTitle}
+                placeholder="مثال: عرض خاص اليوم فقط 🔥"
+                placeholderTextColor={colors.mutedForeground}
+                maxLength={100}
+                style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, color: colors.foreground, fontFamily: F.regular, fontSize: 14, textAlign: "right" }}
+              />
+            </View>
+
+            {/* Body input */}
+            <View style={{ gap: 6 }}>
+              <Text style={{ color: colors.mutedForeground, fontFamily: F.bold, fontSize: 13, textAlign: "right" }}>نص الرسالة</Text>
+              <TextInput
+                value={broadcastBody}
+                onChangeText={setBroadcastBody}
+                placeholder="اكتب تفاصيل العرض أو الخبر هنا..."
+                placeholderTextColor={colors.mutedForeground}
+                maxLength={300}
+                multiline
+                numberOfLines={3}
+                style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, color: colors.foreground, fontFamily: F.regular, fontSize: 14, textAlign: "right", minHeight: 80, textAlignVertical: "top" }}
+              />
+            </View>
+
+            {/* Buttons */}
+            <View style={{ flexDirection: "row", gap: 10 }}>
+              <TouchableOpacity
+                onPress={() => { setShowBroadcastModal(false); setBroadcastTitle(""); setBroadcastBody(""); }}
+                style={{ flex: 1, alignItems: "center", paddingVertical: 14, borderRadius: 14, borderWidth: 1, borderColor: colors.border }}
+                activeOpacity={0.7}
+              >
+                <Text style={{ color: colors.mutedForeground, fontFamily: F.bold, fontSize: 14 }}>إلغاء</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={sendBroadcast}
+                disabled={broadcastSending || broadcastRemaining === 0 || !broadcastTitle.trim() || !broadcastBody.trim()}
+                style={{ flex: 2, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 14, borderRadius: 14, backgroundColor: (broadcastRemaining === 0 || !broadcastTitle.trim() || !broadcastBody.trim()) ? colors.secondary : "#2E7D32", opacity: broadcastSending ? 0.7 : 1 }}
+                activeOpacity={0.8}
+              >
+                {broadcastSending
+                  ? <ActivityIndicator size="small" color="#fff" />
+                  : <Feather name="send" size={16} color="#fff" />
+                }
+                <Text style={{ color: "#fff", fontFamily: F.extra, fontSize: 15 }}>
+                  {broadcastSending ? "جارٍ الإرسال..." : "إرسال لجميع العملاء"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+          </View>
+        </View>
+      </Modal>
+
     </View>
   );
 }
