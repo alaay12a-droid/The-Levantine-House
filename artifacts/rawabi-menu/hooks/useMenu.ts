@@ -25,7 +25,7 @@ export interface MenuCategoryWithApi {
   isDelivery?: boolean;
   isDhabiha?: boolean;
   isOccasions?: boolean;
-  items: (MenuItem & { available: boolean; nameEn?: string })[];
+  items: (MenuItem & { available: boolean; nameEn?: string; stock?: number | null })[];
 }
 
 const CATEGORY_META: Record<string, { name: string; nameEn: string; icon: string; isDelivery?: boolean; isDhabiha?: boolean; isOccasions?: boolean }> = {
@@ -53,6 +53,7 @@ function buildCategories(apiItems: ApiMenuItem[]): MenuCategoryWithApi[] {
       imageKey: item.imageKey ?? undefined,
       imageUrl: item.imageUrl ?? undefined,
       available: item.available,
+      stock: item.stock,
     });
     categoryMap.set(item.category, existing);
   }

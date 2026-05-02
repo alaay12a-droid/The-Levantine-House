@@ -48,7 +48,7 @@ export default function CheckoutScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { items, totalPrice, totalItems, clearCart } = useCart();
+  const { items, totalPrice, totalItems, clearCart, updateQuantity } = useCart();
   const { user } = useUser();
 
   const customerPushToken = useCustomerPushToken();
@@ -155,6 +155,35 @@ export default function CheckoutScreen() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setLoading(true);
     try {
+      // ── فحص المخزون الطازج قبل الإرسال ────────────────────────────────────
+      try {
+        type FreshItem = { itemId: string; stock: number | null; available: boolean; name: string };
+        const freshMenu = await apiGet<FreshItem[]>("/menu");
+        const adjustments: string[] = [];
+        for (const ci of items) {
+          const fresh = freshMenu.find((m) => m.itemId === ci.item.id);
+          if (!fresh || fresh.stock === null) continue;
+          if (ci.quantity > fresh.stock) {
+            if (fresh.stock === 0) {
+              updateQuantity(ci.item.id, 0); // remove from cart
+              adjustments.push(isEn ? `"${ci.item.name}" is out of stock and was removed` : `"${ci.item.name}" نفد المخزون وتم إزالته`);
+            } else {
+              updateQuantity(ci.item.id, fresh.stock); // reduce to available
+              adjustments.push(isEn ? `"${ci.item.name}": reduced to ${fresh.stock} (available qty)` : `"${ci.item.name}": تم تعديل الكمية إلى ${fresh.stock} فقط`);
+            }
+          }
+        }
+        if (adjustments.length > 0) {
+          setLoading(false);
+          Alert.alert(
+            isEn ? "Cart Updated" : "تم تعديل السلة",
+            (isEn ? "Some items were adjusted:\n" : "تم تعديل بعض الأصناف:\n") + adjustments.join("\n"),
+            [{ text: isEn ? "Review & Confirm" : "مراجعة وتأكيد" }]
+          );
+          return;
+        }
+      } catch { /* if stock check fails, let backend validate */ }
+
       const order = await apiPost<Order>("/orders", {
         customerName: user.name,
         customerPhone: user.phone,
