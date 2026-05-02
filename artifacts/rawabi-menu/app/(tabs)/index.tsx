@@ -11,6 +11,15 @@ import {
   StatusBar,
   Linking,
 } from "react-native";
+import Animated, {
+  useSharedValue,
+  useAnimatedScrollHandler,
+  useAnimatedStyle,
+  withTiming,
+  interpolate,
+  Extrapolation,
+} from "react-native-reanimated";
+
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
@@ -37,6 +46,9 @@ const F = {
   extra: "Cairo_800ExtraBold",
 };
 
+const AnimatedSectionList = Animated.createAnimatedComponent(SectionList<any, any>);
+const HEADER_TOP_H = 82;
+
 export default function MenuScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -50,9 +62,34 @@ export default function MenuScreen() {
   const [activeCategory, setActiveCategory] = useState("chicken");
 
   useEffect(() => { refreshBanners(); }, [refreshBanners]);
-  const sectionListRef = useRef<SectionList<any>>(null);
+  const sectionListRef = useRef<any>(null);
   const tabsScrollRef = useRef<ScrollView>(null);
   const isScrollingProgrammatically = useRef(false);
+
+  // ── Collapsing header animation ──
+  const lastY = useSharedValue(0);
+  const headerVisible = useSharedValue(1); // 1=expanded 0=collapsed
+
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      const y = event.contentOffset.y;
+      const diff = y - lastY.value;
+      lastY.value = y;
+      if (y <= 10) {
+        headerVisible.value = withTiming(1, { duration: 200 });
+      } else if (diff > 4) {
+        headerVisible.value = withTiming(0, { duration: 220 });
+      } else if (diff < -4) {
+        headerVisible.value = withTiming(1, { duration: 220 });
+      }
+    },
+  });
+
+  const headerTopStyle = useAnimatedStyle(() => ({
+    height: interpolate(headerVisible.value, [0, 1], [0, HEADER_TOP_H], Extrapolation.CLAMP),
+    opacity: interpolate(headerVisible.value, [0, 0.6], [0, 1], Extrapolation.CLAMP),
+    overflow: "hidden",
+  }));
 
   const regularCats = categories.filter((c) => !c.isDelivery && !c.isDhabiha && !c.isOccasions);
   const specialCat = categories.find((c) => c.id === activeCategory && (c.isDelivery || c.isDhabiha || c.isOccasions));
@@ -104,7 +141,7 @@ export default function MenuScreen() {
 
       {/* ── HEADER ── */}
       <View style={[styles.header, { paddingTop: topInset }]}>
-        <View style={styles.headerRow}>
+        <Animated.View style={[styles.headerRow, headerTopStyle]}>
           <View style={{ gap: 8 }}>
             <TouchableOpacity
               onPress={handleCall}
@@ -128,7 +165,7 @@ export default function MenuScreen() {
           </View>
 
           <Image source={logo} style={styles.logo} resizeMode="contain" />
-        </View>
+        </Animated.View>
 
         {/* ── CATEGORY TABS ── */}
         <ScrollView
@@ -165,7 +202,7 @@ export default function MenuScreen() {
       {/* ── CONTENT ── */}
       {specialCat?.isDelivery ? (
         /* ── DELIVERY SECTION ── */
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.list}>
+        <Animated.ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.list} onScroll={scrollHandler} scrollEventThrottle={16}>
           <BannerCarousel banners={banners} />
           <View style={[styles.deliveryCard, { backgroundColor: colors.card, borderColor: colors.gold }]}>
             <Image source={deliveryCar} style={styles.carImage} resizeMode="cover" />
@@ -196,10 +233,10 @@ export default function MenuScreen() {
               </View>
             </View>
           </View>
-        </ScrollView>
+        </Animated.ScrollView>
       ) : specialCat?.isDhabiha ? (
         /* ── DHABIHA SECTION ── */
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.list}>
+        <Animated.ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.list} onScroll={scrollHandler} scrollEventThrottle={16}>
           <BannerCarousel banners={banners} />
           <View style={[styles.dhabihaHero, { borderColor: "#E8920C" }]}>
             <Image source={dhabihaPoster} style={styles.dhabihaImg} resizeMode="cover" />
@@ -237,10 +274,10 @@ export default function MenuScreen() {
               </TouchableOpacity>
             </View>
           </View>
-        </ScrollView>
+        </Animated.ScrollView>
       ) : specialCat?.isOccasions ? (
         /* ── OCCASIONS SECTION ── */
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.list}>
+        <Animated.ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.list} onScroll={scrollHandler} scrollEventThrottle={16}>
           <BannerCarousel banners={banners} />
           <View style={[styles.occasionsHeader, { backgroundColor: "#1A0D00", borderColor: colors.gold }]}>
             <Text style={[styles.occasionsTitle, { color: colors.gold, fontFamily: F.extra }]}>🎉 عروض المناسبات</Text>
@@ -276,10 +313,10 @@ export default function MenuScreen() {
               </View>
             </TouchableOpacity>
           ))}
-        </ScrollView>
+        </Animated.ScrollView>
       ) : (
         /* ── REGULAR MENU — continuous SectionList ── */
-        <SectionList
+        <AnimatedSectionList
           ref={sectionListRef}
           sections={sections}
           keyExtractor={(item) => item.id}
@@ -288,6 +325,8 @@ export default function MenuScreen() {
           onViewableItemsChanged={onViewableItemsChanged}
           viewabilityConfig={{ itemVisiblePercentThreshold: 10 }}
           contentContainerStyle={{ paddingBottom: Platform.OS === "web" ? 130 : 110 }}
+          onScroll={scrollHandler}
+          scrollEventThrottle={16}
           ListHeaderComponent={() => (
             <View>
               {/* ── BANNER inside scroll ── */}
@@ -354,6 +393,7 @@ export default function MenuScreen() {
           )}
           SectionSeparatorComponent={() => <View style={{ height: 8 }} />}
         />
+
       )}
 
       <CartBar />
