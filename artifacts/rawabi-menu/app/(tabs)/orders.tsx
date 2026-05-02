@@ -10,10 +10,12 @@ import {
   RefreshControl,
   Alert,
   ActivityIndicator,
+  Animated,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Notifications from "expo-notifications";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import { apiGet, apiPatch } from "@/constants/api";
@@ -103,11 +105,25 @@ export default function OrdersScreen() {
   const [refreshing, setRefreshing]   = useState(false);
   const [allowCancel, setAllowCancel] = useState(false);
   const [cancellingId, setCancellingId] = useState<number | null>(null);
+  const [cancelBanner, setCancelBanner] = useState<{ orderNum: number; name: string } | null>(null);
 
   const ordersRef    = useRef<StoredOrder[]>([]);
   const liveRef      = useRef<Record<number, OrderStatus>>({});
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const screenActive = useRef(false);
+  const bannerAnim   = useRef(new Animated.Value(0)).current;
+  const bannerTimer  = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showCancelBanner = useCallback((orderNum: number, name: string) => {
+    if (bannerTimer.current) clearTimeout(bannerTimer.current);
+    setCancelBanner({ orderNum, name });
+    Animated.spring(bannerAnim, { toValue: 1, useNativeDriver: true, tension: 80, friction: 10 }).start();
+    bannerTimer.current = setTimeout(() => {
+      Animated.timing(bannerAnim, { toValue: 0, duration: 300, useNativeDriver: true }).start(() => {
+        setCancelBanner(null);
+      });
+    }, 5000);
+  }, [bannerAnim]);
 
   // ── persist live-status cache to storage ──────────────────────────────────
   const saveLiveStatus = useCallback(async (map: Record<number, OrderStatus>) => {
@@ -138,12 +154,36 @@ export default function OrdersScreen() {
     results.forEach((r) => {
       if (r.status === "fulfilled") map[r.value.id] = r.value.status;
     });
+
+    // ── detect newly-cancelled orders and alert the customer ──────────────
+    for (const [idStr, newStatus] of Object.entries(map)) {
+      const id        = Number(idStr);
+      const oldStatus = liveRef.current[id];
+      if (newStatus === "cancelled" && oldStatus && oldStatus !== "cancelled") {
+        const order = ordersRef.current.find((o) => o.id === id);
+        if (order) {
+          showCancelBanner(order.dailyNumber, order.customerName);
+          // Also fire a local system notification (works on native even in background)
+          if (Platform.OS !== "web") {
+            Notifications.scheduleNotificationAsync({
+              content: {
+                title: "❌ تم إلغاء طلبك",
+                body: `نأسف، تم إلغاء طلبك رقم #${order.dailyNumber} من قِبل المطعم.`,
+                sound: "default",
+              },
+              trigger: null,
+            }).catch(() => {});
+          }
+        }
+      }
+    }
+
     const merged = { ...liveRef.current, ...map };
     liveRef.current = merged;
     setLiveStatus(merged);
     await saveLiveStatus(merged);
     refreshBadge();
-  }, [saveLiveStatus, refreshBadge]);
+  }, [saveLiveStatus, refreshBadge, showCancelBanner]);
 
   // ── IDs of orders that are still "alive" (need polling) ──────────────────
   const getActiveIds = useCallback(() => {
@@ -255,6 +295,59 @@ export default function OrdersScreen() {
           {isEn ? "Orders" : "الطلبات"}
         </Text>
       </View>
+
+      {/* ── Cancellation Banner ── */}
+      {cancelBanner && (
+        <Animated.View
+          style={{
+            transform: [{
+              translateY: bannerAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [-80, 0],
+              }),
+            }],
+            opacity: bannerAnim,
+            position: "absolute",
+            top: topInset + 62,
+            left: 12,
+            right: 12,
+            zIndex: 999,
+            backgroundColor: "#1A0808",
+            borderRadius: 16,
+            borderWidth: 1.5,
+            borderColor: "#E5393588",
+            flexDirection: "row-reverse",
+            alignItems: "center",
+            gap: 12,
+            paddingHorizontal: 16,
+            paddingVertical: 14,
+            shadowColor: "#E53935",
+            shadowOpacity: 0.3,
+            shadowRadius: 12,
+            elevation: 10,
+          }}
+        >
+          <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: "#E5393520", alignItems: "center", justifyContent: "center" }}>
+            <Text style={{ fontSize: 20 }}>❌</Text>
+          </View>
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text style={{ color: "#EF4444", fontFamily: F.bold, fontSize: 14, textAlign: "right" }}>
+              {isEn ? "Order Cancelled" : "تم إلغاء طلبك"}
+            </Text>
+            <Text style={{ color: "#9A7A7A", fontFamily: F.regular, fontSize: 12, textAlign: "right" }}>
+              {isEn
+                ? `Order #${cancelBanner.orderNum} has been cancelled by the restaurant`
+                : `طلبك رقم #${cancelBanner.orderNum} تم إلغاؤه من قِبل المطعم`}
+            </Text>
+          </View>
+          <TouchableOpacity onPress={() => {
+            if (bannerTimer.current) clearTimeout(bannerTimer.current);
+            Animated.timing(bannerAnim, { toValue: 0, duration: 200, useNativeDriver: true }).start(() => setCancelBanner(null));
+          }}>
+            <Feather name="x" size={16} color="#9A7A7A" />
+          </TouchableOpacity>
+        </Animated.View>
+      )}
 
       {orders.length === 0 ? (
         <View style={styles.emptyWrap}>
