@@ -59,7 +59,9 @@
     "@expo-google-fonts/cairo": "^0.4.2",
     "babel-preset-expo": "^55.0.18",
     "expo-av": "^16.0.8",
+    "expo-firebase-recaptcha": "^2.3.1",
     "expo-notifications": "~0.32.17",
-    "expo-updates": "~29.0.17"
+    "expo-updates": "~29.0.17",
+    "firebase": "^12.12.1"
   }
 }
