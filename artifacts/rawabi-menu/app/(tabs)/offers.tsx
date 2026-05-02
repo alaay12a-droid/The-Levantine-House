@@ -39,12 +39,14 @@ export default function OffersScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar barStyle="light-content" />
 
+      {/* Header */}
       <View style={[styles.header, { backgroundColor: colors.card, paddingTop: topInset + 8, borderBottomColor: colors.border }]}>
         <Text style={[styles.title, { color: colors.foreground, fontFamily: F.extra }]}>
           {isEn ? "Offers" : "العروض"}
         </Text>
       </View>
 
+      {/* Sub-tabs */}
       <View style={[styles.subTabRow, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
         <TouchableOpacity
           style={[styles.subTab, activeTab === "offers" && { borderBottomColor: colors.gold, borderBottomWidth: 2 }]}
@@ -64,7 +66,7 @@ export default function OffersScreen() {
               {isEn ? "Discount Codes" : "أكواد الخصم"}
             </Text>
             {activeCodes.length > 0 && (
-              <View style={{ backgroundColor: colors.gold, borderRadius: 10, minWidth: 18, height: 18, alignItems: "center", justifyContent: "center", paddingHorizontal: 4 }}>
+              <View style={[styles.badge, { backgroundColor: colors.gold }]}>
                 <Text style={{ color: "#1A0A00", fontFamily: F.bold, fontSize: 10 }}>{activeCodes.length}</Text>
               </View>
             )}
@@ -75,25 +77,25 @@ export default function OffersScreen() {
       {/* Offers Tab */}
       {activeTab === "offers" && (
         occasionsLoading ? (
-          <View style={styles.centerWrap}>
+          <View style={styles.center}>
             <ActivityIndicator color={colors.gold} size="large" />
           </View>
         ) : occasions.length === 0 ? (
           <View style={styles.emptyWrap}>
-            <Feather name="tag" size={52} color={colors.border} />
+            <View style={[styles.emptyIcon, { backgroundColor: colors.surface }]}>
+              <Feather name="tag" size={40} color={colors.border} />
+            </View>
+            <Text style={[styles.emptyTitle, { color: colors.foreground, fontFamily: F.bold }]}>
+              {isEn ? "No Offers Right Now" : "لا توجد عروض حالياً"}
+            </Text>
             <Text style={[styles.emptyText, { color: colors.mutedForeground, fontFamily: F.semi }]}>
-              {isEn
-                ? "No offers available right now.\nCheck back later for the latest deals."
-                : "لا توجد عروض حالياً،\nالرجاء زيارة هذه الصفحة لاحقاً\nلاستعراض أحدث العروض"}
+              {isEn ? "Check back later for the latest deals." : "الرجاء زيارة هذه الصفحة لاحقاً لاستعراض أحدث العروض"}
             </Text>
           </View>
         ) : (
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, gap: 16 }}>
             {occasions.map((occ) => (
-              <View
-                key={occ.occasionId}
-                style={[styles.occasionCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-              >
+              <View key={occ.occasionId} style={[styles.occasionCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
                 {occ.imageUrl ? (
                   <Image source={{ uri: occ.imageUrl }} style={styles.occasionImage} resizeMode="cover" />
                 ) : (
@@ -120,12 +122,17 @@ export default function OffersScreen() {
       {/* Codes Tab */}
       {activeTab === "codes" && (
         !codesLoaded ? (
-          <View style={styles.centerWrap}>
+          <View style={styles.center}>
             <ActivityIndicator color={colors.gold} size="large" />
           </View>
         ) : activeCodes.length === 0 ? (
           <View style={styles.emptyWrap}>
-            <Feather name="percent" size={52} color={colors.border} />
+            <View style={[styles.emptyIcon, { backgroundColor: colors.surface }]}>
+              <Feather name="percent" size={40} color={colors.border} />
+            </View>
+            <Text style={[styles.emptyTitle, { color: colors.foreground, fontFamily: F.bold }]}>
+              {isEn ? "No Discount Codes" : "لا توجد أكواد خصم"}
+            </Text>
             <Text style={[styles.emptyText, { color: colors.mutedForeground, fontFamily: F.semi }]}>
               {isEn ? "No discount codes available right now." : "لا توجد أكواد خصم متاحة حالياً"}
             </Text>
@@ -196,7 +203,15 @@ const styles = StyleSheet.create({
     borderBottomColor: "transparent",
   },
   subTabText: { fontSize: 14 },
-  centerWrap: {
+  badge: {
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 4,
+  },
+  center: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
@@ -205,33 +220,31 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    gap: 16,
+    gap: 14,
     paddingHorizontal: 40,
   },
-  emptyText: {
-    fontSize: 15,
-    textAlign: "center",
-    lineHeight: 26,
+  emptyIcon: {
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    alignItems: "center",
+    justifyContent: "center",
   },
+  emptyTitle: { fontSize: 18 },
+  emptyText: { fontSize: 14, textAlign: "center", lineHeight: 24 },
   occasionCard: {
     borderRadius: 16,
     borderWidth: 1,
     overflow: "hidden",
   },
-  occasionImage: {
-    width: "100%",
-    height: 180,
-  },
+  occasionImage: { width: "100%", height: 180 },
   occasionImagePlaceholder: {
     width: "100%",
     height: 120,
     alignItems: "center",
     justifyContent: "center",
   },
-  occasionBody: {
-    padding: 14,
-    gap: 6,
-  },
+  occasionBody: { padding: 14, gap: 6 },
   codeCard: {
     borderRadius: 16,
     borderWidth: 1.5,

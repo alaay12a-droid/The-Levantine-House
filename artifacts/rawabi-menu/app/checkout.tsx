@@ -59,6 +59,7 @@ export default function CheckoutScreen() {
   const { language } = useLanguage();
   const isEn = language === "en";
   const [notes, setNotes] = useState("");
+  const [notesExpanded, setNotesExpanded] = useState(false);
   const [orderType, setOrderType] = useState<"delivery" | "pickup">("delivery");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
   const [loading, setLoading] = useState(false);
@@ -66,7 +67,6 @@ export default function CheckoutScreen() {
   const [locationLoading, setLocationLoading] = useState(false);
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
 
-  // SMS OTP
   const [otpStep, setOtpStep] = useState<"idle" | "sent" | "verified">("idle");
   const [otpCode, setOtpCode] = useState("");
   const [otpLoading, setOtpLoading] = useState(false);
@@ -122,7 +122,6 @@ export default function CheckoutScreen() {
     ? (paymentSettings.deliveryFee ?? 0)
     : 0;
   const grandTotal = totalPrice + deliveryFee;
-  const totalStr = totalPrice % 1 === 0 ? totalPrice.toString() : totalPrice.toFixed(2);
   const grandTotalStr = grandTotal % 1 === 0 ? grandTotal.toString() : grandTotal.toFixed(2);
   const deliveryFeeStr = deliveryFee % 1 === 0 ? deliveryFee.toString() : deliveryFee.toFixed(2);
 
@@ -214,7 +213,6 @@ export default function CheckoutScreen() {
       await apiPost("/sms/verify-otp", { phone: user.phone, code: otpCode });
       setOtpStep("verified");
       setOtpCode("");
-      // auto-submit after successful verification
       await submitOrder();
     } catch (err: unknown) {
       const msg = (err as { message?: string })?.message ?? "الرمز غير صحيح";
@@ -227,8 +225,6 @@ export default function CheckoutScreen() {
   const handlePlaceOrder = async () => {
     if (!user) return;
     if (items.length === 0) return;
-
-    // Check if branch is open
     try {
       const branchStatus = await apiGet<{ isOpen: boolean; message: string | null }>("/branch-status");
       if (!branchStatus.isOpen) {
@@ -236,438 +232,466 @@ export default function CheckoutScreen() {
         return;
       }
     } catch {}
-
-    // Check if SMS OTP is required
     if (otpStep !== "verified") {
       try {
         const smsSettings = await apiGet<{ enabled: boolean }>("/sms-settings");
         if (smsSettings.enabled) {
           await handleSendOtp();
-          return; // pause — user must enter OTP first
+          return;
         }
       } catch {}
     }
-
     await submitOrder();
   };
+
+  const GOLD = colors.gold;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar barStyle="light-content" />
 
-      <View style={[styles.header, { backgroundColor: "#1A1008", paddingTop: topInset + 8, borderBottomColor: colors.border }]}>
+      {/* Header */}
+      <View style={[styles.header, { backgroundColor: colors.card, paddingTop: topInset + 10, borderBottomColor: colors.border }]}>
+        <View style={{ width: 36 }} />
+        <Text style={[styles.headerTitle, { color: colors.foreground, fontFamily: F.bold }]}>
+          {isEn ? "Checkout" : "الدفع"}
+        </Text>
         <TouchableOpacity
           onPress={() => router.back()}
-          style={[styles.backBtn, { backgroundColor: colors.secondary }]}
-          activeOpacity={0.7}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Feather name="arrow-right" size={20} color={colors.foreground} />
+          <Feather name="arrow-right" size={22} color={colors.foreground} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.foreground, fontFamily: F.bold }]}>
-          {isEn ? "Checkout" : "إتمام الطلب"}
-        </Text>
-        <View style={{ width: 36 }} />
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.scroll, { paddingBottom: bottomInset + 200 }]}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: bottomInset + 160 }}>
 
-        {/* Customer Info */}
-        <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Text style={[styles.sectionTitle, { color: colors.gold, fontFamily: F.bold }]}>
-            {isEn ? "Customer Info" : "بيانات العميل"}
-          </Text>
-          <View style={styles.infoRow}>
-            <Text style={[styles.infoValue, { color: colors.foreground, fontFamily: F.semi }]}>
+        {/* ── Customer info section ── */}
+        <View style={[styles.listCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          {/* Name row */}
+          <View style={styles.listRow}>
+            <Text style={[styles.rowValue, { color: colors.foreground, fontFamily: F.semi }]}>
               {user?.name}
             </Text>
-            <Feather name="user" size={16} color={colors.mutedForeground} />
+            <View style={styles.rowLeft}>
+              <Feather name="user" size={16} color={colors.mutedForeground} />
+              <Text style={[styles.rowLabel, { color: colors.mutedForeground, fontFamily: F.regular }]}>
+                {isEn ? "Name" : "الاسم"}
+              </Text>
+            </View>
           </View>
-          <View style={styles.infoRow}>
-            <Text style={[styles.infoValue, { color: colors.foreground, fontFamily: F.semi }]}>
+          <View style={[styles.rowDivider, { backgroundColor: colors.border }]} />
+
+          {/* Phone row */}
+          <View style={styles.listRow}>
+            <Text style={[styles.rowValue, { color: colors.foreground, fontFamily: F.semi }]}>
               {user?.phone}
             </Text>
-            <Feather name="phone" size={16} color={colors.mutedForeground} />
+            <View style={styles.rowLeft}>
+              <Feather name="phone" size={16} color={colors.mutedForeground} />
+              <Text style={[styles.rowLabel, { color: colors.mutedForeground, fontFamily: F.regular }]}>
+                {isEn ? "Phone" : "الجوال"}
+              </Text>
+            </View>
           </View>
+
+          {/* Address row — if available */}
           {user?.address && user.address !== "غير محدد" && (
-            <View style={styles.infoRow}>
-              <Text style={[styles.infoValue, { color: colors.foreground, fontFamily: F.semi }]}>
-                {user.address}
-              </Text>
-              <Feather name="map-pin" size={16} color={colors.mutedForeground} />
-            </View>
+            <>
+              <View style={[styles.rowDivider, { backgroundColor: colors.border }]} />
+              <View style={styles.listRow}>
+                <Text style={[styles.rowValue, { color: colors.foreground, fontFamily: F.semi }]} numberOfLines={1}>
+                  {user.address}
+                </Text>
+                <View style={styles.rowLeft}>
+                  <Feather name="map-pin" size={16} color={colors.mutedForeground} />
+                  <Text style={[styles.rowLabel, { color: colors.mutedForeground, fontFamily: F.regular }]}>
+                    {isEn ? "Address" : "العنوان"}
+                  </Text>
+                </View>
+              </View>
+            </>
           )}
         </View>
 
-        {/* Delivery / Pickup Selector */}
+        {/* ── Order type (delivery/pickup) ── */}
         {paymentSettings.deliveryEnabled && (
-          <View style={[styles.section, { backgroundColor: colors.card, borderColor: orderType === "delivery" ? colors.gold : "#2A5A2A" }]}>
-            <Text style={[styles.sectionTitle, { color: colors.gold, fontFamily: F.bold }]}>
-              {isEn ? "Order Type" : "نوع الطلب"}
-            </Text>
-            <View style={{ flexDirection: "row-reverse", gap: 10 }}>
-              <TouchableOpacity
-                onPress={() => setOrderType("delivery")}
-                activeOpacity={0.8}
-                style={{
-                  flex: 1, borderRadius: 12, borderWidth: 2, paddingVertical: 14, alignItems: "center", gap: 6,
-                  borderColor: orderType === "delivery" ? colors.gold : colors.border,
-                  backgroundColor: orderType === "delivery" ? "#2A1A05" : colors.secondary,
-                }}
-              >
-                <Text style={{ fontSize: 26 }}>🚗</Text>
-                <Text style={{ color: orderType === "delivery" ? colors.gold : colors.foreground, fontFamily: F.bold, fontSize: 14 }}>{isEn ? "Delivery" : "توصيل"}</Text>
-                {paymentSettings.deliveryFee > 0 ? (
-                  <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }}>+{paymentSettings.deliveryFee} {isEn ? "SAR" : "ر.س"}</Text>
-                ) : (
-                  <Text style={{ color: "#4CAF50", fontFamily: F.semi, fontSize: 11 }}>{isEn ? "Free" : "مجاني"}</Text>
-                )}
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => setOrderType("pickup")}
-                activeOpacity={0.8}
-                style={{
-                  flex: 1, borderRadius: 12, borderWidth: 2, paddingVertical: 14, alignItems: "center", gap: 6,
-                  borderColor: orderType === "pickup" ? "#4CAF50" : colors.border,
-                  backgroundColor: orderType === "pickup" ? "#0A2A0A" : colors.secondary,
-                }}
-              >
-                <Text style={{ fontSize: 26 }}>🏪</Text>
-                <Text style={{ color: orderType === "pickup" ? "#4CAF50" : colors.foreground, fontFamily: F.bold, fontSize: 14 }}>{isEn ? "Pickup" : "استلام من الفرع"}</Text>
-                <Text style={{ color: "#4CAF50", fontFamily: F.semi, fontSize: 11 }}>{isEn ? "No fee" : "بدون رسوم"}</Text>
-              </TouchableOpacity>
+          <View style={[styles.listCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={styles.listRow}>
+              <View style={styles.typeToggle}>
+                <TouchableOpacity
+                  onPress={() => setOrderType("pickup")}
+                  style={[
+                    styles.typeBtn,
+                    {
+                      backgroundColor: orderType === "pickup" ? "#0A2A0A" : colors.secondary,
+                      borderColor: orderType === "pickup" ? "#4CAF50" : colors.border,
+                    },
+                  ]}
+                  activeOpacity={0.8}
+                >
+                  <Text style={{ fontSize: 20 }}>🏪</Text>
+                  <Text style={[styles.typeBtnLabel, { color: orderType === "pickup" ? "#4CAF50" : colors.foreground, fontFamily: F.bold }]}>
+                    {isEn ? "Pickup" : "استلام"}
+                  </Text>
+                  <Text style={[{ color: "#4CAF50", fontFamily: F.semi, fontSize: 11 }]}>
+                    {isEn ? "No fee" : "بدون رسوم"}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => setOrderType("delivery")}
+                  style={[
+                    styles.typeBtn,
+                    {
+                      backgroundColor: orderType === "delivery" ? "#2A1A05" : colors.secondary,
+                      borderColor: orderType === "delivery" ? GOLD : colors.border,
+                    },
+                  ]}
+                  activeOpacity={0.8}
+                >
+                  <Text style={{ fontSize: 20 }}>🚗</Text>
+                  <Text style={[styles.typeBtnLabel, { color: orderType === "delivery" ? GOLD : colors.foreground, fontFamily: F.bold }]}>
+                    {isEn ? "Delivery" : "توصيل"}
+                  </Text>
+                  {paymentSettings.deliveryFee > 0 ? (
+                    <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }}>
+                      +{paymentSettings.deliveryFee} {isEn ? "SAR" : "ر.س"}
+                    </Text>
+                  ) : (
+                    <Text style={{ color: "#4CAF50", fontFamily: F.semi, fontSize: 11 }}>
+                      {isEn ? "Free" : "مجاني"}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+              <View style={styles.rowLeft}>
+                <Feather name="truck" size={16} color={colors.mutedForeground} />
+                <Text style={[styles.rowLabel, { color: colors.mutedForeground, fontFamily: F.regular }]}>
+                  {isEn ? "Order Type" : "نوع الطلب"}
+                </Text>
+              </View>
             </View>
           </View>
         )}
 
-        {/* Location */}
+        {/* ── Location row ── */}
         {(!paymentSettings.deliveryEnabled || orderType === "delivery") && (
-        <View style={[styles.section, { backgroundColor: colors.card, borderColor: locationUrl ? "#2A5A2A" : colors.border }]}>
-          <Text style={[styles.sectionTitle, { color: colors.gold, fontFamily: F.bold }]}>
-            📍 {isEn ? "Location (Optional)" : "الموقع (اختياري)"}
-          </Text>
-
-          {locationUrl ? (
-            <View style={{ gap: 10 }}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "#1A3A1A", borderRadius: 10, padding: 12 }}>
-                <Feather name="map-pin" size={18} color="#4CAF50" />
-                <Text style={{ flex: 1, color: "#4CAF50", fontFamily: F.semi, fontSize: 13 }}>
-                  {isEn ? "Location confirmed ✓" : "تم تحديد موقعك ✓"}
+          <View style={[styles.listCard, { backgroundColor: colors.card, borderColor: locationUrl ? "#2A5A2A" : colors.border }]}>
+            {locationUrl ? (
+              <>
+                <View style={styles.listRow}>
+                  <View style={{ flexDirection: "row", gap: 8 }}>
+                    <TouchableOpacity
+                      onPress={() => setLocationUrl(null)}
+                      style={[styles.locActionBtn, { backgroundColor: "#3A1A1A" }]}
+                    >
+                      <Feather name="x" size={13} color="#E57373" />
+                      <Text style={{ color: "#E57373", fontFamily: F.bold, fontSize: 12 }}>
+                        {isEn ? "Remove" : "إزالة"}
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => Linking.openURL(locationUrl)}
+                      style={[styles.locActionBtn, { backgroundColor: "#1A2A3A" }]}
+                    >
+                      <Feather name="external-link" size={13} color="#64B5F6" />
+                      <Text style={{ color: "#64B5F6", fontFamily: F.bold, fontSize: 12 }}>
+                        {isEn ? "View" : "عرض"}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                  <View style={styles.rowLeft}>
+                    <Feather name="map-pin" size={16} color="#4CAF50" />
+                    <Text style={[styles.rowLabel, { color: colors.mutedForeground, fontFamily: F.regular }]}>
+                      {isEn ? "Location" : "الموقع"}
+                    </Text>
+                  </View>
+                </View>
+                <View style={[styles.locConfirmed, { backgroundColor: "#1A3A1A" }]}>
+                  <Feather name="check-circle" size={14} color="#4CAF50" />
+                  <Text style={{ color: "#4CAF50", fontFamily: F.semi, fontSize: 13 }}>
+                    {isEn ? "Location confirmed ✓" : "تم تحديد موقعك ✓"}
+                  </Text>
+                </View>
+              </>
+            ) : (
+              <TouchableOpacity
+                onPress={handleGetLocation}
+                disabled={locationLoading}
+                style={styles.listRow}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.rowValue, { color: locationLoading ? colors.mutedForeground : GOLD, fontFamily: F.bold }]}>
+                  {locationLoading
+                    ? (isEn ? "Getting location..." : "جاري التحديد...")
+                    : (isEn ? "Tap to share location" : "اضغط لمشاركة موقعك")}
                 </Text>
-              </View>
-              <View style={{ flexDirection: "row", gap: 8 }}>
-                <TouchableOpacity
-                  onPress={() => Linking.openURL(locationUrl)}
-                  style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: "#1A2A3A", borderRadius: 10, paddingVertical: 10 }}
-                >
-                  <Feather name="external-link" size={14} color="#64B5F6" />
-                  <Text style={{ color: "#64B5F6", fontFamily: F.bold, fontSize: 13 }}>{isEn ? "View Location" : "عرض الموقع"}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => setLocationUrl(null)}
-                  style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: "#3A1A1A", borderRadius: 10, paddingVertical: 10 }}
-                >
-                  <Feather name="x" size={14} color="#E57373" />
-                  <Text style={{ color: "#E57373", fontFamily: F.bold, fontSize: 13 }}>{isEn ? "Remove Location" : "إزالة الموقع"}</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          ) : (
-            <TouchableOpacity
-              onPress={handleGetLocation}
-              disabled={locationLoading}
-              style={[styles.locationBtn, { borderColor: colors.border, backgroundColor: colors.secondary }]}
-              activeOpacity={0.8}
-            >
-              {locationLoading ? (
-                <ActivityIndicator size="small" color={colors.gold} />
-              ) : (
-                <Feather name="map-pin" size={18} color={colors.gold} />
-              )}
-              <Text style={[styles.locationBtnText, { color: locationLoading ? colors.mutedForeground : colors.foreground, fontFamily: F.bold }]}>
-                {locationLoading ? (isEn ? "Getting location..." : "جاري تحديد موقعك...") : (isEn ? "Use My Current Location 🗺️" : "تحديد موقعي الحالي 🗺️")}
-              </Text>
-            </TouchableOpacity>
-          )}
-          <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12, textAlign: "center" }}>
-            {isEn ? "Your location link will be sent with the order." : "سيصل رابط موقعك للكاشير مع طلبك"}
-          </Text>
-        </View>
+                <View style={styles.rowLeft}>
+                  {locationLoading
+                    ? <ActivityIndicator size="small" color={GOLD} />
+                    : <Feather name="map-pin" size={16} color={colors.mutedForeground} />
+                  }
+                  <Text style={[styles.rowLabel, { color: colors.mutedForeground, fontFamily: F.regular }]}>
+                    {isEn ? "Location" : "الموقع"}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            )}
+          </View>
         )}
 
-        {/* Order Summary */}
-        <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Text style={[styles.sectionTitle, { color: colors.gold, fontFamily: F.bold }]}>
-            {isEn ? "Order Summary" : "ملخص الطلب"}
-          </Text>
-          {items.map((ci) => {
-            const lineTotal = ci.item.price * ci.quantity;
-            const lineTotalStr = lineTotal % 1 === 0 ? lineTotal.toString() : lineTotal.toFixed(1);
-            return (
-              <View key={ci.item.id} style={styles.orderRow}>
-                <Text style={[styles.orderPrice, { color: colors.gold, fontFamily: F.bold }]}>
-                  {lineTotalStr} {isEn ? "SAR" : "ر.س"}
-                </Text>
-                <Text style={[styles.orderName, { color: colors.foreground, fontFamily: F.semi }]} numberOfLines={1}>
-                  {isEn && ci.item.nameEn ? ci.item.nameEn : ci.item.name} × {ci.quantity}
-                </Text>
-              </View>
-            );
-          })}
-          <View style={[styles.divider, { backgroundColor: colors.border }]} />
-          <View style={styles.orderRow}>
-            <Text style={[styles.orderPrice, { color: colors.mutedForeground, fontFamily: F.bold }]}>
-              {totalStr} {isEn ? "SAR" : "ر.س"}
-            </Text>
-            <Text style={[styles.orderName, { color: colors.mutedForeground, fontFamily: F.semi }]}>
-              {isEn ? `Subtotal (${totalItems} item${totalItems !== 1 ? "s" : ""})` : `المجموع الفرعي (${totalItems} صنف)`}
-            </Text>
-          </View>
-          {paymentSettings.deliveryEnabled && (
-            <View style={styles.orderRow}>
-              {deliveryFee > 0 ? (
-                <Text style={[styles.orderPrice, { color: colors.gold, fontFamily: F.bold }]}>
-                  {deliveryFeeStr} {isEn ? "SAR" : "ر.س"}
-                </Text>
-              ) : (
-                <Text style={[styles.orderPrice, { color: "#4CAF50", fontFamily: F.bold }]}>
-                  {isEn ? "Free" : "مجاني"}
-                </Text>
-              )}
-              <Text style={[styles.orderName, { color: colors.foreground, fontFamily: F.semi }]}>
-                {orderType === "delivery"
-                  ? (isEn ? "🚗 Delivery Fee" : "🚗 رسوم التوصيل")
-                  : (isEn ? "🏪 Branch Pickup" : "🏪 استلام من الفرع")}
-              </Text>
-            </View>
-          )}
-          <View style={[styles.divider, { backgroundColor: colors.gold, opacity: 0.4 }]} />
-          <View style={styles.orderRow}>
-            <Text style={[styles.totalPrice, { color: colors.gold, fontFamily: F.extra }]}>
-              {grandTotalStr} {isEn ? "SAR" : "ر.س"}
-            </Text>
-            <Text style={[styles.totalLabel, { color: colors.foreground, fontFamily: F.bold }]}>
-              {isEn ? "Total" : "الإجمالي"}
-            </Text>
-          </View>
-        </View>
-
-        {/* Notes */}
-        <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Text style={[styles.sectionTitle, { color: colors.gold, fontFamily: F.bold }]}>
-            {isEn ? "Notes (Optional)" : "ملاحظات (اختياري)"}
-          </Text>
-          <TextInput
-            value={notes}
-            onChangeText={setNotes}
-            placeholder={isEn ? "Any notes about your order..." : "أي ملاحظات على الطلب..."}
-            placeholderTextColor={colors.mutedForeground}
-            multiline
-            numberOfLines={3}
-            style={[
-              styles.notesInput,
-              {
-                color: colors.foreground,
-                borderColor: colors.border,
-                backgroundColor: colors.secondary,
-                fontFamily: F.regular,
-              },
-            ]}
-            textAlignVertical="top"
-          />
-        </View>
-
-        {/* Payment Method */}
-        <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Text style={[styles.sectionTitle, { color: colors.gold, fontFamily: F.bold }]}>
-            {t("paymentMethod")}
-          </Text>
-
+        {/* ── Notes row ── */}
+        <View style={[styles.listCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <TouchableOpacity
-            onPress={() => setPaymentMethod("cash")}
-            style={[
-              styles.paymentOption,
-              {
-                borderColor: paymentMethod === "cash" ? colors.gold : colors.border,
-                backgroundColor: paymentMethod === "cash" ? "#2A1A08" : colors.secondary,
-              },
-            ]}
+            style={styles.listRow}
+            onPress={() => setNotesExpanded(!notesExpanded)}
             activeOpacity={0.7}
           >
-            <View style={[styles.radioOuter, { borderColor: paymentMethod === "cash" ? colors.gold : colors.border }]}>
-              {paymentMethod === "cash" && (
-                <View style={[styles.radioInner, { backgroundColor: colors.gold }]} />
-              )}
-            </View>
-            <View style={styles.paymentInfo}>
-              <Text style={[styles.paymentTitle, { color: colors.foreground, fontFamily: F.bold }]}>
-                {t("cash")}
-              </Text>
-              <Text style={[styles.paymentDesc, { color: colors.mutedForeground, fontFamily: F.regular }]}>
-                {t("cashDesc")}
+            <Feather name={notesExpanded ? "chevron-up" : "chevron-left"} size={16} color={colors.mutedForeground} />
+            <View style={styles.rowLeft}>
+              <Feather name="edit-3" size={16} color={colors.mutedForeground} />
+              <Text style={[styles.rowLabel, { color: colors.mutedForeground, fontFamily: F.regular }]}>
+                {isEn ? "Notes" : "ملاحظة"}
               </Text>
             </View>
           </TouchableOpacity>
+          {notesExpanded && (
+            <>
+              <View style={[styles.rowDivider, { backgroundColor: colors.border }]} />
+              <TextInput
+                value={notes}
+                onChangeText={setNotes}
+                placeholder={isEn ? "Any notes about your order..." : "أي ملاحظات على طلبك..."}
+                placeholderTextColor={colors.mutedForeground}
+                multiline
+                numberOfLines={3}
+                style={[styles.notesInput, { color: colors.foreground, backgroundColor: colors.secondary, fontFamily: F.regular }]}
+                textAlignVertical="top"
+              />
+            </>
+          )}
+        </View>
 
-          {walletBalance !== null && walletBalance > 0 && (
-            <TouchableOpacity
-              onPress={() => setPaymentMethod("wallet")}
-              style={[
-                styles.paymentOption,
-                {
-                  borderColor: paymentMethod === "wallet" ? colors.gold : colors.border,
-                  backgroundColor: paymentMethod === "wallet" ? "#2A1A08" : colors.secondary,
-                },
-              ]}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.radioOuter, { borderColor: paymentMethod === "wallet" ? colors.gold : colors.border }]}>
-                {paymentMethod === "wallet" && (
-                  <View style={[styles.radioInner, { backgroundColor: colors.gold }]} />
+        {/* ── Price breakdown ── */}
+        <View style={[styles.listCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[styles.sectionLabel, { color: colors.mutedForeground, fontFamily: F.semi }]}>
+            {isEn ? "Order Summary" : "ملخص الطلب"}
+          </Text>
+
+          {/* Items */}
+          {items.map((ci) => {
+            const lineTotal = ci.item.price * ci.quantity;
+            const lineTotalStr = lineTotal % 1 === 0 ? lineTotal.toString() : lineTotal.toFixed(1);
+            const name = isEn && ci.item.nameEn ? ci.item.nameEn : ci.item.name;
+            return (
+              <React.Fragment key={ci.item.id}>
+                <View style={[styles.rowDivider, { backgroundColor: colors.border }]} />
+                <View style={styles.listRow}>
+                  <Text style={[styles.rowValue, { color: colors.mutedForeground, fontFamily: F.bold }]}>
+                    {lineTotalStr} {isEn ? "SAR" : "ر.س"}
+                  </Text>
+                  <Text style={[styles.rowLabel, { color: colors.foreground, fontFamily: F.semi, flex: 1, textAlign: "right" }]} numberOfLines={1}>
+                    {name} × {ci.quantity}
+                  </Text>
+                </View>
+              </React.Fragment>
+            );
+          })}
+
+          {/* Delivery fee */}
+          {paymentSettings.deliveryEnabled && (
+            <>
+              <View style={[styles.rowDivider, { backgroundColor: colors.border }]} />
+              <View style={styles.listRow}>
+                {deliveryFee > 0 ? (
+                  <Text style={[styles.rowValue, { color: colors.mutedForeground, fontFamily: F.bold }]}>
+                    {deliveryFeeStr} {isEn ? "SAR" : "ر.س"}
+                  </Text>
+                ) : (
+                  <Text style={[styles.rowValue, { color: "#4CAF50", fontFamily: F.bold }]}>
+                    {isEn ? "Free" : "مجاني"}
+                  </Text>
                 )}
-              </View>
-              <View style={styles.paymentInfo}>
-                <Text style={[styles.paymentTitle, { color: colors.foreground, fontFamily: F.bold }]}>
-                  {t("payWallet")}
-                </Text>
-                <Text style={[styles.paymentDesc, { color: walletBalance >= grandTotal ? "#22C55E" : "#E53935", fontFamily: F.regular }]}>
-                  {t("walletBalance")}: {walletBalance} {t("sar")}
-                  {walletBalance < grandTotal ? ` (${t("insufficientBalance")})` : ""}
+                <Text style={[styles.rowLabel, { color: colors.foreground, fontFamily: F.semi }]}>
+                  {orderType === "delivery"
+                    ? (isEn ? "🚗 Delivery" : "🚗 رسوم التوصيل")
+                    : (isEn ? "🏪 Branch Pickup" : "🏪 استلام")}
                 </Text>
               </View>
-            </TouchableOpacity>
+            </>
           )}
 
-          {paymentSettings.applePayEnabled ? (
-            <TouchableOpacity
-              onPress={() => setPaymentMethod("moyasar")}
-              style={[
-                styles.paymentOption,
-                {
-                  borderColor: paymentMethod === "moyasar" ? colors.gold : colors.border,
-                  backgroundColor: paymentMethod === "moyasar" ? "#2A1A08" : colors.secondary,
-                },
-              ]}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.radioOuter, { borderColor: paymentMethod === "moyasar" ? colors.gold : colors.border }]}>
-                {paymentMethod === "moyasar" && (
-                  <View style={[styles.radioInner, { backgroundColor: colors.gold }]} />
-                )}
+          {/* Total */}
+          <View style={[styles.totalLine, { backgroundColor: colors.border }]} />
+          <View style={styles.listRow}>
+            <Text style={[styles.grandTotal, { color: GOLD, fontFamily: F.extra }]}>
+              {grandTotalStr} {isEn ? "SAR" : "ر.س"}
+            </Text>
+            <Text style={[styles.rowLabel, { color: colors.foreground, fontFamily: F.bold }]}>
+              {isEn ? "Total (VAT incl.)" : "المجموع شامل الضريبة"}
+            </Text>
+          </View>
+        </View>
+
+        {/* ── Payment method ── */}
+        <View style={[styles.listCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[styles.sectionLabel, { color: colors.mutedForeground, fontFamily: F.semi }]}>
+            {t("paymentMethod")}
+          </Text>
+
+          {/* Cash */}
+          <View style={[styles.rowDivider, { backgroundColor: colors.border }]} />
+          <TouchableOpacity style={styles.listRow} onPress={() => setPaymentMethod("cash")} activeOpacity={0.7}>
+            <View style={styles.radioOuter}>
+              <View style={[styles.radioInner, { borderColor: paymentMethod === "cash" ? GOLD : colors.border }]}>
+                {paymentMethod === "cash" && <View style={[styles.radioDot, { backgroundColor: GOLD }]} />}
               </View>
-              <View style={styles.paymentInfo}>
-                <Text style={[styles.paymentTitle, { color: colors.foreground, fontFamily: F.bold }]}>
-                   Apple Pay
+            </View>
+            <View style={styles.rowLeft}>
+              <Feather name="dollar-sign" size={16} color={colors.mutedForeground} />
+              <View>
+                <Text style={[styles.rowLabel, { color: colors.foreground, fontFamily: F.bold }]}>
+                  {t("cash")}
                 </Text>
-                <Text style={[styles.paymentDesc, { color: colors.mutedForeground, fontFamily: F.regular }]}>
-                  {isEn ? "Pay easily with Apple Pay" : "ادفع بسهولة عبر Apple Pay"}
+                <Text style={[{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }]}>
+                  {t("cashDesc")}
                 </Text>
+              </View>
+            </View>
+          </TouchableOpacity>
+
+          {/* Wallet */}
+          {walletBalance !== null && walletBalance > 0 && (
+            <>
+              <View style={[styles.rowDivider, { backgroundColor: colors.border }]} />
+              <TouchableOpacity style={styles.listRow} onPress={() => setPaymentMethod("wallet")} activeOpacity={0.7}>
+                <View style={styles.radioOuter}>
+                  <View style={[styles.radioInner, { borderColor: paymentMethod === "wallet" ? GOLD : colors.border }]}>
+                    {paymentMethod === "wallet" && <View style={[styles.radioDot, { backgroundColor: GOLD }]} />}
+                  </View>
+                </View>
+                <View style={styles.rowLeft}>
+                  <Feather name="credit-card" size={16} color={colors.mutedForeground} />
+                  <View>
+                    <Text style={[styles.rowLabel, { color: colors.foreground, fontFamily: F.bold }]}>
+                      {t("payWallet")}
+                    </Text>
+                    <Text style={[{ color: walletBalance >= grandTotal ? "#22C55E" : "#E53935", fontFamily: F.regular, fontSize: 11 }]}>
+                      {t("walletBalance")}: {walletBalance} {t("sar")}
+                      {walletBalance < grandTotal ? ` (${t("insufficientBalance")})` : ""}
+                    </Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            </>
+          )}
+
+          {/* Online / Apple Pay */}
+          <View style={[styles.rowDivider, { backgroundColor: colors.border }]} />
+          {paymentSettings.applePayEnabled ? (
+            <TouchableOpacity style={styles.listRow} onPress={() => setPaymentMethod("moyasar")} activeOpacity={0.7}>
+              <View style={styles.radioOuter}>
+                <View style={[styles.radioInner, { borderColor: paymentMethod === "moyasar" ? GOLD : colors.border }]}>
+                  {paymentMethod === "moyasar" && <View style={[styles.radioDot, { backgroundColor: GOLD }]} />}
+                </View>
+              </View>
+              <View style={styles.rowLeft}>
+                <Feather name="smartphone" size={16} color={colors.mutedForeground} />
+                <View>
+                  <Text style={[styles.rowLabel, { color: colors.foreground, fontFamily: F.bold }]}>Apple Pay</Text>
+                  <Text style={[{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }]}>
+                    {isEn ? "Pay easily with Apple Pay" : "ادفع بسهولة عبر Apple Pay"}
+                  </Text>
+                </View>
               </View>
             </TouchableOpacity>
           ) : (
-            <View
-              style={[
-                styles.paymentOption,
-                {
-                  borderColor: colors.border,
-                  backgroundColor: colors.secondary,
-                  opacity: 0.45,
-                },
-              ]}
-            >
-              <View style={[styles.radioOuter, { borderColor: colors.border }]} />
-              <View style={styles.paymentInfo}>
-                <Text style={[styles.paymentTitle, { color: colors.foreground, fontFamily: F.bold }]}>
-                  💳 {isEn ? "Online Payment (Coming Soon)" : "دفع إلكتروني (قريباً)"}
-                </Text>
-                <Text style={[styles.paymentDesc, { color: colors.mutedForeground, fontFamily: F.regular }]}>
-                  Mada • Visa • Apple Pay • STC Pay
-                </Text>
+            <View style={[styles.listRow, { opacity: 0.4 }]}>
+              <View style={styles.radioOuter}>
+                <View style={[styles.radioInner, { borderColor: colors.border }]} />
+              </View>
+              <View style={styles.rowLeft}>
+                <Feather name="credit-card" size={16} color={colors.mutedForeground} />
+                <View>
+                  <Text style={[styles.rowLabel, { color: colors.foreground, fontFamily: F.bold }]}>
+                    💳 {isEn ? "Online Payment (Coming Soon)" : "دفع إلكتروني (قريباً)"}
+                  </Text>
+                  <Text style={[{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }]}>
+                    Mada • Visa • Apple Pay • STC Pay
+                  </Text>
+                </View>
               </View>
             </View>
           )}
         </View>
       </ScrollView>
 
-      {/* Bottom CTA */}
-      <View style={[styles.bottomBar, { backgroundColor: "#1A1008", borderTopColor: colors.border, paddingBottom: bottomInset + 16 }]}>
-        <View style={[styles.totalRow, { backgroundColor: colors.secondary }]}>
-          <Text style={[styles.bottomTotal, { color: colors.gold, fontFamily: F.extra }]}>
-            {grandTotalStr} {isEn ? "SAR" : "ر.س"}
-          </Text>
-          <Text style={[styles.bottomLabel, { color: colors.mutedForeground, fontFamily: F.regular }]}>
-            {paymentSettings.deliveryEnabled
-              ? (orderType === "pickup"
-                ? (isEn ? "Branch Pickup" : "استلام من الفرع")
-                : deliveryFee > 0
-                  ? (isEn ? `Incl. delivery ${deliveryFeeStr} SAR` : `شامل التوصيل ${deliveryFeeStr} ر.س`)
-                  : (isEn ? "Free Delivery" : "توصيل مجاني"))
-              : (isEn ? "Total" : "الإجمالي")}
-          </Text>
-        </View>
+      {/* ── Bottom submit bar ── */}
+      <View style={[styles.bottomBar, { backgroundColor: colors.card, borderTopColor: colors.border, paddingBottom: bottomInset + 16 }]}>
         <TouchableOpacity
           onPress={handlePlaceOrder}
           disabled={loading}
-          style={[styles.orderBtn, { opacity: loading ? 0.7 : 1 }]}
+          style={[styles.submitBtn, { backgroundColor: GOLD, opacity: loading ? 0.7 : 1 }]}
           activeOpacity={0.85}
         >
           {loading ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <>
+            <View style={styles.submitBtnInner}>
+              <Text style={[styles.submitTotal, { fontFamily: F.extra }]}>
+                {grandTotalStr} {isEn ? "SAR" : "ر.س"}
+              </Text>
+              <Text style={[styles.submitText, { fontFamily: F.bold }]}>
+                {isEn ? "Place Order" : "إرسال الطلب"}
+              </Text>
               <Feather name="check-circle" size={20} color="#fff" />
-              <Text style={[styles.orderBtnText, { fontFamily: F.bold }]}>{isEn ? "Place Order" : "إرسال الطلب"}</Text>
-            </>
+            </View>
           )}
         </TouchableOpacity>
       </View>
 
-      {/* OTP Verification Overlay */}
+      {/* OTP Overlay */}
       {otpStep === "sent" && (
-        <View style={{ position: "absolute", bottom: 0, left: 0, right: 0, top: 0, backgroundColor: "#000000BB", justifyContent: "flex-end" }}>
-          <View style={{ backgroundColor: "#1A1008", borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, gap: 16 }}>
-            <Text style={{ color: "#FFD700", fontFamily: F.extra, fontSize: 18, textAlign: "center" }}>
+        <View style={styles.otpOverlay}>
+          <View style={[styles.otpSheet, { backgroundColor: colors.card }]}>
+            <Text style={[styles.otpTitle, { color: GOLD, fontFamily: F.extra }]}>
               📱 {isEn ? "Verify Your Number" : "التحقق من رقمك"}
             </Text>
-            <Text style={{ color: "#ccc", fontFamily: F.regular, fontSize: 14, textAlign: "center" }}>
-              {isEn ? "A 4-digit code was sent to" : "تم إرسال رمز مكون من 4 أرقام إلى"}{"\n"}
-              <Text style={{ color: "#fff", fontFamily: F.bold }}>{user?.phone}</Text>
+            <Text style={[styles.otpSubtitle, { color: colors.mutedForeground, fontFamily: F.regular }]}>
+              {isEn ? "A 4-digit code was sent to" : "تم إرسال رمز إلى"}{"\n"}
+              <Text style={{ color: colors.foreground, fontFamily: F.bold }}>{user?.phone}</Text>
             </Text>
             <TextInput
               value={otpCode}
               onChangeText={(t) => setOtpCode(t.replace(/\D/g, "").slice(0, 4))}
               placeholder="• • • •"
-              placeholderTextColor="#555"
+              placeholderTextColor={colors.border}
               keyboardType="number-pad"
               maxLength={4}
               autoFocus
-              style={{
-                backgroundColor: "#2A1A08",
-                borderRadius: 14,
-                paddingVertical: 14,
-                fontSize: 32,
-                fontFamily: F.bold,
-                color: "#FFD700",
-                textAlign: "center",
-                letterSpacing: 16,
-                borderWidth: 2,
-                borderColor: otpCode.length === 4 ? "#FFD700" : "#444",
-              }}
+              style={[styles.otpInput, { backgroundColor: colors.secondary, color: GOLD, borderColor: otpCode.length === 4 ? GOLD : colors.border }]}
             />
             <TouchableOpacity
               onPress={handleVerifyOtp}
               disabled={otpCode.length !== 4 || otpLoading}
-              style={{ backgroundColor: otpCode.length === 4 ? "#FFD700" : "#333", borderRadius: 14, paddingVertical: 14, alignItems: "center", opacity: otpCode.length === 4 ? 1 : 0.5 }}
+              style={[styles.otpVerifyBtn, { backgroundColor: otpCode.length === 4 ? GOLD : colors.secondary, opacity: otpCode.length === 4 ? 1 : 0.5 }]}
             >
               {otpLoading
-                ? <ActivityIndicator color="#1A0A00" />
-                : <Text style={{ color: "#1A0A00", fontFamily: F.bold, fontSize: 16 }}>✅ {isEn ? "Verify & Place Order" : "تحقق وأكمل الطلب"}</Text>
+                ? <ActivityIndicator color={colors.background} />
+                : <Text style={[{ color: colors.background, fontFamily: F.bold, fontSize: 16 }]}>
+                    ✅ {isEn ? "Verify & Place Order" : "تحقق وأكمل الطلب"}
+                  </Text>
               }
             </TouchableOpacity>
             <TouchableOpacity onPress={handleSendOtp} disabled={otpLoading} style={{ alignItems: "center" }}>
-              <Text style={{ color: "#aaa", fontFamily: F.regular, fontSize: 13 }}>{isEn ? "Didn't receive the code? Resend" : "لم تصلك الرسالة؟ أعد الإرسال"}</Text>
+              <Text style={[{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 13 }]}>
+                {isEn ? "Didn't receive the code? Resend" : "لم تصلك الرسالة؟ أعد الإرسال"}
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => setOtpStep("idle")} style={{ alignItems: "center" }}>
-              <Text style={{ color: "#E57373", fontFamily: F.regular, fontSize: 13 }}>{isEn ? "Cancel" : "إلغاء"}</Text>
+              <Text style={[{ color: colors.destructive, fontFamily: F.regular, fontSize: 13 }]}>
+                {isEn ? "Cancel" : "إلغاء"}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -678,96 +702,99 @@ export default function CheckoutScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+
   header: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     paddingBottom: 14,
     borderBottomWidth: 1,
-    gap: 12,
+    justifyContent: "space-between",
   },
-  backBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  headerTitle: {
-    flex: 1,
-    fontSize: 20,
-    textAlign: "center",
-  },
-  scroll: { padding: 16, gap: 12 },
-  section: {
-    borderRadius: 14,
+  headerTitle: { fontSize: 20 },
+
+  listCard: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    borderRadius: 16,
     borderWidth: 1,
-    padding: 16,
+    overflow: "hidden",
+  },
+  listRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     gap: 10,
-    marginBottom: 12,
   },
-  sectionTitle: {
-    fontSize: 15,
-    marginBottom: 4,
-  },
-  infoRow: {
+  rowLeft: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
     gap: 8,
   },
-  infoValue: {
-    flex: 1,
-    fontSize: 14,
+  rowLabel: {
+    fontSize: 13,
     textAlign: "right",
   },
-  orderRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 8,
-  },
-  orderName: {
-    flex: 1,
+  rowValue: {
     fontSize: 14,
-    textAlign: "right",
-  },
-  orderPrice: {
-    fontSize: 14,
-    minWidth: 60,
     textAlign: "left",
   },
-  divider: { height: 1, marginVertical: 4 },
-  totalLabel: { fontSize: 14 },
-  totalPrice: { fontSize: 20 },
-  notesInput: {
-    borderWidth: 1,
+  rowDivider: { height: 1 },
+
+  typeToggle: {
+    flexDirection: "row",
+    gap: 10,
+    flex: 1,
+  },
+  typeBtn: {
+    flex: 1,
+    borderRadius: 12,
+    borderWidth: 2,
+    paddingVertical: 12,
+    alignItems: "center",
+    gap: 4,
+  },
+  typeBtnLabel: { fontSize: 13 },
+
+  locConfirmed: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginHorizontal: 16,
+    marginBottom: 12,
     borderRadius: 10,
-    padding: 12,
+    padding: 10,
+  },
+  locActionBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+
+  notesInput: {
+    borderRadius: 0,
+    padding: 14,
     fontSize: 14,
     minHeight: 80,
     textAlign: "right",
   },
-  locationBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
-    borderWidth: 1.5,
-    borderRadius: 12,
-    paddingVertical: 14,
-    borderStyle: "dashed",
+
+  sectionLabel: {
+    fontSize: 12,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 4,
   },
-  locationBtnText: { fontSize: 15 },
-  paymentOption: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    borderWidth: 1.5,
-    borderRadius: 12,
-    padding: 14,
-  },
-  radioOuter: {
+  totalLine: { height: 1, marginHorizontal: 16, marginVertical: 4 },
+  grandTotal: { fontSize: 20 },
+
+  radioOuter: { justifyContent: "center", alignItems: "center" },
+  radioInner: {
     width: 22,
     height: 22,
     borderRadius: 11,
@@ -775,50 +802,60 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  radioInner: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-  },
-  paymentInfo: { flex: 1, gap: 3 },
-  paymentTitle: { fontSize: 15 },
-  paymentDesc: { fontSize: 12 },
+  radioDot: { width: 10, height: 10, borderRadius: 5 },
+
   bottomBar: {
     position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
-    padding: 16,
-    paddingTop: 14,
-    borderTopWidth: 1,
-    gap: 10,
-  },
-  totalRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
     paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 10,
+    paddingTop: 12,
+    borderTopWidth: 1,
   },
-  bottomTotal: { fontSize: 22 },
-  bottomLabel: { fontSize: 13 },
-  orderBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
+  submitBtn: {
+    borderRadius: 16,
     paddingVertical: 15,
-    borderRadius: 15,
-    backgroundColor: "#C17F24",
-    shadowColor: "#C17F24",
-    shadowOpacity: 0.4,
+    paddingHorizontal: 20,
+    shadowColor: "#E8920C",
+    shadowOpacity: 0.35,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
     elevation: 6,
   },
-  orderBtnText: {
-    color: "#fff",
-    fontSize: 17,
+  submitBtnInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  submitTotal: { color: "#FFFFFF", fontSize: 16 },
+  submitText: { color: "#FFFFFF", fontSize: 17 },
+
+  otpOverlay: {
+    position: "absolute",
+    top: 0, bottom: 0, left: 0, right: 0,
+    backgroundColor: "rgba(0,0,0,0.75)",
+    justifyContent: "flex-end",
+  },
+  otpSheet: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    gap: 16,
+  },
+  otpTitle: { fontSize: 18, textAlign: "center" },
+  otpSubtitle: { fontSize: 14, textAlign: "center", lineHeight: 22 },
+  otpInput: {
+    borderRadius: 14,
+    paddingVertical: 14,
+    fontSize: 32,
+    textAlign: "center",
+    letterSpacing: 16,
+    borderWidth: 2,
+  },
+  otpVerifyBtn: {
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: "center",
   },
 });

@@ -146,12 +146,6 @@ export default function OrdersScreen() {
     setRefreshing(false);
   };
 
-  const clearAll = async () => {
-    await AsyncStorage.removeItem(ORDERS_STORAGE_KEY);
-    setOrders([]);
-    setLiveStatus({});
-  };
-
   const cancelOrder = async (id: number) => {
     setCancellingId(id);
     try {
@@ -171,16 +165,7 @@ export default function OrdersScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar barStyle="light-content" />
 
-      <View
-        style={[
-          styles.header,
-          {
-            backgroundColor: colors.card,
-            paddingTop: topInset + 8,
-            borderBottomColor: colors.border,
-          },
-        ]}
-      >
+      <View style={[styles.header, { backgroundColor: colors.card, paddingTop: topInset + 8, borderBottomColor: colors.border }]}>
         <Text style={[styles.title, { color: colors.foreground, fontFamily: F.extra }]}>
           {isEn ? "Orders" : "الطلبات"}
         </Text>
@@ -188,14 +173,14 @@ export default function OrdersScreen() {
 
       {orders.length === 0 ? (
         <View style={styles.emptyWrap}>
-          <Feather name="shopping-bag" size={56} color={colors.border} />
+          <View style={[styles.emptyIcon, { backgroundColor: colors.surface }]}>
+            <Feather name="shopping-bag" size={44} color={colors.border} />
+          </View>
           <Text style={[styles.emptyTitle, { color: colors.foreground, fontFamily: F.bold }]}>
             {isEn ? "No Orders Yet" : "لا توجد طلبات"}
           </Text>
           <Text style={[styles.emptyText, { color: colors.mutedForeground, fontFamily: F.semi }]}>
-            {isEn
-              ? "You haven't placed any orders yet!\nBrowse the menu now."
-              : "لم تقم بتنفيذ أي طلب حتى الآن!\nقم بتصفح القائمة الآن"}
+            {isEn ? "Browse the menu and place your first order!" : "تصفح القائمة وضع طلبك الأول!"}
           </Text>
           <TouchableOpacity
             style={[styles.browseBtn, { backgroundColor: colors.gold }]}
@@ -222,6 +207,8 @@ export default function OrdersScreen() {
             const status = liveStatus[order.id] ?? "pending";
             const isDone = status === "done" || status === "cancelled";
             const isCancelling = cancellingId === order.id;
+            const statusColor = STATUS_COLOR[status];
+
             return (
               <View
                 key={order.id}
@@ -229,24 +216,16 @@ export default function OrdersScreen() {
                   styles.card,
                   {
                     backgroundColor: colors.card,
-                    borderColor: isDone ? colors.border : STATUS_COLOR[status] + "40",
-                    opacity: isDone ? 0.7 : 1,
+                    borderColor: isDone ? colors.border : statusColor + "40",
+                    opacity: isDone ? 0.75 : 1,
                   },
                 ]}
               >
+                {/* Card header: order # + status badge */}
                 <View style={styles.cardHeader}>
-                  <View style={[styles.statusBadge, { backgroundColor: STATUS_COLOR[status] + "22" }]}>
-                    <Feather
-                      name={STATUS_ICON[status] as any}
-                      size={13}
-                      color={STATUS_COLOR[status]}
-                    />
-                    <Text
-                      style={[
-                        styles.statusText,
-                        { color: STATUS_COLOR[status], fontFamily: F.bold },
-                      ]}
-                    >
+                  <View style={[styles.statusBadge, { backgroundColor: statusColor + "20" }]}>
+                    <Feather name={STATUS_ICON[status] as any} size={13} color={statusColor} />
+                    <Text style={[styles.statusText, { color: statusColor, fontFamily: F.bold }]}>
                       {STATUS_LABEL[status]}
                     </Text>
                   </View>
@@ -257,34 +236,36 @@ export default function OrdersScreen() {
 
                 <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
+                {/* Items */}
                 <View style={styles.itemsList}>
                   {order.items.map((item, i) => (
-                    <Text
-                      key={i}
-                      style={[styles.itemRow, { color: colors.foreground, fontFamily: F.semi, textAlign: isEn ? "left" : "right" }]}
-                    >
-                      {item.name}
-                      <Text style={{ color: colors.mutedForeground, fontFamily: F.regular }}>
-                        {" "}× {item.quantity}
+                    <View key={i} style={styles.itemRow}>
+                      <Text style={[styles.itemQty, { color: colors.gold, fontFamily: F.bold }]}>
+                        ×{item.quantity}
                       </Text>
-                    </Text>
+                      <Text style={[styles.itemName, { color: colors.foreground, fontFamily: F.semi }]} numberOfLines={1}>
+                        {item.name}
+                      </Text>
+                    </View>
                   ))}
                 </View>
 
                 <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
+                {/* Footer: date + total */}
                 <View style={styles.cardFooter}>
-                  <Text style={[styles.date, { color: colors.mutedForeground, fontFamily: F.regular }]}>
-                    {formatDate(order.createdAt, isEn)}
-                  </Text>
                   <Text style={[styles.total, { color: colors.gold, fontFamily: F.extra }]}>
                     {order.total % 1 === 0 ? order.total : order.total.toFixed(1)} {isEn ? "SAR" : "ر.س"}
                   </Text>
+                  <Text style={[styles.date, { color: colors.mutedForeground, fontFamily: F.regular }]}>
+                    {formatDate(order.createdAt, isEn)}
+                  </Text>
                 </View>
 
+                {/* Cancel button */}
                 {allowCancel && status === "pending" && (
                   <TouchableOpacity
-                    style={[styles.cancelBtn, { borderColor: "#E53935" }]}
+                    style={[styles.cancelBtn, { borderColor: "#E53935" + "60", backgroundColor: "#E5393510" }]}
                     onPress={() =>
                       Alert.alert(
                         isEn ? "Cancel Order" : "إلغاء الطلب",
@@ -301,7 +282,7 @@ export default function OrdersScreen() {
                       <ActivityIndicator size="small" color="#E53935" />
                     ) : (
                       <>
-                        <Feather name="x" size={14} color="#E53935" />
+                        <Feather name="x-circle" size={15} color="#E53935" />
                         <Text style={[styles.cancelBtnText, { fontFamily: F.bold }]}>
                           {isEn ? "Cancel Order" : "إلغاء الطلب"}
                         </Text>
@@ -324,38 +305,45 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 14,
     borderBottomWidth: 1,
-    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
   },
   title: { fontSize: 20 },
-  clearBtn: { position: "absolute", left: 20, bottom: 14 },
+
   emptyWrap: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    gap: 12,
+    gap: 14,
     paddingHorizontal: 40,
   },
-  emptyTitle: { fontSize: 18, marginTop: 8 },
-  emptyText: { fontSize: 15, textAlign: "center", lineHeight: 26 },
+  emptyIcon: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  emptyTitle: { fontSize: 20, marginTop: 4 },
+  emptyText: { fontSize: 14, textAlign: "center", lineHeight: 24 },
   browseBtn: {
-    marginTop: 8,
-    paddingHorizontal: 28,
-    paddingVertical: 12,
-    borderRadius: 20,
+    marginTop: 6,
+    paddingHorizontal: 32,
+    paddingVertical: 13,
+    borderRadius: 14,
   },
   browseBtnText: { color: "#fff", fontSize: 15 },
+
   card: {
-    borderRadius: 14,
+    borderRadius: 16,
     borderWidth: 1,
-    padding: 14,
-    gap: 10,
+    overflow: "hidden",
   },
   cardHeader: {
     flexDirection: "row-reverse",
     alignItems: "center",
     justifyContent: "space-between",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
   },
   statusBadge: {
     flexDirection: "row",
@@ -363,29 +351,44 @@ const styles = StyleSheet.create({
     gap: 5,
     borderRadius: 20,
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: 5,
   },
   statusText: { fontSize: 13 },
-  orderNum: { fontSize: 18 },
+  orderNum: { fontSize: 20 },
+
   divider: { height: 1 },
-  itemsList: { gap: 4 },
-  itemRow: { fontSize: 14 },
+
+  itemsList: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    gap: 6,
+  },
+  itemRow: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 8,
+  },
+  itemQty: { fontSize: 13 },
+  itemName: { fontSize: 14, flex: 1, textAlign: "right" },
+
   cardFooter: {
     flexDirection: "row-reverse",
     alignItems: "center",
     justifyContent: "space-between",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
   },
+  total: { fontSize: 17 },
   date: { fontSize: 12 },
-  total: { fontSize: 16 },
+
   cancelBtn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 6,
     borderWidth: 1,
-    borderRadius: 10,
-    paddingVertical: 8,
-    marginTop: 2,
+    borderRadius: 0,
+    paddingVertical: 10,
   },
   cancelBtnText: { color: "#E53935", fontSize: 14 },
 });
