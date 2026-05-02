@@ -17,3 +17,9 @@ id = "uCj9nv55iXqztHqRMC2Uo"
 uri = "file://RawabiAlMandi.zip"
 type = "unspecified"
 title = "RawabiAlMandi.zip — آخر تحديث"
+
+[[outputs]]
+id = "ZDyeEUweczbzM_WPDvYNq"
+uri = "file://RawabiAlMandi-Source.zip"
+type = "unspecified"
+title = "RawabiAlMandi-Source.zip — كود المشروع كامل"
