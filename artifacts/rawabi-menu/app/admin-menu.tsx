@@ -41,13 +41,14 @@ const F = {
 const ADMIN_PIN_DEFAULT = "Aa@000";
 
 const CATEGORIES = [
-  { id: "chicken",  name: "الدجاج",   icon: "🍗" },
-  { id: "meat",     name: "اللحوم",   icon: "🥩" },
-  { id: "sides",    name: "الإيدامات", icon: "🥘" },
-  { id: "salads",   name: "السلطات",  icon: "🥗" },
-  { id: "desserts", name: "الحلويات", icon: "🍮" },
-  { id: "drinks",   name: "المشروبات", icon: "🥤" },
-  { id: "extras",   name: "إضافات",   icon: "✨" },
+  { id: "chicken",  name: "الدجاج",              icon: "🍗" },
+  { id: "meat",     name: "اللحوم",              icon: "🥩" },
+  { id: "mains",    name: "الأطباق الرئيسية",    icon: "🍽️" },
+  { id: "sides",    name: "الإيدامات",           icon: "🥘" },
+  { id: "salads",   name: "السلطات",             icon: "🥗" },
+  { id: "desserts", name: "الحلويات",            icon: "🍮" },
+  { id: "drinks",   name: "المشروبات",           icon: "🥤" },
+  { id: "extras",   name: "إضافات",              icon: "✨" },
 ];
 
 function getCatMeta(catId: string) {
@@ -280,6 +281,7 @@ export default function AdminMenuScreen() {
 
   useEffect(() => { refreshBanners(); }, [refreshBanners]);
   useEffect(() => { if (activeTab === "revenue") refreshRevenue(); }, [activeTab, refreshRevenue]);
+  useEffect(() => { if (activeTab === "stock") refresh(); }, [activeTab, refresh]);
 
   const loadSmsSettings = useCallback(async () => {
     try {
@@ -955,6 +957,14 @@ export default function AdminMenuScreen() {
               <Text style={{ color: stockViewMode === "edit" ? "#1A0A00" : colors.mutedForeground, fontFamily: F.bold, fontSize: 13 }}>✏️ تعديل الكميات</Text>
             </TouchableOpacity>
           </View>
+
+          {/* loading / empty guard */}
+          {items.length === 0 && (
+            <View style={{ padding: 40, alignItems: "center", gap: 12 }}>
+              <ActivityIndicator size="large" color="#7B1FA2" />
+              <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 14 }}>جار تحميل بيانات المخزون…</Text>
+            </View>
+          )}
 
           {/* ── TABLE VIEW ── */}
           {stockViewMode === "table" && CATEGORIES.map((cat) => {
