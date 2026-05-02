@@ -8,13 +8,15 @@ import {
   Platform,
   StatusBar,
   RefreshControl,
+  Alert,
+  ActivityIndicator,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
-import { apiGet } from "@/constants/api";
+import { apiGet, apiPatch } from "@/constants/api";
 import { useOrderBadge } from "@/context/OrderBadgeContext";
 
 const F = {
@@ -35,7 +37,7 @@ export interface StoredOrder {
   customerName: string;
 }
 
-type OrderStatus = "pending" | "preparing" | "ready" | "done";
+type OrderStatus = "pending" | "preparing" | "ready" | "done" | "cancelled";
 
 interface LiveOrder {
   id: number;
@@ -47,6 +49,7 @@ const STATUS_LABEL: Record<OrderStatus, string> = {
   preparing: "جاري التحضير",
   ready: "جاهز للاستلام",
   done: "مكتمل",
+  cancelled: "ملغى",
 };
 
 const STATUS_COLOR: Record<OrderStatus, string> = {
@@ -54,6 +57,7 @@ const STATUS_COLOR: Record<OrderStatus, string> = {
   preparing: "#3B82F6",
   ready: "#22C55E",
   done: "#9A7A5A",
+  cancelled: "#E53935",
 };
 
 const STATUS_ICON: Record<OrderStatus, string> = {
@@ -61,6 +65,7 @@ const STATUS_ICON: Record<OrderStatus, string> = {
   preparing: "loader",
   ready: "check-circle",
   done: "archive",
+  cancelled: "x-circle",
 };
 
 function formatDate(iso: string) {
@@ -83,6 +88,8 @@ export default function OrdersScreen() {
   const [orders, setOrders] = useState<StoredOrder[]>([]);
   const [liveStatus, setLiveStatus] = useState<Record<number, OrderStatus>>({});
   const [refreshing, setRefreshing] = useState(false);
+  const [allowCancel, setAllowCancel] = useState(false);
+  const [cancellingId, setCancellingId] = useState<number | null>(null);
 
   const loadOrders = useCallback(async () => {
     try {
@@ -96,6 +103,10 @@ export default function OrdersScreen() {
         const s = liveStatus[o.id];
         return !s || s === "pending" || s === "preparing" || s === "ready";
       });
+      // also fetch cancel setting
+      apiGet<{ allowed: boolean }>("/settings/customer-cancel")
+        .then((r) => setAllowCancel(r.allowed))
+        .catch(() => {});
       if (active.length > 0) {
         await fetchStatuses(active.map((o) => o.id));
       }
@@ -129,6 +140,19 @@ export default function OrdersScreen() {
     await AsyncStorage.removeItem(ORDERS_STORAGE_KEY);
     setOrders([]);
     setLiveStatus({});
+  };
+
+  const cancelOrder = async (id: number) => {
+    setCancellingId(id);
+    try {
+      const updated = await apiPatch<LiveOrder>(`/orders/${id}/cancel`, {});
+      setLiveStatus((prev) => ({ ...prev, [id]: updated.status }));
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "حدث خطأ";
+      Alert.alert("تعذّر الإلغاء", msg);
+    } finally {
+      setCancellingId(null);
+    }
   };
 
   return (
@@ -180,7 +204,8 @@ export default function OrdersScreen() {
         >
           {orders.map((order) => {
             const status = liveStatus[order.id] ?? "pending";
-            const isDone = status === "done";
+            const isDone = status === "done" || status === "cancelled";
+            const isCancelling = cancellingId === order.id;
             return (
               <View
                 key={order.id}
@@ -240,6 +265,28 @@ export default function OrdersScreen() {
                     {order.total % 1 === 0 ? order.total : order.total.toFixed(1)} ر.س
                   </Text>
                 </View>
+
+                {allowCancel && status === "pending" && (
+                  <TouchableOpacity
+                    style={[styles.cancelBtn, { borderColor: "#E53935" }]}
+                    onPress={() =>
+                      Alert.alert("إلغاء الطلب", "هل تريد إلغاء هذا الطلب؟", [
+                        { text: "لا", style: "cancel" },
+                        { text: "نعم، إلغاء", style: "destructive", onPress: () => cancelOrder(order.id) },
+                      ])
+                    }
+                    disabled={isCancelling}
+                  >
+                    {isCancelling ? (
+                      <ActivityIndicator size="small" color="#E53935" />
+                    ) : (
+                      <>
+                        <Feather name="x" size={14} color="#E53935" />
+                        <Text style={[styles.cancelBtnText, { fontFamily: F.bold }]}>إلغاء الطلب</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                )}
               </View>
             );
           })}
@@ -308,4 +355,15 @@ const styles = StyleSheet.create({
   },
   date: { fontSize: 12 },
   total: { fontSize: 16 },
+  cancelBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 8,
+    marginTop: 2,
+  },
+  cancelBtnText: { color: "#E53935", fontSize: 14 },
 });

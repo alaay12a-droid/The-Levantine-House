@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, ordersTable, menuItemsTable } from "@workspace/db";
+import { db, ordersTable, menuItemsTable, appSettingsTable } from "@workspace/db";
 import { eq, desc, gte, lt, count, and } from "drizzle-orm";
 import { sendPushToAll } from "../lib/sendPushNotification.js";
 import { z } from "zod";
@@ -123,14 +123,14 @@ router.patch("/orders/:id/status", async (req, res) => {
     return;
   }
   const { status } = req.body as { status: string };
-  const validStatuses = ["pending", "preparing", "ready", "done"];
+  const validStatuses = ["pending", "preparing", "ready", "done", "cancelled"];
   if (!validStatuses.includes(status)) {
     res.status(400).json({ error: "حالة غير صحيحة" });
     return;
   }
   const [order] = await db
     .update(ordersTable)
-    .set({ status: status as "pending" | "preparing" | "ready" | "done" })
+    .set({ status: status as "pending" | "preparing" | "ready" | "done" | "cancelled" })
     .where(eq(ordersTable.id, id))
     .returning();
   if (!order) {
@@ -155,6 +155,50 @@ router.patch("/orders/:id/status", async (req, res) => {
       }),
     }).catch(() => {});
   }
+});
+
+// ── GET /settings/customer-cancel — check if customers can cancel
+router.get("/settings/customer-cancel", async (_req, res) => {
+  const rows = await db.select().from(appSettingsTable).where(eq(appSettingsTable.key, "allow_customer_cancel"));
+  res.json({ allowed: rows[0]?.value === "true" });
+});
+
+// ── PUT /settings/customer-cancel — admin toggles the setting
+router.put("/settings/customer-cancel", async (req, res) => {
+  const { allowed } = req.body as { allowed: boolean };
+  await db
+    .insert(appSettingsTable)
+    .values({ key: "allow_customer_cancel", value: String(allowed) })
+    .onConflictDoUpdate({ target: appSettingsTable.key, set: { value: String(allowed), updatedAt: new Date() } });
+  res.json({ ok: true });
+});
+
+// ── PATCH /orders/:id/cancel — customer requests cancellation
+router.patch("/orders/:id/cancel", async (req, res) => {
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) { res.status(400).json({ error: "معرّف غير صحيح" }); return; }
+
+  // Check if customer cancellation is allowed
+  const rows = await db.select().from(appSettingsTable).where(eq(appSettingsTable.key, "allow_customer_cancel"));
+  if (rows[0]?.value !== "true") {
+    res.status(403).json({ error: "إلغاء الطلب غير مسموح حالياً، تواصل مع الكاشير" });
+    return;
+  }
+
+  const [existing] = await db.select().from(ordersTable).where(eq(ordersTable.id, id));
+  if (!existing) { res.status(404).json({ error: "الطلب غير موجود" }); return; }
+  if (existing.status !== "pending") {
+    res.status(400).json({ error: "لا يمكن إلغاء الطلب بعد بدء التحضير" });
+    return;
+  }
+
+  const [order] = await db
+    .update(ordersTable)
+    .set({ status: "cancelled" })
+    .where(eq(ordersTable.id, id))
+    .returning();
+
+  res.json(order);
 });
 
 export default router;

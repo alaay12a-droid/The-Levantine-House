@@ -43,7 +43,7 @@ const CATEGORIES = [
   { id: "desserts", name: "الحلويات", icon: "🍮" },
 ];
 
-type OrderStatus = "pending" | "preparing" | "ready" | "done";
+type OrderStatus = "pending" | "preparing" | "ready" | "done" | "cancelled";
 
 interface OrderItem {
   id: string;
@@ -71,6 +71,7 @@ const STATUS_LABELS: Record<OrderStatus, string> = {
   preparing: "قريباً يتجهز",
   ready: "جاري التجهيز",
   done: "تم التسليم",
+  cancelled: "ملغى",
 };
 
 const STATUS_COLORS: Record<OrderStatus, string> = {
@@ -78,6 +79,7 @@ const STATUS_COLORS: Record<OrderStatus, string> = {
   preparing: "#FB8C00",
   ready: "#43A047",
   done: "#757575",
+  cancelled: "#9E9E9E",
 };
 
 const STATUS_NEXT: Partial<Record<OrderStatus, OrderStatus>> = {
@@ -417,13 +419,35 @@ export default function CashierScreen() {
     }
   };
 
+  const handleCancelOrder = (order: Order) => {
+    Alert.alert(
+      "إلغاء الطلب",
+      `هل تريد إلغاء طلب #${order.dailyNumber} — ${order.customerName}؟`,
+      [
+        { text: "لا", style: "cancel" },
+        {
+          text: "نعم، إلغاء",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              const updated = await apiPatch<Order>(`/orders/${order.id}/status`, { status: "cancelled" });
+              setOrders((prev) => prev.map((o) => (o.id === updated.id ? updated : o)));
+            } catch {
+              Alert.alert("خطأ", "تعذر إلغاء الطلب");
+            }
+          },
+        },
+      ]
+    );
+  };
+
   if (!pinsLoaded) return null;
   if (!authenticated) {
     return <PinScreen onSuccess={() => setAuthenticated(true)} correctPin={cashierPin} />;
   }
 
   const filtered = filter === "all"
-    ? orders.filter((o) => o.status !== "done")
+    ? orders.filter((o) => o.status !== "done" && o.status !== "cancelled")
     : orders.filter((o) => o.status === filter);
 
   const pendingCount = orders.filter((o) => o.status === "pending").length;
@@ -485,7 +509,7 @@ export default function CashierScreen() {
         contentContainerStyle={styles.filterTabs}
         style={{ backgroundColor: "#1A1008" }}
       >
-        {([["all", "الكل"], ["pending", "جديد"], ["preparing", "جاري التحضير"], ["ready", "جاهز"], ["done", "تم"]] as [string, string][]).map(([key, label]) => (
+        {([["all", "الكل"], ["pending", "جديد"], ["preparing", "جاري التحضير"], ["ready", "جاهز"], ["done", "تم"], ["cancelled", "ملغى"]] as [string, string][]).map(([key, label]) => (
           <TouchableOpacity
             key={key}
             onPress={() => setFilter(key as OrderStatus | "all")}
@@ -629,6 +653,17 @@ export default function CashierScreen() {
                     activeOpacity={0.8}
                   >
                     <Text style={[styles.actionBtnText, { fontFamily: F.bold }]}>{nextLabel}</Text>
+                  </TouchableOpacity>
+                )}
+
+                {order.status !== "done" && order.status !== "cancelled" && (
+                  <TouchableOpacity
+                    onPress={() => handleCancelOrder(order)}
+                    style={[styles.actionBtn, { backgroundColor: "transparent", borderWidth: 1, borderColor: "#9E9E9E", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 }]}
+                    activeOpacity={0.8}
+                  >
+                    <Feather name="x" size={14} color="#9E9E9E" />
+                    <Text style={[styles.actionBtnText, { fontFamily: F.bold, color: "#9E9E9E" }]}>إلغاء الطلب</Text>
                   </TouchableOpacity>
                 )}
 

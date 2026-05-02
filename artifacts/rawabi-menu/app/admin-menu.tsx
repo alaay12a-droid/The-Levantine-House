@@ -244,6 +244,7 @@ export default function AdminMenuScreen() {
   const [smsApiKey, setSmsApiKey] = useState("");
   const [smsSender, setSmsSender] = useState("روابي المندي");
   const [smsLoading, setSmsLoading] = useState(false);
+  const [allowCustomerCancel, setAllowCustomerCancel] = useState(false);
   const [bannerTitle, setBannerTitle] = useState("");
   const [bannerImageUrl, setBannerImageUrl] = useState("");
   const [bannerUploading, setBannerUploading] = useState(false);
@@ -260,7 +261,18 @@ export default function AdminMenuScreen() {
       setSmsSender(r.sender ?? "روابي المندي");
     } catch {}
   }, []);
-  useEffect(() => { if (activeTab === "settings") loadSmsSettings(); }, [activeTab, loadSmsSettings]);
+  const loadCancelSetting = useCallback(async () => {
+    try {
+      const r = await apiGet<{ allowed: boolean }>("/settings/customer-cancel");
+      setAllowCustomerCancel(r.allowed);
+    } catch {}
+  }, []);
+  useEffect(() => {
+    if (activeTab === "settings") {
+      loadSmsSettings();
+      loadCancelSetting();
+    }
+  }, [activeTab, loadSmsSettings, loadCancelSetting]);
 
   const [dcCode, setDcCode] = useState("");
   const [dcType, setDcType] = useState<"percentage" | "fixed">("percentage");
@@ -1427,6 +1439,34 @@ export default function AdminMenuScreen() {
             >
               <Text style={{ color: "#1A0A00", fontFamily: F.bold, fontSize: 14 }}>حفظ الكود</Text>
             </TouchableOpacity>
+          </View>
+
+          {/* Customer Cancel Setting */}
+          <Text style={{ color: colors.gold, fontFamily: F.extra, fontSize: 16, textAlign: "right", marginTop: 8 }}>
+            🚫 إلغاء الطلبات
+          </Text>
+          <View style={{ backgroundColor: colors.card, borderRadius: 14, padding: 16, gap: 10, borderWidth: 1, borderColor: colors.border }}>
+            <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center" }}>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: colors.foreground, fontFamily: F.semi, fontSize: 14, textAlign: "right" }}>
+                  السماح للعميل بإلغاء طلبه
+                </Text>
+                <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12, textAlign: "right", marginTop: 3 }}>
+                  {allowCustomerCancel
+                    ? "العميل يستطيع إلغاء طلبه طالما لم يبدأ التحضير"
+                    : "الإلغاء متاح للكاشير فقط"}
+                </Text>
+              </View>
+              <Switch
+                value={allowCustomerCancel}
+                onValueChange={async (v) => {
+                  setAllowCustomerCancel(v);
+                  try { await apiPut("/settings/customer-cancel", { allowed: v }); } catch {}
+                }}
+                trackColor={{ false: colors.border, true: "#4CAF50" + "88" }}
+                thumbColor={allowCustomerCancel ? "#4CAF50" : colors.mutedForeground}
+              />
+            </View>
           </View>
 
           {/* SMS OTP Settings */}
