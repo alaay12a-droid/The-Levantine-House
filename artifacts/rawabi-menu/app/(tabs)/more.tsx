@@ -74,6 +74,11 @@ export default function MoreScreen() {
 
   const menuItems: MenuItem[] = [
     {
+      icon: "settings",
+      label: "إعدادات التطبيق",
+      action: () => router.push("/app-settings" as any),
+    },
+    {
       icon: "phone",
       label: t("callUs"),
       action: () => Linking.openURL(`tel:${RESTAURANT_INFO.phone}`),

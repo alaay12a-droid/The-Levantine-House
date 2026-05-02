@@ -2,8 +2,8 @@ import { Tabs } from "expo-router";
 import React from "react";
 import { Platform } from "react-native";
 import { Feather } from "@expo/vector-icons";
-import { useTabConfig } from "@/hooks/useTabConfig";
 import { useOrderBadge } from "@/context/OrderBadgeContext";
+import { useAppConfig } from "@/context/AppConfigContext";
 
 const GOLD = "#E8920C";
 const MUTED = "#9A7A5A";
@@ -11,13 +11,13 @@ const BG = "#1A1008";
 const BORDER = "#3A2410";
 
 export default function TabLayout() {
-  const { config, loaded } = useTabConfig();
+  const { config, loaded } = useAppConfig();
   const { activeCount } = useOrderBadge();
 
   if (!loaded) return null;
 
-  const h = Platform.OS === "web" ? config.height : config.height + 10;
-  const pb = Platform.OS === "web" ? config.paddingBottom : config.paddingBottom + 8;
+  const h = Platform.OS === "web" ? config.tabHeight : config.tabHeight + 10;
+  const pb = Platform.OS === "web" ? config.tabPaddingBottom : config.tabPaddingBottom + 8;
 
   return (
     <Tabs
@@ -35,7 +35,7 @@ export default function TabLayout() {
         tabBarInactiveTintColor: MUTED,
         tabBarLabelStyle: {
           fontFamily: "Cairo_700Bold",
-          fontSize: config.fontSize,
+          fontSize: config.tabFontSize,
           marginTop: 2,
         },
       }}
