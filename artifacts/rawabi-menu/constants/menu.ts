@@ -8,6 +8,7 @@ export interface MenuItem {
   descriptionEn?: string;
   imageKey?: string;
   imageUrl?: string;
+  stock?: number | null;
 }
 
 export interface MenuCategory {

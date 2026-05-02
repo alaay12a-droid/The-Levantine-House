@@ -48,6 +48,23 @@ router.post("/orders", async (req, res) => {
 
   const dailyNumber = Number(todayCount) + 1;
 
+  // ── Validate stock before inserting ────────────────────────────────────────
+  for (const item of data.items) {
+    const [menuItem] = await db.select().from(menuItemsTable).where(eq(menuItemsTable.itemId, item.id));
+    if (menuItem && menuItem.stock !== null) {
+      if (menuItem.stock < item.quantity) {
+        res.status(409).json({
+          error: menuItem.stock === 0
+            ? `نفد المخزون: ${item.name}`
+            : `الكمية المتاحة من "${item.name}" هي ${menuItem.stock} فقط`,
+          itemId: item.id,
+          available: menuItem.stock,
+        });
+        return;
+      }
+    }
+  }
+
   const [order] = await db.insert(ordersTable).values({
     dailyNumber,
     customerName: data.customerName,

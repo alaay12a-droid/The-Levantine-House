@@ -40,11 +40,16 @@ export function MenuItemCard({ item }: Props) {
   const isDhabiha = item.price === 0;
   const isUnavailable = item.available === false;
 
+  // Stock limit: how many can still be added
+  const stockLimit = (item.stock !== null && item.stock !== undefined) ? item.stock : null;
+  const atStockLimit = stockLimit !== null && quantity >= stockLimit;
+  const lowStock = stockLimit !== null && stockLimit > 0 && stockLimit <= 3;
+
   const displayName = isEn && item.nameEn ? item.nameEn : item.name;
   const displayDesc = isEn && item.descriptionEn ? item.descriptionEn : item.description;
 
   const handleAdd = () => {
-    if (isUnavailable) return;
+    if (isUnavailable || atStockLimit) return;
     if (isDhabiha) {
       const msg = isEn
         ? `Hello, I would like to inquire about: ${displayName}`
@@ -82,6 +87,13 @@ export function MenuItemCard({ item }: Props) {
           </Text>
         </View>
       )}
+      {!isUnavailable && lowStock && (
+        <View style={[styles.unavailableBanner, { backgroundColor: "#3A2000" }]}>
+          <Text style={[styles.unavailableText, { color: "#E8920C", fontFamily: F.bold }]}>
+            {isEn ? `Only ${stockLimit} left` : `متبقي ${stockLimit} فقط`}
+          </Text>
+        </View>
+      )}
       <View style={styles.inner}>
         {/* Left: quantity control / add button */}
         <View style={styles.leftSide}>
@@ -100,18 +112,20 @@ export function MenuItemCard({ item }: Props) {
           ) : quantity === 0 ? (
             <TouchableOpacity
               onPress={handleAdd}
-              style={[styles.addBtn, { backgroundColor: colors.primary }]}
-              activeOpacity={0.8}
+              style={[styles.addBtn, { backgroundColor: atStockLimit ? "#3A2A1A" : colors.primary }]}
+              activeOpacity={atStockLimit ? 1 : 0.8}
+              disabled={atStockLimit}
             >
-              <Feather name="plus" size={20} color="#fff" />
+              <Feather name="plus" size={20} color={atStockLimit ? "#666" : "#fff"} />
             </TouchableOpacity>
           ) : (
             <View style={styles.qtyGroup}>
               <TouchableOpacity
                 onPress={handleAdd}
-                style={[styles.qtyRound, { backgroundColor: colors.primary }]}
+                style={[styles.qtyRound, { backgroundColor: atStockLimit ? "#2A1A0A" : colors.primary }]}
+                disabled={atStockLimit}
               >
-                <Feather name="plus" size={14} color="#fff" />
+                <Feather name="plus" size={14} color={atStockLimit ? "#555" : "#fff"} />
               </TouchableOpacity>
               <View style={[styles.qtyNumBox, { backgroundColor: colors.gold }]}>
                 <Text style={[styles.qtyNumText, { fontFamily: F.extra }]}>{quantity}</Text>

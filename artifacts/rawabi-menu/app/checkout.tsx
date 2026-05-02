@@ -199,8 +199,14 @@ export default function CheckoutScreen() {
       } catch {}
       clearCart();
       router.replace({ pathname: "/order-confirmed", params: { orderId: String(order.id) } });
-    } catch {
-      Alert.alert(isEn ? "Error" : "خطأ", isEn ? "Could not place order. Please try again." : "تعذر إرسال الطلب، يرجى المحاولة مرة أخرى.");
+    } catch (err: unknown) {
+      const msg = (err as { message?: string })?.message;
+      Alert.alert(
+        isEn ? "Error" : "خطأ",
+        msg && msg !== `HTTP 409` && msg !== `HTTP 400`
+          ? msg
+          : isEn ? "Could not place order. Please try again." : "تعذر إرسال الطلب، يرجى المحاولة مرة أخرى."
+      );
     } finally {
       setLoading(false);
     }
