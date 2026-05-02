@@ -420,25 +420,34 @@ export default function CashierScreen() {
   };
 
   const handleCancelOrder = (order: Order) => {
-    Alert.alert(
-      "إلغاء الطلب",
-      `هل تريد إلغاء طلب #${order.dailyNumber} — ${order.customerName}؟`,
-      [
-        { text: "لا", style: "cancel" },
-        {
-          text: "نعم، إلغاء",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              const updated = await apiPatch<Order>(`/orders/${order.id}/status`, { status: "cancelled" });
-              setOrders((prev) => prev.map((o) => (o.id === updated.id ? updated : o)));
-            } catch {
-              Alert.alert("خطأ", "تعذر إلغاء الطلب");
-            }
-          },
-        },
-      ]
-    );
+    const doCancel = async () => {
+      try {
+        const updated = await apiPatch<Order>(`/orders/${order.id}/status`, { status: "cancelled" });
+        setOrders((prev) => prev.map((o) => (o.id === updated.id ? updated : o)));
+      } catch {
+        if (Platform.OS === "web" && typeof window !== "undefined") {
+          window.alert("تعذر إلغاء الطلب");
+        } else {
+          Alert.alert("خطأ", "تعذر إلغاء الطلب");
+        }
+      }
+    };
+
+    if (Platform.OS === "web" && typeof window !== "undefined") {
+      const confirmed = window.confirm(
+        `إلغاء طلب #${order.dailyNumber} — ${order.customerName}؟`
+      );
+      if (confirmed) doCancel();
+    } else {
+      Alert.alert(
+        "إلغاء الطلب",
+        `هل تريد إلغاء طلب #${order.dailyNumber} — ${order.customerName}؟`,
+        [
+          { text: "لا", style: "cancel" },
+          { text: "نعم، إلغاء", style: "destructive", onPress: doCancel },
+        ]
+      );
+    }
   };
 
   if (!pinsLoaded) return null;
