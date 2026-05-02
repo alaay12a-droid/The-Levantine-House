@@ -225,7 +225,8 @@ export default function AdminMenuScreen() {
   const { codes: discountCodes, addCode, updateCode, deleteCode } = useDiscountCodes();
   const { banners: allBanners, refresh: refreshBanners } = useBanners();
   const { data: revenueData, loading: revenueLoading, refresh: refreshRevenue } = useRevenue();
-  const [revenueView, setRevenueView] = useState<"daily" | "monthly">("daily");
+  const [revenueView, setRevenueView] = useState<"daily" | "monthly" | "items">("daily");
+  const [revenuePeriod, setRevenuePeriod] = useState<"today" | "week" | "month" | "year">("month");
 
   // Combos
   const { combos, addCombo, updateCombo, deleteCombo } = useCombos();
@@ -1911,114 +1912,290 @@ export default function AdminMenuScreen() {
 
       {/* ── Revenue Tab ── */}
       {activeTab === "revenue" && (
-        <ScrollView contentContainerStyle={{ padding: 16, gap: 16 }}>
-          {/* Refresh */}
-          <TouchableOpacity
-            onPress={refreshRevenue}
-            style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8, alignSelf: "flex-start", backgroundColor: colors.secondary, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10 }}
-          >
-            <Feather name="refresh-cw" size={16} color={colors.gold} />
-            <Text style={{ color: colors.gold, fontFamily: F.bold, fontSize: 13 }}>تحديث</Text>
-          </TouchableOpacity>
+        <ScrollView contentContainerStyle={{ padding: 16, gap: 14 }}>
+
+          {/* ── Header: period + refresh ── */}
+          <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" }}>
+            <Text style={{ color: colors.foreground, fontFamily: F.extra, fontSize: 16 }}>📊 التقرير المالي</Text>
+            <TouchableOpacity
+              onPress={refreshRevenue}
+              style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6, backgroundColor: colors.secondary, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 10 }}
+            >
+              <Feather name="refresh-cw" size={14} color={colors.gold} />
+              <Text style={{ color: colors.gold, fontFamily: F.bold, fontSize: 12 }}>تحديث</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* ── Period selector ── */}
+          <View style={{ flexDirection: "row-reverse", gap: 6 }}>
+            {([
+              { key: "today", label: "اليوم" },
+              { key: "week",  label: "الأسبوع" },
+              { key: "month", label: "الشهر" },
+              { key: "year",  label: "السنة" },
+            ] as const).map(({ key, label }) => (
+              <TouchableOpacity
+                key={key}
+                onPress={() => setRevenuePeriod(key)}
+                style={{
+                  flex: 1, paddingVertical: 8, borderRadius: 10, alignItems: "center",
+                  backgroundColor: revenuePeriod === key ? colors.gold : colors.secondary,
+                  borderWidth: 1, borderColor: revenuePeriod === key ? colors.gold : colors.border,
+                }}
+              >
+                <Text style={{ color: revenuePeriod === key ? "#1A1008" : colors.mutedForeground, fontFamily: F.bold, fontSize: 11 }}>
+                  {label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
 
           {revenueLoading ? (
             <ActivityIndicator color={colors.gold} style={{ marginTop: 40 }} />
           ) : !revenueData ? (
             <Text style={{ color: colors.mutedForeground, textAlign: "center", marginTop: 40, fontFamily: F.regular }}>لا توجد بيانات</Text>
-          ) : (
-            <>
-              {/* Summary Cards */}
-              {(
-                [
-                  { label: "اليوم", data: revenueData.today, accent: "#FFD700" },
-                  { label: "هذا الشهر", data: revenueData.month, accent: "#82B1FF" },
-                  { label: "هذه السنة", data: revenueData.year, accent: "#A5D6A7" },
-                ] as const
-              ).map(({ label, data: d, accent }) => (
-                <View
-                  key={label}
-                  style={{ backgroundColor: colors.card, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: accent + "44" }}
-                >
-                  <Text style={{ color: accent, fontFamily: F.bold, fontSize: 15, textAlign: "right", marginBottom: 12 }}>
-                    📅 {label}
-                  </Text>
-                  <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", marginBottom: 8 }}>
-                    <View style={{ alignItems: "flex-end", gap: 4 }}>
-                      <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }}>الإجمالي</Text>
-                      <Text style={{ color: accent, fontFamily: F.bold, fontSize: 20 }}>{d.totalRevenue.toFixed(2)} ر.س</Text>
+          ) : (() => {
+            const pd = revenuePeriod === "today" ? revenueData.today
+                     : revenuePeriod === "week"  ? revenueData.week
+                     : revenuePeriod === "month" ? revenueData.month
+                     : revenueData.year;
+
+            const totalPayment = pd.cashRevenue + pd.onlineRevenue || 1;
+            const cashPct   = Math.round((pd.cashRevenue / totalPayment) * 100);
+            const onlinePct = 100 - cashPct;
+
+            return (
+              <>
+                {/* ── KPI Grid (2×3) ── */}
+                <View style={{ gap: 8 }}>
+                  {/* Row 1 */}
+                  <View style={{ flexDirection: "row-reverse", gap: 8 }}>
+                    {/* Total Revenue */}
+                    <View style={{ flex: 1, backgroundColor: "#1A1008", borderRadius: 14, borderWidth: 1, borderColor: "#E8920C44", padding: 14, gap: 4 }}>
+                      <Text style={{ color: "#9A7A5A", fontFamily: F.regular, fontSize: 10, textAlign: "right" }}>💰 الإيرادات الإجمالية</Text>
+                      <Text style={{ color: "#E8920C", fontFamily: F.extra, fontSize: 18, textAlign: "right" }}>{pd.totalRevenue.toFixed(2)}</Text>
+                      <Text style={{ color: "#9A7A5A", fontFamily: F.regular, fontSize: 10, textAlign: "right" }}>ر.س</Text>
                     </View>
-                    <View style={{ alignItems: "flex-end", gap: 4 }}>
-                      <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }}>الطلبات</Text>
-                      <Text style={{ color: colors.foreground, fontFamily: F.bold, fontSize: 20 }}>{d.orderCount}</Text>
+                    {/* Net Revenue */}
+                    <View style={{ flex: 1, backgroundColor: "#0A1A0A", borderRadius: 14, borderWidth: 1, borderColor: "#4CAF5044", padding: 14, gap: 4 }}>
+                      <Text style={{ color: "#9A7A5A", fontFamily: F.regular, fontSize: 10, textAlign: "right" }}>✅ الصافي (بعد الضريبة)</Text>
+                      <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 18, textAlign: "right" }}>{pd.netRevenue.toFixed(2)}</Text>
+                      <Text style={{ color: "#9A7A5A", fontFamily: F.regular, fontSize: 10, textAlign: "right" }}>ر.س</Text>
                     </View>
                   </View>
-                  <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 8 }} />
+                  {/* Row 2 */}
+                  <View style={{ flexDirection: "row-reverse", gap: 8 }}>
+                    {/* Tax */}
+                    <View style={{ flex: 1, backgroundColor: "#0A0F1A", borderRadius: 14, borderWidth: 1, borderColor: "#82B1FF44", padding: 14, gap: 4 }}>
+                      <Text style={{ color: "#9A7A5A", fontFamily: F.regular, fontSize: 10, textAlign: "right" }}>🏛️ ضريبة القيمة المضافة 15%</Text>
+                      <Text style={{ color: "#82B1FF", fontFamily: F.extra, fontSize: 18, textAlign: "right" }}>{pd.taxAmount.toFixed(2)}</Text>
+                      <Text style={{ color: "#9A7A5A", fontFamily: F.regular, fontSize: 10, textAlign: "right" }}>ر.س</Text>
+                    </View>
+                    {/* Delivery */}
+                    <View style={{ flex: 1, backgroundColor: "#0F0A1A", borderRadius: 14, borderWidth: 1, borderColor: "#CE93D844", padding: 14, gap: 4 }}>
+                      <Text style={{ color: "#9A7A5A", fontFamily: F.regular, fontSize: 10, textAlign: "right" }}>🚗 إيراد التوصيل</Text>
+                      <Text style={{ color: "#CE93D8", fontFamily: F.extra, fontSize: 18, textAlign: "right" }}>{pd.deliveryRevenue.toFixed(2)}</Text>
+                      <Text style={{ color: "#9A7A5A", fontFamily: F.regular, fontSize: 10, textAlign: "right" }}>ر.س</Text>
+                    </View>
+                  </View>
+                  {/* Row 3 */}
+                  <View style={{ flexDirection: "row-reverse", gap: 8 }}>
+                    {/* Orders done */}
+                    <View style={{ flex: 1, backgroundColor: colors.card, borderRadius: 14, borderWidth: 1, borderColor: colors.border, padding: 14, gap: 4 }}>
+                      <Text style={{ color: "#9A7A5A", fontFamily: F.regular, fontSize: 10, textAlign: "right" }}>📦 الطلبات المكتملة</Text>
+                      <Text style={{ color: colors.foreground, fontFamily: F.extra, fontSize: 22, textAlign: "right" }}>{pd.orderCount}</Text>
+                      <Text style={{ color: "#9A7A5A", fontFamily: F.regular, fontSize: 10, textAlign: "right" }}>طلب</Text>
+                    </View>
+                    {/* Cancelled */}
+                    <View style={{ flex: 1, backgroundColor: "#1A0A0A", borderRadius: 14, borderWidth: 1, borderColor: "#EF444444", padding: 14, gap: 4 }}>
+                      <Text style={{ color: "#9A7A5A", fontFamily: F.regular, fontSize: 10, textAlign: "right" }}>❌ الطلبات الملغاة</Text>
+                      <View style={{ flexDirection: "row-reverse", alignItems: "baseline", gap: 4 }}>
+                        <Text style={{ color: "#EF4444", fontFamily: F.extra, fontSize: 22, textAlign: "right" }}>{pd.cancelledCount}</Text>
+                        <Text style={{ color: "#EF444488", fontFamily: F.semi, fontSize: 11 }}>طلب</Text>
+                      </View>
+                      <Text style={{ color: "#EF4444", fontFamily: F.semi, fontSize: 11, textAlign: "right" }}>
+                        {pd.cancelledValue > 0 ? `خسارة: ${pd.cancelledValue.toFixed(2)} ر.س` : "لا خسائر"}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* ── Payment method bar ── */}
+                <View style={{ backgroundColor: colors.card, borderRadius: 14, borderWidth: 1, borderColor: colors.border, padding: 14, gap: 10 }}>
+                  <Text style={{ color: colors.foreground, fontFamily: F.bold, fontSize: 13, textAlign: "right" }}>💳 طريقة الدفع</Text>
+                  {/* Bar */}
+                  <View style={{ height: 12, borderRadius: 6, flexDirection: "row-reverse", overflow: "hidden", backgroundColor: colors.secondary }}>
+                    {pd.cashRevenue > 0 && (
+                      <View style={{ flex: cashPct, backgroundColor: "#4CAF50" }} />
+                    )}
+                    {pd.onlineRevenue > 0 && (
+                      <View style={{ flex: onlinePct, backgroundColor: "#82B1FF" }} />
+                    )}
+                  </View>
                   <View style={{ flexDirection: "row-reverse", justifyContent: "space-between" }}>
                     <View style={{ alignItems: "flex-end", gap: 2 }}>
-                      <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }}>🍽️ الأصناف</Text>
-                      <Text style={{ color: "#A5D6A7", fontFamily: F.semi, fontSize: 14 }}>{d.itemsRevenue.toFixed(2)} ر.س</Text>
+                      <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 5 }}>
+                        <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: "#4CAF50" }} />
+                        <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }}>نقدي</Text>
+                      </View>
+                      <Text style={{ color: "#4CAF50", fontFamily: F.bold, fontSize: 13 }}>{pd.cashRevenue.toFixed(1)} ر.س</Text>
+                      <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 10 }}>{pd.cashCount} طلب • {cashPct}%</Text>
                     </View>
                     <View style={{ alignItems: "flex-end", gap: 2 }}>
-                      <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }}>🚗 التوصيل</Text>
-                      <Text style={{ color: "#82B1FF", fontFamily: F.semi, fontSize: 14 }}>{d.deliveryRevenue.toFixed(2)} ر.س</Text>
+                      <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 5 }}>
+                        <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: "#82B1FF" }} />
+                        <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }}>إلكتروني</Text>
+                      </View>
+                      <Text style={{ color: "#82B1FF", fontFamily: F.bold, fontSize: 13 }}>{pd.onlineRevenue.toFixed(1)} ر.س</Text>
+                      <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 10 }}>{pd.onlineCount} طلب • {onlinePct}%</Text>
                     </View>
                   </View>
                 </View>
-              ))}
 
-              {/* View toggle */}
-              <View style={{ flexDirection: "row-reverse", gap: 8 }}>
-                {(["daily", "monthly"] as const).map((v) => (
-                  <TouchableOpacity
-                    key={v}
-                    onPress={() => setRevenueView(v)}
-                    style={{
-                      flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: "center",
-                      backgroundColor: revenueView === v ? colors.gold : colors.secondary,
-                      borderWidth: 1, borderColor: revenueView === v ? colors.gold : colors.border,
-                    }}
-                  >
-                    <Text style={{ color: revenueView === v ? "#1a1a1a" : colors.mutedForeground, fontFamily: F.bold, fontSize: 13 }}>
-                      {v === "daily" ? "يومي (آخر 30 يوم)" : "شهري (هذه السنة)"}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              {/* Breakdown Table */}
-              <View style={{ backgroundColor: colors.card, borderRadius: 16, overflow: "hidden", borderWidth: 1, borderColor: colors.border }}>
-                {/* Header */}
-                <View style={{ flexDirection: "row-reverse", backgroundColor: colors.secondary, paddingVertical: 10, paddingHorizontal: 12, gap: 4 }}>
-                  {["التاريخ","الإجمالي","الأصناف","التوصيل","الطلبات"].map((h) => (
-                    <Text key={h} style={{ flex: h === "التاريخ" ? 1.4 : 1, color: colors.gold, fontFamily: F.bold, fontSize: 11, textAlign: "center" }}>{h}</Text>
+                {/* ── Financial summary row ── */}
+                <View style={{ backgroundColor: colors.card, borderRadius: 14, borderWidth: 1, borderColor: colors.border, overflow: "hidden" }}>
+                  <View style={{ backgroundColor: colors.secondary, paddingVertical: 8, paddingHorizontal: 14 }}>
+                    <Text style={{ color: colors.gold, fontFamily: F.bold, fontSize: 12, textAlign: "right" }}>📋 ملخص مالي</Text>
+                  </View>
+                  {[
+                    { label: "إجمالي الإيرادات",         value: `${pd.totalRevenue.toFixed(2)} ر.س`,   color: "#E8920C" },
+                    { label: "إيراد الأصناف",             value: `${pd.itemsRevenue.toFixed(2)} ر.س`,   color: colors.foreground },
+                    { label: "إيراد التوصيل",             value: `${pd.deliveryRevenue.toFixed(2)} ر.س`, color: "#CE93D8" },
+                    { label: "ضريبة القيمة المضافة 15%", value: `${pd.taxAmount.toFixed(2)} ر.س`,      color: "#82B1FF" },
+                    { label: "الصافي بعد الضريبة",        value: `${pd.netRevenue.toFixed(2)} ر.س`,     color: "#4CAF50" },
+                    { label: "قيمة الطلبات الملغاة",      value: pd.cancelledValue > 0 ? `${pd.cancelledValue.toFixed(2)} ر.س` : "لا يوجد", color: pd.cancelledValue > 0 ? "#EF4444" : colors.mutedForeground },
+                  ].map((r, i, arr) => (
+                    <View key={r.label}>
+                      <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", paddingVertical: 11, paddingHorizontal: 14 }}>
+                        <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12, textAlign: "right" }}>{r.label}</Text>
+                        <Text style={{ color: r.color, fontFamily: F.bold, fontSize: 12 }}>{r.value}</Text>
+                      </View>
+                      {i < arr.length - 1 && <View style={{ height: 1, backgroundColor: colors.border, marginHorizontal: 14 }} />}
+                    </View>
                   ))}
                 </View>
-                {(revenueView === "daily" ? revenueData.dailyBreakdown : revenueData.monthlyBreakdown).map((row, i) => {
-                  const isDay = revenueView === "daily";
-                  const label = isDay ? (row as { date: string }).date : (row as { month: string }).month;
-                  const isEven = i % 2 === 0;
-                  const hasData = row.total > 0;
-                  return (
-                    <View
-                      key={i}
+
+                {/* ── View toggle ── */}
+                <View style={{ flexDirection: "row-reverse", gap: 6 }}>
+                  {([
+                    { key: "daily",  label: "📅 يومي" },
+                    { key: "monthly", label: "📆 شهري" },
+                    { key: "items",  label: "🏆 الأصناف" },
+                  ] as const).map(({ key, label }) => (
+                    <TouchableOpacity
+                      key={key}
+                      onPress={() => setRevenueView(key)}
                       style={{
-                        flexDirection: "row-reverse",
-                        paddingVertical: 9, paddingHorizontal: 12, gap: 4,
-                        backgroundColor: isEven ? colors.card : colors.secondary + "88",
-                        borderTopWidth: 1, borderTopColor: colors.border + "55",
+                        flex: 1, paddingVertical: 9, borderRadius: 10, alignItems: "center",
+                        backgroundColor: revenueView === key ? colors.gold : colors.secondary,
+                        borderWidth: 1, borderColor: revenueView === key ? colors.gold : colors.border,
                       }}
                     >
-                      <Text style={{ flex: 1.4, color: hasData ? colors.foreground : colors.mutedForeground, fontFamily: F.semi, fontSize: 11, textAlign: "center" }}>{label}</Text>
-                      <Text style={{ flex: 1, color: hasData ? "#FFD700" : colors.mutedForeground, fontFamily: F.bold, fontSize: 11, textAlign: "center" }}>{row.total > 0 ? row.total.toFixed(1) : "—"}</Text>
-                      <Text style={{ flex: 1, color: hasData ? "#A5D6A7" : colors.mutedForeground, fontFamily: F.semi, fontSize: 11, textAlign: "center" }}>{row.items > 0 ? row.items.toFixed(1) : "—"}</Text>
-                      <Text style={{ flex: 1, color: hasData ? "#82B1FF" : colors.mutedForeground, fontFamily: F.semi, fontSize: 11, textAlign: "center" }}>{row.delivery > 0 ? row.delivery.toFixed(1) : "—"}</Text>
-                      <Text style={{ flex: 1, color: hasData ? colors.foreground : colors.mutedForeground, fontFamily: F.semi, fontSize: 11, textAlign: "center" }}>{row.orders > 0 ? row.orders : "—"}</Text>
+                      <Text style={{ color: revenueView === key ? "#1A1008" : colors.mutedForeground, fontFamily: F.bold, fontSize: 11 }}>
+                        {label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                {/* ── Top Items Table ── */}
+                {revenueView === "items" && (
+                  <View style={{ backgroundColor: colors.card, borderRadius: 14, overflow: "hidden", borderWidth: 1, borderColor: colors.border }}>
+                    {/* Header */}
+                    <View style={{ flexDirection: "row-reverse", backgroundColor: colors.secondary, paddingVertical: 10, paddingHorizontal: 12, gap: 4 }}>
+                      {["#", "الصنف", "الكمية", "الإيراد"].map((h, i) => (
+                        <Text key={h} style={{ flex: i === 1 ? 2.5 : 0.7, color: colors.gold, fontFamily: F.bold, fontSize: 11, textAlign: "center" }}>{h}</Text>
+                      ))}
                     </View>
-                  );
-                })}
-              </View>
-            </>
-          )}
+                    {revenueData.topItems.length === 0 ? (
+                      <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 13, textAlign: "center", padding: 20 }}>لا توجد بيانات</Text>
+                    ) : revenueData.topItems.map((item, i) => (
+                      <View
+                        key={item.id}
+                        style={{
+                          flexDirection: "row-reverse", paddingVertical: 10, paddingHorizontal: 12, gap: 4,
+                          backgroundColor: i % 2 === 0 ? colors.card : colors.secondary + "88",
+                          borderTopWidth: 1, borderTopColor: colors.border + "55",
+                          alignItems: "center",
+                        }}
+                      >
+                        <View style={{ flex: 0.7, alignItems: "center" }}>
+                          <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: i < 3 ? colors.gold : colors.secondary, alignItems: "center", justifyContent: "center" }}>
+                            <Text style={{ color: i < 3 ? "#1A1008" : colors.mutedForeground, fontFamily: F.bold, fontSize: 10 }}>{i + 1}</Text>
+                          </View>
+                        </View>
+                        <Text style={{ flex: 2.5, color: colors.foreground, fontFamily: F.semi, fontSize: 11, textAlign: "right" }} numberOfLines={2}>{item.name}</Text>
+                        <Text style={{ flex: 0.7, color: "#4CAF50", fontFamily: F.bold, fontSize: 12, textAlign: "center" }}>{item.qty}</Text>
+                        <Text style={{ flex: 0.7, color: colors.gold, fontFamily: F.semi, fontSize: 10, textAlign: "center" }}>{item.revenue.toFixed(0)}</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+
+                {/* ── Daily / Monthly breakdown table ── */}
+                {(revenueView === "daily" || revenueView === "monthly") && (
+                  <View style={{ backgroundColor: colors.card, borderRadius: 14, overflow: "hidden", borderWidth: 1, borderColor: colors.border }}>
+                    {/* Table header */}
+                    <View style={{ flexDirection: "row-reverse", backgroundColor: colors.secondary, paddingVertical: 10, paddingHorizontal: 8 }}>
+                      {[
+                        { label: revenueView === "daily" ? "التاريخ" : "الشهر", flex: 1.4 },
+                        { label: "الطلبات", flex: 0.8 },
+                        { label: "الإجمالي", flex: 1.1 },
+                        { label: "الضريبة", flex: 1 },
+                        { label: "الصافي", flex: 1 },
+                        { label: "الملغاة", flex: 0.8 },
+                      ].map((h) => (
+                        <Text key={h.label} style={{ flex: h.flex, color: colors.gold, fontFamily: F.bold, fontSize: 9.5, textAlign: "center" }}>{h.label}</Text>
+                      ))}
+                    </View>
+                    {(revenueView === "daily" ? revenueData.dailyBreakdown : revenueData.monthlyBreakdown).map((row, i) => {
+                      const label = revenueView === "daily" ? (row as { date: string }).date : (row as { month: string }).month;
+                      const hasData = row.total > 0;
+                      const hasCancelled = row.cancelledCount > 0;
+                      return (
+                        <View
+                          key={i}
+                          style={{
+                            flexDirection: "row-reverse", paddingVertical: 9, paddingHorizontal: 8,
+                            backgroundColor: i % 2 === 0 ? colors.card : colors.secondary + "66",
+                            borderTopWidth: 1, borderTopColor: colors.border + "44",
+                          }}
+                        >
+                          <Text style={{ flex: 1.4, color: hasData ? colors.foreground : colors.mutedForeground, fontFamily: F.semi, fontSize: 10, textAlign: "center" }}>{label}</Text>
+                          <Text style={{ flex: 0.8, color: hasData ? colors.foreground : colors.mutedForeground, fontFamily: F.semi, fontSize: 10, textAlign: "center" }}>{row.orders > 0 ? row.orders : "—"}</Text>
+                          <Text style={{ flex: 1.1, color: hasData ? "#E8920C" : colors.mutedForeground, fontFamily: F.bold, fontSize: 10, textAlign: "center" }}>{row.total > 0 ? row.total.toFixed(1) : "—"}</Text>
+                          <Text style={{ flex: 1, color: hasData ? "#82B1FF" : colors.mutedForeground, fontFamily: F.semi, fontSize: 10, textAlign: "center" }}>{row.tax > 0 ? row.tax.toFixed(1) : "—"}</Text>
+                          <Text style={{ flex: 1, color: hasData ? "#4CAF50" : colors.mutedForeground, fontFamily: F.bold, fontSize: 10, textAlign: "center" }}>{row.net > 0 ? row.net.toFixed(1) : "—"}</Text>
+                          <Text style={{ flex: 0.8, color: hasCancelled ? "#EF4444" : colors.mutedForeground, fontFamily: F.semi, fontSize: 10, textAlign: "center" }}>{hasCancelled ? row.cancelledCount : "—"}</Text>
+                        </View>
+                      );
+                    })}
+                    {/* Table footer totals for visible rows */}
+                    {(() => {
+                      const rows = revenueView === "daily" ? revenueData.dailyBreakdown : revenueData.monthlyBreakdown;
+                      const totals = rows.reduce((acc, r) => ({
+                        orders: acc.orders + r.orders,
+                        total: acc.total + r.total,
+                        tax: acc.tax + r.tax,
+                        net: acc.net + r.net,
+                        cancelled: acc.cancelled + r.cancelledCount,
+                      }), { orders: 0, total: 0, tax: 0, net: 0, cancelled: 0 });
+                      return (
+                        <View style={{ flexDirection: "row-reverse", paddingVertical: 10, paddingHorizontal: 8, backgroundColor: colors.secondary, borderTopWidth: 1, borderTopColor: colors.gold + "44" }}>
+                          <Text style={{ flex: 1.4, color: colors.gold, fontFamily: F.bold, fontSize: 10, textAlign: "center" }}>المجموع</Text>
+                          <Text style={{ flex: 0.8, color: colors.foreground, fontFamily: F.bold, fontSize: 10, textAlign: "center" }}>{totals.orders}</Text>
+                          <Text style={{ flex: 1.1, color: "#E8920C", fontFamily: F.bold, fontSize: 10, textAlign: "center" }}>{totals.total.toFixed(1)}</Text>
+                          <Text style={{ flex: 1, color: "#82B1FF", fontFamily: F.bold, fontSize: 10, textAlign: "center" }}>{totals.tax.toFixed(1)}</Text>
+                          <Text style={{ flex: 1, color: "#4CAF50", fontFamily: F.bold, fontSize: 10, textAlign: "center" }}>{totals.net.toFixed(1)}</Text>
+                          <Text style={{ flex: 0.8, color: "#EF4444", fontFamily: F.bold, fontSize: 10, textAlign: "center" }}>{totals.cancelled || "—"}</Text>
+                        </View>
+                      );
+                    })()}
+                  </View>
+                )}
+              </>
+            );
+          })()}
         </ScrollView>
       )}
 

@@ -1,15 +1,13 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { ordersTable } from "@workspace/db/schema";
-import { eq, gte, lt, and, sql } from "drizzle-orm";
+import { eq, gte, lt, and, sql, ne } from "drizzle-orm";
 
 const router = Router();
 
-// Saudi timezone offset (UTC+3)
 const TZ_OFFSET_MS = 3 * 60 * 60 * 1000;
 
 function toLocalMidnight(year: number, month: number, day: number): Date {
-  // midnight in Saudi time expressed as UTC
   return new Date(Date.UTC(year, month, day) - TZ_OFFSET_MS);
 }
 
@@ -17,48 +15,94 @@ function nowLocal(): Date {
   return new Date(Date.now() + TZ_OFFSET_MS);
 }
 
+// Saudi VAT 15% — prices are VAT-inclusive
+const VAT_RATE = 0.15;
+function calcTax(gross: number): number {
+  return +(gross * VAT_RATE / (1 + VAT_RATE)).toFixed(2);
+}
+
+const aggregate = async (from: Date, to: Date) => {
+  const doneRows = await db
+    .select({
+      totalRevenue:    sql<number>`coalesce(sum(${ordersTable.totalPrice}), 0)`,
+      deliveryRevenue: sql<number>`coalesce(sum(${ordersTable.deliveryFee}), 0)`,
+      orderCount:      sql<number>`count(*)`,
+      cashCount:       sql<number>`coalesce(sum(case when ${ordersTable.paymentMethod} = 'cash' then 1 else 0 end), 0)`,
+      onlineCount:     sql<number>`coalesce(sum(case when ${ordersTable.paymentMethod} != 'cash' then 1 else 0 end), 0)`,
+      cashRevenue:     sql<number>`coalesce(sum(case when ${ordersTable.paymentMethod} = 'cash' then ${ordersTable.totalPrice} else 0 end), 0)`,
+      onlineRevenue:   sql<number>`coalesce(sum(case when ${ordersTable.paymentMethod} != 'cash' then ${ordersTable.totalPrice} else 0 end), 0)`,
+    })
+    .from(ordersTable)
+    .where(and(gte(ordersTable.createdAt, from), lt(ordersTable.createdAt, to), eq(ordersTable.status, "done")));
+
+  const cancelRows = await db
+    .select({
+      cancelCount:   sql<number>`count(*)`,
+      cancelRevenue: sql<number>`coalesce(sum(${ordersTable.totalPrice}), 0)`,
+    })
+    .from(ordersTable)
+    .where(and(gte(ordersTable.createdAt, from), lt(ordersTable.createdAt, to), eq(ordersTable.status, "cancelled")));
+
+  const pendingRows = await db
+    .select({ pendingCount: sql<number>`count(*)` })
+    .from(ordersTable)
+    .where(
+      and(
+        gte(ordersTable.createdAt, from),
+        lt(ordersTable.createdAt, to),
+        ne(ordersTable.status, "done"),
+        ne(ordersTable.status, "cancelled"),
+      )
+    );
+
+  const row = doneRows[0];
+  const cancelRow = cancelRows[0];
+  const pendingRow = pendingRows[0];
+
+  const total    = Number(row.totalRevenue) / 100;
+  const delivery = Number(row.deliveryRevenue) / 100;
+  const items    = +(total - delivery).toFixed(2);
+  const tax      = calcTax(total);
+  const net      = +(total - tax).toFixed(2);
+
+  return {
+    totalRevenue:    total,
+    deliveryRevenue: delivery,
+    itemsRevenue:    items,
+    orderCount:      Number(row.orderCount),
+    taxAmount:       tax,
+    netRevenue:      net,
+    cancelledCount:  Number(cancelRow.cancelCount),
+    cancelledValue:  Number(cancelRow.cancelRevenue) / 100,
+    pendingCount:    Number(pendingRow.pendingCount),
+    cashCount:       Number(row.cashCount),
+    onlineCount:     Number(row.onlineCount),
+    cashRevenue:     Number(row.cashRevenue) / 100,
+    onlineRevenue:   Number(row.onlineRevenue) / 100,
+  };
+};
+
 router.get("/revenue", async (_req, res) => {
   const nl = nowLocal();
   const y = nl.getUTCFullYear();
   const m = nl.getUTCMonth();
   const d = nl.getUTCDate();
 
-  // ── date range boundaries ──
-  const todayStart   = toLocalMidnight(y, m, d);
-  const tomorrowStart = toLocalMidnight(y, m, d + 1);
-  const monthStart   = toLocalMidnight(y, m, 1);
+  const todayStart     = toLocalMidnight(y, m, d);
+  const tomorrowStart  = toLocalMidnight(y, m, d + 1);
+  const weekStart      = toLocalMidnight(y, m, d - 6);
+  const monthStart     = toLocalMidnight(y, m, 1);
   const nextMonthStart = toLocalMidnight(y, m + 1, 1);
-  const yearStart    = toLocalMidnight(y, 0, 1);
-  const nextYearStart = toLocalMidnight(y + 1, 0, 1);
+  const yearStart      = toLocalMidnight(y, 0, 1);
+  const nextYearStart  = toLocalMidnight(y + 1, 0, 1);
 
-  const aggregate = async (from: Date, to: Date) => {
-    const rows = await db
-      .select({
-        totalRevenue: sql<number>`coalesce(sum(${ordersTable.totalPrice}), 0)`,
-        deliveryRevenue: sql<number>`coalesce(sum(${ordersTable.deliveryFee}), 0)`,
-        orderCount: sql<number>`count(*)`,
-      })
-      .from(ordersTable)
-      .where(
-        and(
-          gte(ordersTable.createdAt, from),
-          lt(ordersTable.createdAt, to),
-          eq(ordersTable.status, "done"),
-        )
-      );
-    const row = rows[0];
-    const total = Number(row.totalRevenue) / 100;
-    const delivery = Number(row.deliveryRevenue) / 100;
-    return {
-      totalRevenue: total,
-      deliveryRevenue: delivery,
-      itemsRevenue: +(total - delivery).toFixed(2),
-      orderCount: Number(row.orderCount),
-    };
-  };
+  // ── Daily breakdown (last 30 days) ──
+  const dailyBreakdown: {
+    date: string; total: number; delivery: number; items: number; orders: number;
+    tax: number; net: number; cancelledCount: number; cancelledValue: number;
+    cashCount: number; onlineCount: number;
+  }[] = [];
 
-  // daily breakdown for current month (last 30 days)
-  const dailyBreakdown: { date: string; total: number; delivery: number; items: number; orders: number }[] = [];
   for (let i = 29; i >= 0; i--) {
     const dayLocal = new Date(nl.getTime() - i * 86400000);
     const dy = dayLocal.getUTCFullYear();
@@ -68,26 +112,63 @@ router.get("/revenue", async (_req, res) => {
     const to   = toLocalMidnight(dy, dm, dd + 1);
     const r = await aggregate(from, to);
     const label = `${String(dd).padStart(2, "0")}/${String(dm + 1).padStart(2, "0")}`;
-    dailyBreakdown.push({ date: label, total: r.totalRevenue, delivery: r.deliveryRevenue, items: r.itemsRevenue, orders: r.orderCount });
+    dailyBreakdown.push({
+      date: label, total: r.totalRevenue, delivery: r.deliveryRevenue, items: r.itemsRevenue,
+      orders: r.orderCount, tax: r.taxAmount, net: r.netRevenue,
+      cancelledCount: r.cancelledCount, cancelledValue: r.cancelledValue,
+      cashCount: r.cashCount, onlineCount: r.onlineCount,
+    });
   }
 
-  // monthly breakdown for current year
-  const monthlyBreakdown: { month: string; total: number; delivery: number; items: number; orders: number }[] = [];
+  // ── Monthly breakdown (current year) ──
   const arabicMonths = ["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
+  const monthlyBreakdown: {
+    month: string; total: number; delivery: number; items: number; orders: number;
+    tax: number; net: number; cancelledCount: number; cancelledValue: number;
+    cashCount: number; onlineCount: number;
+  }[] = [];
+
   for (let mi = 0; mi < 12; mi++) {
     const from = toLocalMidnight(y, mi, 1);
     const to   = toLocalMidnight(y, mi + 1, 1);
     const r = await aggregate(from, to);
-    monthlyBreakdown.push({ month: arabicMonths[mi], total: r.totalRevenue, delivery: r.deliveryRevenue, items: r.itemsRevenue, orders: r.orderCount });
+    monthlyBreakdown.push({
+      month: arabicMonths[mi], total: r.totalRevenue, delivery: r.deliveryRevenue, items: r.itemsRevenue,
+      orders: r.orderCount, tax: r.taxAmount, net: r.netRevenue,
+      cancelledCount: r.cancelledCount, cancelledValue: r.cancelledValue,
+      cashCount: r.cashCount, onlineCount: r.onlineCount,
+    });
   }
 
-  const [today, month, year] = await Promise.all([
+  // ── Top selling items (this year, done orders) ──
+  const topItemsRaw = await db
+    .select({ items: ordersTable.items })
+    .from(ordersTable)
+    .where(and(gte(ordersTable.createdAt, yearStart), lt(ordersTable.createdAt, nextYearStart), eq(ordersTable.status, "done")));
+
+  const itemMap = new Map<string, { name: string; qty: number; revenue: number }>();
+  for (const row of topItemsRaw) {
+    const items = row.items as Array<{ id: string; name: string; price: number; quantity: number }>;
+    for (const it of items) {
+      const existing = itemMap.get(it.id) ?? { name: it.name, qty: 0, revenue: 0 };
+      existing.qty += it.quantity;
+      existing.revenue += it.price * it.quantity;
+      itemMap.set(it.id, existing);
+    }
+  }
+  const topItems = [...itemMap.entries()]
+    .map(([id, v]) => ({ id, name: v.name, qty: v.qty, revenue: v.revenue }))
+    .sort((a, b) => b.qty - a.qty)
+    .slice(0, 10);
+
+  const [today, week, month, year] = await Promise.all([
     aggregate(todayStart, tomorrowStart),
+    aggregate(weekStart, tomorrowStart),
     aggregate(monthStart, nextMonthStart),
     aggregate(yearStart, nextYearStart),
   ]);
 
-  res.json({ today, month, year, dailyBreakdown, monthlyBreakdown });
+  res.json({ today, week, month, year, dailyBreakdown, monthlyBreakdown, topItems });
 });
 
 export default router;
