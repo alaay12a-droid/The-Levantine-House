@@ -227,6 +227,7 @@ export default function AdminMenuScreen() {
   const { data: revenueData, loading: revenueLoading, refresh: refreshRevenue } = useRevenue();
   const [revenueView, setRevenueView] = useState<"daily" | "monthly" | "items">("daily");
   const [revenuePeriod, setRevenuePeriod] = useState<"today" | "week" | "month" | "year">("month");
+  const [settingsSection, setSettingsSection] = useState<"hours" | "payment" | "discounts" | "wallets" | "sms" | "security" | "appearance">("hours");
 
   // Combos
   const { combos, addCombo, updateCombo, deleteCombo } = useCombos();
@@ -1081,12 +1082,48 @@ export default function AdminMenuScreen() {
       )}
 
       {activeTab === "settings" && (
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ padding: 20, gap: 20 }}
-        >
+        <View style={{ flex: 1 }}>
+          {/* ── Settings Sub-Nav ── */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: 14, paddingVertical: 10, gap: 8, flexDirection: "row-reverse" }}
+            style={{ borderBottomWidth: 1, borderBottomColor: colors.border, flexGrow: 0 }}
+          >
+            {([
+              { key: "hours",      icon: "clock",       label: "الأوقات"    },
+              { key: "payment",    icon: "credit-card", label: "الدفع"      },
+              { key: "discounts",  icon: "tag",         label: "الخصومات"   },
+              { key: "wallets",    icon: "dollar-sign", label: "المحافظ"    },
+              { key: "sms",        icon: "message-square", label: "الرسائل" },
+              { key: "security",   icon: "lock",        label: "الأمان"     },
+              { key: "appearance", icon: "sliders",     label: "المظهر"     },
+            ] as const).map(({ key, icon, label }) => {
+              const active = settingsSection === key;
+              return (
+                <TouchableOpacity
+                  key={key}
+                  onPress={() => setSettingsSection(key)}
+                  style={{
+                    flexDirection: "row-reverse", alignItems: "center", gap: 6,
+                    paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20,
+                    backgroundColor: active ? colors.gold : colors.secondary,
+                    borderWidth: 1, borderColor: active ? colors.gold : colors.border,
+                  }}
+                >
+                  <Feather name={icon as any} size={13} color={active ? "#1A1008" : colors.mutedForeground} />
+                  <Text style={{ color: active ? "#1A1008" : colors.mutedForeground, fontFamily: F.bold, fontSize: 12, writingDirection: "rtl" }}>
+                    {label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
 
-          {/* ── Branch Hours ── */}
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 18, gap: 16 }}>
+
+          {/* ══════════════════ HOURS ══════════════════ */}
+          {settingsSection === "hours" && (<>
           <Text style={{ color: colors.gold, fontFamily: F.extra, fontSize: 16, textAlign: "right" }}>
             🕐 أوقات عمل الفرع
           </Text>
@@ -1200,7 +1237,10 @@ export default function AdminMenuScreen() {
               }
             </TouchableOpacity>
           </View>
+          </>)}
 
+          {/* ══════════════════ APPEARANCE ══════════════════ */}
+          {settingsSection === "appearance" && (<>
           <Text style={{ color: colors.gold, fontFamily: F.extra, fontSize: 16, textAlign: "right" }}>
             ⚙️ إعدادات التاب بار
           </Text>
@@ -1315,7 +1355,10 @@ export default function AdminMenuScreen() {
           <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12, textAlign: "center" }}>
             التغييرات تُحفظ تلقائياً وتظهر فور الرجوع للتطبيق
           </Text>
+          </>)}
 
+          {/* ══════════════════ PAYMENT ══════════════════ */}
+          {settingsSection === "payment" && (<>
           {/* Payment Settings */}
           <Text style={{ color: colors.gold, fontFamily: F.extra, fontSize: 16, textAlign: "right", marginTop: 8 }}>
             💳 إعدادات الدفع
@@ -1459,7 +1502,10 @@ export default function AdminMenuScreen() {
               </Text>
             </View>
           </View>
+          </>)}
 
+          {/* ══════════════════ DISCOUNTS ══════════════════ */}
+          {settingsSection === "discounts" && (<>
           {/* Discount Codes */}
           <Text style={{ color: colors.gold, fontFamily: F.extra, fontSize: 16, textAlign: "right", marginTop: 8 }}>
             🏷️ أكواد الخصم
@@ -1618,7 +1664,10 @@ export default function AdminMenuScreen() {
               />
             </View>
           </View>
+          </>)}
 
+          {/* ══════════════════ WALLETS ══════════════════ */}
+          {settingsSection === "wallets" && (<>
           {/* Wallet Management */}
           <Text style={{ color: colors.gold, fontFamily: F.extra, fontSize: 16, textAlign: "right", marginTop: 8 }}>
             💰 إدارة المحافظ
@@ -1707,7 +1756,10 @@ export default function AdminMenuScreen() {
               )}
             </TouchableOpacity>
           </View>
+          </>)}
 
+          {/* ══════════════════ SMS ══════════════════ */}
+          {settingsSection === "sms" && (<>
           {/* SMS OTP Settings */}
           <Text style={{ color: colors.gold, fontFamily: F.extra, fontSize: 16, textAlign: "right", marginTop: 8 }}>
             📱 التحقق برسالة SMS
@@ -1788,7 +1840,10 @@ export default function AdminMenuScreen() {
               }
             </TouchableOpacity>
           </View>
+          </>)}
 
+          {/* ══════════════════ SECURITY ══════════════════ */}
+          {settingsSection === "security" && (<>
           {/* PIN Management */}
           <Text style={{ color: colors.gold, fontFamily: F.extra, fontSize: 16, textAlign: "right", marginTop: 8 }}>
             🔐 رموز الدخول
@@ -1819,7 +1874,10 @@ export default function AdminMenuScreen() {
               💡 إذا نسيت الرمز، يمكنك استخدام رمز الطوارئ للدخول وتغيير الرموز.{"\n"}للحصول على رمز الطوارئ تواصل مع المطور.
             </Text>
           </View>
-        </ScrollView>
+          </>)}
+
+          </ScrollView>
+        </View>
       )}
 
       {/* Banners tab */}
