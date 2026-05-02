@@ -23,3 +23,9 @@ id = "ZDyeEUweczbzM_WPDvYNq"
 uri = "file://RawabiAlMandi-Source.zip"
 type = "unspecified"
 title = "RawabiAlMandi-Source.zip — كود المشروع كامل"
+
+[[outputs]]
+id = "HWHbb8SioEOg7vaeP7mZi"
+uri = "file://expo-qr.png"
+type = "image"
+title = "QR Code — افتح بكاميرا Expo Go"
