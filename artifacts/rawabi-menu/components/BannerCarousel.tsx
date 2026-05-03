@@ -1,5 +1,5 @@
-import React, { useRef, useEffect, useState } from "react";
-import { View, ScrollView, Image, Text, Dimensions, StyleSheet } from "react-native";
+import React, { useRef, useEffect, useState, useCallback } from "react";
+import { View, FlatList, Image, Text, Dimensions, StyleSheet } from "react-native";
 import type { ApiBanner } from "@/hooks/useBanners";
 
 const { width: SW } = Dimensions.get("window");
@@ -12,49 +12,65 @@ interface Props {
 
 export function BannerCarousel({ banners }: Props) {
   const active = banners.filter((b) => b.active);
-  const scrollRef = useRef<ScrollView>(null);
+  const flatRef = useRef<FlatList>(null);
   const [current, setCurrent] = useState(0);
+  const currentRef = useRef(0);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const scrollToIndex = useCallback((index: number) => {
+    try {
+      flatRef.current?.scrollToIndex({ index, animated: true });
+    } catch {}
+    setCurrent(index);
+    currentRef.current = index;
+  }, []);
 
   useEffect(() => {
     if (active.length <= 1) return;
-    const timer = setInterval(() => {
-      setCurrent((prev) => {
-        const next = (prev + 1) % active.length;
-        scrollRef.current?.scrollTo({ x: next * CARD_WIDTH, animated: true });
-        return next;
-      });
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    intervalRef.current = setInterval(() => {
+      const next = (currentRef.current + 1) % active.length;
+      scrollToIndex(next);
     }, 5000);
-    return () => clearInterval(timer);
-  }, [active.length]);
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [active.length, scrollToIndex]);
 
   if (active.length === 0) return null;
 
   return (
     <View style={styles.wrapper}>
-      <ScrollView
-        ref={scrollRef}
+      <FlatList
+        ref={flatRef}
+        data={active}
+        keyExtractor={(b) => String(b.bannerId)}
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
         scrollEventThrottle={16}
+        getItemLayout={(_, index) => ({
+          length: CARD_WIDTH,
+          offset: CARD_WIDTH * index,
+          index,
+        })}
         onMomentumScrollEnd={(e) => {
           const idx = Math.round(e.nativeEvent.contentOffset.x / CARD_WIDTH);
           setCurrent(idx);
+          currentRef.current = idx;
         }}
         style={{ width: CARD_WIDTH }}
-        contentContainerStyle={{ width: CARD_WIDTH * active.length }}
-      >
-        {active.map((b, i) => (
-          <View key={b.bannerId} style={[styles.slide, { width: CARD_WIDTH }]}>
-            <Image source={{ uri: b.imageUrl }} style={styles.img} resizeMode="cover" />
-            {b.title ? (
+        renderItem={({ item }) => (
+          <View style={[styles.slide, { width: CARD_WIDTH }]}>
+            <Image source={{ uri: item.imageUrl }} style={styles.img} resizeMode="cover" />
+            {item.title ? (
               <View style={styles.overlay}>
-                <Text style={styles.title}>{b.title}</Text>
+                <Text style={styles.title}>{item.title}</Text>
               </View>
             ) : null}
           </View>
-        ))}
-      </ScrollView>
+        )}
+      />
 
       {active.length > 1 && (
         <View style={styles.dots}>
