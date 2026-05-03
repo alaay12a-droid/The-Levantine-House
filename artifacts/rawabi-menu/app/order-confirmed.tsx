@@ -280,7 +280,11 @@ export default function OrderConfirmedScreen() {
         const d = new Date(order.createdAt);
         setOrderDate(d.toLocaleDateString(isEn ? "en-US" : "ar-SA", { day: "numeric", month: "long", year: "numeric" }));
       }
-      const delivery = !!(order.notes?.includes("توصيل") || order.notes?.includes("delivery"));
+      const delivery = !!(
+        order.customerAddress ||
+        order.notes?.includes("توصيل") ||
+        order.notes?.includes("delivery")
+      );
       setIsDelivery(delivery);
     } catch {}
 
