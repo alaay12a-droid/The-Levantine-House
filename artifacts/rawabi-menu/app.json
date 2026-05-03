@@ -33,6 +33,9 @@
     "android": {
       "package": "com.rawabialmandi.app",
       "versionCode": 1,
+      "compileSdkVersion": 35,
+      "targetSdkVersion": 35,
+      "minSdkVersion": 26,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive_icon.png",
         "backgroundColor": "#0F0A05"
@@ -68,8 +71,8 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/images/icon.png",
-          "color": "#D4AF37",
+          "icon": "./assets/images/notification_icon.png",
+          "color": "#E8920C",
           "defaultChannel": "orders",
           "sounds": [
             "./assets/sounds/notification.wav",
