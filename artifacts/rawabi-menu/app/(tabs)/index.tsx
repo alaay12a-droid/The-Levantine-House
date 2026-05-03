@@ -11,6 +11,7 @@ import {
   TouchableOpacity,
   StatusBar,
   Linking,
+  Modal,
 } from "react-native";
 import Animated, {
   useSharedValue,
@@ -70,6 +71,7 @@ export default function MenuScreen() {
   const availableCombos = combos.filter((c) => c.available);
   const [activeCategory, setActiveCategory] = useState("chicken");
   const [driversEnabled, setDriversEnabled] = useState(false);
+  const [showStaffPicker, setShowStaffPicker] = useState(false);
 
   useEffect(() => {
     apiGet<{ enabled: boolean }>("/settings/drivers-enabled")
@@ -168,19 +170,11 @@ export default function MenuScreen() {
               <Feather name="phone" size={18} color={colors.gold} />
             </TouchableOpacity>
             <TouchableOpacity
-              onPress={() => router.push("/cashier")}
+              onPress={() => driversEnabled ? setShowStaffPicker(true) : router.push("/cashier")}
               style={[styles.phoneBtn, { backgroundColor: "#2A1508" }]}
             >
               <Feather name="monitor" size={16} color={colors.gold} />
             </TouchableOpacity>
-            {driversEnabled && (
-              <TouchableOpacity
-                onPress={() => router.push("/mandoob")}
-                style={[styles.phoneBtn, { backgroundColor: "#0A1F0A", borderWidth: 1, borderColor: "#2E7D32" }]}
-              >
-                <Text style={{ fontSize: 16 }}>🛵</Text>
-              </TouchableOpacity>
-            )}
           </View>
 
           <View style={styles.titleBlock}>
@@ -477,6 +471,60 @@ export default function MenuScreen() {
       )}
 
       <CartBar />
+
+      {/* ── Staff picker modal ── */}
+      <Modal
+        visible={showStaffPicker}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowStaffPicker(false)}
+      >
+        <TouchableOpacity
+          style={{ flex: 1, backgroundColor: "#00000088", justifyContent: "flex-end" }}
+          activeOpacity={1}
+          onPress={() => setShowStaffPicker(false)}
+        >
+          <View style={{ backgroundColor: "#1A1008", borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, gap: 14, paddingBottom: Platform.OS === "web" ? 24 : 40 }}>
+            <Text style={{ color: "#E8920C", fontFamily: F.extra, fontSize: 16, textAlign: "center", marginBottom: 4 }}>
+              دخول الموظفين
+            </Text>
+
+            <TouchableOpacity
+              onPress={() => { setShowStaffPicker(false); router.push("/cashier"); }}
+              style={{ backgroundColor: "#2A1A08", borderRadius: 16, padding: 18, flexDirection: "row-reverse", alignItems: "center", gap: 14, borderWidth: 1, borderColor: "#E8920C44" }}
+              activeOpacity={0.8}
+            >
+              <View style={{ width: 46, height: 46, borderRadius: 23, backgroundColor: "#3A2208", alignItems: "center", justifyContent: "center", borderWidth: 1.5, borderColor: "#E8920C" }}>
+                <Feather name="monitor" size={22} color="#E8920C" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: "#fff", fontFamily: F.extra, fontSize: 17 }}>الكاشير</Text>
+                <Text style={{ color: "#9E8060", fontFamily: F.regular, fontSize: 13, marginTop: 2 }}>استقبال الطلبات وإدارة المبيعات</Text>
+              </View>
+              <Feather name="chevron-left" size={18} color="#9E8060" />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => { setShowStaffPicker(false); router.push("/mandoob"); }}
+              style={{ backgroundColor: "#0A1F0A", borderRadius: 16, padding: 18, flexDirection: "row-reverse", alignItems: "center", gap: 14, borderWidth: 1, borderColor: "#4CAF5044" }}
+              activeOpacity={0.8}
+            >
+              <View style={{ width: 46, height: 46, borderRadius: 23, backgroundColor: "#122012", alignItems: "center", justifyContent: "center", borderWidth: 1.5, borderColor: "#4CAF50" }}>
+                <Text style={{ fontSize: 24 }}>🛵</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: "#fff", fontFamily: F.extra, fontSize: 17 }}>المندوب</Text>
+                <Text style={{ color: "#5A8A5A", fontFamily: F.regular, fontSize: 13, marginTop: 2 }}>استلام الطلبات وتوصيلها للعملاء</Text>
+              </View>
+              <Feather name="chevron-left" size={18} color="#5A8A5A" />
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={() => setShowStaffPicker(false)} style={{ alignItems: "center", paddingVertical: 10 }}>
+              <Text style={{ color: "#9E8060", fontFamily: F.semi, fontSize: 14 }}>إلغاء</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
