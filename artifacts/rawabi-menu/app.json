@@ -73,7 +73,8 @@
           "defaultChannel": "orders",
           "sounds": [
             "./assets/sounds/notification.wav",
-            "./assets/sounds/notification_loop.wav"
+            "./assets/sounds/notification_loop.wav",
+            "./assets/sounds/order_arrived.m4a"
           ]
         }
       ]
