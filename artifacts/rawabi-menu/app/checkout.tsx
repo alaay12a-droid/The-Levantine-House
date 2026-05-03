@@ -214,16 +214,18 @@ export default function CheckoutScreen() {
     setPromoError("");
   };
 
-  const handleSendOtp = async () => {
-    if (!user?.phone) return;
+  const handleSendOtp = async (): Promise<boolean> => {
+    if (!user?.phone) return false;
     setOtpLoading(true);
     try {
       const r = await apiPost<{ ok: boolean; skipped?: boolean }>("/sms/send-otp", { phone: user.phone });
-      if (r.skipped) { setOtpStep("verified"); return; }
+      if (r.skipped) { setOtpStep("verified"); return true; }
       setOtpStep("sent");
       setOtpCode("");
+      return false;
     } catch {
       Alert.alert(isEn ? "Error" : "خطأ", isEn ? "Could not send code. Please try again." : "تعذر إرسال الرمز، حاول مرة أخرى.");
+      return false;
     } finally {
       setOtpLoading(false);
     }
@@ -368,8 +370,8 @@ export default function CheckoutScreen() {
       try {
         const smsSettings = await apiGet<{ enabled: boolean }>("/sms-settings");
         if (smsSettings.enabled) {
-          await handleSendOtp();
-          return;
+          const skipped = await handleSendOtp();
+          if (!skipped) return;
         }
       } catch {}
     }
