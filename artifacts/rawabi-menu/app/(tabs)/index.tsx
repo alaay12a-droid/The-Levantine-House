@@ -179,16 +179,6 @@ export default function MenuScreen() {
           <Image source={logo} style={styles.logo} resizeMode="contain" />
         </Animated.View>
 
-        {/* ── BRANCH CLOSED BANNER ── */}
-        {!isOpen && (
-          <View style={{ backgroundColor: "#7B1FA2", paddingVertical: 10, paddingHorizontal: 16, flexDirection: isEn ? "row" : "row-reverse", alignItems: "center", gap: 10 }}>
-            <Text style={{ fontSize: 18 }}>🔒</Text>
-            <Text style={{ color: "#fff", fontFamily: F.bold, fontSize: 13, flex: 1, textAlign: isEn ? "left" : "right" }}>
-              {closedMessage ?? (isEn ? "Outside working hours — ordering unavailable" : "خارج أوقات العمل — لا يمكن الطلب الآن")}
-            </Text>
-          </View>
-        )}
-
         {/* ── CATEGORY TABS ── */}
         <ScrollView
           ref={tabsScrollRef}
