@@ -100,16 +100,20 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
   const [cashConfirmed, setCashConfirmed] = useState(false);
   const [activeView, setActiveView] = useState<"orders" | "statement">("orders");
 
-  interface SummaryOrder { orderId: number; dailyNumber: number | null; customerName: string; totalPrice: number; deliveredAt: string | null; }
-  interface DailySummary { ordersCount: number; totalCollected: number; orders: SummaryOrder[]; }
-  const [summary, setSummary] = useState<DailySummary | null>(null);
+  interface StmtOrder { orderId: number; dailyNumber: number | null; customerName: string; totalPrice: number; deliveredAt: string; }
+  interface StmtPeriod { ordersCount: number; totalCollected: number; }
+  interface StmtDay { date: string; ordersCount: number; totalCollected: number; orders: StmtOrder[]; }
+  interface Statement { today: StmtPeriod; thisMonth: StmtPeriod; thisYear: StmtPeriod; allTime: StmtPeriod; daily: StmtDay[]; }
+  const [statement, setStatement] = useState<Statement | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
+  const [stmtPeriod, setStmtPeriod] = useState<"today" | "month" | "year" | "history">("today");
+  const [expandedDay, setExpandedDay] = useState<string | null>(null);
 
   const loadSummary = useCallback(async () => {
     setSummaryLoading(true);
     try {
-      const data = await apiGet<DailySummary>(`/drivers/${driver.id}/daily-summary`);
-      setSummary(data);
+      const data = await apiGet<Statement>(`/drivers/${driver.id}/statement`);
+      setStatement(data);
     } catch {}
     setSummaryLoading(false);
   }, [driver.id]);
@@ -355,79 +359,213 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
       {/* ── كشف الحساب view ── */}
       {activeView === "statement" && (
         <ScrollView
-          contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: 60 }}
+          contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 60 }}
           showsVerticalScrollIndicator={false}
         >
-          {/* Today's date */}
-          <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12, textAlign: "center" }}>
-            {new Date().toLocaleDateString("ar-SA", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
-          </Text>
+          {summaryLoading && <ActivityIndicator color="#E8920C" style={{ marginTop: 40 }} />}
 
-          {summaryLoading && <ActivityIndicator color="#E8920C" style={{ marginTop: 30 }} />}
+          {!summaryLoading && !statement && (
+            <View style={{ alignItems: "center", paddingTop: 60, gap: 10 }}>
+              <Text style={{ fontSize: 44 }}>📊</Text>
+              <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 14 }}>اسحب للتحميل</Text>
+            </View>
+          )}
 
-          {!summaryLoading && summary && (<>
-            {/* Summary cards */}
-            <View style={{ flexDirection: "row-reverse", gap: 12 }}>
-              {/* Orders count */}
-              <View style={{ flex: 1, backgroundColor: colors.card, borderRadius: 16, borderWidth: 1, borderColor: "#E8920C44", padding: 16, alignItems: "center", gap: 6 }}>
-                <Text style={{ fontSize: 32, fontFamily: F.extra, color: "#E8920C" }}>{summary.ordersCount}</Text>
-                <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 12, textAlign: "center" }}>طلبات سُلِّمت</Text>
-                <Feather name="package" size={18} color="#E8920C" />
-              </View>
-              {/* Total collected */}
-              <View style={{ flex: 1, backgroundColor: colors.card, borderRadius: 16, borderWidth: 1, borderColor: "#4CAF5044", padding: 16, alignItems: "center", gap: 6 }}>
-                <Text style={{ fontSize: 26, fontFamily: F.extra, color: "#4CAF50" }}>
-                  {summary.totalCollected.toFixed(2)}
-                </Text>
-                <Text style={{ color: "#4CAF50", fontFamily: F.bold, fontSize: 11 }}>ريال</Text>
-                <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 12, textAlign: "center" }}>إجمالي المحصّل</Text>
-                <Feather name="dollar-sign" size={18} color="#4CAF50" />
-              </View>
+          {!summaryLoading && statement && (<>
+
+            {/* Period tab bar */}
+            <View style={{ flexDirection: "row-reverse", backgroundColor: colors.card, borderRadius: 14, padding: 4, gap: 3, borderWidth: 1, borderColor: colors.border }}>
+              {([
+                { key: "today",   label: "اليوم"  },
+                { key: "month",   label: "الشهر"  },
+                { key: "year",    label: "السنة"  },
+                { key: "history", label: "السجل"  },
+              ] as const).map(tab => {
+                const active = stmtPeriod === tab.key;
+                return (
+                  <TouchableOpacity
+                    key={tab.key}
+                    onPress={() => setStmtPeriod(tab.key)}
+                    style={{ flex: 1, alignItems: "center", paddingVertical: 9, borderRadius: 10, backgroundColor: active ? "#E8920C" : "transparent" }}
+                  >
+                    <Text style={{ color: active ? "#fff" : colors.mutedForeground, fontFamily: active ? F.bold : F.regular, fontSize: 13 }}>{tab.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
 
-            {/* Orders list */}
-            {summary.orders.length === 0 ? (
-              <View style={{ alignItems: "center", paddingTop: 40, gap: 10 }}>
-                <Text style={{ fontSize: 44 }}>📭</Text>
-                <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 14 }}>لا يوجد طلبات مسلّمة اليوم</Text>
-              </View>
-            ) : (
-              <View style={{ gap: 10 }}>
-                <Text style={{ color: colors.foreground, fontFamily: F.bold, fontSize: 14, textAlign: "right" }}>تفاصيل الطلبات</Text>
-                {summary.orders.map((ord, idx) => {
-                  const time = ord.deliveredAt
-                    ? new Date(ord.deliveredAt).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" })
-                    : "--:--";
-                  return (
-                    <View key={ord.orderId} style={{ backgroundColor: colors.card, borderRadius: 14, borderWidth: 1, borderColor: colors.border, padding: 14 }}>
-                      <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center" }}>
-                        {/* Right: order info */}
-                        <View style={{ gap: 3 }}>
-                          <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6 }}>
-                            <View style={{ backgroundColor: "#E8920C22", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 }}>
-                              <Text style={{ color: "#E8920C", fontFamily: F.extra, fontSize: 13 }}>#{ord.dailyNumber ?? ord.orderId}</Text>
+            {/* ── Period summary cards ── */}
+            {stmtPeriod !== "history" && (() => {
+              const p = stmtPeriod === "today" ? statement.today
+                      : stmtPeriod === "month" ? statement.thisMonth
+                      : statement.thisYear;
+              const label = stmtPeriod === "today" ? new Date().toLocaleDateString("ar-SA", { weekday: "long", day: "numeric", month: "long" })
+                          : stmtPeriod === "month" ? new Date().toLocaleDateString("ar-SA", { month: "long", year: "numeric" })
+                          : String(new Date().getFullYear());
+              return (
+                <>
+                  <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12, textAlign: "center" }}>{label}</Text>
+
+                  {/* Big stats */}
+                  <View style={{ flexDirection: "row-reverse", gap: 12 }}>
+                    <View style={{ flex: 1, backgroundColor: colors.card, borderRadius: 18, borderWidth: 1, borderColor: "#E8920C44", padding: 18, alignItems: "center", gap: 8 }}>
+                      <Feather name="package" size={22} color="#E8920C" />
+                      <Text style={{ fontSize: 38, fontFamily: F.extra, color: "#E8920C", lineHeight: 44 }}>{p.ordersCount}</Text>
+                      <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 13, textAlign: "center" }}>طلبات سُلِّمت</Text>
+                    </View>
+                    <View style={{ flex: 1, backgroundColor: colors.card, borderRadius: 18, borderWidth: 1, borderColor: "#4CAF5044", padding: 18, alignItems: "center", gap: 8 }}>
+                      <Feather name="dollar-sign" size={22} color="#4CAF50" />
+                      <Text style={{ fontSize: 30, fontFamily: F.extra, color: "#4CAF50", lineHeight: 36 }}>{p.totalCollected.toFixed(2)}</Text>
+                      <Text style={{ color: "#4CAF50", fontFamily: F.bold, fontSize: 11 }}>ريال سعودي</Text>
+                      <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 12, textAlign: "center" }}>إجمالي المحصّل</Text>
+                    </View>
+                  </View>
+
+                  {/* All-time mini stat */}
+                  <View style={{ backgroundColor: colors.card, borderRadius: 14, borderWidth: 1, borderColor: colors.border, padding: 14, flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center" }}>
+                    <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
+                      <Feather name="award" size={16} color="#E8920C" />
+                      <Text style={{ color: colors.foreground, fontFamily: F.semi, fontSize: 13 }}>إجمالي كل الأوقات</Text>
+                    </View>
+                    <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4 }}>
+                      <Text style={{ color: "#E8920C", fontFamily: F.extra, fontSize: 15 }}>{statement.allTime.totalCollected.toFixed(2)}</Text>
+                      <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 11 }}>ر  ({statement.allTime.ordersCount} طلب)</Text>
+                    </View>
+                  </View>
+
+                  {/* Today's orders list — only for "today" tab */}
+                  {stmtPeriod === "today" && (() => {
+                    const todayKey = new Date().toISOString().slice(0, 10);
+                    const todayDay = statement.daily.find(d => d.date === todayKey);
+                    if (!todayDay || todayDay.orders.length === 0) return (
+                      <View style={{ alignItems: "center", paddingVertical: 24, gap: 8 }}>
+                        <Text style={{ fontSize: 36 }}>📭</Text>
+                        <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 13 }}>لا يوجد طلبات مسلّمة اليوم بعد</Text>
+                      </View>
+                    );
+                    return (
+                      <View style={{ gap: 8 }}>
+                        <Text style={{ color: colors.foreground, fontFamily: F.bold, fontSize: 14, textAlign: "right" }}>تفاصيل اليوم</Text>
+                        {todayDay.orders.map(ord => {
+                          const time = new Date(ord.deliveredAt).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" });
+                          return (
+                            <View key={ord.orderId} style={{ backgroundColor: colors.card, borderRadius: 13, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 14, paddingVertical: 12, flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center" }}>
+                              <View style={{ gap: 3 }}>
+                                <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6 }}>
+                                  <View style={{ backgroundColor: "#E8920C22", paddingHorizontal: 7, paddingVertical: 2, borderRadius: 7 }}>
+                                    <Text style={{ color: "#E8920C", fontFamily: F.extra, fontSize: 12 }}>#{ord.dailyNumber ?? ord.orderId}</Text>
+                                  </View>
+                                  <Text style={{ color: colors.foreground, fontFamily: F.semi, fontSize: 13 }}>{ord.customerName}</Text>
+                                </View>
+                                <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4 }}>
+                                  <Feather name="clock" size={10} color={colors.mutedForeground} />
+                                  <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }}>{time}</Text>
+                                </View>
+                              </View>
+                              <View style={{ alignItems: "flex-end" }}>
+                                <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 16 }}>{ord.totalPrice.toFixed(2)}</Text>
+                                <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 11 }}>ريال</Text>
+                              </View>
                             </View>
-                            <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }}>الطلب رقم</Text>
-                          </View>
-                          <Text style={{ color: colors.foreground, fontFamily: F.semi, fontSize: 13 }}>{ord.customerName}</Text>
-                          <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4 }}>
-                            <Feather name="clock" size={11} color={colors.mutedForeground} />
-                            <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }}>{time}</Text>
-                          </View>
+                          );
+                        })}
+                      </View>
+                    );
+                  })()}
+                </>
+              );
+            })()}
+
+            {/* ── History tab — daily log ── */}
+            {stmtPeriod === "history" && (<>
+              <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12, textAlign: "center" }}>
+                سجل الأيام ({statement.daily.length} يوم)
+              </Text>
+
+              {statement.daily.length === 0 && (
+                <View style={{ alignItems: "center", paddingVertical: 40, gap: 10 }}>
+                  <Text style={{ fontSize: 44 }}>📭</Text>
+                  <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 14 }}>لا يوجد سجل بعد</Text>
+                </View>
+              )}
+
+              {statement.daily.map(day => {
+                const isExpanded = expandedDay === day.date;
+                const dayDate = new Date(day.date + "T12:00:00");
+                const dayLabel = dayDate.toLocaleDateString("ar-SA", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+                const isToday = day.date === new Date().toISOString().slice(0, 10);
+                return (
+                  <View key={day.date} style={{ backgroundColor: colors.card, borderRadius: 16, borderWidth: 1, borderColor: isToday ? "#E8920C55" : colors.border, overflow: "hidden" }}>
+                    {/* Day header — tap to expand */}
+                    <TouchableOpacity
+                      onPress={() => setExpandedDay(isExpanded ? null : day.date)}
+                      style={{ flexDirection: "row-reverse", alignItems: "center", padding: 14, gap: 10 }}
+                    >
+                      <View style={{ flex: 1, gap: 3 }}>
+                        <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6 }}>
+                          {isToday && (
+                            <View style={{ backgroundColor: "#E8920C22", paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6 }}>
+                              <Text style={{ color: "#E8920C", fontFamily: F.bold, fontSize: 10 }}>اليوم</Text>
+                            </View>
+                          )}
+                          <Text style={{ color: colors.foreground, fontFamily: F.bold, fontSize: 13 }}>{dayLabel}</Text>
                         </View>
-                        {/* Left: amount */}
-                        <View style={{ alignItems: "flex-end", gap: 2 }}>
-                          <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 18 }}>{ord.totalPrice.toFixed(2)}</Text>
-                          <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 11 }}>ريال</Text>
+                        <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 10 }}>
+                          <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4 }}>
+                            <Feather name="package" size={11} color={colors.mutedForeground} />
+                            <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }}>{day.ordersCount} طلب</Text>
+                          </View>
                         </View>
                       </View>
-                    </View>
-                  );
-                })}
-              </View>
-            )}
+                      <View style={{ alignItems: "flex-end", gap: 2 }}>
+                        <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 17 }}>{day.totalCollected.toFixed(2)}</Text>
+                        <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 11 }}>ريال</Text>
+                      </View>
+                      <Feather name={isExpanded ? "chevron-up" : "chevron-down"} size={16} color={colors.mutedForeground} />
+                    </TouchableOpacity>
 
-            {/* Refresh button */}
+                    {/* Expanded orders */}
+                    {isExpanded && (
+                      <View style={{ borderTopWidth: 1, borderTopColor: colors.border }}>
+                        {day.orders.map(ord => {
+                          const time = new Date(ord.deliveredAt).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" });
+                          return (
+                            <View key={ord.orderId} style={{ flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: colors.border + "55" }}>
+                              <View style={{ gap: 2 }}>
+                                <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6 }}>
+                                  <View style={{ backgroundColor: "#E8920C22", paddingHorizontal: 6, paddingVertical: 1, borderRadius: 6 }}>
+                                    <Text style={{ color: "#E8920C", fontFamily: F.extra, fontSize: 11 }}>#{ord.dailyNumber ?? ord.orderId}</Text>
+                                  </View>
+                                  <Text style={{ color: colors.foreground, fontFamily: F.semi, fontSize: 13 }}>{ord.customerName}</Text>
+                                </View>
+                                <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4 }}>
+                                  <Feather name="clock" size={10} color={colors.mutedForeground} />
+                                  <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }}>{time}</Text>
+                                </View>
+                              </View>
+                              <View style={{ alignItems: "flex-end" }}>
+                                <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 15 }}>{ord.totalPrice.toFixed(2)}</Text>
+                                <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 11 }}>ريال</Text>
+                              </View>
+                            </View>
+                          );
+                        })}
+                        {/* Day total row */}
+                        <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, paddingVertical: 12, backgroundColor: "#4CAF5011" }}>
+                          <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 13 }}>إجمالي اليوم</Text>
+                          <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4 }}>
+                            <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 16 }}>{day.totalCollected.toFixed(2)}</Text>
+                            <Text style={{ color: "#4CAF50", fontFamily: F.semi, fontSize: 11 }}>ريال</Text>
+                          </View>
+                        </View>
+                      </View>
+                    )}
+                  </View>
+                );
+              })}
+            </>)}
+
+            {/* Refresh */}
             <TouchableOpacity
               onPress={loadSummary}
               style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 12, borderRadius: 12, borderWidth: 1, borderColor: colors.border, marginTop: 4 }}

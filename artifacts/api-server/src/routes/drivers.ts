@@ -100,6 +100,66 @@ router.get("/drivers/daily-summaries", async (_req, res) => {
   res.json(results);
 });
 
+// ── GET /drivers/:id/statement  (full history — today/month/year + daily log) ─
+router.get("/drivers/:id/statement", async (req, res) => {
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) { res.status(400).json({ error: "معرّف غير صحيح" }); return; }
+
+  const rows = await db
+    .select({ assignment: orderDriverAssignmentsTable, order: ordersTable })
+    .from(orderDriverAssignmentsTable)
+    .leftJoin(ordersTable, eq(orderDriverAssignmentsTable.orderId, ordersTable.id))
+    .where(and(
+      eq(orderDriverAssignmentsTable.driverId, id),
+      eq(orderDriverAssignmentsTable.status, "delivered"),
+    ))
+    .orderBy(desc(orderDriverAssignmentsTable.deliveredAt));
+
+  const now = new Date();
+  const todayStart   = new Date(now); todayStart.setHours(0,0,0,0);
+  const monthStart   = new Date(now.getFullYear(), now.getMonth(), 1);
+  const yearStart    = new Date(now.getFullYear(), 0, 1);
+
+  type PeriodAcc = { ordersCount: number; totalCollected: number };
+  const today:     PeriodAcc = { ordersCount: 0, totalCollected: 0 };
+  const thisMonth: PeriodAcc = { ordersCount: 0, totalCollected: 0 };
+  const thisYear:  PeriodAcc = { ordersCount: 0, totalCollected: 0 };
+  const allTime:   PeriodAcc = { ordersCount: 0, totalCollected: 0 };
+
+  const dayMap = new Map<string, { ordersCount: number; totalCollected: number; orders: { orderId: number; dailyNumber: number | null; customerName: string; totalPrice: number; deliveredAt: string }[] }>();
+
+  for (const r of rows) {
+    const deliveredAt = r.assignment.deliveredAt;
+    if (!deliveredAt) continue;
+    const d = new Date(deliveredAt);
+    const price = (r.order?.totalPrice ?? 0) / 100;
+
+    allTime.ordersCount++;   allTime.totalCollected += price;
+    if (d >= yearStart)  { thisYear.ordersCount++;  thisYear.totalCollected  += price; }
+    if (d >= monthStart) { thisMonth.ordersCount++; thisMonth.totalCollected += price; }
+    if (d >= todayStart) { today.ordersCount++;     today.totalCollected     += price; }
+
+    const dayKey = d.toISOString().slice(0, 10);
+    if (!dayMap.has(dayKey)) dayMap.set(dayKey, { ordersCount: 0, totalCollected: 0, orders: [] });
+    const day = dayMap.get(dayKey)!;
+    day.ordersCount++;
+    day.totalCollected += price;
+    day.orders.push({
+      orderId: r.assignment.orderId,
+      dailyNumber: r.order?.dailyNumber ?? null,
+      customerName: r.order?.customerName ?? "",
+      totalPrice: price,
+      deliveredAt: deliveredAt.toISOString(),
+    });
+  }
+
+  const daily = Array.from(dayMap.entries())
+    .sort((a, b) => b[0].localeCompare(a[0]))
+    .map(([date, v]) => ({ date, ...v }));
+
+  res.json({ today, thisMonth, thisYear, allTime, daily });
+});
+
 // ── GET /drivers/:id/daily-summary ───────────────────────────────────────────
 router.get("/drivers/:id/daily-summary", async (req, res) => {
   const id = parseInt(req.params.id);
