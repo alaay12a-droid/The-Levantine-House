@@ -49,12 +49,15 @@ async function reverseGeocodeArabic(lat: number, lng: number): Promise<string> {
     );
     const data = await res.json();
     const a = data?.address ?? {};
-    const parts = [
-      a.road || a.pedestrian || a.footway || a.path,
-      a.neighbourhood || a.suburb || a.quarter,
-      a.city || a.town || a.village || a.county,
-    ].filter(Boolean);
-    return parts.join("، ") || data?.display_name?.split(",").slice(0, 3).join("،") || "";
+    const road = a.road || a.street || a.residential || a.pedestrian
+                 || a.footway || a.path || a.service || a.motorway
+                 || a.trunk || a.primary || a.secondary || a.tertiary;
+    const neighbourhood = a.neighbourhood || a.suburb || a.quarter || a.hamlet;
+    const city = a.city || a.town || a.village || a.county || a.state_district;
+    const parts = [road, neighbourhood, city].filter(Boolean);
+    if (parts.length > 0) return parts.join("، ");
+    const displayParts = (data?.display_name ?? "").split(",").map((s: string) => s.trim()).filter(Boolean);
+    return displayParts.slice(0, 3).join("، ") || "";
   } catch {
     return "";
   }
