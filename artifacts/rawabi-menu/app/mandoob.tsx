@@ -118,6 +118,7 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
   const msgsPollRef                        = useRef<ReturnType<typeof setInterval> | null>(null);
   const knownConvoUnreads                  = useRef<Map<number, number>>(new Map());
   const msgSoundEnabled                    = useRef(false);
+  const playMessageSoundRef                = useRef<() => void>(() => {});
 
   const loadDriverConvos = useCallback(async (silent = false) => {
     try {
@@ -126,7 +127,7 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
         for (const c of data) {
           const prev = knownConvoUnreads.current.get(c.orderId) ?? 0;
           if (c.unread > prev) {
-            playMessageSound();
+            playMessageSoundRef.current();
             if (Platform.OS === "web" && typeof document !== "undefined") {
               const prevTitle = document.title;
               document.title = `💬 رسالة جديدة! | المندوب`;
@@ -139,7 +140,7 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
       data.forEach(c => knownConvoUnreads.current.set(c.orderId, c.unread));
       setDriverConvos(data);
     } catch {}
-  }, [driver.id, playMessageSound]);
+  }, [driver.id]);
 
   const openDriverChat = useCallback(async (orderId: number) => {
     setChatOrderId(orderId);
@@ -287,6 +288,9 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
       });
     } catch { /* silent */ }
   }, []);
+
+  // Keep ref in sync so loadDriverConvos can call it without circular deps
+  useEffect(() => { playMessageSoundRef.current = playMessageSound; }, [playMessageSound]);
 
   // ── Schedule a system notification (works outside / background) ────────────
   const fireOrderNotification = useCallback(async (orderNum: number, customerName: string) => {
