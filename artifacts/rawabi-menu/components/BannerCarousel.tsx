@@ -23,7 +23,7 @@ export function BannerCarousel({ banners }: Props) {
         scrollRef.current?.scrollTo({ x: next * CARD_WIDTH, animated: true });
         return next;
       });
-    }, 3500);
+    }, 5000);
     return () => clearInterval(timer);
   }, [active.length]);
 
