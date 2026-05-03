@@ -205,6 +205,7 @@ export default function CashierScreen() {
   const [drvSummaries, setDrvSummaries] = useState<DrvSummary[]>([]);
   const [drvSummLoading, setDrvSummLoading] = useState(false);
   const [drvExpanded, setDrvExpanded] = useState<number | null>(null);
+  const [drvDetailRow, setDrvDetailRow] = useState<DrvSummary | null>(null);
 
   // ─── Active driver assignments (picked_up — in transit) ─
   interface ActiveAssignment {
@@ -942,28 +943,28 @@ export default function CashierScreen() {
             );
           })()}
 
-          {/* Per-driver cards */}
+          {/* Per-driver cards — tap to open detail modal */}
           {!drvSummLoading && drvSummaries.map(row => {
-            const expanded = drvExpanded === row.driver.id;
+            const inTransit = activeAssignments.filter(a => a.driverId === row.driver.id).length;
+            const totalToday = row.ordersCount + inTransit;
             return (
-              <View key={row.driver.id} style={{ backgroundColor: colors.card, borderRadius: 18, borderWidth: 1, borderColor: row.ordersCount > 0 ? "#4CAF5033" : colors.border, overflow: "hidden" }}>
-
-                {/* Driver row — tap to expand */}
-                <TouchableOpacity
-                  onPress={() => setDrvExpanded(expanded ? null : row.driver.id)}
-                  style={{ flexDirection: "row-reverse", alignItems: "center", padding: 14, gap: 12 }}
-                  activeOpacity={0.7}
-                >
+              <TouchableOpacity
+                key={row.driver.id}
+                onPress={() => setDrvDetailRow(row)}
+                activeOpacity={0.75}
+                style={{ backgroundColor: colors.card, borderRadius: 18, borderWidth: 1, borderColor: totalToday > 0 ? "#4CAF5033" : colors.border, overflow: "hidden" }}
+              >
+                <View style={{ flexDirection: "row-reverse", alignItems: "center", padding: 14, gap: 12 }}>
                   {/* Avatar */}
                   {row.driver.photoUrl
-                    ? <Image source={{ uri: row.driver.photoUrl }} style={{ width: 50, height: 50, borderRadius: 25, borderWidth: 2, borderColor: row.driver.active ? "#4CAF50" : colors.border }} />
-                    : <View style={{ width: 50, height: 50, borderRadius: 25, backgroundColor: "#0A2010", alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: row.driver.active ? "#4CAF50" : colors.border }}>
-                        <Text style={{ fontSize: 24 }}>🛵</Text>
+                    ? <Image source={{ uri: row.driver.photoUrl }} style={{ width: 54, height: 54, borderRadius: 27, borderWidth: 2, borderColor: row.driver.active ? "#4CAF50" : colors.border }} />
+                    : <View style={{ width: 54, height: 54, borderRadius: 27, backgroundColor: "#0A2010", alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: row.driver.active ? "#4CAF50" : colors.border }}>
+                        <Text style={{ fontSize: 26 }}>🛵</Text>
                       </View>
                   }
 
                   {/* Name + status */}
-                  <View style={{ flex: 1, gap: 3 }}>
+                  <View style={{ flex: 1, gap: 4 }}>
                     <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 7 }}>
                       <Text style={{ color: colors.foreground, fontFamily: F.bold, fontSize: 15 }}>{row.driver.name}</Text>
                       <View style={{ backgroundColor: row.driver.active ? "#4CAF5022" : "#75757522", paddingHorizontal: 7, paddingVertical: 2, borderRadius: 7 }}>
@@ -973,12 +974,18 @@ export default function CashierScreen() {
                       </View>
                     </View>
                     <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12 }}>📱 {row.driver.phone}</Text>
+                    {inTransit > 0 && (
+                      <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 5 }}>
+                        <View style={{ width: 7, height: 7, borderRadius: 3.5, backgroundColor: "#4CAF50" }} />
+                        <Text style={{ color: "#4CAF50", fontFamily: F.semi, fontSize: 11 }}>{inTransit} في الطريق</Text>
+                      </View>
+                    )}
                   </View>
 
                   {/* Stats */}
-                  <View style={{ alignItems: "flex-end", gap: 5 }}>
-                    <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 5, backgroundColor: "#E8920C18", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 }}>
-                      <Text style={{ color: "#E8920C", fontFamily: F.extra, fontSize: 16 }}>{row.ordersCount}</Text>
+                  <View style={{ alignItems: "flex-end", gap: 6 }}>
+                    <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 5, backgroundColor: "#E8920C18", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10 }}>
+                      <Text style={{ color: "#E8920C", fontFamily: F.extra, fontSize: 18 }}>{totalToday}</Text>
                       <Text style={{ color: "#E8920C", fontFamily: F.semi, fontSize: 11 }}>طلب</Text>
                     </View>
                     <View style={{ flexDirection: "row-reverse", alignItems: "baseline", gap: 3 }}>
@@ -987,56 +994,9 @@ export default function CashierScreen() {
                     </View>
                   </View>
 
-                  <Feather name={expanded ? "chevron-up" : "chevron-down"} size={16} color={colors.mutedForeground} />
-                </TouchableOpacity>
-
-                {/* Expanded order details */}
-                {expanded && (
-                  <View style={{ borderTopWidth: 1, borderTopColor: colors.border }}>
-                    {row.orders.length === 0 ? (
-                      <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 13, textAlign: "center", paddingVertical: 18 }}>
-                        لا يوجد طلبات مسلّمة اليوم
-                      </Text>
-                    ) : (
-                      row.orders.map(ord => {
-                        const time = ord.deliveredAt
-                          ? new Date(ord.deliveredAt).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" })
-                          : "--:--";
-                        return (
-                          <View key={ord.orderId} style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.border + "55" }}>
-                            <View style={{ gap: 3 }}>
-                              <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 7 }}>
-                                <View style={{ backgroundColor: "#E8920C22", paddingHorizontal: 7, paddingVertical: 2, borderRadius: 7 }}>
-                                  <Text style={{ color: "#E8920C", fontFamily: F.extra, fontSize: 12 }}>#{ord.dailyNumber ?? ord.orderId}</Text>
-                                </View>
-                                <Text style={{ color: colors.foreground, fontFamily: F.semi, fontSize: 14 }}>{ord.customerName}</Text>
-                              </View>
-                              <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 5 }}>
-                                <Feather name="clock" size={11} color={colors.mutedForeground} />
-                                <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12 }}>{time}</Text>
-                              </View>
-                            </View>
-                            <View style={{ alignItems: "flex-end", gap: 2 }}>
-                              <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 16 }}>{ord.totalPrice.toFixed(2)}</Text>
-                              <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 11 }}>ريال</Text>
-                            </View>
-                          </View>
-                        );
-                      })
-                    )}
-                    {/* Day total */}
-                    {row.orders.length > 0 && (
-                      <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, paddingVertical: 13, backgroundColor: "#4CAF5011" }}>
-                        <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 14 }}>إجمالي اليوم</Text>
-                        <View style={{ flexDirection: "row-reverse", alignItems: "baseline", gap: 4 }}>
-                          <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 18 }}>{row.totalCollected.toFixed(2)}</Text>
-                          <Text style={{ color: "#4CAF50", fontFamily: F.semi, fontSize: 12 }}>ر.س — {row.ordersCount} طلب</Text>
-                        </View>
-                      </View>
-                    )}
-                  </View>
-                )}
-              </View>
+                  <Feather name="chevron-left" size={16} color={colors.mutedForeground} />
+                </View>
+              </TouchableOpacity>
             );
           })}
         </ScrollView>
@@ -1377,6 +1337,130 @@ export default function CashierScreen() {
                 <Text style={{ color: "#1A0A00", fontFamily: F.extra, fontSize: 15 }}>طباعة الإيصال</Text>
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── Driver Detail Modal ── */}
+      <Modal
+        visible={!!drvDetailRow}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setDrvDetailRow(null)}
+      >
+        <View style={{ flex: 1, backgroundColor: "#000000BB", justifyContent: "flex-end" }}>
+          <View style={{ backgroundColor: colors.card, borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingBottom: insets.bottom + 16, maxHeight: "88%" }}>
+            {/* Handle */}
+            <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: colors.border, alignSelf: "center", marginTop: 10, marginBottom: 14 }} />
+
+            {drvDetailRow && (() => {
+              const d = drvDetailRow.driver;
+              const inTransit = activeAssignments.filter(a => a.driverId === d.id);
+              const totalOrders = drvDetailRow.ordersCount + inTransit.length;
+              return (
+                <>
+                  {/* Driver header */}
+                  <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 14, paddingHorizontal: 20, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+                    {d.photoUrl
+                      ? <Image source={{ uri: d.photoUrl }} style={{ width: 60, height: 60, borderRadius: 30, borderWidth: 2, borderColor: "#4CAF50" }} />
+                      : <View style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: "#0A2010", alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: "#4CAF50" }}>
+                          <Text style={{ fontSize: 28 }}>🛵</Text>
+                        </View>
+                    }
+                    <View style={{ flex: 1, gap: 3 }}>
+                      <Text style={{ color: colors.foreground, fontFamily: F.extra, fontSize: 18 }}>{d.name}</Text>
+                      <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 13 }}>📱 {d.phone}</Text>
+                    </View>
+                    <TouchableOpacity onPress={() => setDrvDetailRow(null)} style={{ padding: 8 }}>
+                      <Feather name="x" size={20} color={colors.mutedForeground} />
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Stats row */}
+                  <View style={{ flexDirection: "row-reverse", gap: 10, padding: 16 }}>
+                    <View style={{ flex: 1, backgroundColor: "#1A1A0A", borderRadius: 16, borderWidth: 1, borderColor: "#E8920C44", padding: 14, alignItems: "center", gap: 4 }}>
+                      <Text style={{ fontSize: 24 }}>📦</Text>
+                      <Text style={{ color: "#E8920C", fontFamily: F.extra, fontSize: 30 }}>{totalOrders}</Text>
+                      <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 12, textAlign: "center" }}>طلبات اليوم</Text>
+                    </View>
+                    <View style={{ flex: 1, backgroundColor: "#0A1A0A", borderRadius: 16, borderWidth: 1, borderColor: "#4CAF5044", padding: 14, alignItems: "center", gap: 4 }}>
+                      <Text style={{ fontSize: 24 }}>💵</Text>
+                      <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 26 }}>{drvDetailRow.totalCollected.toFixed(2)}</Text>
+                      <Text style={{ color: "#4CAF50", fontFamily: F.bold, fontSize: 11 }}>ريال سعودي</Text>
+                      <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 12, textAlign: "center" }}>المحصّل اليوم</Text>
+                    </View>
+                  </View>
+
+                  <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 360 }} contentContainerStyle={{ paddingHorizontal: 16, gap: 6, paddingBottom: 16 }}>
+                    {/* In-transit orders */}
+                    {inTransit.length > 0 && (
+                      <>
+                        <Text style={{ color: "#4CAF50", fontFamily: F.bold, fontSize: 13, textAlign: "right", marginBottom: 4 }}>🚗 في الطريق</Text>
+                        {inTransit.map(a => (
+                          <View key={a.orderId} style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", backgroundColor: "#0A2A0A", borderRadius: 12, padding: 12, borderWidth: 1, borderColor: "#4CAF5033" }}>
+                            <View style={{ gap: 2 }}>
+                              <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6 }}>
+                                <View style={{ backgroundColor: "#E8920C22", paddingHorizontal: 7, paddingVertical: 2, borderRadius: 7 }}>
+                                  <Text style={{ color: "#E8920C", fontFamily: F.extra, fontSize: 11 }}>#{a.dailyNumber ?? a.orderId}</Text>
+                                </View>
+                                <Text style={{ color: colors.foreground, fontFamily: F.semi, fontSize: 13 }}>{a.customerName}</Text>
+                              </View>
+                              <Text style={{ color: "#4CAF50", fontFamily: F.semi, fontSize: 11 }}>في الطريق 🚗</Text>
+                            </View>
+                            <View style={{ alignItems: "flex-end", gap: 2 }}>
+                              <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 15 }}>{a.totalPrice.toFixed(2)}</Text>
+                              <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 10 }}>
+                                {a.paymentMethod === "cash" ? "💵 نقدي" : "💳 إلكتروني"}
+                              </Text>
+                            </View>
+                          </View>
+                        ))}
+                        <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 6 }} />
+                      </>
+                    )}
+
+                    {/* Delivered orders */}
+                    {drvDetailRow.orders.length === 0 && inTransit.length === 0 ? (
+                      <View style={{ alignItems: "center", paddingVertical: 30, gap: 8 }}>
+                        <Text style={{ fontSize: 36 }}>📋</Text>
+                        <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 13 }}>لا يوجد طلبات مسلّمة اليوم</Text>
+                      </View>
+                    ) : drvDetailRow.orders.length > 0 ? (
+                      <>
+                        <Text style={{ color: colors.mutedForeground, fontFamily: F.bold, fontSize: 13, textAlign: "right", marginBottom: 4 }}>✅ تم التسليم</Text>
+                        {drvDetailRow.orders.map(ord => {
+                          const time = ord.deliveredAt
+                            ? new Date(ord.deliveredAt).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" })
+                            : "--:--";
+                          return (
+                            <View key={ord.orderId} style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", backgroundColor: colors.background, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border }}>
+                              <View style={{ gap: 2 }}>
+                                <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6 }}>
+                                  <View style={{ backgroundColor: "#E8920C22", paddingHorizontal: 7, paddingVertical: 2, borderRadius: 7 }}>
+                                    <Text style={{ color: "#E8920C", fontFamily: F.extra, fontSize: 11 }}>#{ord.dailyNumber ?? ord.orderId}</Text>
+                                  </View>
+                                  <Text style={{ color: colors.foreground, fontFamily: F.semi, fontSize: 13 }}>{ord.customerName}</Text>
+                                </View>
+                                <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4 }}>
+                                  <Feather name="clock" size={10} color={colors.mutedForeground} />
+                                  <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }}>{time}</Text>
+                                </View>
+                              </View>
+                              <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 15 }}>{ord.totalPrice.toFixed(2)} ر.س</Text>
+                            </View>
+                          );
+                        })}
+                        {/* Total row */}
+                        <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center", backgroundColor: "#0A2A0A", borderRadius: 12, padding: 14, borderWidth: 1, borderColor: "#4CAF5033" }}>
+                          <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 14 }}>💰 إجمالي المحصّل</Text>
+                          <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 18 }}>{drvDetailRow.totalCollected.toFixed(2)} ر.س</Text>
+                        </View>
+                      </>
+                    ) : null}
+                  </ScrollView>
+                </>
+              );
+            })()}
           </View>
         </View>
       </Modal>
