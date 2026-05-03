@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, deliveryDriversTable, orderDriverAssignmentsTable, ordersTable, appSettingsTable } from "@workspace/db";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, gte, lt } from "drizzle-orm";
 import { z } from "zod";
 
 const router = Router();
@@ -62,6 +62,76 @@ router.post("/drivers/login", async (req, res) => {
   if (!driver) { res.status(401).json({ error: "رقم الجوال أو الرقم السري غير صحيح" }); return; }
   if (!driver.active) { res.status(403).json({ error: "حسابك موقوف، تواصل مع المشرف" }); return; }
   res.json(driver);
+});
+
+// ── GET /drivers/daily-summaries  (all drivers — admin view) ─────────────────
+router.get("/drivers/daily-summaries", async (_req, res) => {
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1);
+
+  const drivers = await db.select().from(deliveryDriversTable).orderBy(deliveryDriversTable.name);
+  const results = await Promise.all(drivers.map(async (driver) => {
+    const rows = await db
+      .select({ assignment: orderDriverAssignmentsTable, order: ordersTable })
+      .from(orderDriverAssignmentsTable)
+      .leftJoin(ordersTable, eq(orderDriverAssignmentsTable.orderId, ordersTable.id))
+      .where(and(
+        eq(orderDriverAssignmentsTable.driverId, driver.id),
+        eq(orderDriverAssignmentsTable.status, "delivered"),
+        gte(orderDriverAssignmentsTable.deliveredAt, today),
+        lt(orderDriverAssignmentsTable.deliveredAt, tomorrow),
+      ))
+      .orderBy(desc(orderDriverAssignmentsTable.deliveredAt));
+
+    const totalCollected = rows.reduce((s, r) => s + (r.order?.totalPrice ?? 0), 0);
+    return {
+      driver: { id: driver.id, name: driver.name, phone: driver.phone, photoUrl: driver.photoUrl, active: driver.active },
+      ordersCount: rows.length,
+      totalCollected: totalCollected / 100,
+      orders: rows.map(r => ({
+        orderId: r.assignment.orderId,
+        dailyNumber: r.order?.dailyNumber ?? null,
+        customerName: r.order?.customerName ?? "",
+        totalPrice: (r.order?.totalPrice ?? 0) / 100,
+        deliveredAt: r.assignment.deliveredAt,
+      })),
+    };
+  }));
+  res.json(results);
+});
+
+// ── GET /drivers/:id/daily-summary ───────────────────────────────────────────
+router.get("/drivers/:id/daily-summary", async (req, res) => {
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) { res.status(400).json({ error: "معرّف غير صحيح" }); return; }
+
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1);
+
+  const rows = await db
+    .select({ assignment: orderDriverAssignmentsTable, order: ordersTable })
+    .from(orderDriverAssignmentsTable)
+    .leftJoin(ordersTable, eq(orderDriverAssignmentsTable.orderId, ordersTable.id))
+    .where(and(
+      eq(orderDriverAssignmentsTable.driverId, id),
+      eq(orderDriverAssignmentsTable.status, "delivered"),
+      gte(orderDriverAssignmentsTable.deliveredAt, today),
+      lt(orderDriverAssignmentsTable.deliveredAt, tomorrow),
+    ))
+    .orderBy(desc(orderDriverAssignmentsTable.deliveredAt));
+
+  const totalCollected = rows.reduce((s, r) => s + (r.order?.totalPrice ?? 0), 0);
+  res.json({
+    ordersCount: rows.length,
+    totalCollected: totalCollected / 100,
+    orders: rows.map(r => ({
+      orderId: r.assignment.orderId,
+      dailyNumber: r.order?.dailyNumber ?? null,
+      customerName: r.order?.customerName ?? "",
+      totalPrice: (r.order?.totalPrice ?? 0) / 100,
+      deliveredAt: r.assignment.deliveredAt,
+    })),
+  });
 });
 
 // ── GET /drivers/:id/orders ───────────────────────────────────────────────────

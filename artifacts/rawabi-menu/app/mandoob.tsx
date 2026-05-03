@@ -98,6 +98,21 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
   const [locationError, setLocationError] = useState(false);
   const [pendingDelivery, setPendingDelivery] = useState<{ orderId: number; total: number; customerName: string } | null>(null);
   const [cashConfirmed, setCashConfirmed] = useState(false);
+  const [activeView, setActiveView] = useState<"orders" | "statement">("orders");
+
+  interface SummaryOrder { orderId: number; dailyNumber: number | null; customerName: string; totalPrice: number; deliveredAt: string | null; }
+  interface DailySummary { ordersCount: number; totalCollected: number; orders: SummaryOrder[]; }
+  const [summary, setSummary] = useState<DailySummary | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+
+  const loadSummary = useCallback(async () => {
+    setSummaryLoading(true);
+    try {
+      const data = await apiGet<DailySummary>(`/drivers/${driver.id}/daily-summary`);
+      setSummary(data);
+    } catch {}
+    setSummaryLoading(false);
+  }, [driver.id]);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const gpsIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const locationSubRef = useRef<Location.LocationSubscription | null>(null);
@@ -231,6 +246,29 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
             <Text style={{ color: "#E57373", fontFamily: F.semi, fontSize: 12 }}>تعذّر تحديد موقعك — تحقق من صلاحية الموقع</Text>
           </View>
         )}
+
+        {/* Tab bar */}
+        <View style={{ flexDirection: "row-reverse", borderTopWidth: 1, borderTopColor: colors.border }}>
+          {([
+            { key: "orders",    label: "طلباتي",     icon: "list" },
+            { key: "statement", label: "كشف الحساب", icon: "dollar-sign" },
+          ] as const).map(tab => {
+            const active = activeView === tab.key;
+            return (
+              <TouchableOpacity
+                key={tab.key}
+                onPress={() => {
+                  setActiveView(tab.key);
+                  if (tab.key === "statement") loadSummary();
+                }}
+                style={{ flex: 1, flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 10, borderBottomWidth: 2, borderBottomColor: active ? "#E8920C" : "transparent" }}
+              >
+                <Feather name={tab.icon} size={14} color={active ? "#E8920C" : colors.mutedForeground} />
+                <Text style={{ color: active ? "#E8920C" : colors.mutedForeground, fontFamily: active ? F.bold : F.regular, fontSize: 13 }}>{tab.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
       </View>
 
       {/* ── Cash collection confirmation modal ── */}
@@ -314,6 +352,95 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
         </View>
       </Modal>
 
+      {/* ── كشف الحساب view ── */}
+      {activeView === "statement" && (
+        <ScrollView
+          contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: 60 }}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Today's date */}
+          <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12, textAlign: "center" }}>
+            {new Date().toLocaleDateString("ar-SA", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+          </Text>
+
+          {summaryLoading && <ActivityIndicator color="#E8920C" style={{ marginTop: 30 }} />}
+
+          {!summaryLoading && summary && (<>
+            {/* Summary cards */}
+            <View style={{ flexDirection: "row-reverse", gap: 12 }}>
+              {/* Orders count */}
+              <View style={{ flex: 1, backgroundColor: colors.card, borderRadius: 16, borderWidth: 1, borderColor: "#E8920C44", padding: 16, alignItems: "center", gap: 6 }}>
+                <Text style={{ fontSize: 32, fontFamily: F.extra, color: "#E8920C" }}>{summary.ordersCount}</Text>
+                <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 12, textAlign: "center" }}>طلبات سُلِّمت</Text>
+                <Feather name="package" size={18} color="#E8920C" />
+              </View>
+              {/* Total collected */}
+              <View style={{ flex: 1, backgroundColor: colors.card, borderRadius: 16, borderWidth: 1, borderColor: "#4CAF5044", padding: 16, alignItems: "center", gap: 6 }}>
+                <Text style={{ fontSize: 26, fontFamily: F.extra, color: "#4CAF50" }}>
+                  {summary.totalCollected.toFixed(2)}
+                </Text>
+                <Text style={{ color: "#4CAF50", fontFamily: F.bold, fontSize: 11 }}>ريال</Text>
+                <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 12, textAlign: "center" }}>إجمالي المحصّل</Text>
+                <Feather name="dollar-sign" size={18} color="#4CAF50" />
+              </View>
+            </View>
+
+            {/* Orders list */}
+            {summary.orders.length === 0 ? (
+              <View style={{ alignItems: "center", paddingTop: 40, gap: 10 }}>
+                <Text style={{ fontSize: 44 }}>📭</Text>
+                <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 14 }}>لا يوجد طلبات مسلّمة اليوم</Text>
+              </View>
+            ) : (
+              <View style={{ gap: 10 }}>
+                <Text style={{ color: colors.foreground, fontFamily: F.bold, fontSize: 14, textAlign: "right" }}>تفاصيل الطلبات</Text>
+                {summary.orders.map((ord, idx) => {
+                  const time = ord.deliveredAt
+                    ? new Date(ord.deliveredAt).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" })
+                    : "--:--";
+                  return (
+                    <View key={ord.orderId} style={{ backgroundColor: colors.card, borderRadius: 14, borderWidth: 1, borderColor: colors.border, padding: 14 }}>
+                      <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center" }}>
+                        {/* Right: order info */}
+                        <View style={{ gap: 3 }}>
+                          <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6 }}>
+                            <View style={{ backgroundColor: "#E8920C22", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 }}>
+                              <Text style={{ color: "#E8920C", fontFamily: F.extra, fontSize: 13 }}>#{ord.dailyNumber ?? ord.orderId}</Text>
+                            </View>
+                            <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }}>الطلب رقم</Text>
+                          </View>
+                          <Text style={{ color: colors.foreground, fontFamily: F.semi, fontSize: 13 }}>{ord.customerName}</Text>
+                          <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4 }}>
+                            <Feather name="clock" size={11} color={colors.mutedForeground} />
+                            <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }}>{time}</Text>
+                          </View>
+                        </View>
+                        {/* Left: amount */}
+                        <View style={{ alignItems: "flex-end", gap: 2 }}>
+                          <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 18 }}>{ord.totalPrice.toFixed(2)}</Text>
+                          <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 11 }}>ريال</Text>
+                        </View>
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+
+            {/* Refresh button */}
+            <TouchableOpacity
+              onPress={loadSummary}
+              style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 12, borderRadius: 12, borderWidth: 1, borderColor: colors.border, marginTop: 4 }}
+            >
+              <Feather name="refresh-cw" size={14} color={colors.mutedForeground} />
+              <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 13 }}>تحديث الكشف</Text>
+            </TouchableOpacity>
+          </>)}
+        </ScrollView>
+      )}
+
+      {/* ── Orders view ── */}
+      {activeView === "orders" && (
       <ScrollView
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadOrders(); }} tintColor={colors.gold} />}
         contentContainerStyle={{ padding: 14, gap: 14, paddingBottom: 60 }}
@@ -429,6 +556,7 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
           </>
         )}
       </ScrollView>
+      )}
     </View>
   );
 }

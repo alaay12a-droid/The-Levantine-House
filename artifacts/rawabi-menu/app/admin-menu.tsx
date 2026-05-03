@@ -421,6 +421,22 @@ export default function AdminMenuScreen() {
   const [driverPhotoUrl, setDriverPhotoUrl] = useState("");
   const [driverSaving, setDriverSaving] = useState(false);
 
+  interface DriverSummaryOrder { orderId: number; dailyNumber: number | null; customerName: string; totalPrice: number; deliveredAt: string | null; }
+  interface DriverSummaryRow { driver: AdminDriver; ordersCount: number; totalCollected: number; orders: DriverSummaryOrder[]; }
+  const [driverSummaries, setDriverSummaries] = useState<DriverSummaryRow[]>([]);
+  const [summariesLoading, setSummariesLoading] = useState(false);
+  const [expandedDriverId, setExpandedDriverId] = useState<number | null>(null);
+  const [driversSubTab, setDriversSubTab] = useState<"manage" | "statements">("manage");
+
+  const loadDriverSummaries = useCallback(async () => {
+    setSummariesLoading(true);
+    try {
+      const data = await apiGet<DriverSummaryRow[]>("/drivers/daily-summaries");
+      setDriverSummaries(data);
+    } catch {}
+    setSummariesLoading(false);
+  }, []);
+
   const loadAdminDrivers = useCallback(async () => {
     setDriversLoading(true);
     try {
@@ -1929,8 +1945,139 @@ export default function AdminMenuScreen() {
           {/* ══════════════════ DRIVERS ══════════════════ */}
           {settingsSection === "drivers" && (<>
           <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 16, textAlign: "right", marginTop: 8 }}>
-            🛵 إدارة المناديب
+            🛵 المناديب
           </Text>
+
+          {/* Sub-tab bar */}
+          <View style={{ flexDirection: "row-reverse", backgroundColor: colors.secondary, borderRadius: 12, padding: 4, gap: 4 }}>
+            {([
+              { key: "manage",     label: "إدارة المناديب",  icon: "users" },
+              { key: "statements", label: "كشف الحسابات",   icon: "dollar-sign" },
+            ] as const).map(tab => {
+              const active = driversSubTab === tab.key;
+              return (
+                <TouchableOpacity
+                  key={tab.key}
+                  onPress={() => {
+                    setDriversSubTab(tab.key);
+                    if (tab.key === "statements") loadDriverSummaries();
+                  }}
+                  style={{ flex: 1, flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 10, borderRadius: 9, backgroundColor: active ? colors.card : "transparent", borderWidth: active ? 1 : 0, borderColor: active ? "#4CAF5044" : "transparent" }}
+                >
+                  <Feather name={tab.icon} size={13} color={active ? "#4CAF50" : colors.mutedForeground} />
+                  <Text style={{ color: active ? "#4CAF50" : colors.mutedForeground, fontFamily: active ? F.bold : F.regular, fontSize: 13 }}>{tab.label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {/* ── كشف الحسابات ── */}
+          {driversSubTab === "statements" && (<>
+            <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" }}>
+              <Text style={{ color: colors.foreground, fontFamily: F.bold, fontSize: 14, textAlign: "right" }}>
+                📅 {new Date().toLocaleDateString("ar-SA", { weekday: "long", day: "numeric", month: "long" })}
+              </Text>
+              <TouchableOpacity onPress={loadDriverSummaries} style={{ flexDirection: "row-reverse", alignItems: "center", gap: 5, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 9, borderWidth: 1, borderColor: colors.border }}>
+                <Feather name="refresh-cw" size={12} color={colors.mutedForeground} />
+                <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 12 }}>تحديث</Text>
+              </TouchableOpacity>
+            </View>
+
+            {summariesLoading && <ActivityIndicator color="#4CAF50" style={{ marginVertical: 20 }} />}
+
+            {!summariesLoading && driverSummaries.length === 0 && (
+              <View style={{ alignItems: "center", paddingVertical: 30, gap: 8 }}>
+                <Text style={{ fontSize: 36 }}>📭</Text>
+                <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 13 }}>لا يوجد مناديب</Text>
+              </View>
+            )}
+
+            {!summariesLoading && driverSummaries.map((row) => {
+              const expanded = expandedDriverId === row.driver.id;
+              return (
+                <View key={row.driver.id} style={{ backgroundColor: colors.card, borderRadius: 16, borderWidth: 1, borderColor: row.ordersCount > 0 ? "#4CAF5033" : colors.border, overflow: "hidden" }}>
+                  {/* Driver header row */}
+                  <TouchableOpacity
+                    onPress={() => setExpandedDriverId(expanded ? null : row.driver.id)}
+                    style={{ flexDirection: "row-reverse", alignItems: "center", padding: 14, gap: 12 }}
+                  >
+                    {/* Avatar */}
+                    {row.driver.photoUrl
+                      ? <Image source={{ uri: row.driver.photoUrl }} style={{ width: 44, height: 44, borderRadius: 22, borderWidth: 2, borderColor: row.driver.active ? "#4CAF50" : colors.border }} />
+                      : <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: "#1A2A1A", alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: row.driver.active ? "#4CAF50" : colors.border }}>
+                          <Text style={{ fontSize: 20 }}>🛵</Text>
+                        </View>
+                    }
+                    {/* Info */}
+                    <View style={{ flex: 1, gap: 2 }}>
+                      <Text style={{ color: colors.foreground, fontFamily: F.bold, fontSize: 14 }}>{row.driver.name}</Text>
+                      <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12 }}>{row.driver.phone}</Text>
+                    </View>
+                    {/* Stats */}
+                    <View style={{ alignItems: "flex-end", gap: 3 }}>
+                      <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 5, backgroundColor: "#E8920C22", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 }}>
+                        <Text style={{ color: "#E8920C", fontFamily: F.extra, fontSize: 15 }}>{row.ordersCount}</Text>
+                        <Text style={{ color: "#E8920C", fontFamily: F.semi, fontSize: 11 }}>طلب</Text>
+                      </View>
+                      <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4 }}>
+                        <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 14 }}>{row.totalCollected.toFixed(2)}</Text>
+                        <Text style={{ color: "#4CAF50", fontFamily: F.semi, fontSize: 11 }}>ريال</Text>
+                      </View>
+                    </View>
+                    <Feather name={expanded ? "chevron-up" : "chevron-down"} size={16} color={colors.mutedForeground} />
+                  </TouchableOpacity>
+
+                  {/* Expanded orders list */}
+                  {expanded && (
+                    <View style={{ borderTopWidth: 1, borderTopColor: colors.border }}>
+                      {row.orders.length === 0 ? (
+                        <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 13, textAlign: "center", paddingVertical: 16 }}>لا يوجد طلبات مسلّمة اليوم</Text>
+                      ) : (
+                        row.orders.map((ord) => {
+                          const time = ord.deliveredAt
+                            ? new Date(ord.deliveredAt).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" })
+                            : "--:--";
+                          return (
+                            <View key={ord.orderId} style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: colors.border + "66" }}>
+                              <View style={{ gap: 2 }}>
+                                <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6 }}>
+                                  <View style={{ backgroundColor: "#E8920C22", paddingHorizontal: 7, paddingVertical: 2, borderRadius: 7 }}>
+                                    <Text style={{ color: "#E8920C", fontFamily: F.extra, fontSize: 12 }}>#{ord.dailyNumber ?? ord.orderId}</Text>
+                                  </View>
+                                  <Text style={{ color: colors.foreground, fontFamily: F.semi, fontSize: 13 }}>{ord.customerName}</Text>
+                                </View>
+                                <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4 }}>
+                                  <Feather name="clock" size={10} color={colors.mutedForeground} />
+                                  <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }}>{time}</Text>
+                                </View>
+                              </View>
+                              <View style={{ alignItems: "flex-end" }}>
+                                <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 15 }}>{ord.totalPrice.toFixed(2)}</Text>
+                                <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 11 }}>ريال</Text>
+                              </View>
+                            </View>
+                          );
+                        })
+                      )}
+                      {/* Total row */}
+                      {row.orders.length > 0 && (
+                        <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingVertical: 12, backgroundColor: "#4CAF5011" }}>
+                          <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 14 }}>الإجمالي</Text>
+                          <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4 }}>
+                            <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 16 }}>{row.totalCollected.toFixed(2)}</Text>
+                            <Text style={{ color: "#4CAF50", fontFamily: F.semi, fontSize: 12 }}>ريال — {row.ordersCount} طلبات</Text>
+                          </View>
+                        </View>
+                      )}
+                    </View>
+                  )}
+                </View>
+              );
+            })}
+          </>)}
+
+          {/* ── إدارة المناديب ── */}
+          {driversSubTab === "manage" && (<>
 
           {/* Feature toggle */}
           <View style={{ backgroundColor: colors.card, borderRadius: 14, padding: 16, gap: 10, borderWidth: 1, borderColor: colors.border }}>
@@ -2054,6 +2201,7 @@ export default function AdminMenuScreen() {
               {driverSaving ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontFamily: F.bold, fontSize: 14 }}>حفظ المندوب 🛵</Text>}
             </TouchableOpacity>
           </View>
+          </>)}
           </>)}
 
           {/* ══════════════════ DISCOUNTS ══════════════════ */}
