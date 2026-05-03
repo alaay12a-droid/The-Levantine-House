@@ -2177,8 +2177,12 @@ export default function AdminMenuScreen() {
                     onPress={() => Alert.alert("حذف المندوب", `هل تريد حذف ${d.name}؟`, [
                       { text: "إلغاء", style: "cancel" },
                       { text: "حذف", style: "destructive", onPress: async () => {
-                        await apiDelete(`/drivers/${d.id}`).catch(() => {});
-                        await loadAdminDrivers();
+                        try {
+                          await apiDelete(`/drivers/${d.id}`);
+                          await loadAdminDrivers();
+                        } catch {
+                          Alert.alert("خطأ", "تعذّر حذف المندوب، حاول مرة أخرى.");
+                        }
                       }},
                     ])}
                   >

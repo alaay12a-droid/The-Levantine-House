@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, deliveryDriversTable, orderDriverAssignmentsTable, ordersTable, appSettingsTable } from "@workspace/db";
+import { db, deliveryDriversTable, orderDriverAssignmentsTable, ordersTable, appSettingsTable, messagesTable } from "@workspace/db";
 import { eq, desc, and, gte, lt } from "drizzle-orm";
 import { z } from "zod";
 
@@ -49,6 +49,8 @@ router.put("/drivers/:id", async (req, res) => {
 router.delete("/drivers/:id", async (req, res) => {
   const id = parseInt(req.params.id);
   if (isNaN(id)) { res.status(400).json({ error: "معرّف غير صحيح" }); return; }
+  await db.delete(messagesTable).where(eq(messagesTable.driverId, id));
+  await db.delete(orderDriverAssignmentsTable).where(eq(orderDriverAssignmentsTable.driverId, id));
   await db.delete(deliveryDriversTable).where(eq(deliveryDriversTable.id, id));
   res.json({ ok: true });
 });
