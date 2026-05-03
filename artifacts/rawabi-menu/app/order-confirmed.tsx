@@ -38,7 +38,16 @@ interface Order {
 }
 
 interface AssignmentRow {
-  assignment: { driverId: number; status: DriverStatus; assignedAt: string; pickedUpAt: string | null; deliveredAt: string | null };
+  assignment: {
+    driverId: number;
+    status: DriverStatus;
+    assignedAt: string;
+    pickedUpAt: string | null;
+    deliveredAt: string | null;
+    driverLat: number | null;
+    driverLng: number | null;
+    locationUpdatedAt: string | null;
+  };
   driver: { id: number; name: string; phone: string; photoUrl: string | null };
 }
 
@@ -211,11 +220,22 @@ function DriverCard({ row, colors, isEn }: { row: AssignmentRow; colors: ReturnT
     delivered: "#4CAF50",
   };
   const color = driverStatusColor[assignment.status];
+  const hasLocation = !!(assignment.driverLat && assignment.driverLng);
 
   const callDriver = () => {
     const url = `tel:${driver.phone}`;
     if (Platform.OS === "web") {
       if (typeof window !== "undefined") window.open(url);
+    } else {
+      Linking.openURL(url);
+    }
+  };
+
+  const trackDriver = () => {
+    if (!assignment.driverLat || !assignment.driverLng) return;
+    const url = `https://www.google.com/maps?q=${assignment.driverLat},${assignment.driverLng}`;
+    if (Platform.OS === "web") {
+      if (typeof window !== "undefined") window.open(url, "_blank");
     } else {
       Linking.openURL(url);
     }
@@ -237,6 +257,14 @@ function DriverCard({ row, colors, isEn }: { row: AssignmentRow; colors: ReturnT
           <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12 }}>
             {driverStatusLabel[assignment.status]}
           </Text>
+          {hasLocation && assignment.status === "picked_up" && (
+            <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4, marginTop: 2 }}>
+              <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: "#4CAF50" }} />
+              <Text style={{ color: "#4CAF50", fontFamily: F.regular, fontSize: 10 }}>
+                {isEn ? "Location live" : "موقع مباشر"}
+              </Text>
+            </View>
+          )}
         </View>
         {assignment.status !== "delivered" && (
           <TouchableOpacity
@@ -247,6 +275,27 @@ function DriverCard({ row, colors, isEn }: { row: AssignmentRow; colors: ReturnT
           </TouchableOpacity>
         )}
       </View>
+
+      {hasLocation && assignment.status === "picked_up" && (
+        <TouchableOpacity
+          onPress={trackDriver}
+          style={{
+            marginTop: 12,
+            flexDirection: "row-reverse",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+            backgroundColor: "#29B6F6",
+            borderRadius: 12,
+            paddingVertical: 11,
+          }}
+        >
+          <Feather name="map-pin" size={16} color="#032B3D" />
+          <Text style={{ color: "#032B3D", fontFamily: F.extra, fontSize: 14 }}>
+            {isEn ? "Track Driver on Map 🗺️" : "تتبع المندوب على الخريطة 🗺️"}
+          </Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }

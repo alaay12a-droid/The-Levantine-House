@@ -1,4 +1,4 @@
-import { pgTable, serial, text, integer, jsonb, timestamp, boolean, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, integer, jsonb, timestamp, boolean, pgEnum, real } from "drizzle-orm/pg-core";
 import { z } from "zod";
 
 export const orderStatusEnum = pgEnum("order_status", [
@@ -184,6 +184,9 @@ export const orderDriverAssignmentsTable = pgTable("order_driver_assignments", {
   assignedAt: timestamp("assigned_at").defaultNow().notNull(),
   pickedUpAt: timestamp("picked_up_at"),
   deliveredAt: timestamp("delivered_at"),
+  driverLat: real("driver_lat"),
+  driverLng: real("driver_lng"),
+  locationUpdatedAt: timestamp("location_updated_at"),
 });
 
 export type OrderDriverAssignment = typeof orderDriverAssignmentsTable.$inferSelect;

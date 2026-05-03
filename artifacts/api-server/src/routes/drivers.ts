@@ -136,6 +136,22 @@ router.get("/orders/:id/assignment", async (req, res) => {
   res.json(row ?? null);
 });
 
+// ── PUT /orders/:id/driver-location ──────────────────────────────────────────
+router.put("/orders/:id/driver-location", async (req, res) => {
+  const orderId = parseInt(req.params.id);
+  if (isNaN(orderId)) { res.status(400).json({ error: "معرّف غير صحيح" }); return; }
+  const { lat, lng } = req.body;
+  if (typeof lat !== "number" || typeof lng !== "number") {
+    res.status(400).json({ error: "إحداثيات غير صحيحة" }); return;
+  }
+  const [assignment] = await db
+    .update(orderDriverAssignmentsTable)
+    .set({ driverLat: lat, driverLng: lng, locationUpdatedAt: new Date() })
+    .where(eq(orderDriverAssignmentsTable.orderId, orderId))
+    .returning();
+  res.json(assignment);
+});
+
 // ── GET /settings/drivers-enabled ────────────────────────────────────────────
 router.get("/settings/drivers-enabled", async (_req, res) => {
   const [row] = await db.select().from(appSettingsTable).where(eq(appSettingsTable.key, "drivers_enabled"));

@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import { apiPost, apiGet, apiPut } from "@/constants/api";
+import * as Location from "expo-location";
 
 const F = { regular: "Cairo_400Regular", semi: "Cairo_600SemiBold", bold: "Cairo_700Bold", extra: "Cairo_800ExtraBold" };
 
@@ -93,7 +94,60 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [updating, setUpdating] = useState<number | null>(null);
+  const [sharingLocation, setSharingLocation] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const gpsIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const locationSubRef = useRef<Location.LocationSubscription | null>(null);
+  const trackedOrderRef = useRef<number | null>(null);
+
+  const sendLocation = useCallback(async (orderId: number, lat: number, lng: number) => {
+    try { await apiPut(`/orders/${orderId}/driver-location`, { lat, lng }); } catch {}
+  }, []);
+
+  const stopGPS = useCallback(() => {
+    setSharingLocation(false);
+    trackedOrderRef.current = null;
+    if (gpsIntervalRef.current) { clearInterval(gpsIntervalRef.current); gpsIntervalRef.current = null; }
+    if (locationSubRef.current) { locationSubRef.current.remove(); locationSubRef.current = null; }
+  }, []);
+
+  const startGPS = useCallback(async (orderId: number) => {
+    if (trackedOrderRef.current === orderId) return;
+    stopGPS();
+    trackedOrderRef.current = orderId;
+    setSharingLocation(true);
+
+    if (Platform.OS === "web") {
+      if (typeof navigator !== "undefined" && navigator.geolocation) {
+        const send = () => navigator.geolocation.getCurrentPosition(
+          (p) => sendLocation(orderId, p.coords.latitude, p.coords.longitude),
+          () => {},
+          { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+        );
+        send();
+        gpsIntervalRef.current = setInterval(send, 30000);
+      }
+    } else {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") { setSharingLocation(false); return; }
+      const sub = await Location.watchPositionAsync(
+        { accuracy: Location.Accuracy.Balanced, timeInterval: 30000, distanceInterval: 100 },
+        (loc) => sendLocation(orderId, loc.coords.latitude, loc.coords.longitude)
+      );
+      locationSubRef.current = sub;
+    }
+  }, [sendLocation, stopGPS]);
+
+  useEffect(() => {
+    const pickedUp = rows.find(r => r.assignment.status === "picked_up");
+    if (pickedUp) {
+      startGPS(pickedUp.assignment.orderId);
+    } else {
+      stopGPS();
+    }
+  }, [rows, startGPS, stopGPS]);
+
+  useEffect(() => { return () => stopGPS(); }, [stopGPS]);
 
   const loadOrders = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -131,20 +185,28 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
       <StatusBar barStyle="light-content" />
 
       {/* Header */}
-      <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: colors.card }}>
-        <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 10 }}>
-          {driver.photoUrl
-            ? <Image source={{ uri: driver.photoUrl }} style={{ width: 42, height: 42, borderRadius: 21, borderWidth: 2, borderColor: "#E8920C" }} />
-            : <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: "#2A1A08", alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: "#E8920C" }}><Text style={{ fontSize: 20 }}>🛵</Text></View>
-          }
-          <View>
-            <Text style={{ color: colors.foreground, fontFamily: F.bold, fontSize: 15 }}>{driver.name}</Text>
-            <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12 }}>{driver.phone}</Text>
+      <View style={{ borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: colors.card }}>
+        <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingVertical: 12 }}>
+          <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 10 }}>
+            {driver.photoUrl
+              ? <Image source={{ uri: driver.photoUrl }} style={{ width: 42, height: 42, borderRadius: 21, borderWidth: 2, borderColor: "#E8920C" }} />
+              : <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: "#2A1A08", alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: "#E8920C" }}><Text style={{ fontSize: 20 }}>🛵</Text></View>
+            }
+            <View>
+              <Text style={{ color: colors.foreground, fontFamily: F.bold, fontSize: 15 }}>{driver.name}</Text>
+              <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12 }}>{driver.phone}</Text>
+            </View>
           </View>
+          <TouchableOpacity onPress={() => { Alert.alert("تسجيل الخروج", "هل تريد الخروج؟", [{ text: "إلغاء", style: "cancel" }, { text: "خروج", style: "destructive", onPress: onLogout }]); }}>
+            <Feather name="log-out" size={20} color={colors.mutedForeground} />
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity onPress={() => { Alert.alert("تسجيل الخروج", "هل تريد الخروج؟", [{ text: "إلغاء", style: "cancel" }, { text: "خروج", style: "destructive", onPress: onLogout }]); }}>
-          <Feather name="log-out" size={20} color={colors.mutedForeground} />
-        </TouchableOpacity>
+        {sharingLocation && (
+          <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: "#1B3A1B", paddingVertical: 6, paddingHorizontal: 14 }}>
+            <View style={{ width: 7, height: 7, borderRadius: 3.5, backgroundColor: "#4CAF50" }} />
+            <Text style={{ color: "#4CAF50", fontFamily: F.semi, fontSize: 12 }}>📡 موقعك يُرسل للعميل</Text>
+          </View>
+        )}
       </View>
 
       <ScrollView
