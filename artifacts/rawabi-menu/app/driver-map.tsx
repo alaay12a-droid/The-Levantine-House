@@ -4,14 +4,13 @@ import {
   Text,
   TouchableOpacity,
   Platform,
-  ActivityIndicator,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { WebView } from "react-native-webview";
+import { MapWebView } from "@/components/MapWebView";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
-import { apiGet, API_BASE } from "@/constants/api";
+import { apiGet } from "@/constants/api";
 import { useLanguage } from "@/context/LanguageContext";
 
 const F = {
@@ -124,25 +123,9 @@ export default function DriverMapScreen() {
         </View>
       )}
 
-      {/* Map — full screen WebView pointing to server-rendered map page */}
+      {/* Map — web uses <iframe>, native uses react-native-webview */}
       {orderId ? (
-        <WebView
-          source={{ uri: mapUrl }}
-          style={{ flex: 1 }}
-          javaScriptEnabled
-          domStorageEnabled
-          originWhitelist={["*"]}
-          allowsInlineMediaPlayback
-          startInLoadingState
-          renderLoading={() => (
-            <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.background }}>
-              <ActivityIndicator size="large" color="#29B6F6" />
-              <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 14, marginTop: 14 }}>
-                {isEn ? "Loading map..." : "جاري تحميل الخريطة..."}
-              </Text>
-            </View>
-          )}
-        />
+        <MapWebView uri={mapUrl} style={{ flex: 1 }} />
       ) : (
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
           <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 14 }}>
