@@ -1493,24 +1493,33 @@ export default function CashierScreen() {
                       <>
                         <Text style={{ color: colors.mutedForeground, fontFamily: F.bold, fontSize: 13, textAlign: "right", marginBottom: 4 }}>✅ تم التسليم</Text>
                         {drvDetailRow.orders.map(ord => {
-                          const time = ord.deliveredAt
-                            ? new Date(ord.deliveredAt).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" })
-                            : "--:--";
+                          const dt = ord.deliveredAt ? new Date(ord.deliveredAt) : null;
+                          const dayName  = dt ? dt.toLocaleDateString("ar-SA", { weekday: "long" }) : "";
+                          const dateStr  = dt ? dt.toLocaleDateString("ar-SA", { day: "numeric", month: "long", year: "numeric" }) : "";
+                          const timeStr  = dt ? dt.toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" }) : "--:--";
                           return (
-                            <View key={ord.orderId} style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", backgroundColor: colors.background, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border }}>
-                              <View style={{ gap: 2 }}>
+                            <View key={ord.orderId} style={{ backgroundColor: colors.background, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border, gap: 8 }}>
+                              {/* Header row: order number + name + price */}
+                              <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" }}>
                                 <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6 }}>
                                   <View style={{ backgroundColor: "#E8920C22", paddingHorizontal: 7, paddingVertical: 2, borderRadius: 7 }}>
                                     <Text style={{ color: "#E8920C", fontFamily: F.extra, fontSize: 11 }}>#{ord.dailyNumber ?? ord.orderId}</Text>
                                   </View>
                                   <Text style={{ color: colors.foreground, fontFamily: F.semi, fontSize: 13 }}>{ord.customerName}</Text>
                                 </View>
-                                <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4 }}>
-                                  <Feather name="clock" size={10} color={colors.mutedForeground} />
-                                  <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }}>{time}</Text>
-                                </View>
+                                <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 15 }}>{ord.totalPrice.toFixed(2)} ر.س</Text>
                               </View>
-                              <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 15 }}>{ord.totalPrice.toFixed(2)} ر.س</Text>
+                              {/* Date/time row */}
+                              {dt && (
+                                <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6, backgroundColor: colors.secondary, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 }}>
+                                  <Feather name="clock" size={11} color={colors.gold} />
+                                  <Text style={{ color: colors.gold, fontFamily: F.bold, fontSize: 11 }}>{timeStr}</Text>
+                                  <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }}>•</Text>
+                                  <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 11 }}>{dayName}</Text>
+                                  <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }}>•</Text>
+                                  <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }}>{dateStr}</Text>
+                                </View>
+                              )}
                             </View>
                           );
                         })}
