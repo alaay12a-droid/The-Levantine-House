@@ -70,6 +70,21 @@ export default function MenuScreen() {
   const { favorites } = useFavorites();
   const isEn = language === "en";
   const info = useAppTexts();
+
+  // ── Secret 3-tap to open staff picker ──────────────────────────────
+  const logoTapCount = useRef(0);
+  const logoTapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleLogoTap = () => {
+    logoTapCount.current += 1;
+    if (logoTapTimer.current) clearTimeout(logoTapTimer.current);
+    if (logoTapCount.current >= 3) {
+      logoTapCount.current = 0;
+      driversEnabled ? setShowStaffPicker(true) : router.push("/cashier");
+    } else {
+      logoTapTimer.current = setTimeout(() => { logoTapCount.current = 0; }, 800);
+    }
+  };
   const availableCombos = combos.filter((c) => c.available);
   const [activeCategory, setActiveCategory] = useState("chicken");
   const [driversEnabled, setDriversEnabled] = useState(false);
@@ -171,12 +186,6 @@ export default function MenuScreen() {
             >
               <Feather name="phone" size={18} color={colors.gold} />
             </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => driversEnabled ? setShowStaffPicker(true) : router.push("/cashier")}
-              style={[styles.phoneBtn, { backgroundColor: "#2A1508" }]}
-            >
-              <Feather name="monitor" size={16} color={colors.gold} />
-            </TouchableOpacity>
           </View>
 
           <View style={styles.titleBlock}>
@@ -188,7 +197,9 @@ export default function MenuScreen() {
             </Text>
           </View>
 
-          <Image source={logo} style={styles.logo} resizeMode="contain" />
+          <TouchableOpacity onPress={handleLogoTap} activeOpacity={1}>
+            <Image source={logo} style={styles.logo} resizeMode="contain" />
+          </TouchableOpacity>
         </Animated.View>
 
         {/* ── CATEGORY TABS ── */}
