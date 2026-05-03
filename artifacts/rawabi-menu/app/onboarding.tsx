@@ -77,11 +77,38 @@ export default function OnboardingScreen() {
       if (phone.trim().length < 9) { Alert.alert("", "يرجى إدخال رقم جوال صحيح"); return; }
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       setStep("location");
+      autoDetectLocation();
       setTimeout(() => addressRef.current?.focus(), 300);
     } else {
       if (!address.trim()) { Alert.alert("", "يرجى إدخال عنوانك أو تحديد موقعك"); return; }
       handleSave();
     }
+  };
+
+  const autoDetectLocation = async () => {
+    setLocLoading(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") { setLocLoading(false); return; }
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+      setLat(loc.coords.latitude);
+      setLng(loc.coords.longitude);
+      const geocode = await Location.reverseGeocodeAsync({
+        latitude: loc.coords.latitude,
+        longitude: loc.coords.longitude,
+      });
+      if (geocode.length > 0) {
+        const g = geocode[0];
+        const parts = [g.street, g.district, g.city].filter(Boolean);
+        setAddress(parts.join(" - ") || "تم تحديد الموقع");
+      } else {
+        setAddress("تم تحديد الموقع");
+      }
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch {
+      // silent — user can enter manually
+    }
+    setLocLoading(false);
   };
 
   const handleDetectLocation = async () => {
