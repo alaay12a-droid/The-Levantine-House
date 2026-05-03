@@ -587,11 +587,15 @@ export default function CashierScreen() {
       if (newStatus === "preparing") {
         setPrintOrder(updated);
       }
-      // Auto-advance driver to picked_up when cashier marks order done
+      // Auto-advance driver to picked_up when cashier marks order done, then switch to drivers tab
       if (newStatus === "done" && assignments[order.id]?.status === "assigned") {
         try {
           await apiPut(`/orders/${order.id}/driver-status`, { status: "picked_up" });
           setAssignments(prev => ({ ...prev, [order.id]: { ...prev[order.id], status: "picked_up" } }));
+          // Switch to drivers tab and refresh active assignments
+          setCashierView("drivers");
+          loadDrvSummaries();
+          loadActiveAssignments();
         } catch {}
       }
     } catch {
@@ -777,7 +781,7 @@ export default function CashierScreen() {
       <View style={{ flexDirection: "row-reverse", backgroundColor: "#1A1008", borderBottomWidth: 1, borderBottomColor: colors.border }}>
         {([
           { key: "orders",  label: "استقبال الطلبات", icon: "clipboard" as const, color: "#E8920C", badge: pendingCount },
-          { key: "drivers", label: "المناديب",         icon: "truck"     as const, color: "#4CAF50", badge: 0 },
+          { key: "drivers", label: "المناديب",         icon: "truck"     as const, color: "#4CAF50", badge: activeAssignments.length },
         ]).map(tab => {
           const active = cashierView === tab.key;
           return (
