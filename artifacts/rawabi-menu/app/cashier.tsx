@@ -372,7 +372,7 @@ export default function CashierScreen() {
       if (typeof window === "undefined") return;
       // Play the custom M4A sound file
       const audio = new (window as any).Audio();
-      audio.src = "/assets/sounds/order_arrived.m4a";
+      audio.src = "/assets/sounds/new_order.mp3";
       audio.volume = 1.0;
       audio.play().catch(() => {
         // Fallback: synthesised chime if file fails

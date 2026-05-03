@@ -74,7 +74,8 @@
           "sounds": [
             "./assets/sounds/notification.wav",
             "./assets/sounds/notification_loop.wav",
-            "./assets/sounds/order_arrived.m4a"
+            "./assets/sounds/order_arrived.m4a",
+            "./assets/sounds/new_order.mp3"
           ]
         }
       ]
