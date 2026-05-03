@@ -25,6 +25,7 @@ import type { ApiOccasion } from "@/hooks/useOccasions";
 import { useTabConfig, type TabConfig } from "@/hooks/useTabConfig";
 import { loadPins, savePins, isMasterCode, type Pins } from "@/hooks/usePins";
 import { usePaymentSettings } from "@/hooks/usePaymentSettings";
+import { useUIDensity, type UIDensity } from "@/hooks/useUIDensity";
 import { useDiscountCodes, type DiscountCode } from "@/hooks/useDiscountCodes";
 import { useBanners, type ApiBanner } from "@/hooks/useBanners";
 import { useRevenue } from "@/hooks/useRevenue";
@@ -301,6 +302,7 @@ export default function AdminMenuScreen() {
 
   const [activeTab, setActiveTab] = useState<"menu" | "occasions" | "stock" | "settings" | "banners" | "revenue" | "combos">("menu");
   const { config: tabConfig, update: updateTabConfig } = useTabConfig();
+  const { density: uiDensity, saveDensity: saveUIDensity } = useUIDensity();
   const { settings: paymentSettings, saveSettings: savePaymentSettings } = usePaymentSettings();
   const { codes: discountCodes, addCode, updateCode, deleteCode } = useDiscountCodes();
   const { banners: allBanners, refresh: refreshBanners } = useBanners();
@@ -1508,6 +1510,42 @@ export default function AdminMenuScreen() {
             </View>
             <Feather name="chevron-left" size={20} color={colors.gold} />
           </TouchableOpacity>
+
+          <View style={{ height: 1, backgroundColor: colors.border }} />
+
+          {/* ── UI Density ── */}
+          <Text style={{ color: colors.gold, fontFamily: F.extra, fontSize: 16, textAlign: "right" }}>
+            📐 كثافة واجهة الشاشات
+          </Text>
+          <View style={{ backgroundColor: colors.card, borderRadius: 14, borderWidth: 1, borderColor: colors.border, padding: 16, gap: 10 }}>
+            <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12, textAlign: "right" }}>
+              تحكم في المسافات وحجم العناصر في شاشة الدفع وغيرها
+            </Text>
+            <View style={{ flexDirection: "row-reverse", gap: 10 }}>
+              {(["compact", "normal", "spacious"] as UIDensity[]).map((d) => {
+                const label = d === "compact" ? "مضغوط" : d === "normal" ? "عادي" : "مريح";
+                const icon  = d === "compact" ? "🗜️" : d === "normal" ? "⚖️" : "🌿";
+                const active = uiDensity === d;
+                return (
+                  <TouchableOpacity
+                    key={d}
+                    onPress={() => saveUIDensity(d)}
+                    style={{
+                      flex: 1, paddingVertical: 12, borderRadius: 12, alignItems: "center", gap: 4,
+                      backgroundColor: active ? colors.gold + "22" : colors.secondary,
+                      borderWidth: 1.5, borderColor: active ? colors.gold : colors.border,
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={{ fontSize: 18 }}>{icon}</Text>
+                    <Text style={{ color: active ? colors.gold : colors.mutedForeground, fontFamily: active ? F.bold : F.regular, fontSize: 13 }}>
+                      {label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
 
           <View style={{ height: 1, backgroundColor: colors.border }} />
 

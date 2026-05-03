@@ -152,6 +152,24 @@ router.put("/orders/:id/driver-location", async (req, res) => {
   res.json(assignment);
 });
 
+// ── GET /settings/ui-density ──────────────────────────────────────────────────
+router.get("/settings/ui-density", async (_req, res) => {
+  const [row] = await db.select().from(appSettingsTable).where(eq(appSettingsTable.key, "ui_density"));
+  res.json({ value: row?.value ?? "normal" });
+});
+
+// ── PUT /settings/ui-density ──────────────────────────────────────────────────
+router.put("/settings/ui-density", async (req, res) => {
+  const { value } = req.body;
+  if (!["compact", "normal", "spacious"].includes(value)) {
+    res.status(400).json({ error: "قيمة غير صحيحة" }); return;
+  }
+  await db.insert(appSettingsTable)
+    .values({ key: "ui_density", value })
+    .onConflictDoUpdate({ target: appSettingsTable.key, set: { value, updatedAt: new Date() } });
+  res.json({ value });
+});
+
 // ── GET /settings/drivers-enabled ────────────────────────────────────────────
 router.get("/settings/drivers-enabled", async (_req, res) => {
   const [row] = await db.select().from(appSettingsTable).where(eq(appSettingsTable.key, "drivers_enabled"));

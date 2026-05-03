@@ -30,6 +30,7 @@ import { ORDERS_STORAGE_KEY, StoredOrder } from "./(tabs)/orders";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useLanguage } from "@/context/LanguageContext";
 import { useDiscountCodes } from "@/hooks/useDiscountCodes";
+import { useUIDensity } from "@/hooks/useUIDensity";
 
 const F = {
   regular: "Cairo_400Regular",
@@ -341,6 +342,15 @@ export default function CheckoutScreen() {
   };
 
   const GOLD = colors.gold;
+  const { values: d } = useUIDensity();
+  const dyn = {
+    card: { marginHorizontal: d.cardMH, marginTop: d.cardMT, borderRadius: d.radius } as const,
+    row:  { paddingVertical: d.rowPV, paddingHorizontal: d.rowPH } as const,
+    lbl:  { fontSize: d.labelSize } as const,
+    val:  { fontSize: d.valueSize } as const,
+    typ:  { paddingVertical: d.typePV, borderRadius: d.radius } as const,
+    sec:  { paddingTop: d.sectionPT } as const,
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -363,15 +373,15 @@ export default function CheckoutScreen() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: bottomInset + 160 }}>
 
         {/* ── Customer info section ── */}
-        <View style={[styles.listCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <View style={[styles.listCard, dyn.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
           {/* Name row */}
-          <View style={styles.listRow}>
-            <Text style={[styles.rowValue, { color: colors.foreground, fontFamily: F.semi }]}>
+          <View style={[styles.listRow, dyn.row]}>
+            <Text style={[styles.rowValue, dyn.val, { color: colors.foreground, fontFamily: F.semi }]}>
               {user?.name}
             </Text>
             <View style={styles.rowLeft}>
               <Feather name="user" size={16} color={colors.mutedForeground} />
-              <Text style={[styles.rowLabel, { color: colors.mutedForeground, fontFamily: F.regular }]}>
+              <Text style={[styles.rowLabel, dyn.lbl, { color: colors.mutedForeground, fontFamily: F.regular }]}>
                 {isEn ? "Name" : "الاسم"}
               </Text>
             </View>
@@ -379,13 +389,13 @@ export default function CheckoutScreen() {
           <View style={[styles.rowDivider, { backgroundColor: colors.border }]} />
 
           {/* Phone row */}
-          <View style={styles.listRow}>
-            <Text style={[styles.rowValue, { color: colors.foreground, fontFamily: F.semi }]}>
+          <View style={[styles.listRow, dyn.row]}>
+            <Text style={[styles.rowValue, dyn.val, { color: colors.foreground, fontFamily: F.semi }]}>
               {user?.phone}
             </Text>
             <View style={styles.rowLeft}>
               <Feather name="phone" size={16} color={colors.mutedForeground} />
-              <Text style={[styles.rowLabel, { color: colors.mutedForeground, fontFamily: F.regular }]}>
+              <Text style={[styles.rowLabel, dyn.lbl, { color: colors.mutedForeground, fontFamily: F.regular }]}>
                 {isEn ? "Phone" : "الجوال"}
               </Text>
             </View>
@@ -395,13 +405,13 @@ export default function CheckoutScreen() {
           {user?.address && user.address !== "غير محدد" && (
             <>
               <View style={[styles.rowDivider, { backgroundColor: colors.border }]} />
-              <View style={styles.listRow}>
-                <Text style={[styles.rowValue, { color: colors.foreground, fontFamily: F.semi }]} numberOfLines={1}>
+              <View style={[styles.listRow, dyn.row]}>
+                <Text style={[styles.rowValue, dyn.val, { color: colors.foreground, fontFamily: F.semi }]} numberOfLines={1}>
                   {user.address}
                 </Text>
                 <View style={styles.rowLeft}>
                   <Feather name="map-pin" size={16} color={colors.mutedForeground} />
-                  <Text style={[styles.rowLabel, { color: colors.mutedForeground, fontFamily: F.regular }]}>
+                  <Text style={[styles.rowLabel, dyn.lbl, { color: colors.mutedForeground, fontFamily: F.regular }]}>
                     {isEn ? "Address" : "العنوان"}
                   </Text>
                 </View>
@@ -412,13 +422,14 @@ export default function CheckoutScreen() {
 
         {/* ── Order type (delivery/pickup) ── */}
         {paymentSettings.deliveryEnabled && (
-          <View style={[styles.listCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <View style={styles.listRow}>
+          <View style={[styles.listCard, dyn.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={[styles.listRow, dyn.row]}>
               <View style={styles.typeToggle}>
                 <TouchableOpacity
                   onPress={() => setOrderType("pickup")}
                   style={[
                     styles.typeBtn,
+                    dyn.typ,
                     {
                       backgroundColor: orderType === "pickup" ? "#0A2A0A" : colors.secondary,
                       borderColor: orderType === "pickup" ? "#4CAF50" : colors.border,
@@ -438,6 +449,7 @@ export default function CheckoutScreen() {
                   onPress={() => setOrderType("delivery")}
                   style={[
                     styles.typeBtn,
+                    dyn.typ,
                     {
                       backgroundColor: orderType === "delivery" ? "#2A1A05" : colors.secondary,
                       borderColor: orderType === "delivery" ? GOLD : colors.border,
@@ -462,7 +474,7 @@ export default function CheckoutScreen() {
               </View>
               <View style={styles.rowLeft}>
                 <Feather name="truck" size={16} color={colors.mutedForeground} />
-                <Text style={[styles.rowLabel, { color: colors.mutedForeground, fontFamily: F.regular }]}>
+                <Text style={[styles.rowLabel, dyn.lbl, { color: colors.mutedForeground, fontFamily: F.regular }]}>
                   {isEn ? "Order Type" : "نوع الطلب"}
                 </Text>
               </View>
@@ -472,10 +484,10 @@ export default function CheckoutScreen() {
 
         {/* ── Location row ── */}
         {(!paymentSettings.deliveryEnabled || orderType === "delivery") && (
-          <View style={[styles.listCard, { backgroundColor: colors.card, borderColor: locationUrl ? "#2A5A2A" : colors.border }]}>
+          <View style={[styles.listCard, dyn.card, { backgroundColor: colors.card, borderColor: locationUrl ? "#2A5A2A" : colors.border }]}>
             {locationUrl ? (
               <>
-                <View style={styles.listRow}>
+                <View style={[styles.listRow, dyn.row]}>
                   <View style={{ flexDirection: "row", gap: 8 }}>
                     <TouchableOpacity
                       onPress={() => setLocationUrl(null)}
@@ -498,7 +510,7 @@ export default function CheckoutScreen() {
                   </View>
                   <View style={styles.rowLeft}>
                     <Feather name="map-pin" size={16} color="#4CAF50" />
-                    <Text style={[styles.rowLabel, { color: colors.mutedForeground, fontFamily: F.regular }]}>
+                    <Text style={[styles.rowLabel, dyn.lbl, { color: colors.mutedForeground, fontFamily: F.regular }]}>
                       {isEn ? "Location" : "الموقع"}
                     </Text>
                   </View>
@@ -514,10 +526,10 @@ export default function CheckoutScreen() {
               <TouchableOpacity
                 onPress={handleGetLocation}
                 disabled={locationLoading}
-                style={styles.listRow}
+                style={[styles.listRow, dyn.row]}
                 activeOpacity={0.7}
               >
-                <Text style={[styles.rowValue, { color: locationLoading ? colors.mutedForeground : GOLD, fontFamily: F.bold }]}>
+                <Text style={[styles.rowValue, dyn.val, { color: locationLoading ? colors.mutedForeground : GOLD, fontFamily: F.bold }]}>
                   {locationLoading
                     ? (isEn ? "Getting location..." : "جاري التحديد...")
                     : (isEn ? "Tap to share location" : "اضغط لمشاركة موقعك")}
@@ -527,7 +539,7 @@ export default function CheckoutScreen() {
                     ? <ActivityIndicator size="small" color={GOLD} />
                     : <Feather name="map-pin" size={16} color={colors.mutedForeground} />
                   }
-                  <Text style={[styles.rowLabel, { color: colors.mutedForeground, fontFamily: F.regular }]}>
+                  <Text style={[styles.rowLabel, dyn.lbl, { color: colors.mutedForeground, fontFamily: F.regular }]}>
                     {isEn ? "Location" : "الموقع"}
                   </Text>
                 </View>
@@ -538,14 +550,14 @@ export default function CheckoutScreen() {
 
         {/* ── Estimated time row ── */}
         {(!paymentSettings.deliveryEnabled || orderType === "delivery" || orderType === "pickup") && (
-          <View style={[styles.listCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <View style={styles.listRow}>
-              <Text style={[styles.rowValue, { color: GOLD, fontFamily: F.bold, fontSize: 15 }]}>
+          <View style={[styles.listCard, dyn.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={[styles.listRow, dyn.row]}>
+              <Text style={[styles.rowValue, dyn.val, { color: GOLD, fontFamily: F.bold }]}>
                 {orderType === "delivery" ? "~ 45 – 60 دقيقة" : "~ 15 – 20 دقيقة"}
               </Text>
               <View style={styles.rowLeft}>
                 <Feather name="clock" size={16} color={colors.mutedForeground} />
-                <Text style={[styles.rowLabel, { color: colors.mutedForeground, fontFamily: F.regular }]}>
+                <Text style={[styles.rowLabel, dyn.lbl, { color: colors.mutedForeground, fontFamily: F.regular }]}>
                   {isEn ? "Est. prep / delivery time" : "الوقت المتوقع للتجهيز والتوصيل"}
                 </Text>
               </View>
@@ -554,16 +566,16 @@ export default function CheckoutScreen() {
         )}
 
         {/* ── Notes row ── */}
-        <View style={[styles.listCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <View style={[styles.listCard, dyn.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <TouchableOpacity
-            style={styles.listRow}
+            style={[styles.listRow, dyn.row]}
             onPress={() => setNotesExpanded(!notesExpanded)}
             activeOpacity={0.7}
           >
             <Feather name={notesExpanded ? "chevron-up" : "chevron-left"} size={16} color={colors.mutedForeground} />
             <View style={styles.rowLeft}>
               <Feather name="edit-3" size={16} color={colors.mutedForeground} />
-              <Text style={[styles.rowLabel, { color: colors.mutedForeground, fontFamily: F.regular }]}>
+              <Text style={[styles.rowLabel, dyn.lbl, { color: colors.mutedForeground, fontFamily: F.regular }]}>
                 {isEn ? "Notes" : "ملاحظة"}
               </Text>
             </View>
@@ -586,16 +598,16 @@ export default function CheckoutScreen() {
         </View>
 
         {/* ── Order for someone else ── */}
-        <View style={[styles.listCard, { backgroundColor: colors.card, borderColor: forOtherExpanded ? GOLD + "60" : colors.border }]}>
+        <View style={[styles.listCard, dyn.card, { backgroundColor: colors.card, borderColor: forOtherExpanded ? GOLD + "60" : colors.border }]}>
           <TouchableOpacity
-            style={styles.listRow}
+            style={[styles.listRow, dyn.row]}
             onPress={() => setForOtherExpanded(!forOtherExpanded)}
             activeOpacity={0.7}
           >
             <Feather name={forOtherExpanded ? "chevron-up" : "chevron-left"} size={16} color={forOtherExpanded ? GOLD : colors.mutedForeground} />
             <View style={styles.rowLeft}>
               <Feather name="user-plus" size={16} color={forOtherExpanded ? GOLD : colors.mutedForeground} />
-              <Text style={[styles.rowLabel, { color: forOtherExpanded ? GOLD : colors.mutedForeground, fontFamily: forOtherExpanded ? F.bold : F.regular }]}>
+              <Text style={[styles.rowLabel, dyn.lbl, { color: forOtherExpanded ? GOLD : colors.mutedForeground, fontFamily: forOtherExpanded ? F.bold : F.regular }]}>
                 {isEn ? "Order for someone else" : "الطلب لشخص آخر"}
               </Text>
             </View>
@@ -628,24 +640,24 @@ export default function CheckoutScreen() {
         </View>
 
         {/* ── Promo Code ── */}
-        <View style={[styles.listCard, { backgroundColor: colors.card, borderColor: appliedDiscount > 0 ? "#22C55E60" : colors.border }]}>
+        <View style={[styles.listCard, dyn.card, { backgroundColor: colors.card, borderColor: appliedDiscount > 0 ? "#22C55E60" : colors.border }]}>
           {appliedDiscount > 0 ? (
-            <View style={styles.listRow}>
+            <View style={[styles.listRow, dyn.row]}>
               <TouchableOpacity onPress={removePromo} style={[styles.locActionBtn, { backgroundColor: "#3A1A1A" }]}>
                 <Feather name="x" size={13} color="#E57373" />
                 <Text style={{ color: "#E57373", fontFamily: F.bold, fontSize: 12 }}>{isEn ? "Remove" : "إزالة"}</Text>
               </TouchableOpacity>
               <View style={styles.rowLeft}>
                 <Feather name="tag" size={16} color="#22C55E" />
-                <Text style={[styles.rowLabel, { color: "#22C55E", fontFamily: F.bold }]}>{appliedCodeLabel}</Text>
+                <Text style={[styles.rowLabel, dyn.lbl, { color: "#22C55E", fontFamily: F.bold }]}>{appliedCodeLabel}</Text>
               </View>
             </View>
           ) : (
-            <TouchableOpacity style={styles.listRow} onPress={() => setPromoExpanded(!promoExpanded)} activeOpacity={0.7}>
+            <TouchableOpacity style={[styles.listRow, dyn.row]} onPress={() => setPromoExpanded(!promoExpanded)} activeOpacity={0.7}>
               <Feather name={promoExpanded ? "chevron-up" : "chevron-left"} size={16} color={promoExpanded ? GOLD : colors.mutedForeground} />
               <View style={styles.rowLeft}>
                 <Feather name="tag" size={16} color={promoExpanded ? GOLD : colors.mutedForeground} />
-                <Text style={[styles.rowLabel, { color: promoExpanded ? GOLD : colors.mutedForeground, fontFamily: promoExpanded ? F.bold : F.regular }]}>
+                <Text style={[styles.rowLabel, dyn.lbl, { color: promoExpanded ? GOLD : colors.mutedForeground, fontFamily: promoExpanded ? F.bold : F.regular }]}>
                   {isEn ? "Promo Code" : "كود الخصم"}
                 </Text>
               </View>
@@ -683,8 +695,8 @@ export default function CheckoutScreen() {
         </View>
 
         {/* ── Price breakdown ── */}
-        <View style={[styles.listCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Text style={[styles.sectionLabel, { color: colors.mutedForeground, fontFamily: F.semi }]}>
+        <View style={[styles.listCard, dyn.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[styles.sectionLabel, dyn.sec, { color: colors.mutedForeground, fontFamily: F.semi }]}>
             {isEn ? "Order Summary" : "ملخص الطلب"}
           </Text>
 
@@ -696,11 +708,11 @@ export default function CheckoutScreen() {
             return (
               <React.Fragment key={ci.item.id}>
                 <View style={[styles.rowDivider, { backgroundColor: colors.border }]} />
-                <View style={styles.listRow}>
-                  <Text style={[styles.rowValue, { color: colors.mutedForeground, fontFamily: F.bold }]}>
+                <View style={[styles.listRow, dyn.row]}>
+                  <Text style={[styles.rowValue, dyn.val, { color: colors.mutedForeground, fontFamily: F.bold }]}>
                     {lineTotalStr} {isEn ? "SAR" : "ر.س"}
                   </Text>
-                  <Text style={[styles.rowLabel, { color: colors.foreground, fontFamily: F.semi, flex: 1, textAlign: "right" }]} numberOfLines={1}>
+                  <Text style={[styles.rowLabel, dyn.lbl, { color: colors.foreground, fontFamily: F.semi, flex: 1, textAlign: "right" }]} numberOfLines={1}>
                     {name} × {ci.quantity}
                   </Text>
                 </View>
@@ -712,17 +724,17 @@ export default function CheckoutScreen() {
           {paymentSettings.deliveryEnabled && (
             <>
               <View style={[styles.rowDivider, { backgroundColor: colors.border }]} />
-              <View style={styles.listRow}>
+              <View style={[styles.listRow, dyn.row]}>
                 {deliveryFee > 0 ? (
-                  <Text style={[styles.rowValue, { color: colors.mutedForeground, fontFamily: F.bold }]}>
+                  <Text style={[styles.rowValue, dyn.val, { color: colors.mutedForeground, fontFamily: F.bold }]}>
                     {deliveryFeeStr} {isEn ? "SAR" : "ر.س"}
                   </Text>
                 ) : (
-                  <Text style={[styles.rowValue, { color: "#4CAF50", fontFamily: F.bold }]}>
+                  <Text style={[styles.rowValue, dyn.val, { color: "#4CAF50", fontFamily: F.bold }]}>
                     {isEn ? "Free" : "مجاني"}
                   </Text>
                 )}
-                <Text style={[styles.rowLabel, { color: colors.foreground, fontFamily: F.semi }]}>
+                <Text style={[styles.rowLabel, dyn.lbl, { color: colors.foreground, fontFamily: F.semi }]}>
                   {orderType === "delivery"
                     ? (isEn ? "🚗 Delivery" : "🚗 رسوم التوصيل")
                     : (isEn ? "🏪 Branch Pickup" : "🏪 استلام")}
@@ -735,11 +747,11 @@ export default function CheckoutScreen() {
           {appliedDiscount > 0 && (
             <>
               <View style={[styles.rowDivider, { backgroundColor: colors.border }]} />
-              <View style={styles.listRow}>
-                <Text style={[styles.rowValue, { color: "#22C55E", fontFamily: F.bold }]}>
+              <View style={[styles.listRow, dyn.row]}>
+                <Text style={[styles.rowValue, dyn.val, { color: "#22C55E", fontFamily: F.bold }]}>
                   -{appliedDiscount % 1 === 0 ? appliedDiscount : appliedDiscount.toFixed(2)} {isEn ? "SAR" : "ر.س"}
                 </Text>
-                <Text style={[styles.rowLabel, { color: "#22C55E", fontFamily: F.semi }]}>
+                <Text style={[styles.rowLabel, dyn.lbl, { color: "#22C55E", fontFamily: F.semi }]}>
                   🏷️ {isEn ? "Discount" : "خصم الكود"}
                 </Text>
               </View>
@@ -748,25 +760,25 @@ export default function CheckoutScreen() {
 
           {/* Total */}
           <View style={[styles.totalLine, { backgroundColor: colors.border }]} />
-          <View style={styles.listRow}>
+          <View style={[styles.listRow, dyn.row]}>
             <Text style={[styles.grandTotal, { color: GOLD, fontFamily: F.extra }]}>
               {grandTotalStr} {isEn ? "SAR" : "ر.س"}
             </Text>
-            <Text style={[styles.rowLabel, { color: colors.foreground, fontFamily: F.bold }]}>
+            <Text style={[styles.rowLabel, dyn.lbl, { color: colors.foreground, fontFamily: F.bold }]}>
               {isEn ? "Total (VAT incl.)" : "المجموع شامل الضريبة"}
             </Text>
           </View>
         </View>
 
         {/* ── Payment method ── */}
-        <View style={[styles.listCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Text style={[styles.sectionLabel, { color: colors.mutedForeground, fontFamily: F.semi }]}>
+        <View style={[styles.listCard, dyn.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[styles.sectionLabel, dyn.sec, { color: colors.mutedForeground, fontFamily: F.semi }]}>
             {t("paymentMethod")}
           </Text>
 
           {/* Cash */}
           <View style={[styles.rowDivider, { backgroundColor: colors.border }]} />
-          <TouchableOpacity style={styles.listRow} onPress={() => setPaymentMethod("cash")} activeOpacity={0.7}>
+          <TouchableOpacity style={[styles.listRow, dyn.row]} onPress={() => setPaymentMethod("cash")} activeOpacity={0.7}>
             <View style={styles.radioOuter}>
               <View style={[styles.radioInner, { borderColor: paymentMethod === "cash" ? GOLD : colors.border }]}>
                 {paymentMethod === "cash" && <View style={[styles.radioDot, { backgroundColor: GOLD }]} />}
@@ -775,7 +787,7 @@ export default function CheckoutScreen() {
             <View style={styles.rowLeft}>
               <Feather name="dollar-sign" size={16} color={colors.mutedForeground} />
               <View>
-                <Text style={[styles.rowLabel, { color: colors.foreground, fontFamily: F.bold }]}>
+                <Text style={[styles.rowLabel, dyn.lbl, { color: colors.foreground, fontFamily: F.bold }]}>
                   {t("cash")}
                 </Text>
                 <Text style={[{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }]}>
@@ -789,7 +801,7 @@ export default function CheckoutScreen() {
           {walletBalance !== null && walletBalance > 0 && (
             <>
               <View style={[styles.rowDivider, { backgroundColor: colors.border }]} />
-              <TouchableOpacity style={styles.listRow} onPress={() => setPaymentMethod("wallet")} activeOpacity={0.7}>
+              <TouchableOpacity style={[styles.listRow, dyn.row]} onPress={() => setPaymentMethod("wallet")} activeOpacity={0.7}>
                 <View style={styles.radioOuter}>
                   <View style={[styles.radioInner, { borderColor: paymentMethod === "wallet" ? GOLD : colors.border }]}>
                     {paymentMethod === "wallet" && <View style={[styles.radioDot, { backgroundColor: GOLD }]} />}
@@ -798,7 +810,7 @@ export default function CheckoutScreen() {
                 <View style={styles.rowLeft}>
                   <Feather name="credit-card" size={16} color={colors.mutedForeground} />
                   <View>
-                    <Text style={[styles.rowLabel, { color: colors.foreground, fontFamily: F.bold }]}>
+                    <Text style={[styles.rowLabel, dyn.lbl, { color: colors.foreground, fontFamily: F.bold }]}>
                       {t("payWallet")}
                     </Text>
                     <Text style={[{ color: walletBalance >= grandTotal ? "#22C55E" : "#E53935", fontFamily: F.regular, fontSize: 11 }]}>
@@ -814,7 +826,7 @@ export default function CheckoutScreen() {
           {/* Online / Apple Pay */}
           <View style={[styles.rowDivider, { backgroundColor: colors.border }]} />
           {paymentSettings.applePayEnabled ? (
-            <TouchableOpacity style={styles.listRow} onPress={() => setPaymentMethod("moyasar")} activeOpacity={0.7}>
+            <TouchableOpacity style={[styles.listRow, dyn.row]} onPress={() => setPaymentMethod("moyasar")} activeOpacity={0.7}>
               <View style={styles.radioOuter}>
                 <View style={[styles.radioInner, { borderColor: paymentMethod === "moyasar" ? GOLD : colors.border }]}>
                   {paymentMethod === "moyasar" && <View style={[styles.radioDot, { backgroundColor: GOLD }]} />}
@@ -823,7 +835,7 @@ export default function CheckoutScreen() {
               <View style={styles.rowLeft}>
                 <Feather name="smartphone" size={16} color={colors.mutedForeground} />
                 <View>
-                  <Text style={[styles.rowLabel, { color: colors.foreground, fontFamily: F.bold }]}>Apple Pay</Text>
+                  <Text style={[styles.rowLabel, dyn.lbl, { color: colors.foreground, fontFamily: F.bold }]}>Apple Pay</Text>
                   <Text style={[{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }]}>
                     {isEn ? "Pay easily with Apple Pay" : "ادفع بسهولة عبر Apple Pay"}
                   </Text>
@@ -831,14 +843,14 @@ export default function CheckoutScreen() {
               </View>
             </TouchableOpacity>
           ) : (
-            <View style={[styles.listRow, { opacity: 0.4 }]}>
+            <View style={[styles.listRow, dyn.row, { opacity: 0.4 }]}>
               <View style={styles.radioOuter}>
                 <View style={[styles.radioInner, { borderColor: colors.border }]} />
               </View>
               <View style={styles.rowLeft}>
                 <Feather name="credit-card" size={16} color={colors.mutedForeground} />
                 <View>
-                  <Text style={[styles.rowLabel, { color: colors.foreground, fontFamily: F.bold }]}>
+                  <Text style={[styles.rowLabel, dyn.lbl, { color: colors.foreground, fontFamily: F.bold }]}>
                     💳 {isEn ? "Online Payment (Coming Soon)" : "دفع إلكتروني (قريباً)"}
                   </Text>
                   <Text style={[{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }]}>
