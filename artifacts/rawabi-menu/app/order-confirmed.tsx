@@ -250,10 +250,10 @@ function StatusDelivered({
 
   return (
     <View style={styles.statusWrap}>
-      {/* Check icon */}
+      {/* Check icon — small so it doesn't overflow */}
       <Animated.View style={{ transform: [{ scale }], marginBottom: 8 }}>
-        <View style={[styles.iconCircle, { backgroundColor: "#1A3A1A", borderColor: "#4CAF50" }]}>
-          <Feather name="check-circle" size={60} color="#4CAF50" />
+        <View style={{ width: 76, height: 76, borderRadius: 38, backgroundColor: "#1A3A1A", borderColor: "#4CAF50", borderWidth: 2, alignItems: "center", justifyContent: "center" }}>
+          <Feather name="check-circle" size={40} color="#4CAF50" />
         </View>
       </Animated.View>
 
@@ -615,13 +615,12 @@ export default function OrderConfirmedScreen() {
       )}
 
       {/* Status panel */}
-      <View style={styles.mainArea}>
-        {panel === "pending"    && <StatusPending    colors={colors} isEn={isEn} />}
-        {panel === "preparing"  && <StatusPreparing  colors={colors} isEn={isEn} />}
-        {panel === "ready"      && <StatusReady      colors={colors} isDelivery={isDelivery} isEn={isEn} />}
-        {panel === "on_the_way" && <StatusOnTheWay   colors={colors} isEn={isEn} compact={!!(assignment && isDelivery)} />}
-        {panel === "done"       && <StatusDone       colors={colors} onReturn={handleReturn} isEn={isEn} isDelivery={isDelivery} />}
-        {panel === "delivered"  && assignment && (
+      {panel === "delivered" && assignment ? (
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ paddingHorizontal: 24, paddingVertical: 20, alignItems: "center" }}
+          showsVerticalScrollIndicator={false}
+        >
           <StatusDelivered
             colors={colors}
             isEn={isEn}
@@ -631,8 +630,16 @@ export default function OrderConfirmedScreen() {
             existingRating={assignment.assignment.driverRating}
             onReturn={handleReturn}
           />
-        )}
-      </View>
+        </ScrollView>
+      ) : (
+        <View style={styles.mainArea}>
+          {panel === "pending"    && <StatusPending    colors={colors} isEn={isEn} />}
+          {panel === "preparing"  && <StatusPreparing  colors={colors} isEn={isEn} />}
+          {panel === "ready"      && <StatusReady      colors={colors} isDelivery={isDelivery} isEn={isEn} />}
+          {panel === "on_the_way" && <StatusOnTheWay   colors={colors} isEn={isEn} compact={!!(assignment && isDelivery)} />}
+          {panel === "done"       && <StatusDone       colors={colors} onReturn={handleReturn} isEn={isEn} isDelivery={isDelivery} />}
+        </View>
+      )}
 
       {!isDonePanel && (
         <TouchableOpacity
