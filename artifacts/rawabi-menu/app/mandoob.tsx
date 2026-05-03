@@ -95,6 +95,7 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
   const [refreshing, setRefreshing] = useState(false);
   const [updating, setUpdating] = useState<number | null>(null);
   const [sharingLocation, setSharingLocation] = useState(false);
+  const [locationError, setLocationError] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const gpsIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const locationSubRef = useRef<Location.LocationSubscription | null>(null);
@@ -106,6 +107,7 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
 
   const stopGPS = useCallback(() => {
     setSharingLocation(false);
+    setLocationError(false);
     trackedOrderRef.current = null;
     if (gpsIntervalRef.current) { clearInterval(gpsIntervalRef.current); gpsIntervalRef.current = null; }
     if (locationSubRef.current) { locationSubRef.current.remove(); locationSubRef.current = null; }
@@ -115,24 +117,38 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
     if (trackedOrderRef.current === orderId) return;
     stopGPS();
     trackedOrderRef.current = orderId;
-    setSharingLocation(true);
+    setLocationError(false);
 
     if (Platform.OS === "web") {
       if (typeof navigator !== "undefined" && navigator.geolocation) {
-        const send = () => navigator.geolocation.getCurrentPosition(
-          (p) => sendLocation(orderId, p.coords.latitude, p.coords.longitude),
-          () => {},
-          { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+        const onSuccess = (p: GeolocationPosition) => {
+          setSharingLocation(true);
+          setLocationError(false);
+          sendLocation(orderId, p.coords.latitude, p.coords.longitude);
+        };
+        const onError = () => {
+          setSharingLocation(false);
+          setLocationError(true);
+        };
+        const opts: PositionOptions = { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 };
+        navigator.geolocation.getCurrentPosition(onSuccess, onError, opts);
+        gpsIntervalRef.current = setInterval(
+          () => navigator.geolocation.getCurrentPosition(onSuccess, onError, opts),
+          15000,
         );
-        send();
-        gpsIntervalRef.current = setInterval(send, 30000);
+      } else {
+        setLocationError(true);
       }
     } else {
       const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") { setSharingLocation(false); return; }
+      if (status !== "granted") { setLocationError(true); return; }
+      setSharingLocation(true);
       const sub = await Location.watchPositionAsync(
-        { accuracy: Location.Accuracy.Balanced, timeInterval: 30000, distanceInterval: 100 },
-        (loc) => sendLocation(orderId, loc.coords.latitude, loc.coords.longitude)
+        { accuracy: Location.Accuracy.Balanced, timeInterval: 15000, distanceInterval: 50 },
+        (loc) => {
+          setLocationError(false);
+          sendLocation(orderId, loc.coords.latitude, loc.coords.longitude);
+        },
       );
       locationSubRef.current = sub;
     }
@@ -201,10 +217,16 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
             <Feather name="log-out" size={20} color={colors.mutedForeground} />
           </TouchableOpacity>
         </View>
-        {sharingLocation && (
+        {sharingLocation && !locationError && (
           <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: "#1B3A1B", paddingVertical: 6, paddingHorizontal: 14 }}>
             <View style={{ width: 7, height: 7, borderRadius: 3.5, backgroundColor: "#4CAF50" }} />
             <Text style={{ color: "#4CAF50", fontFamily: F.semi, fontSize: 12 }}>📡 موقعك يُرسل للعميل</Text>
+          </View>
+        )}
+        {locationError && (
+          <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: "#3A1B1B", paddingVertical: 6, paddingHorizontal: 14 }}>
+            <Feather name="alert-circle" size={13} color="#E57373" />
+            <Text style={{ color: "#E57373", fontFamily: F.semi, fontSize: 12 }}>تعذّر تحديد موقعك — تحقق من صلاحية الموقع</Text>
           </View>
         )}
       </View>

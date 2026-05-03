@@ -393,25 +393,45 @@ function DriverCard({ row, colors, isEn }: { row: AssignmentRow; colors: ReturnT
         )}
       </View>
 
-      {hasLocation && assignment.status === "picked_up" && (
-        <TouchableOpacity
-          onPress={trackDriver}
-          style={{
+      {assignment.status === "picked_up" && (
+        hasLocation ? (
+          <TouchableOpacity
+            onPress={trackDriver}
+            style={{
+              marginTop: 12,
+              flexDirection: "row-reverse",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              backgroundColor: "#29B6F6",
+              borderRadius: 12,
+              paddingVertical: 11,
+            }}
+          >
+            <Feather name="map-pin" size={16} color="#032B3D" />
+            <Text style={{ color: "#032B3D", fontFamily: F.extra, fontSize: 14 }}>
+              {isEn ? "Track Driver on Map 🗺️" : "تتبع المندوب على الخريطة 🗺️"}
+            </Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={{
             marginTop: 12,
             flexDirection: "row-reverse",
             alignItems: "center",
             justifyContent: "center",
             gap: 8,
-            backgroundColor: "#29B6F6",
+            backgroundColor: "#29B6F611",
             borderRadius: 12,
             paddingVertical: 11,
-          }}
-        >
-          <Feather name="map-pin" size={16} color="#032B3D" />
-          <Text style={{ color: "#032B3D", fontFamily: F.extra, fontSize: 14 }}>
-            {isEn ? "Track Driver on Map 🗺️" : "تتبع المندوب على الخريطة 🗺️"}
-          </Text>
-        </TouchableOpacity>
+            borderWidth: 1,
+            borderColor: "#29B6F633",
+          }}>
+            <Feather name="map-pin" size={16} color="#29B6F6" />
+            <Text style={{ color: "#29B6F6", fontFamily: F.semi, fontSize: 13 }}>
+              {isEn ? "Locating driver..." : "جاري تحديد موقع المندوب..."}
+            </Text>
+          </View>
+        )
       )}
     </View>
   );
