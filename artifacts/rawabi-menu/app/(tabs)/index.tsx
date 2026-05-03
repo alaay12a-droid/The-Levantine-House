@@ -37,6 +37,7 @@ import { useCart } from "@/context/CartContext";
 import { useBranchStatus } from "@/hooks/useBranchStatus";
 import { useLanguage } from "@/context/LanguageContext";
 import { useFavorites } from "@/hooks/useFavorites";
+import { apiGet } from "@/constants/api";
 
 const logo = require("@/assets/images/logo.png");
 const deliveryCar = require("@/assets/images/delivery_car.jpg");
@@ -68,6 +69,13 @@ export default function MenuScreen() {
   const isEn = language === "en";
   const availableCombos = combos.filter((c) => c.available);
   const [activeCategory, setActiveCategory] = useState("chicken");
+  const [driversEnabled, setDriversEnabled] = useState(false);
+
+  useEffect(() => {
+    apiGet<{ enabled: boolean }>("/settings/drivers-enabled")
+      .then((r) => setDriversEnabled(r.enabled))
+      .catch(() => {});
+  }, []);
 
   useFocusEffect(useCallback(() => { refreshMenu(); }, [refreshMenu]));
 
@@ -165,6 +173,14 @@ export default function MenuScreen() {
             >
               <Feather name="monitor" size={16} color={colors.gold} />
             </TouchableOpacity>
+            {driversEnabled && (
+              <TouchableOpacity
+                onPress={() => router.push("/mandoob")}
+                style={[styles.phoneBtn, { backgroundColor: "#0A1F0A", borderWidth: 1, borderColor: "#2E7D32" }]}
+              >
+                <Text style={{ fontSize: 16 }}>🛵</Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           <View style={styles.titleBlock}>
