@@ -34,6 +34,22 @@ router.post("/orders", async (req, res) => {
   }
   const data = parsed.data;
 
+  // ── Rate-limit: reject if same phone placed an order within the last 2 minutes ──
+  const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
+  const [recentOrder] = await db
+    .select({ id: ordersTable.id, createdAt: ordersTable.createdAt })
+    .from(ordersTable)
+    .where(and(eq(ordersTable.customerPhone, data.customerPhone), gte(ordersTable.createdAt, twoMinutesAgo)))
+    .limit(1);
+  if (recentOrder) {
+    const secondsLeft = Math.ceil((recentOrder.createdAt.getTime() + 2 * 60 * 1000 - Date.now()) / 1000);
+    res.status(429).json({
+      error: `لديك طلب بانتظار المعالجة — انتظر ${secondsLeft} ثانية قبل إرسال طلب جديد`,
+      retryAfter: secondsLeft,
+    });
+    return;
+  }
+
   // Calculate today's order sequence number (resets at midnight, Saudi time UTC+3)
   const nowUtc = new Date();
   const offsetMs = 3 * 60 * 60 * 1000; // UTC+3

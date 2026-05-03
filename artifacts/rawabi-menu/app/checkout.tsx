@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from "react";
+import React, { useState, useRef, useCallback, useEffect } from "react";
 import {
   View,
   Text,
@@ -38,6 +38,9 @@ const F = {
   bold: "Cairo_700Bold",
   extra: "Cairo_800ExtraBold",
 };
+
+const LAST_ORDER_TS_KEY = "@last_order_submitted_at";
+const ORDER_COOLDOWN_MS = 2 * 60 * 1000; // 2 minutes
 
 type PaymentMethod = "cash" | "moyasar" | "wallet";
 
@@ -79,10 +82,40 @@ export default function CheckoutScreen() {
   const [otpStep, setOtpStep] = useState<"idle" | "sent" | "verified">("idle");
   const [otpCode, setOtpCode] = useState("");
   const [otpLoading, setOtpLoading] = useState(false);
+  const [cooldownSeconds, setCooldownSeconds] = useState(0);
+  const cooldownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const [forOtherExpanded, setForOtherExpanded] = useState(false);
   const [otherName, setOtherName] = useState("");
   const [otherPhone, setOtherPhone] = useState("");
+
+  // ── Cooldown: check AsyncStorage on mount, countdown every second ─────────
+  useEffect(() => {
+    const startCooldown = (remainingMs: number) => {
+      const secs = Math.ceil(remainingMs / 1000);
+      setCooldownSeconds(secs);
+      if (cooldownRef.current) clearInterval(cooldownRef.current);
+      cooldownRef.current = setInterval(() => {
+        setCooldownSeconds((prev) => {
+          if (prev <= 1) {
+            if (cooldownRef.current) clearInterval(cooldownRef.current);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    };
+
+    AsyncStorage.getItem(LAST_ORDER_TS_KEY).then((val) => {
+      if (!val) return;
+      const last = parseInt(val, 10);
+      if (isNaN(last)) return;
+      const remaining = last + ORDER_COOLDOWN_MS - Date.now();
+      if (remaining > 0) startCooldown(remaining);
+    }).catch(() => {});
+
+    return () => { if (cooldownRef.current) clearInterval(cooldownRef.current); };
+  }, []);
 
   // ── Closed-hours toast ────────────────────────────────────────────────────
   const [closedMsg, setClosedMsg] = useState("");
@@ -287,6 +320,8 @@ export default function CheckoutScreen() {
         incrementBadge();
       } catch {}
       clearCart();
+      // Save timestamp to enforce cooldown on next order attempt
+      try { await AsyncStorage.setItem(LAST_ORDER_TS_KEY, String(Date.now())); } catch {}
       router.replace({ pathname: "/order-confirmed", params: { orderId: String(order.id) } });
     } catch (err: unknown) {
       const msg = (err as { message?: string })?.message;
@@ -865,26 +900,37 @@ export default function CheckoutScreen() {
 
       {/* ── Bottom submit bar ── */}
       <View style={[styles.bottomBar, { backgroundColor: colors.card, borderTopColor: colors.border, paddingBottom: bottomInset + 16 }]}>
-        <TouchableOpacity
-          onPress={handlePlaceOrder}
-          disabled={loading}
-          style={[styles.submitBtn, { backgroundColor: GOLD, opacity: loading ? 0.7 : 1 }]}
-          activeOpacity={0.85}
-        >
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <View style={styles.submitBtnInner}>
-              <Text style={[styles.submitTotal, { fontFamily: F.extra }]}>
-                {grandTotalStr} {isEn ? "SAR" : "ر.س"}
-              </Text>
-              <Text style={[styles.submitText, { fontFamily: F.bold }]}>
-                {isEn ? "Place Order" : "إرسال الطلب"}
-              </Text>
-              <Feather name="check-circle" size={20} color="#fff" />
-            </View>
-          )}
-        </TouchableOpacity>
+        {cooldownSeconds > 0 ? (
+          <View style={[styles.submitBtn, { backgroundColor: "#3A2A00", alignItems: "center", justifyContent: "center" }]}>
+            <Text style={{ color: "#E8920C", fontFamily: F.extra, fontSize: 15, textAlign: "center" }}>
+              ⏳ {isEn ? `Wait ${cooldownSeconds}s before next order` : `انتظر ${cooldownSeconds} ثانية قبل الطلب التالي`}
+            </Text>
+            <Text style={{ color: "#9A7A30", fontFamily: F.regular, fontSize: 11, textAlign: "center", marginTop: 2 }}>
+              {isEn ? "Preventing duplicate orders" : "حماية من تكرار الطلب"}
+            </Text>
+          </View>
+        ) : (
+          <TouchableOpacity
+            onPress={handlePlaceOrder}
+            disabled={loading}
+            style={[styles.submitBtn, { backgroundColor: GOLD, opacity: loading ? 0.7 : 1 }]}
+            activeOpacity={0.85}
+          >
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <View style={styles.submitBtnInner}>
+                <Text style={[styles.submitTotal, { fontFamily: F.extra }]}>
+                  {grandTotalStr} {isEn ? "SAR" : "ر.س"}
+                </Text>
+                <Text style={[styles.submitText, { fontFamily: F.bold }]}>
+                  {isEn ? "Place Order" : "إرسال الطلب"}
+                </Text>
+                <Feather name="check-circle" size={20} color="#fff" />
+              </View>
+            )}
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* ── Closed-hours toast ── */}
