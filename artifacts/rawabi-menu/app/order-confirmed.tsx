@@ -147,8 +147,17 @@ function StatusReady({ colors, isDelivery, isEn }: { colors: ReturnType<typeof u
   );
 }
 
-function StatusOnTheWay({ colors, isEn }: { colors: ReturnType<typeof useColors>; isEn: boolean }) {
+function StatusOnTheWay({ colors, isEn, compact }: { colors: ReturnType<typeof useColors>; isEn: boolean; compact?: boolean }) {
   const pulse = usePulse();
+  if (compact) {
+    return (
+      <View style={{ alignItems: "center", paddingTop: 12, paddingBottom: 8, gap: 6 }}>
+        <Text style={[styles.statusDesc, { color: colors.mutedForeground, fontFamily: F.regular, textAlign: "center" }]}>
+          {isEn ? "Your order is on its way! Get ready." : "طلبك في الطريق — استعد لاستلامه!"}
+        </Text>
+      </View>
+    );
+  }
   return (
     <View style={styles.statusWrap}>
       <Animated.View style={{ transform: [{ scale: pulse }], marginBottom: 16 }}>
@@ -615,7 +624,7 @@ export default function OrderConfirmedScreen() {
         {panel === "pending"    && <StatusPending    colors={colors} isEn={isEn} />}
         {panel === "preparing"  && <StatusPreparing  colors={colors} isEn={isEn} />}
         {panel === "ready"      && <StatusReady      colors={colors} isDelivery={isDelivery} isEn={isEn} />}
-        {panel === "on_the_way" && <StatusOnTheWay   colors={colors} isEn={isEn} />}
+        {panel === "on_the_way" && <StatusOnTheWay   colors={colors} isEn={isEn} compact={!!(assignment && isDelivery)} />}
         {panel === "done"       && <StatusDone       colors={colors} onReturn={handleReturn} isEn={isEn} isDelivery={isDelivery} />}
         {panel === "delivered"  && assignment && (
           <StatusDelivered
