@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -9,16 +9,29 @@ import {
   Alert,
   StatusBar,
   Image,
+  Animated,
+  Easing,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useColors } from "@/hooks/useColors";
 import { useCart } from "@/context/CartContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { useMenu } from "@/hooks/useMenu";
 import { FOOD_IMAGES } from "@/constants/menu";
+import { apiGet } from "@/constants/api";
+
+const ORDERS_STORAGE_KEY = "@rawabi_my_orders";
+
+interface ActiveDelivery {
+  orderId: number;
+  dailyNumber: number;
+  driverName: string;
+  driverPhoto: string | null;
+}
 
 const F = {
   regular: "Cairo_400Regular",
@@ -41,6 +54,53 @@ export default function CartScreen() {
 
   const topInset = Platform.OS === "web" ? 67 : insets.top;
   const bottomInset = Platform.OS === "web" ? 34 : insets.bottom;
+
+  // ── Active delivery tracking ──────────────────────────────────────────────
+  const [activeDelivery, setActiveDelivery] = useState<ActiveDelivery | null>(null);
+  const pulseAnim = React.useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (!activeDelivery) return;
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1.04, duration: 700, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
+        Animated.timing(pulseAnim, { toValue: 1,    duration: 700, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [activeDelivery, pulseAnim]);
+
+  const checkActiveDelivery = useCallback(async () => {
+    try {
+      const raw = await AsyncStorage.getItem(ORDERS_STORAGE_KEY);
+      if (!raw) return;
+      const stored: { id: number; dailyNumber: number }[] = JSON.parse(raw);
+      // Check recent orders (last 5) for an active picked_up assignment
+      const recent = stored.slice(0, 5);
+      for (const ord of recent) {
+        try {
+          const row = await apiGet<{ assignment: { status: string }; driver: { name: string; photoUrl: string | null } } | null>(
+            `/orders/${ord.id}/assignment`
+          );
+          if (row && row.assignment.status === "picked_up") {
+            setActiveDelivery({
+              orderId: ord.id,
+              dailyNumber: ord.dailyNumber,
+              driverName: row.driver.name,
+              driverPhoto: row.driver.photoUrl,
+            });
+            return;
+          }
+        } catch { /* skip */ }
+      }
+      setActiveDelivery(null);
+    } catch { /* silent */ }
+  }, []);
+
+  useFocusEffect(useCallback(() => {
+    checkActiveDelivery();
+  }, [checkActiveDelivery]));
 
   // Build recommended items list — exclude items already in cart
   const cartItemIds = useMemo(() => new Set(items.map((ci) => ci.item.id)), [items]);
@@ -123,6 +183,63 @@ export default function CartScreen() {
           <Feather name="arrow-right" size={22} color={colors.foreground} />
         </TouchableOpacity>
       </View>
+
+      {/* ── Active delivery banner ── */}
+      {activeDelivery && (
+        <Animated.View style={{ transform: [{ scale: pulseAnim }], marginHorizontal: 16, marginTop: 12 }}>
+          <TouchableOpacity
+            activeOpacity={0.88}
+            onPress={() => router.push(`/order-confirmed?orderId=${activeDelivery.orderId}`)}
+            style={{
+              backgroundColor: "#0A1F2A",
+              borderRadius: 16,
+              borderWidth: 1.5,
+              borderColor: "#29B6F6",
+              padding: 14,
+              flexDirection: "row-reverse",
+              alignItems: "center",
+              gap: 12,
+              shadowColor: "#29B6F6",
+              shadowOpacity: 0.25,
+              shadowRadius: 12,
+              elevation: 6,
+            }}
+          >
+            {/* Driver photo or icon */}
+            {activeDelivery.driverPhoto ? (
+              <Image
+                source={{ uri: activeDelivery.driverPhoto }}
+                style={{ width: 50, height: 50, borderRadius: 25, borderWidth: 2, borderColor: "#29B6F6" }}
+              />
+            ) : (
+              <View style={{ width: 50, height: 50, borderRadius: 25, backgroundColor: "#29B6F622", borderWidth: 2, borderColor: "#29B6F6", alignItems: "center", justifyContent: "center" }}>
+                <Text style={{ fontSize: 24 }}>🛵</Text>
+              </View>
+            )}
+
+            {/* Text */}
+            <View style={{ flex: 1, gap: 3 }}>
+              <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6 }}>
+                <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: "#29B6F6" }} />
+                <Text style={{ color: "#29B6F6", fontFamily: F.extra, fontSize: 13 }}>
+                  {isEn ? "Driver on the way!" : "المندوب في الطريق إليك!"}
+                </Text>
+              </View>
+              <Text style={{ color: "#fff", fontFamily: F.bold, fontSize: 14 }}>
+                {activeDelivery.driverName}
+              </Text>
+              <Text style={{ color: "#7ECFF8", fontFamily: F.regular, fontSize: 11 }}>
+                {isEn ? `Order #${activeDelivery.dailyNumber} • Tap to track` : `طلب #${activeDelivery.dailyNumber} • اضغط للتتبع`}
+              </Text>
+            </View>
+
+            {/* Arrow */}
+            <View style={{ backgroundColor: "#29B6F6", borderRadius: 10, padding: 8 }}>
+              <Feather name="map-pin" size={18} color="#032B3D" />
+            </View>
+          </TouchableOpacity>
+        </Animated.View>
+      )}
 
       {items.length === 0 ? (
         <View style={styles.emptyContainer}>
