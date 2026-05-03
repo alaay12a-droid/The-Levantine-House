@@ -337,6 +337,8 @@ export default function AdminMenuScreen() {
     setTextsLoading(false);
   }, []);
 
+  const [settingsRefreshing, setSettingsRefreshing] = useState(false);
+
   const saveAppTexts = async () => {
     setTextsSaving(true);
     try {
@@ -599,6 +601,20 @@ export default function AdminMenuScreen() {
       setFavoritesEnabled(r.enabled);
     } catch {}
   }, []);
+
+  const refreshCurrentSection = useCallback(async () => {
+    setSettingsRefreshing(true);
+    try {
+      if (settingsSection === "hours")           await loadBranchHours();
+      else if (settingsSection === "sms")        await loadSmsSettings();
+      else if (settingsSection === "ratings")    await loadRatings();
+      else if (settingsSection === "drivers")    await loadAdminDrivers();
+      else if (settingsSection === "texts")      await loadAppTexts();
+      else if (settingsSection === "appearance") await loadFavoritesEnabled();
+      else if (settingsSection === "security")   await loadCancelSetting();
+    } catch {}
+    setSettingsRefreshing(false);
+  }, [settingsSection, loadBranchHours, loadSmsSettings, loadRatings, loadAdminDrivers, loadAppTexts, loadFavoritesEnabled, loadCancelSetting]);
 
   useEffect(() => {
     if (activeTab === "settings") {
@@ -1493,6 +1509,23 @@ export default function AdminMenuScreen() {
               );
             })}
           </ScrollView>
+
+          {/* ── Refresh bar ── */}
+          <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "flex-start", paddingHorizontal: 14, paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+            <TouchableOpacity
+              onPress={refreshCurrentSection}
+              disabled={settingsRefreshing}
+              style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10, backgroundColor: colors.secondary, borderWidth: 1, borderColor: colors.border, opacity: settingsRefreshing ? 0.6 : 1 }}
+            >
+              {settingsRefreshing
+                ? <ActivityIndicator size="small" color={colors.gold} />
+                : <Feather name="refresh-cw" size={13} color={colors.gold} />
+              }
+              <Text style={{ color: colors.gold, fontFamily: F.semi, fontSize: 12 }}>
+                {settingsRefreshing ? "جارٍ التحديث..." : "تحديث"}
+              </Text>
+            </TouchableOpacity>
+          </View>
 
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 18, gap: 16 }}>
 
