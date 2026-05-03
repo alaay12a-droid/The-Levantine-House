@@ -372,7 +372,7 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
                 ))}
                 <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", marginTop: 4, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 6 }}>
                   <Text style={{ color: colors.gold, fontFamily: F.extra, fontSize: 14 }}>الإجمالي</Text>
-                  <Text style={{ color: colors.gold, fontFamily: F.extra, fontSize: 14 }}>{order.totalPrice} ر.س</Text>
+                  <Text style={{ color: colors.gold, fontFamily: F.extra, fontSize: 14 }}>{(order.totalPrice / 100).toFixed(2)} ر.س</Text>
                 </View>
               </View>
 
@@ -397,7 +397,7 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
                   <TouchableOpacity
                     onPress={() => {
                       setCashConfirmed(false);
-                      setPendingDelivery({ orderId: assignment.orderId, total: order.totalPrice, customerName: order.customerName });
+                      setPendingDelivery({ orderId: assignment.orderId, total: order.totalPrice / 100, customerName: order.customerName });
                     }}
                     disabled={updating === assignment.orderId}
                     style={{ backgroundColor: "#43A047", borderRadius: 12, paddingVertical: 13, alignItems: "center" }}
