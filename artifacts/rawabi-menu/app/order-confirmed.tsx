@@ -15,7 +15,7 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
-import { apiGet } from "@/constants/api";
+import { apiGet, apiPost } from "@/constants/api";
 import { useLanguage } from "@/context/LanguageContext";
 
 const F = {
@@ -47,6 +47,7 @@ interface AssignmentRow {
     driverLat: number | null;
     driverLng: number | null;
     locationUpdatedAt: string | null;
+    driverRating: number | null;
   };
   driver: { id: number; name: string; phone: string; photoUrl: string | null };
 }
@@ -195,6 +196,122 @@ function StatusDone({ colors, onReturn, isEn, isDelivery }: { colors: ReturnType
       <TouchableOpacity
         onPress={onReturn}
         style={[styles.returnBtn, { backgroundColor: colors.gold, marginTop: 28 }]}
+        activeOpacity={0.85}
+      >
+        <Text style={[styles.returnBtnText, { fontFamily: F.bold }]}>
+          {isEn ? "Back to Menu" : "العودة للقائمة"}
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+/* ─── Delivered panel with optional driver rating ─────────── */
+
+function StatusDelivered({
+  colors, isEn, orderId, driverName, driverPhoto, existingRating, onReturn,
+}: {
+  colors: ReturnType<typeof useColors>;
+  isEn: boolean;
+  orderId: string;
+  driverName: string;
+  driverPhoto: string | null;
+  existingRating: number | null;
+  onReturn: () => void;
+}) {
+  const scale = useRef(new Animated.Value(0)).current;
+  const [selected, setSelected]   = useState<number>(existingRating ?? 0);
+  const [submitted, setSubmitted] = useState(!!existingRating);
+  const [loading, setLoading]     = useState(false);
+
+  useEffect(() => {
+    Animated.spring(scale, { toValue: 1, useNativeDriver: true, friction: 4, tension: 60 }).start();
+  }, [scale]);
+
+  const submitRating = async (stars: number) => {
+    if (submitted || loading) return;
+    setLoading(true);
+    try {
+      await apiPost(`/orders/${orderId}/driver-rating`, { stars });
+      setSelected(stars);
+      setSubmitted(true);
+    } catch {}
+    setLoading(false);
+  };
+
+  return (
+    <View style={styles.statusWrap}>
+      {/* Check icon */}
+      <Animated.View style={{ transform: [{ scale }], marginBottom: 8 }}>
+        <View style={[styles.iconCircle, { backgroundColor: "#1A3A1A", borderColor: "#4CAF50" }]}>
+          <Feather name="check-circle" size={60} color="#4CAF50" />
+        </View>
+      </Animated.View>
+
+      {/* Title */}
+      <Text style={[styles.statusTitle, { color: "#4CAF50", fontFamily: F.extra }]}>
+        {isEn ? "Order Delivered! 🎉" : "تم تسليم طلبك 🎉"}
+      </Text>
+      <Text style={[styles.statusDesc, { color: colors.mutedForeground, fontFamily: F.regular }]}>
+        {isEn
+          ? "Your order has been delivered successfully.\nEnjoy your meal!"
+          : "وصل طلبك بنجاح!\nنتمنى لك وجبة شهية 🍗"}
+      </Text>
+
+      {/* Rating card */}
+      <View style={[styles.ratingCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        {/* Driver avatar */}
+        <View style={{ alignItems: "center", gap: 8, marginBottom: 12 }}>
+          {driverPhoto
+            ? <Image source={{ uri: driverPhoto }} style={{ width: 60, height: 60, borderRadius: 30, borderWidth: 2, borderColor: colors.gold }} />
+            : (
+              <View style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: colors.gold + "22", alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: colors.gold }}>
+                <Text style={{ fontSize: 30 }}>🛵</Text>
+              </View>
+            )
+          }
+          <Text style={{ color: colors.foreground, fontFamily: F.bold, fontSize: 15 }}>{driverName}</Text>
+        </View>
+
+        <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 13, textAlign: "center", marginBottom: 14 }}>
+          {submitted
+            ? (isEn ? "Thank you for your rating! ⭐" : "شكراً على تقييمك! ⭐")
+            : (isEn ? "How was your delivery experience?" : "كيف كانت تجربة التوصيل؟")}
+        </Text>
+
+        {/* Stars */}
+        <View style={{ flexDirection: "row", gap: 10, justifyContent: "center", marginBottom: 16 }}>
+          {[1, 2, 3, 4, 5].map((star) => (
+            <TouchableOpacity
+              key={star}
+              onPress={() => !submitted && submitRating(star)}
+              activeOpacity={submitted ? 1 : 0.7}
+              disabled={loading}
+            >
+              <Text style={{ fontSize: 38, opacity: submitted && star > selected ? 0.3 : 1 }}>
+                {star <= selected ? "⭐" : "☆"}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {!submitted && (
+          <TouchableOpacity
+            onPress={onReturn}
+            style={{ paddingVertical: 10, alignItems: "center" }}
+            activeOpacity={0.7}
+          >
+            <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 13, textDecorationLine: "underline" }}>
+              {isEn ? "Skip rating" : "تخطي التقييم"}
+            </Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {/* Return button */}
+      <TouchableOpacity
+        onPress={onReturn}
+        style={[styles.returnBtn, { backgroundColor: colors.gold, marginTop: 8 }]}
         activeOpacity={0.85}
       >
         <Text style={[styles.returnBtnText, { fontFamily: F.bold }]}>
@@ -359,7 +476,6 @@ export default function OrderConfirmedScreen() {
   };
 
   /* ── Effective status for display ── */
-  // For delivery orders: after "done" server status, show delivered only when driver delivered
   const driverStatus = assignment?.assignment.status ?? null;
   const effectivelyDelivered = isDelivery && driverStatus === "delivered";
   const onTheWay = isDelivery && driverStatus === "picked_up" && status === "done";
@@ -397,13 +513,15 @@ export default function OrderConfirmedScreen() {
   /* ── Which status panel to show ── */
   const showPanel = () => {
     if (isDelivery) {
-      if (effectivelyDelivered || (status === "done" && !driverStatus)) return "done";
+      if (effectivelyDelivered) return "delivered";
+      if (status === "done" && !driverStatus) return "done";
       if (driverStatus === "picked_up") return "on_the_way";
       return status === "done" ? "ready" : status;
     }
     return status;
   };
   const panel = showPanel();
+  const isDonePanel = panel === "done" || panel === "delivered";
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: topInset, paddingBottom: bottomInset }]}>
@@ -465,8 +583,8 @@ export default function OrderConfirmedScreen() {
         })}
       </View>
 
-      {/* Driver card */}
-      {assignment && isDelivery && (
+      {/* Driver card — hide when delivered (rating card takes over) */}
+      {assignment && isDelivery && panel !== "delivered" && (
         <View style={{ paddingHorizontal: 20, marginBottom: 4 }}>
           <DriverCard row={assignment} colors={colors} isEn={isEn} />
         </View>
@@ -479,9 +597,20 @@ export default function OrderConfirmedScreen() {
         {panel === "ready"      && <StatusReady      colors={colors} isDelivery={isDelivery} isEn={isEn} />}
         {panel === "on_the_way" && <StatusOnTheWay   colors={colors} isEn={isEn} />}
         {panel === "done"       && <StatusDone       colors={colors} onReturn={handleReturn} isEn={isEn} isDelivery={isDelivery} />}
+        {panel === "delivered"  && assignment && (
+          <StatusDelivered
+            colors={colors}
+            isEn={isEn}
+            orderId={orderId ?? ""}
+            driverName={assignment.driver.name}
+            driverPhoto={assignment.driver.photoUrl}
+            existingRating={assignment.assignment.driverRating}
+            onReturn={handleReturn}
+          />
+        )}
       </View>
 
-      {panel !== "done" && (
+      {!isDonePanel && (
         <TouchableOpacity
           onPress={handleReturn}
           style={[styles.backBtn, { borderColor: colors.border }]}
@@ -532,19 +661,28 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 24,
   },
-  statusWrap: { alignItems: "center", gap: 8 },
+  statusWrap: { alignItems: "center", gap: 8, width: "100%" },
   iconCircle: {
     width: 120, height: 120, borderRadius: 60,
     alignItems: "center", justifyContent: "center",
     borderWidth: 2,
   },
-  statusTitle: { fontSize: 26, textAlign: "center" },
-  statusDesc:  { fontSize: 15, textAlign: "center", lineHeight: 26, marginTop: 4 },
+  statusTitle: { fontSize: 24, textAlign: "center" },
+  statusDesc:  { fontSize: 14, textAlign: "center", lineHeight: 24, marginTop: 4 },
 
   hotBadge:     { paddingHorizontal: 20, paddingVertical: 10, borderRadius: 30, marginTop: 8 },
   hotBadgeText: { color: "#1A1008", fontSize: 17 },
 
-  returnBtn:     { paddingHorizontal: 40, paddingVertical: 14, borderRadius: 20 },
+  ratingCard: {
+    width: "100%",
+    marginTop: 20,
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 20,
+    alignItems: "center",
+  },
+
+  returnBtn:     { paddingHorizontal: 40, paddingVertical: 14, borderRadius: 20, marginTop: 4 },
   returnBtnText: { color: "#1A1008", fontSize: 16 },
 
   backBtn:     { marginHorizontal: 24, marginBottom: 16, paddingVertical: 14, borderRadius: 16, alignItems: "center", borderWidth: 1 },

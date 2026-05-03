@@ -152,6 +152,23 @@ router.put("/orders/:id/driver-location", async (req, res) => {
   res.json(assignment);
 });
 
+// ── POST /orders/:id/driver-rating ────────────────────────────────────────────
+router.post("/orders/:id/driver-rating", async (req, res) => {
+  const orderId = parseInt(req.params.id);
+  if (isNaN(orderId)) { res.status(400).json({ error: "معرّف غير صحيح" }); return; }
+  const stars = parseInt(req.body.stars);
+  if (isNaN(stars) || stars < 1 || stars > 5) {
+    res.status(400).json({ error: "تقييم غير صحيح (1-5)" }); return;
+  }
+  const [row] = await db
+    .update(orderDriverAssignmentsTable)
+    .set({ driverRating: stars })
+    .where(eq(orderDriverAssignmentsTable.orderId, orderId))
+    .returning();
+  if (!row) { res.status(404).json({ error: "لم يُوجد تعيين" }); return; }
+  res.json({ ok: true, stars });
+});
+
 // ── GET /settings/ui-density ──────────────────────────────────────────────────
 router.get("/settings/ui-density", async (_req, res) => {
   const [row] = await db.select().from(appSettingsTable).where(eq(appSettingsTable.key, "ui_density"));

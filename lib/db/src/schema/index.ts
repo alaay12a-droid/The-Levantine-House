@@ -187,6 +187,7 @@ export const orderDriverAssignmentsTable = pgTable("order_driver_assignments", {
   driverLat: real("driver_lat"),
   driverLng: real("driver_lng"),
   locationUpdatedAt: timestamp("location_updated_at"),
+  driverRating: integer("driver_rating"),
 });
 
 export type OrderDriverAssignment = typeof orderDriverAssignmentsTable.$inferSelect;
