@@ -12,7 +12,7 @@ import * as Location from "expo-location";
 import { Audio } from "expo-av";
 import * as Notifications from "expo-notifications";
 
-const ORDER_ARRIVED_SOUND = require("../assets/sounds/order_arrived.m4a");
+const NOTIFICATION_SOUND = require("../assets/sounds/notification.wav");
 
 const F = { regular: "Cairo_400Regular", semi: "Cairo_600SemiBold", bold: "Cairo_700Bold", extra: "Cairo_800ExtraBold" };
 
@@ -130,12 +130,12 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
 
   const playNotificationSound = useCallback(async () => {
     try {
-      // ── Native: vibrate + play custom sound via expo-av ──────────────────
+      // ── Native: vibrate + play notification.wav via expo-av ──────────────
       if (Platform.OS !== "web") {
         Vibration.vibrate([0, 300, 150, 300]);
         try {
           await Audio.setAudioModeAsync({ playsInSilentModeIOS: true, staysActiveInBackground: true });
-          const { sound } = await Audio.Sound.createAsync(ORDER_ARRIVED_SOUND, { shouldPlay: true, volume: 1.0 });
+          const { sound } = await Audio.Sound.createAsync(NOTIFICATION_SOUND, { shouldPlay: true, volume: 1.0 });
           sound.setOnPlaybackStatusUpdate((status) => {
             if (status.isLoaded && status.didJustFinish) sound.unloadAsync().catch(() => {});
           });
@@ -143,30 +143,21 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
         return;
       }
 
-      // ── Web: play via HTML5 Audio ─────────────────────────────────────────
-      try {
-        const audio = new (window as any).Audio();
-        // Use the bundled asset path for web
-        audio.src = "/assets/sounds/order_arrived.m4a";
-        audio.volume = 1.0;
-        await audio.play();
-      } catch {
-        // Fallback: synthesised chime if audio file can't load
-        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-        if (!AudioCtx) return;
-        const ctx = new AudioCtx();
-        [880, 1108, 1320].forEach((freq, i) => {
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.connect(gain); gain.connect(ctx.destination);
-          osc.type = "sine"; osc.frequency.value = freq;
-          const start = ctx.currentTime + i * 0.18;
-          gain.gain.setValueAtTime(0, start);
-          gain.gain.linearRampToValueAtTime(0.35, start + 0.02);
-          gain.gain.exponentialRampToValueAtTime(0.001, start + 0.28);
-          osc.start(start); osc.stop(start + 0.3);
-        });
-      }
+      // ── Web: synthesised chime ────────────────────────────────────────────
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      [880, 1108, 1320].forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.type = "sine"; osc.frequency.value = freq;
+        const start = ctx.currentTime + i * 0.18;
+        gain.gain.setValueAtTime(0, start);
+        gain.gain.linearRampToValueAtTime(0.35, start + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, start + 0.28);
+        osc.start(start); osc.stop(start + 0.3);
+      });
     } catch { /* silent */ }
   }, []);
 
@@ -182,7 +173,7 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
         content: {
           title: "🛵 طلب جديد!",
           body: `طلب #${orderNum}${customerName ? ` — ${customerName}` : ""}`,
-          sound: Platform.OS === "android" ? "order_arrived" : "order_arrived.m4a",
+          sound: Platform.OS === "android" ? "notification" : "notification.wav",
           priority: Notifications.AndroidNotificationPriority.MAX,
           vibrate: [0, 300, 150, 300],
         },
