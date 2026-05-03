@@ -143,7 +143,16 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
         return;
       }
 
-      // ── Web: synthesised chime ────────────────────────────────────────────
+      // ── Web: play MP3 via Audio element ──────────────────────────────────
+      try {
+        const audio = new (window as any).Audio();
+        audio.src = "/assets/sounds/new_order.mp3";
+        audio.volume = 1.0;
+        await audio.play();
+        return;
+      } catch {
+        // fallback to synthesised chime if autoplay blocked
+      }
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
       if (!AudioCtx) return;
       const ctx = new AudioCtx();
