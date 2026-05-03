@@ -10,12 +10,17 @@ import {
   Easing,
   Image,
   Linking,
+  Modal,
+  TextInput,
+  ScrollView,
+  KeyboardAvoidingView,
+  ActivityIndicator,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
-import { apiGet, apiPost } from "@/constants/api";
+import { apiGet, apiPost, apiPatch } from "@/constants/api";
 import { useLanguage } from "@/context/LanguageContext";
 
 const F = {
@@ -333,9 +338,76 @@ function StatusDelivered({
 
 /* ─── Driver card ─────────────────────────────────────────── */
 
+interface ChatMsg { id: number; orderId: number; text: string; fromCashier: boolean; createdAt: string; readAt: string | null; }
+
 function DriverCard({ row, colors, isEn, orderId }: { row: AssignmentRow; colors: ReturnType<typeof useColors>; isEn: boolean; orderId: string }) {
   const { driver, assignment } = row;
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const topInset = Platform.OS === "web" ? 20 : insets.top;
+
+  // ── In-app chat state ────────────────────────────────────────────────────
+  const [chatOpen, setChatOpen]       = useState(false);
+  const [chatMsgs, setChatMsgs]       = useState<ChatMsg[]>([]);
+  const [chatInput, setChatInput]     = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
+  const [chatSending, setChatSending] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const chatScrollRef                  = useRef<ScrollView>(null);
+  const numericOrderId                 = parseInt(orderId, 10);
+
+  const fetchMsgs = useCallback(async (markRead = true) => {
+    try {
+      const msgs = await apiGet<ChatMsg[]>(`/messages/order/${numericOrderId}`);
+      setChatMsgs(msgs);
+      if (markRead) {
+        await apiPatch(`/messages/order/${numericOrderId}/read`, { fromCashier: false });
+        setUnreadCount(0);
+      }
+      setTimeout(() => chatScrollRef.current?.scrollToEnd({ animated: false }), 80);
+    } catch {}
+  }, [numericOrderId]);
+
+  const openChat = useCallback(async () => {
+    setChatOpen(true);
+    setChatLoading(true);
+    await fetchMsgs(true);
+    setChatLoading(false);
+  }, [fetchMsgs]);
+
+  const sendMsg = useCallback(async () => {
+    if (!chatInput.trim()) return;
+    const text = chatInput.trim();
+    setChatInput("");
+    setChatSending(true);
+    try {
+      const msg = await apiPost<ChatMsg>(`/messages/order/${numericOrderId}`, { text, fromCashier: false });
+      setChatMsgs(prev => [...prev, msg]);
+      setTimeout(() => chatScrollRef.current?.scrollToEnd({ animated: true }), 100);
+    } catch {} finally { setChatSending(false); }
+  }, [chatInput, numericOrderId]);
+
+  // Poll while chat is open
+  useEffect(() => {
+    if (!chatOpen) return;
+    const t = setInterval(() => fetchMsgs(true), 5000);
+    return () => clearInterval(t);
+  }, [chatOpen, fetchMsgs]);
+
+  // Check unread count periodically when chat is closed
+  useEffect(() => {
+    if (chatOpen || !numericOrderId) return;
+    const check = async () => {
+      try {
+        const data = await apiGet<Record<number, number>>("/messages/unread-customer");
+        setUnreadCount(data[numericOrderId] ?? 0);
+      } catch {}
+    };
+    check();
+    const t = setInterval(check, 15000);
+    return () => clearInterval(t);
+  }, [chatOpen, numericOrderId]);
+
   const driverStatusLabel: Record<DriverStatus, string> = {
     assigned:  isEn ? "Picking up your order" : "يستلم طلبك الآن",
     picked_up: isEn ? "On the way 🚗"         : "في الطريق إليك 🚗",
@@ -359,11 +431,95 @@ function DriverCard({ row, colors, isEn, orderId }: { row: AssignmentRow; colors
   };
 
   const callDriver  = () => openUrl(`tel:${driver.phone}`);
-  const whatsDriver = () => openUrl(`https://wa.me/${driver.phone.replace(/\D/g, "")}`);
   const trackDriver = () => router.push(`/driver-map?orderId=${orderId}`);
 
   return (
     <View style={[styles.driverCard, { backgroundColor: color + "14", borderColor: color + "55" }]}>
+
+      {/* ── In-app chat modal ── */}
+      <Modal visible={chatOpen} animationType="slide" onRequestClose={() => setChatOpen(false)}>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+          <View style={{ flex: 1, backgroundColor: colors.background }}>
+            {/* Header */}
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingTop: topInset + 12, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: "#0D1F30" }}>
+              <TouchableOpacity onPress={() => setChatOpen(false)} style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: colors.secondary, alignItems: "center", justifyContent: "center" }}>
+                <Feather name="x" size={20} color={colors.foreground} />
+              </TouchableOpacity>
+              <View style={{ alignItems: "center", gap: 3 }}>
+                <Text style={{ color: colors.foreground, fontFamily: F.extra, fontSize: 16 }}>
+                  {isEn ? "💬 Support Chat" : "💬 تواصل مع الكاشير"}
+                </Text>
+                <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12 }}>
+                  {isEn ? `Order #${orderId}` : `طلب #${orderId}`}
+                </Text>
+              </View>
+              {/* Call driver shortcut */}
+              {onTheWay && (
+                <TouchableOpacity
+                  onPress={callDriver}
+                  style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: "#1A3A20", borderWidth: 1.5, borderColor: "#4CAF50", alignItems: "center", justifyContent: "center" }}
+                >
+                  <Feather name="phone" size={17} color="#4CAF50" />
+                </TouchableOpacity>
+              )}
+              {!onTheWay && <View style={{ width: 36 }} />}
+            </View>
+
+            {/* Messages */}
+            <ScrollView
+              ref={chatScrollRef}
+              style={{ flex: 1 }}
+              contentContainerStyle={{ padding: 14, gap: 10 }}
+              onContentSizeChange={() => chatScrollRef.current?.scrollToEnd({ animated: false })}
+            >
+              {chatLoading ? (
+                <ActivityIndicator size="large" color={colors.gold} style={{ margin: 40 }} />
+              ) : chatMsgs.length === 0 ? (
+                <View style={{ alignItems: "center", padding: 40, gap: 14 }}>
+                  <Text style={{ fontSize: 48 }}>💬</Text>
+                  <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 14, textAlign: "center", lineHeight: 22 }}>
+                    {isEn ? "No messages yet\nSend us a message and we'll reply shortly" : "لا توجد رسائل بعد\nأرسل رسالتك وسنرد عليك قريباً"}
+                  </Text>
+                </View>
+              ) : chatMsgs.map((msg) => {
+                const isCustomer = !msg.fromCashier;
+                const time = new Date(msg.createdAt).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" });
+                return (
+                  <View key={msg.id} style={{ alignItems: isCustomer ? "flex-end" : "flex-start" }}>
+                    <View style={{ maxWidth: "80%", backgroundColor: isCustomer ? "#2A1800" : colors.secondary, borderRadius: 18, borderTopRightRadius: isCustomer ? 4 : 18, borderTopLeftRadius: isCustomer ? 18 : 4, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1, borderColor: isCustomer ? colors.gold + "55" : colors.border }}>
+                      <Text style={{ color: isCustomer ? colors.gold : colors.foreground, fontFamily: F.semi, fontSize: 14, textAlign: isCustomer ? "right" : "left" }}>{msg.text}</Text>
+                      <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 10, marginTop: 4, textAlign: isCustomer ? "right" : "left" }}>
+                        {time}{isCustomer ? (isEn ? " • You" : " • أنت") : (isEn ? " • Cashier" : " • الكاشير")}
+                      </Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </ScrollView>
+
+            {/* Input bar */}
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 14, paddingVertical: 12, paddingBottom: insets.bottom + 12, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.card }}>
+              <TouchableOpacity
+                onPress={sendMsg}
+                disabled={chatSending || !chatInput.trim()}
+                style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: chatInput.trim() ? colors.gold : colors.secondary, alignItems: "center", justifyContent: "center" }}
+              >
+                {chatSending ? <ActivityIndicator size="small" color="#1A0A00" /> : <Feather name="send" size={18} color={chatInput.trim() ? "#1A0A00" : colors.mutedForeground} />}
+              </TouchableOpacity>
+              <TextInput
+                value={chatInput}
+                onChangeText={setChatInput}
+                placeholder={isEn ? "Type a message…" : "اكتب رسالتك…"}
+                placeholderTextColor={colors.mutedForeground}
+                style={{ flex: 1, backgroundColor: colors.background, borderRadius: 22, paddingHorizontal: 16, paddingVertical: 10, color: colors.foreground, fontFamily: F.regular, fontSize: 14, borderWidth: 1, borderColor: colors.border, textAlign: "right" }}
+                onSubmitEditing={sendMsg}
+                returnKeyType="send"
+                multiline
+              />
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
 
       {/* ── Driver info row ── */}
       <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 12 }}>
@@ -437,15 +593,22 @@ function DriverCard({ row, colors, isEn, orderId }: { row: AssignmentRow; colors
             </Text>
           </TouchableOpacity>
 
-          {/* WhatsApp button */}
+          {/* In-app chat button */}
           <TouchableOpacity
-            onPress={whatsDriver}
+            onPress={openChat}
             activeOpacity={0.82}
-            style={{ flex: 1, flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: "#25D366", borderRadius: 12, paddingVertical: 12 }}
+            style={{ flex: 1, flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: "#0D2030", borderRadius: 12, paddingVertical: 12, borderWidth: 1.5, borderColor: "#1E4A6A" }}
           >
-            <Text style={{ fontSize: 16 }}>💬</Text>
-            <Text style={{ color: "#fff", fontFamily: F.bold, fontSize: 14 }}>
-              {isEn ? "WhatsApp" : "واتساب"}
+            <View style={{ position: "relative" }}>
+              <Feather name="message-circle" size={17} color="#64B5F6" />
+              {unreadCount > 0 && (
+                <View style={{ position: "absolute", top: -5, right: -5, backgroundColor: "#E53935", borderRadius: 8, minWidth: 14, height: 14, alignItems: "center", justifyContent: "center", paddingHorizontal: 2 }}>
+                  <Text style={{ color: "#fff", fontSize: 8, fontFamily: F.bold }}>{unreadCount}</Text>
+                </View>
+              )}
+            </View>
+            <Text style={{ color: "#64B5F6", fontFamily: F.bold, fontSize: 14 }}>
+              {isEn ? "Chat" : "دردشة"}
             </Text>
           </TouchableOpacity>
         </View>
