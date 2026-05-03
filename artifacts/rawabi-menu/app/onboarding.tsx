@@ -41,6 +41,18 @@ const F = {
 
 type Step = "name" | "phone" | "location";
 
+function buildAddress(g: Location.LocationGeocodedAddress): string {
+  const parts: string[] = [];
+  if (g.streetNumber) parts.push(g.streetNumber);
+  if (g.street)       parts.push(g.street);
+  if (g.name && g.name !== g.street) parts.push(g.name);
+  if (g.district)     parts.push(g.district);
+  if (g.subregion)    parts.push(g.subregion);
+  if (g.city)         parts.push(g.city);
+  const unique = [...new Set(parts.filter(Boolean))];
+  return unique.join("، ") || "";
+}
+
 export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -98,11 +110,10 @@ export default function OnboardingScreen() {
         longitude: loc.coords.longitude,
       });
       if (geocode.length > 0) {
-        const g = geocode[0];
-        const parts = [g.street, g.district, g.city].filter(Boolean);
-        setAddress(parts.join(" - ") || "تم تحديد الموقع");
+        const addr = buildAddress(geocode[0]);
+        setAddress(addr || `${loc.coords.latitude.toFixed(5)}, ${loc.coords.longitude.toFixed(5)}`);
       } else {
-        setAddress("تم تحديد الموقع");
+        setAddress(`${loc.coords.latitude.toFixed(5)}, ${loc.coords.longitude.toFixed(5)}`);
       }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch {
@@ -128,11 +139,10 @@ export default function OnboardingScreen() {
         longitude: loc.coords.longitude,
       });
       if (geocode.length > 0) {
-        const g = geocode[0];
-        const parts = [g.street, g.district, g.city].filter(Boolean);
-        setAddress(parts.join(" - ") || "تم تحديد الموقع");
+        const addr = buildAddress(geocode[0]);
+        setAddress(addr || `${loc.coords.latitude.toFixed(5)}, ${loc.coords.longitude.toFixed(5)}`);
       } else {
-        setAddress("تم تحديد الموقع");
+        setAddress(`${loc.coords.latitude.toFixed(5)}, ${loc.coords.longitude.toFixed(5)}`);
       }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch {
