@@ -64,6 +64,29 @@ router.post("/drivers/login", async (req, res) => {
   res.json(driver);
 });
 
+// ── GET /drivers/active-assignments  (all picked_up — cashier view) ──────────
+router.get("/drivers/active-assignments", async (_req, res) => {
+  const rows = await db
+    .select({ assignment: orderDriverAssignmentsTable, order: ordersTable, driver: deliveryDriversTable })
+    .from(orderDriverAssignmentsTable)
+    .leftJoin(ordersTable, eq(orderDriverAssignmentsTable.orderId, ordersTable.id))
+    .leftJoin(deliveryDriversTable, eq(orderDriverAssignmentsTable.driverId, deliveryDriversTable.id))
+    .where(eq(orderDriverAssignmentsTable.status, "picked_up"))
+    .orderBy(desc(orderDriverAssignmentsTable.pickedUpAt));
+  res.json(rows.map(r => ({
+    orderId: r.assignment.orderId,
+    driverId: r.assignment.driverId,
+    pickedUpAt: r.assignment.pickedUpAt,
+    driverName: r.driver?.name ?? "مندوب",
+    driverPhone: r.driver?.phone ?? "",
+    dailyNumber: r.order?.dailyNumber ?? null,
+    customerName: r.order?.customerName ?? "",
+    customerAddress: r.order?.customerAddress ?? null,
+    totalPrice: (r.order?.totalPrice ?? 0) / 100,
+    paymentMethod: r.order?.paymentMethod ?? "cash",
+  })));
+});
+
 // ── GET /drivers/daily-summaries  (all drivers — admin view) ─────────────────
 router.get("/drivers/daily-summaries", async (_req, res) => {
   const today = new Date(); today.setHours(0, 0, 0, 0);

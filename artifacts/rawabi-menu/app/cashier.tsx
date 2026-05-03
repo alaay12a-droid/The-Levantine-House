@@ -206,6 +206,17 @@ export default function CashierScreen() {
   const [drvSummLoading, setDrvSummLoading] = useState(false);
   const [drvExpanded, setDrvExpanded] = useState<number | null>(null);
 
+  // ─── Active driver assignments (picked_up — in transit) ─
+  interface ActiveAssignment {
+    orderId: number; driverId: number; pickedUpAt: string | null;
+    driverName: string; driverPhone: string;
+    dailyNumber: number | null; customerName: string;
+    customerAddress: string | null; totalPrice: number; paymentMethod: string;
+  }
+  const [activeAssignments, setActiveAssignments] = useState<ActiveAssignment[]>([]);
+  const [activeAssignmentsLoading, setActiveAssignmentsLoading] = useState(false);
+  const [deliveringOrderId, setDeliveringOrderId] = useState<number | null>(null);
+
   const loadDrvSummaries = useCallback(async () => {
     setDrvSummLoading(true);
     try {
@@ -214,6 +225,25 @@ export default function CashierScreen() {
     } catch {}
     setDrvSummLoading(false);
   }, []);
+
+  const loadActiveAssignments = useCallback(async () => {
+    setActiveAssignmentsLoading(true);
+    try {
+      const data = await apiGet<ActiveAssignment[]>("/drivers/active-assignments");
+      setActiveAssignments(data);
+    } catch {}
+    setActiveAssignmentsLoading(false);
+  }, []);
+
+  const confirmDeliveryByCashier = useCallback(async (orderId: number) => {
+    setDeliveringOrderId(orderId);
+    try {
+      await apiPut(`/orders/${orderId}/driver-status`, { status: "delivered" });
+      setActiveAssignments(prev => prev.filter(a => a.orderId !== orderId));
+      loadDrvSummaries();
+    } catch { Alert.alert("خطأ", "تعذّر تأكيد التسليم"); }
+    setDeliveringOrderId(null);
+  }, [loadDrvSummaries]);
 
   const loadDrivers = useCallback(async () => {
     try {
@@ -555,6 +585,13 @@ export default function CashierScreen() {
       if (newStatus === "preparing") {
         setPrintOrder(updated);
       }
+      // Auto-advance driver to picked_up when cashier marks order done
+      if (newStatus === "done" && assignments[order.id]?.status === "assigned") {
+        try {
+          await apiPut(`/orders/${order.id}/driver-status`, { status: "picked_up" });
+          setAssignments(prev => ({ ...prev, [order.id]: { ...prev[order.id], status: "picked_up" } }));
+        } catch {}
+      }
     } catch {
       Alert.alert("خطأ", "تعذر تحديث الحالة");
     }
@@ -746,7 +783,7 @@ export default function CashierScreen() {
               key={tab.key}
               onPress={() => {
                 setCashierView(tab.key as "orders" | "drivers");
-                if (tab.key === "drivers") loadDrvSummaries();
+                if (tab.key === "drivers") { loadDrvSummaries(); loadActiveAssignments(); }
               }}
               style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 10, borderBottomWidth: 3, borderBottomColor: active ? tab.color : "transparent", gap: 3 }}
             >
@@ -777,9 +814,86 @@ export default function CashierScreen() {
         </View>
       )}
 
-      {/* ── Drivers financial report ── */}
+      {/* ── Drivers view ── */}
       {cashierView === "drivers" && (
         <ScrollView contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+
+          {/* ── Active (in-transit) orders section ── */}
+          <View style={{ gap: 8 }}>
+            <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" }}>
+              <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
+                <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: "#4CAF50" }} />
+                <Text style={{ color: colors.foreground, fontFamily: F.extra, fontSize: 15 }}>🚗 بانتظار التسليم</Text>
+                {activeAssignments.length > 0 && (
+                  <View style={{ backgroundColor: "#4CAF50", borderRadius: 10, minWidth: 20, height: 20, alignItems: "center", justifyContent: "center", paddingHorizontal: 5 }}>
+                    <Text style={{ color: "#fff", fontFamily: F.extra, fontSize: 11 }}>{activeAssignments.length}</Text>
+                  </View>
+                )}
+              </View>
+              <TouchableOpacity onPress={loadActiveAssignments} style={{ padding: 6 }}>
+                <Feather name="refresh-cw" size={14} color="#4CAF50" />
+              </TouchableOpacity>
+            </View>
+
+            {activeAssignmentsLoading && <ActivityIndicator color="#4CAF50" style={{ marginVertical: 10 }} />}
+
+            {!activeAssignmentsLoading && activeAssignments.length === 0 && (
+              <View style={{ backgroundColor: colors.card, borderRadius: 14, padding: 18, alignItems: "center", gap: 6, borderWidth: 1, borderColor: colors.border }}>
+                <Text style={{ fontSize: 32 }}>✅</Text>
+                <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 13 }}>لا يوجد طلبات في الطريق حالياً</Text>
+              </View>
+            )}
+
+            {!activeAssignmentsLoading && activeAssignments.map(a => (
+              <View key={a.orderId} style={{ backgroundColor: colors.card, borderRadius: 16, borderWidth: 1, borderColor: "#4CAF5044", overflow: "hidden" }}>
+                {/* Order info */}
+                <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", padding: 14, gap: 10 }}>
+                  <View style={{ flex: 1, gap: 3 }}>
+                    <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 7 }}>
+                      <View style={{ backgroundColor: "#E8920C22", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 }}>
+                        <Text style={{ color: "#E8920C", fontFamily: F.extra, fontSize: 13 }}>#{a.dailyNumber ?? a.orderId}</Text>
+                      </View>
+                      <Text style={{ color: colors.foreground, fontFamily: F.bold, fontSize: 14 }}>{a.customerName}</Text>
+                    </View>
+                    <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6 }}>
+                      <Text style={{ fontSize: 13 }}>🛵</Text>
+                      <Text style={{ color: "#4CAF50", fontFamily: F.semi, fontSize: 13 }}>{a.driverName}</Text>
+                      <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }}>• في الطريق</Text>
+                    </View>
+                    {a.customerAddress && (
+                      <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }} numberOfLines={1}>
+                        📍 {a.customerAddress.startsWith("https://") ? "موقع GPS" : a.customerAddress}
+                      </Text>
+                    )}
+                  </View>
+                  <View style={{ alignItems: "flex-end", gap: 4 }}>
+                    <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 18 }}>{a.totalPrice.toFixed(2)}</Text>
+                    <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 11 }}>
+                      {a.paymentMethod === "cash" ? "💵 نقدي" : "💳 إلكتروني"}
+                    </Text>
+                  </View>
+                </View>
+                {/* Confirm delivery button */}
+                <TouchableOpacity
+                  onPress={() => confirmDeliveryByCashier(a.orderId)}
+                  disabled={deliveringOrderId === a.orderId}
+                  style={{ backgroundColor: "#1A3A1A", borderTopWidth: 1, borderTopColor: "#4CAF5033", paddingVertical: 13, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 8 }}
+                  activeOpacity={0.75}
+                >
+                  {deliveringOrderId === a.orderId
+                    ? <ActivityIndicator size="small" color="#4CAF50" />
+                    : <>
+                        <Feather name="check-circle" size={16} color="#4CAF50" />
+                        <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 14 }}>✅ تم التسليم للعميل</Text>
+                      </>
+                  }
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+
+          {/* Divider */}
+          <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 4 }} />
 
           {/* Header row */}
           <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" }}>
@@ -982,7 +1096,8 @@ export default function CashierScreen() {
         >
           {filtered.map((order) => {
             const nextStatus = STATUS_NEXT[order.status];
-            const nextLabel = STATUS_NEXT_LABEL[order.status];
+            const hasAssignedDriver = order.status === "ready" && assignments[order.id]?.status === "assigned";
+            const nextLabel = hasAssignedDriver ? "تم تسليم الطلب للمندوب 🛵" : STATUS_NEXT_LABEL[order.status];
             const orderDate = new Date(order.createdAt);
             const time = orderDate.toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" });
             const dateStr = orderDate.toLocaleDateString("ar-SA", { day: "numeric", month: "long", year: "numeric" });
