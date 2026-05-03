@@ -13,7 +13,8 @@ import { useColors } from "@/hooks/useColors";
 import { useCart } from "@/context/CartContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { useFavorites } from "@/hooks/useFavorites";
-import { MenuItem, FOOD_IMAGES, RESTAURANT_INFO } from "@/constants/menu";
+import { MenuItem, FOOD_IMAGES } from "@/constants/menu";
+import { useAppTexts } from "@/hooks/useAppTexts";
 
 const F = {
   regular: "Cairo_400Regular",
@@ -32,6 +33,7 @@ export function MenuItemCard({ item }: Props) {
   const { language } = useLanguage();
   const { isFavorite, toggleFavorite } = useFavorites();
   const isEn = language === "en";
+  const info = useAppTexts();
 
   const cartItem = items.find((c) => c.item.id === item.id);
   const quantity = cartItem?.quantity ?? 0;
@@ -56,7 +58,7 @@ export function MenuItemCard({ item }: Props) {
       const msg = isEn
         ? `Hello, I would like to inquire about: ${displayName}`
         : `السلام عليكم، أرغب في الاستفسار عن: ${item.name}`;
-      Linking.openURL(`https://wa.me/${RESTAURANT_INFO.whatsapp}?text=${encodeURIComponent(msg)}`);
+      Linking.openURL(`https://wa.me/${info.whatsapp}?text=${encodeURIComponent(msg)}`);
       return;
     }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);

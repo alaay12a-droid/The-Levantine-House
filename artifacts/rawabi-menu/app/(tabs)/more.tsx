@@ -22,7 +22,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
-import { RESTAURANT_INFO } from "@/constants/menu";
+import { useAppTexts } from "@/hooks/useAppTexts";
 import { useUser } from "@/context/UserContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { useTranslation } from "@/hooks/useTranslation";
@@ -57,6 +57,7 @@ export default function MoreScreen() {
   const { language, setLanguage } = useLanguage();
   const { t } = useTranslation();
   const topInset = Platform.OS === "web" ? 20 : insets.top;
+  const info = useAppTexts();
 
   // ─── Support Chat state ─────────────────────────────────
   const [chatOpen, setChatOpen]         = useState(false);
@@ -178,19 +179,19 @@ export default function MoreScreen() {
     {
       icon: "phone",
       label: t("callUs"),
-      action: () => Linking.openURL(`tel:${RESTAURANT_INFO.phone}`),
+      action: () => Linking.openURL(`tel:${info.phone}`),
     },
     {
       icon: "message-circle",
       label: t("whatsapp"),
       action: () =>
         Linking.openURL(
-          `https://wa.me/${RESTAURANT_INFO.whatsapp}?text=${encodeURIComponent("السلام عليكم، أرغب في الاستفسار")}`
+          `https://wa.me/${info.whatsapp}?text=${encodeURIComponent("السلام عليكم، أرغب في الاستفسار")}`
         ),
     },
     {
       icon: "map-pin",
-      label: `${t("location")} — ${RESTAURANT_INFO.location}`,
+      label: `${t("location")} — ${info.location}`,
       action: () => Linking.openURL("https://maps.app.goo.gl/DiAZzzLKBAmGNv19A"),
     },
     {
@@ -199,7 +200,7 @@ export default function MoreScreen() {
       action: () =>
         Alert.alert(
           "روابي المندي",
-          `${RESTAURANT_INFO.tagline}\n\n${RESTAURANT_INFO.location}\nهاتف: ${RESTAURANT_INFO.phone}`
+          `${info.tagline}\n\n${info.location}\nهاتف: ${info.phone}`
         ),
     },
     {

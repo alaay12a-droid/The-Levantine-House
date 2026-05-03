@@ -26,7 +26,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
-import { FOOD_IMAGES, RESTAURANT_INFO } from "@/constants/menu";
+import { FOOD_IMAGES } from "@/constants/menu";
+import { useAppTexts } from "@/hooks/useAppTexts";
 import { MenuItemCard } from "@/components/MenuItemCard";
 import { CartBar } from "@/components/CartBar";
 import { useMenu } from "@/hooks/useMenu";
@@ -68,6 +69,7 @@ export default function MenuScreen() {
   const { language } = useLanguage();
   const { favorites } = useFavorites();
   const isEn = language === "en";
+  const info = useAppTexts();
   const availableCombos = combos.filter((c) => c.available);
   const [activeCategory, setActiveCategory] = useState("chicken");
   const [driversEnabled, setDriversEnabled] = useState(false);
@@ -148,11 +150,11 @@ export default function MenuScreen() {
   }, []);
 
   const handleWhatsApp = (msg: string) => {
-    Linking.openURL(`https://wa.me/${RESTAURANT_INFO.whatsapp}?text=${encodeURIComponent(msg)}`);
+    Linking.openURL(`https://wa.me/${info.whatsapp}?text=${encodeURIComponent(msg)}`);
   };
 
   const handleCall = () => {
-    Linking.openURL(`tel:${RESTAURANT_INFO.phone}`);
+    Linking.openURL(`tel:${info.phone}`);
   };
 
   return (
@@ -179,10 +181,10 @@ export default function MenuScreen() {
 
           <View style={styles.titleBlock}>
             <Text style={[styles.brandName, { fontFamily: F.extra }]}>
-              {isEn ? RESTAURANT_INFO.nameEn : RESTAURANT_INFO.name}
+              {isEn ? info.nameEn : info.name}
             </Text>
             <Text style={[styles.tagline, { color: colors.gold, fontFamily: F.semi }]}>
-              {isEn ? RESTAURANT_INFO.taglineEn : RESTAURANT_INFO.tagline}
+              {isEn ? info.taglineEn : info.tagline}
             </Text>
           </View>
 
@@ -237,7 +239,7 @@ export default function MenuScreen() {
               </Text>
               <TouchableOpacity onPress={() => Linking.openURL("https://maps.app.goo.gl/DiAZzzLKBAmGNv19A")}>
                 <Text style={[styles.deliveryLocation, { color: colors.mutedForeground, fontFamily: F.semi }]}>
-                  📍 {isEn ? RESTAURANT_INFO.locationEn : "تبوك - حي الروضة وما حولها"}
+                  📍 {isEn ? info.locationEn : info.deliveryArea}
                 </Text>
               </TouchableOpacity>
               <View style={styles.deliveryBtns}>
@@ -255,7 +257,7 @@ export default function MenuScreen() {
                   style={[styles.deliveryBtn, { backgroundColor: colors.primary }]}
                 >
                   <Feather name="phone" size={18} color="#fff" />
-                  <Text style={[styles.deliveryBtnText, { fontFamily: F.bold }]}>{RESTAURANT_INFO.phone}</Text>
+                  <Text style={[styles.deliveryBtnText, { fontFamily: F.bold }]}>{info.phone}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -283,19 +285,19 @@ export default function MenuScreen() {
             <View style={[styles.dhabihaPhoneRow, { borderColor: colors.gold }]}>
               <Feather name="phone" size={16} color={colors.gold} />
               <Text style={[styles.dhabihaPhoneNum, { color: colors.gold, fontFamily: F.extra }]}>
-                {RESTAURANT_INFO.dhabihaPhone}
+                {info.dhabihaPhone}
               </Text>
             </View>
             <View style={styles.bookBtns}>
               <TouchableOpacity
-                onPress={() => Linking.openURL(`https://wa.me/${RESTAURANT_INFO.dhabihaWhatsapp}?text=${encodeURIComponent(isEn ? "Hello, I would like to inquire about a whole animal reservation and pricing" : "السلام عليكم، أرغب في حجز ذبيحة والاستفسار عن الأسعار")}`)}
+                onPress={() => Linking.openURL(`https://wa.me/${info.dhabihaWhatsapp}?text=${encodeURIComponent(isEn ? "Hello, I would like to inquire about a whole animal reservation and pricing" : "السلام عليكم، أرغب في حجز ذبيحة والاستفسار عن الأسعار")}`)}
                 style={[styles.bookBtn, { backgroundColor: "#1DBF47" }]}
               >
                 <Feather name="message-circle" size={16} color="#fff" />
                 <Text style={[styles.bookBtnText, { fontFamily: F.bold }]}>{isEn ? "WhatsApp" : "واتساب"}</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                onPress={() => Linking.openURL(`tel:${RESTAURANT_INFO.dhabihaPhone}`)}
+                onPress={() => Linking.openURL(`tel:${info.dhabihaPhone}`)}
                 style={[styles.bookBtn, { backgroundColor: colors.primary }]}
               >
                 <Feather name="phone" size={16} color="#fff" />

@@ -31,6 +31,7 @@ import { useBanners, type ApiBanner } from "@/hooks/useBanners";
 import { useRevenue } from "@/hooks/useRevenue";
 import { useCombos, type ApiCombo, type ComboComponent } from "@/hooks/useCombos";
 import { apiGet, apiPost, apiPut, apiDelete, API_BASE } from "@/constants/api";
+import { invalidateAppTextsCache, DEFAULT_TEXTS } from "@/hooks/useAppTexts";
 
 const F = {
   regular: "Cairo_400Regular",
@@ -309,7 +310,7 @@ export default function AdminMenuScreen() {
   const { data: revenueData, loading: revenueLoading, refresh: refreshRevenue } = useRevenue();
   const [revenueView, setRevenueView] = useState<"daily" | "monthly" | "items">("daily");
   const [revenuePeriod, setRevenuePeriod] = useState<"today" | "week" | "month" | "year">("month");
-  const [settingsSection, setSettingsSection] = useState<"hours" | "payment" | "discounts" | "wallets" | "sms" | "security" | "appearance" | "ratings" | "drivers">("hours");
+  const [settingsSection, setSettingsSection] = useState<"hours" | "payment" | "discounts" | "wallets" | "sms" | "security" | "appearance" | "ratings" | "drivers" | "texts">("hours");
 
   // Combos
   const { combos, addCombo, updateCombo, deleteCombo } = useCombos();
@@ -321,6 +322,32 @@ export default function AdminMenuScreen() {
   const [comboImageUrl, setComboImageUrl] = useState("");
   const [comboComponents, setComboComponents] = useState<ComboComponent[]>([{ name: "", quantity: 1 }]);
   const [comboLoading, setComboLoading] = useState(false);
+
+  // App Texts
+  const [appTexts, setAppTexts] = useState<Record<string, string>>({});
+  const [textsLoading, setTextsLoading] = useState(false);
+  const [textsSaving, setTextsSaving] = useState(false);
+
+  const loadAppTexts = useCallback(async () => {
+    setTextsLoading(true);
+    try {
+      const data = await apiGet<Record<string, string>>("/app-texts");
+      setAppTexts(data);
+    } catch {}
+    setTextsLoading(false);
+  }, []);
+
+  const saveAppTexts = async () => {
+    setTextsSaving(true);
+    try {
+      await apiPut("/app-texts", appTexts);
+      invalidateAppTextsCache();
+      Alert.alert("✅", "تم حفظ النصوص بنجاح");
+    } catch {
+      Alert.alert("خطأ", "تعذّر حفظ النصوص");
+    }
+    setTextsSaving(false);
+  };
 
   // SMS OTP settings
   const [smsEnabled, setSmsEnabled] = useState(false);
@@ -501,6 +528,7 @@ export default function AdminMenuScreen() {
 
   useEffect(() => {
     if (activeTab === "settings" && settingsSection === "drivers") loadAdminDrivers();
+    if (activeTab === "settings" && settingsSection === "texts") loadAppTexts();
   }, [settingsSection, activeTab]);
 
   // ── Favorites enabled ───────────────────────────────────────────────────────
@@ -1394,6 +1422,7 @@ export default function AdminMenuScreen() {
               { key: "sms",        icon: "message-square", label: "الرسائل" },
               { key: "security",   icon: "lock",        label: "الأمان"     },
               { key: "appearance", icon: "sliders",     label: "المظهر"     },
+              { key: "texts",      icon: "edit-2",      label: "النصوص"     },
             ] as const).map(({ key, icon, label }) => {
               const active = settingsSection === key;
               return (
@@ -2628,6 +2657,81 @@ export default function AdminMenuScreen() {
               💡 إذا نسيت الرمز، يمكنك استخدام رمز الطوارئ للدخول وتغيير الرموز.{"\n"}للحصول على رمز الطوارئ تواصل مع المطور.
             </Text>
           </View>
+          </>)}
+
+          {/* ══════════════════ TEXTS ══════════════════ */}
+          {settingsSection === "texts" && (<>
+          <Text style={{ color: colors.gold, fontFamily: F.extra, fontSize: 16, textAlign: "right" }}>
+            ✏️ نصوص التطبيق
+          </Text>
+          <View style={{ backgroundColor: colors.secondary, borderRadius: 10, padding: 12, borderWidth: 1, borderColor: colors.border }}>
+            <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12, textAlign: "right", lineHeight: 20 }}>
+              💡 النصوص التالية تظهر للعملاء في التطبيق. بعد الحفظ تُحدَّث عند فتح التطبيق.
+            </Text>
+          </View>
+
+          {textsLoading ? (
+            <ActivityIndicator color={colors.gold} style={{ marginTop: 20 }} />
+          ) : (
+            <>
+            {([
+              { section: "🏠 معلومات المطعم", fields: [
+                { key: "txt_name",       label: "اسم المطعم (عربي)",      placeholder: DEFAULT_TEXTS.name       },
+                { key: "txt_name_en",    label: "اسم المطعم (إنجليزي)",    placeholder: DEFAULT_TEXTS.nameEn     },
+                { key: "txt_tagline",    label: "الشعار (عربي)",           placeholder: DEFAULT_TEXTS.tagline    },
+                { key: "txt_tagline_en", label: "الشعار (إنجليزي)",        placeholder: DEFAULT_TEXTS.taglineEn  },
+              ]},
+              { section: "📞 التواصل", fields: [
+                { key: "txt_phone",      label: "رقم الهاتف الرئيسي",      placeholder: DEFAULT_TEXTS.phone      },
+                { key: "txt_whatsapp",   label: "واتساب (مع كود الدولة)",  placeholder: DEFAULT_TEXTS.whatsapp   },
+                { key: "txt_instagram",  label: "إنستقرام",                 placeholder: DEFAULT_TEXTS.instagram  },
+                { key: "txt_snapchat",   label: "سناب شات (اسم المستخدم)", placeholder: DEFAULT_TEXTS.snapchat   },
+                { key: "txt_tiktok",     label: "تيك توك (اسم المستخدم)",  placeholder: DEFAULT_TEXTS.tiktok     },
+              ]},
+              { section: "📍 الموقع", fields: [
+                { key: "txt_location",     label: "العنوان (عربي)",         placeholder: DEFAULT_TEXTS.location    },
+                { key: "txt_location_en",  label: "العنوان (إنجليزي)",      placeholder: DEFAULT_TEXTS.locationEn  },
+                { key: "txt_delivery_area",label: "منطقة التوصيل (عربي)",   placeholder: DEFAULT_TEXTS.deliveryArea },
+              ]},
+              { section: "🐑 الذبائح", fields: [
+                { key: "txt_dhabiha_phone",    label: "هاتف الذبائح",              placeholder: DEFAULT_TEXTS.dhabihaPhone    },
+                { key: "txt_dhabiha_whatsapp", label: "واتساب الذبائح (مع كود)", placeholder: DEFAULT_TEXTS.dhabihaWhatsapp },
+              ]},
+              { section: "📢 إعلان عام", fields: [
+                { key: "txt_announcement", label: "نص الإعلان (اتركه فارغاً لإخفائه)", placeholder: "مثال: يسعدنا خدمتكم يومياً من 12 ظهراً..." },
+              ]},
+            ] as const).map(({ section, fields }) => (
+              <View key={section} style={{ backgroundColor: colors.card, borderRadius: 14, borderWidth: 1, borderColor: colors.border, padding: 16, gap: 12 }}>
+                <Text style={{ color: colors.gold, fontFamily: F.extra, fontSize: 14, textAlign: "right" }}>{section}</Text>
+                {fields.map(({ key, label, placeholder }) => (
+                  <View key={key} style={{ gap: 4 }}>
+                    <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 12, textAlign: "right" }}>{label}</Text>
+                    <TextInput
+                      value={appTexts[key] ?? ""}
+                      onChangeText={(v) => setAppTexts(prev => ({ ...prev, [key]: v }))}
+                      placeholder={placeholder}
+                      placeholderTextColor={colors.mutedForeground}
+                      style={{ color: colors.foreground, borderColor: colors.border, backgroundColor: colors.secondary, fontFamily: F.regular, borderWidth: 1, borderRadius: 10, padding: 12, textAlign: "right" }}
+                      multiline={key === "txt_announcement"}
+                      numberOfLines={key === "txt_announcement" ? 3 : 1}
+                    />
+                  </View>
+                ))}
+              </View>
+            ))}
+
+            <TouchableOpacity
+              onPress={saveAppTexts}
+              disabled={textsSaving}
+              style={{ backgroundColor: colors.gold, borderRadius: 14, paddingVertical: 15, alignItems: "center" }}
+            >
+              {textsSaving
+                ? <ActivityIndicator color="#1A0A00" />
+                : <Text style={{ color: "#1A0A00", fontFamily: F.extra, fontSize: 16 }}>💾 حفظ جميع النصوص</Text>
+              }
+            </TouchableOpacity>
+            </>
+          )}
           </>)}
 
           </ScrollView>

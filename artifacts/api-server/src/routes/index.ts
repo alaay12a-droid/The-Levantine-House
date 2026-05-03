@@ -16,6 +16,7 @@ import notificationsRouter from "./notifications";
 import pinOtpRouter from "./pin-otp";
 import ratingsRouter from "./ratings";
 import driversRouter from "./drivers";
+import textsRouter from "./texts";
 
 const router: IRouter = Router();
 
@@ -36,5 +37,6 @@ router.use(notificationsRouter);
 router.use(pinOtpRouter);
 router.use(ratingsRouter);
 router.use(driversRouter);
+router.use(textsRouter);
 
 export default router;
