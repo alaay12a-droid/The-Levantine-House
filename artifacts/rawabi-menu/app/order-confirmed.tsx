@@ -348,9 +348,9 @@ function DriverCard({ row, colors, isEn, orderId }: { row: AssignmentRow; colors
   };
   const color = driverStatusColor[assignment.status];
   const hasLocation = !!(assignment.driverLat && assignment.driverLng);
+  const onTheWay = assignment.status === "picked_up";
 
-  const callDriver = () => {
-    const url = `tel:${driver.phone}`;
+  const openUrl = (url: string) => {
     if (Platform.OS === "web") {
       if (typeof window !== "undefined") window.open(url);
     } else {
@@ -358,18 +358,20 @@ function DriverCard({ row, colors, isEn, orderId }: { row: AssignmentRow; colors
     }
   };
 
-  const trackDriver = () => {
-    router.push(`/driver-map?orderId=${orderId}`);
-  };
+  const callDriver  = () => openUrl(`tel:${driver.phone}`);
+  const whatsDriver = () => openUrl(`https://wa.me/${driver.phone.replace(/\D/g, "")}`);
+  const trackDriver = () => router.push(`/driver-map?orderId=${orderId}`);
 
   return (
     <View style={[styles.driverCard, { backgroundColor: color + "14", borderColor: color + "55" }]}>
+
+      {/* ── Driver info row ── */}
       <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 12 }}>
         {driver.photoUrl
-          ? <Image source={{ uri: driver.photoUrl }} style={{ width: 52, height: 52, borderRadius: 26, borderWidth: 2, borderColor: color }} />
+          ? <Image source={{ uri: driver.photoUrl }} style={{ width: 56, height: 56, borderRadius: 28, borderWidth: 2, borderColor: color }} />
           : (
-            <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: color + "22", alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: color }}>
-              <Text style={{ fontSize: 26 }}>🛵</Text>
+            <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: color + "22", alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: color }}>
+              <Text style={{ fontSize: 28 }}>🛵</Text>
             </View>
           )
         }
@@ -378,7 +380,7 @@ function DriverCard({ row, colors, isEn, orderId }: { row: AssignmentRow; colors
           <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12 }}>
             {driverStatusLabel[assignment.status]}
           </Text>
-          {hasLocation && assignment.status === "picked_up" && (
+          {hasLocation && onTheWay && (
             <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4, marginTop: 2 }}>
               <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: "#4CAF50" }} />
               <Text style={{ color: "#4CAF50", fontFamily: F.regular, fontSize: 10 }}>
@@ -387,7 +389,8 @@ function DriverCard({ row, colors, isEn, orderId }: { row: AssignmentRow; colors
             </View>
           )}
         </View>
-        {assignment.status !== "delivered" && (
+        {/* Small call icon — always visible when not delivered */}
+        {!onTheWay && assignment.status !== "delivered" && (
           <TouchableOpacity
             onPress={callDriver}
             style={{ backgroundColor: "#4CAF5022", borderRadius: 12, padding: 10, borderWidth: 1, borderColor: "#4CAF5055" }}
@@ -397,20 +400,12 @@ function DriverCard({ row, colors, isEn, orderId }: { row: AssignmentRow; colors
         )}
       </View>
 
-      {assignment.status === "picked_up" && (
+      {/* ── Map tracking row (picked_up only) ── */}
+      {onTheWay && (
         hasLocation ? (
           <TouchableOpacity
             onPress={trackDriver}
-            style={{
-              marginTop: 12,
-              flexDirection: "row-reverse",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 8,
-              backgroundColor: "#29B6F6",
-              borderRadius: 12,
-              paddingVertical: 11,
-            }}
+            style={{ marginTop: 12, flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: "#29B6F6", borderRadius: 12, paddingVertical: 11 }}
           >
             <Feather name="map-pin" size={16} color="#032B3D" />
             <Text style={{ color: "#032B3D", fontFamily: F.extra, fontSize: 14 }}>
@@ -418,24 +413,42 @@ function DriverCard({ row, colors, isEn, orderId }: { row: AssignmentRow; colors
             </Text>
           </TouchableOpacity>
         ) : (
-          <View style={{
-            marginTop: 12,
-            flexDirection: "row-reverse",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 8,
-            backgroundColor: "#29B6F611",
-            borderRadius: 12,
-            paddingVertical: 11,
-            borderWidth: 1,
-            borderColor: "#29B6F633",
-          }}>
+          <View style={{ marginTop: 12, flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: "#29B6F611", borderRadius: 12, paddingVertical: 11, borderWidth: 1, borderColor: "#29B6F633" }}>
             <Feather name="map-pin" size={16} color="#29B6F6" />
             <Text style={{ color: "#29B6F6", fontFamily: F.semi, fontSize: 13 }}>
               {isEn ? "Locating driver..." : "جاري تحديد موقع المندوب..."}
             </Text>
           </View>
         )
+      )}
+
+      {/* ── Contact buttons — only when on the way ── */}
+      {onTheWay && (
+        <View style={{ marginTop: 10, flexDirection: "row-reverse", gap: 10 }}>
+          {/* Call button */}
+          <TouchableOpacity
+            onPress={callDriver}
+            activeOpacity={0.82}
+            style={{ flex: 1, flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: "#4CAF50", borderRadius: 12, paddingVertical: 12 }}
+          >
+            <Feather name="phone" size={17} color="#fff" />
+            <Text style={{ color: "#fff", fontFamily: F.bold, fontSize: 14 }}>
+              {isEn ? "Call Driver" : "اتصال بالمندوب"}
+            </Text>
+          </TouchableOpacity>
+
+          {/* WhatsApp button */}
+          <TouchableOpacity
+            onPress={whatsDriver}
+            activeOpacity={0.82}
+            style={{ flex: 1, flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: "#25D366", borderRadius: 12, paddingVertical: 12 }}
+          >
+            <Text style={{ fontSize: 16 }}>💬</Text>
+            <Text style={{ color: "#fff", fontFamily: F.bold, fontSize: 14 }}>
+              {isEn ? "WhatsApp" : "واتساب"}
+            </Text>
+          </TouchableOpacity>
+        </View>
       )}
     </View>
   );
