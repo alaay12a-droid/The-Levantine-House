@@ -449,6 +449,15 @@ export default function AdminMenuScreen() {
   const [driverPhotoUploading, setDriverPhotoUploading] = useState(false);
   const [driverSaving, setDriverSaving] = useState(false);
 
+  // Edit driver modal
+  const [editingDriver, setEditingDriver] = useState<AdminDriver | null>(null);
+  const [editDriverName, setEditDriverName] = useState("");
+  const [editDriverPhone, setEditDriverPhone] = useState("");
+  const [editDriverPin, setEditDriverPin] = useState("");
+  const [editDriverPhotoUrl, setEditDriverPhotoUrl] = useState("");
+  const [editDriverPhotoUploading, setEditDriverPhotoUploading] = useState(false);
+  const [editDriverSaving, setEditDriverSaving] = useState(false);
+
   const handlePickDriverPhoto = async () => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
@@ -511,6 +520,50 @@ export default function AdminMenuScreen() {
     } catch {}
     setDriversLoading(false);
   }, []);
+
+  const openEditDriver = (d: AdminDriver) => {
+    setEditingDriver(d);
+    setEditDriverName(d.name);
+    setEditDriverPhone(d.phone);
+    setEditDriverPin(d.pin);
+    setEditDriverPhotoUrl(d.photoUrl ?? "");
+  };
+
+  const handlePickEditDriverPhoto = async () => {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) { Alert.alert("الإذن مرفوض", "يرجى السماح بالوصول للمعرض"); return; }
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.7 });
+    if (result.canceled) return;
+    const asset = result.assets[0];
+    const ext = asset.uri.split(".").pop() ?? "jpg";
+    const contentType = ext === "png" ? "image/png" : "image/jpeg";
+    setEditDriverPhotoUploading(true);
+    try {
+      const { uploadUrl, objectPath } = await apiPost<{ uploadUrl: string; objectPath: string }>("/storage/upload-url", { name: `driver-${Date.now()}.${ext}`, size: asset.fileSize ?? 0, contentType });
+      await fetch(uploadUrl, { method: "PUT", headers: { "Content-Type": contentType }, body: { uri: asset.uri, type: contentType, name: `driver.${ext}` } as unknown as BodyInit });
+      setEditDriverPhotoUrl(`${API_BASE}/api/storage${objectPath}`);
+    } catch { Alert.alert("خطأ", "تعذّر رفع الصورة"); }
+    setEditDriverPhotoUploading(false);
+  };
+
+  const saveEditDriver = async () => {
+    if (!editingDriver) return;
+    if (!editDriverName.trim() || !editDriverPhone.trim() || !editDriverPin.trim()) {
+      Alert.alert("تنبيه", "يرجى تعبئة الاسم والجوال والرقم السري"); return;
+    }
+    setEditDriverSaving(true);
+    try {
+      await apiPut(`/drivers/${editingDriver.id}`, {
+        name: editDriverName.trim(),
+        phone: editDriverPhone.trim(),
+        pin: editDriverPin.trim(),
+        photoUrl: editDriverPhotoUrl.trim() || null,
+      });
+      await loadAdminDrivers();
+      setEditingDriver(null);
+    } catch { Alert.alert("خطأ", "تعذّر تحديث بيانات المندوب"); }
+    setEditDriverSaving(false);
+  };
 
   const saveDriver = useCallback(async () => {
     if (!driverName.trim() || !driverPhone.trim() || !driverPin.trim()) {
@@ -2203,6 +2256,12 @@ export default function AdminMenuScreen() {
                     thumbColor={d.active ? "#4CAF50" : colors.mutedForeground}
                   />
                   <TouchableOpacity
+                    onPress={() => openEditDriver(d)}
+                    style={{ backgroundColor: "#E8920C22", borderRadius: 8, padding: 7, borderWidth: 1, borderColor: "#E8920C55" }}
+                  >
+                    <Feather name="edit-2" size={15} color="#E8920C" />
+                  </TouchableOpacity>
+                  <TouchableOpacity
                     onPress={() => Alert.alert("حذف المندوب", `هل تريد حذف ${d.name}؟`, [
                       { text: "إلغاء", style: "cancel" },
                       { text: "حذف", style: "destructive", onPress: async () => {
@@ -2214,13 +2273,101 @@ export default function AdminMenuScreen() {
                         }
                       }},
                     ])}
+                    style={{ backgroundColor: "#E5737322", borderRadius: 8, padding: 7, borderWidth: 1, borderColor: "#E5737355" }}
                   >
-                    <Feather name="trash-2" size={16} color="#E57373" />
+                    <Feather name="trash-2" size={15} color="#E57373" />
                   </TouchableOpacity>
                 </View>
               </View>
             </View>
           ))}
+
+          {/* ── Edit driver modal ── */}
+          <Modal visible={!!editingDriver} transparent animationType="slide" onRequestClose={() => setEditingDriver(null)}>
+            <View style={{ flex: 1, backgroundColor: "#000000BB", justifyContent: "flex-end" }}>
+              <View style={{ backgroundColor: colors.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, gap: 14, maxHeight: "90%" }}>
+                <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" }}>
+                  <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 16 }}>✏️ تعديل بيانات المندوب</Text>
+                  <TouchableOpacity onPress={() => setEditingDriver(null)} style={{ padding: 4 }}>
+                    <Feather name="x" size={20} color={colors.mutedForeground} />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Avatar */}
+                <TouchableOpacity
+                  onPress={handlePickEditDriverPhoto}
+                  disabled={editDriverPhotoUploading}
+                  style={{ alignSelf: "center", alignItems: "center", gap: 6 }}
+                >
+                  {editDriverPhotoUploading ? (
+                    <View style={{ width: 90, height: 90, borderRadius: 45, backgroundColor: colors.secondary, borderWidth: 2, borderColor: "#4CAF5066", alignItems: "center", justifyContent: "center" }}>
+                      <ActivityIndicator color="#4CAF50" />
+                    </View>
+                  ) : editDriverPhotoUrl.trim() ? (
+                    <View style={{ position: "relative" }}>
+                      <Image source={{ uri: editDriverPhotoUrl.trim() }} style={{ width: 90, height: 90, borderRadius: 45, borderWidth: 3, borderColor: "#4CAF50" }} />
+                      <View style={{ position: "absolute", bottom: 0, left: 0, backgroundColor: "#4CAF50", borderRadius: 14, width: 28, height: 28, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: colors.card }}>
+                        <Feather name="camera" size={14} color="#fff" />
+                      </View>
+                    </View>
+                  ) : (
+                    <View style={{ width: 90, height: 90, borderRadius: 45, backgroundColor: colors.secondary, borderWidth: 2, borderColor: "#4CAF5066", borderStyle: "dashed", alignItems: "center", justifyContent: "center" }}>
+                      <Feather name="camera" size={26} color="#4CAF50" />
+                    </View>
+                  )}
+                  <Text style={{ color: editDriverPhotoUrl ? "#4CAF50" : colors.mutedForeground, fontFamily: F.semi, fontSize: 12 }}>
+                    {editDriverPhotoUrl ? "تغيير الصورة" : "رفع صورة 📷"}
+                  </Text>
+                </TouchableOpacity>
+
+                <TextInput
+                  value={editDriverName}
+                  onChangeText={setEditDriverName}
+                  placeholder="الاسم الكامل"
+                  placeholderTextColor={colors.mutedForeground}
+                  style={{ color: colors.foreground, borderColor: colors.border, backgroundColor: colors.secondary, fontFamily: F.bold, borderWidth: 1, borderRadius: 10, padding: 12, textAlign: "right" }}
+                />
+                <TextInput
+                  value={editDriverPhone}
+                  onChangeText={setEditDriverPhone}
+                  placeholder="رقم الجوال"
+                  placeholderTextColor={colors.mutedForeground}
+                  keyboardType="phone-pad"
+                  style={{ color: colors.foreground, borderColor: colors.border, backgroundColor: colors.secondary, fontFamily: F.bold, borderWidth: 1, borderRadius: 10, padding: 12, textAlign: "right" }}
+                />
+                <View style={{ gap: 4 }}>
+                  <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 12, textAlign: "right" }}>الرقم السري (أرقام فقط)</Text>
+                  <TextInput
+                    value={editDriverPin}
+                    onChangeText={(v) => setEditDriverPin(v.replace(/\D/g, "").slice(0, 8))}
+                    placeholder="••••"
+                    placeholderTextColor={colors.mutedForeground}
+                    keyboardType="number-pad"
+                    style={{ color: colors.foreground, borderColor: colors.border, backgroundColor: colors.secondary, fontFamily: F.extra, borderWidth: 1, borderRadius: 10, padding: 12, textAlign: "center", fontSize: 18, letterSpacing: 6 }}
+                  />
+                </View>
+
+                <View style={{ flexDirection: "row-reverse", gap: 10 }}>
+                  <TouchableOpacity
+                    onPress={saveEditDriver}
+                    disabled={editDriverSaving}
+                    style={{ flex: 1, paddingVertical: 13, borderRadius: 12, alignItems: "center", backgroundColor: "#4CAF50", opacity: editDriverSaving ? 0.7 : 1 }}
+                  >
+                    {editDriverSaving
+                      ? <ActivityIndicator color="#fff" />
+                      : <Text style={{ color: "#fff", fontFamily: F.bold, fontSize: 14 }}>💾 حفظ التعديلات</Text>
+                    }
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => setEditingDriver(null)}
+                    style={{ paddingVertical: 13, paddingHorizontal: 20, borderRadius: 12, alignItems: "center", backgroundColor: colors.secondary, borderWidth: 1, borderColor: colors.border }}
+                  >
+                    <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 14 }}>إلغاء</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </Modal>
 
           {/* Add driver form */}
           <View style={{ backgroundColor: colors.card, borderRadius: 14, borderWidth: 1, borderColor: colors.border, padding: 16, gap: 12 }}>
