@@ -41,16 +41,23 @@ const F = {
 
 type Step = "name" | "phone" | "location";
 
-function buildAddress(g: Location.LocationGeocodedAddress): string {
-  const parts: string[] = [];
-  if (g.streetNumber) parts.push(g.streetNumber);
-  if (g.street)       parts.push(g.street);
-  if (g.name && g.name !== g.street) parts.push(g.name);
-  if (g.district)     parts.push(g.district);
-  if (g.subregion)    parts.push(g.subregion);
-  if (g.city)         parts.push(g.city);
-  const unique = [...new Set(parts.filter(Boolean))];
-  return unique.join("، ") || "";
+async function reverseGeocodeArabic(lat: number, lng: number): Promise<string> {
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=ar`,
+      { headers: { "User-Agent": "RawabiAlMandi/1.0" } }
+    );
+    const data = await res.json();
+    const a = data?.address ?? {};
+    const parts = [
+      a.road || a.pedestrian || a.footway || a.path,
+      a.neighbourhood || a.suburb || a.quarter,
+      a.city || a.town || a.village || a.county,
+    ].filter(Boolean);
+    return parts.join("، ") || data?.display_name?.split(",").slice(0, 3).join("،") || "";
+  } catch {
+    return "";
+  }
 }
 
 export default function OnboardingScreen() {
@@ -105,16 +112,8 @@ export default function OnboardingScreen() {
       const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
       setLat(loc.coords.latitude);
       setLng(loc.coords.longitude);
-      const geocode = await Location.reverseGeocodeAsync({
-        latitude: loc.coords.latitude,
-        longitude: loc.coords.longitude,
-      });
-      if (geocode.length > 0) {
-        const addr = buildAddress(geocode[0]);
-        setAddress(addr || `${loc.coords.latitude.toFixed(5)}, ${loc.coords.longitude.toFixed(5)}`);
-      } else {
-        setAddress(`${loc.coords.latitude.toFixed(5)}, ${loc.coords.longitude.toFixed(5)}`);
-      }
+      const addr = await reverseGeocodeArabic(loc.coords.latitude, loc.coords.longitude);
+      setAddress(addr || `${loc.coords.latitude.toFixed(5)}، ${loc.coords.longitude.toFixed(5)}`);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch {
       // silent — user can enter manually
@@ -134,16 +133,8 @@ export default function OnboardingScreen() {
       const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
       setLat(loc.coords.latitude);
       setLng(loc.coords.longitude);
-      const geocode = await Location.reverseGeocodeAsync({
-        latitude: loc.coords.latitude,
-        longitude: loc.coords.longitude,
-      });
-      if (geocode.length > 0) {
-        const addr = buildAddress(geocode[0]);
-        setAddress(addr || `${loc.coords.latitude.toFixed(5)}, ${loc.coords.longitude.toFixed(5)}`);
-      } else {
-        setAddress(`${loc.coords.latitude.toFixed(5)}, ${loc.coords.longitude.toFixed(5)}`);
-      }
+      const addr = await reverseGeocodeArabic(loc.coords.latitude, loc.coords.longitude);
+      setAddress(addr || `${loc.coords.latitude.toFixed(5)}، ${loc.coords.longitude.toFixed(5)}`);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch {
       Alert.alert("خطأ", "تعذر تحديد موقعك. يمكنك كتابة عنوانك يدوياً.");
