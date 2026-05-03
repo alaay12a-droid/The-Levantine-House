@@ -419,7 +419,42 @@ export default function AdminMenuScreen() {
   const [driverPhone, setDriverPhone] = useState("");
   const [driverPin, setDriverPin] = useState("");
   const [driverPhotoUrl, setDriverPhotoUrl] = useState("");
+  const [driverPhotoUploading, setDriverPhotoUploading] = useState(false);
   const [driverSaving, setDriverSaving] = useState(false);
+
+  const handlePickDriverPhoto = async () => {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert("الإذن مطلوب", "يرجى السماح بالوصول إلى الصور في الإعدادات");
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.85,
+    });
+    if (result.canceled || !result.assets.length) return;
+    const asset = result.assets[0];
+    setDriverPhotoUploading(true);
+    try {
+      const ext = (asset.uri.split(".").pop() ?? "jpg").replace("jpeg", "jpg");
+      const contentType = `image/${ext === "jpg" ? "jpeg" : ext}`;
+      const urlRes = await fetch(`${API_BASE}/api/storage/uploads/request-url`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: `driver-${Date.now()}.${ext}`, size: asset.fileSize ?? 0, contentType }),
+      });
+      const { uploadURL, objectPath } = await urlRes.json() as { uploadURL: string; objectPath: string };
+      const imageBlob = await fetch(asset.uri).then((r) => r.blob());
+      await fetch(uploadURL, { method: "PUT", headers: { "Content-Type": contentType }, body: imageBlob });
+      setDriverPhotoUrl(`${API_BASE}/api/storage${objectPath}`);
+    } catch {
+      Alert.alert("خطأ", "تعذر رفع الصورة، حاول مرة أخرى");
+    } finally {
+      setDriverPhotoUploading(false);
+    }
+  };
 
   interface DriverSummaryOrder { orderId: number; dailyNumber: number | null; customerName: string; totalPrice: number; deliveredAt: string | null; }
   interface DriverSummaryRow { driver: AdminDriver; ordersCount: number; totalCollected: number; orders: DriverSummaryOrder[]; }
@@ -2181,17 +2216,32 @@ export default function AdminMenuScreen() {
               keyboardType="number-pad"
               style={{ color: colors.foreground, borderColor: colors.border, backgroundColor: colors.secondary, fontFamily: F.extra, borderWidth: 1, borderRadius: 10, padding: 12, textAlign: "center", fontSize: 18, letterSpacing: 6 }}
             />
-            <TextInput
-              value={driverPhotoUrl}
-              onChangeText={setDriverPhotoUrl}
-              placeholder="رابط الصورة (اختياري)"
-              placeholderTextColor={colors.mutedForeground}
-              autoCapitalize="none"
-              style={{ color: colors.foreground, borderColor: colors.border, backgroundColor: colors.secondary, fontFamily: F.regular, borderWidth: 1, borderRadius: 10, padding: 12, textAlign: "right" }}
-            />
-            {driverPhotoUrl.trim() ? (
-              <Image source={{ uri: driverPhotoUrl.trim() }} style={{ width: 64, height: 64, borderRadius: 32, alignSelf: "center", borderWidth: 2, borderColor: "#4CAF50" }} />
-            ) : null}
+            {/* Photo picker */}
+            <TouchableOpacity
+              onPress={handlePickDriverPhoto}
+              disabled={driverPhotoUploading}
+              style={{ alignSelf: "center", alignItems: "center", gap: 8 }}
+            >
+              {driverPhotoUploading ? (
+                <View style={{ width: 90, height: 90, borderRadius: 45, backgroundColor: colors.secondary, borderWidth: 2, borderColor: "#4CAF5066", alignItems: "center", justifyContent: "center" }}>
+                  <ActivityIndicator color="#4CAF50" />
+                </View>
+              ) : driverPhotoUrl.trim() ? (
+                <View style={{ position: "relative" }}>
+                  <Image source={{ uri: driverPhotoUrl.trim() }} style={{ width: 90, height: 90, borderRadius: 45, borderWidth: 3, borderColor: "#4CAF50" }} />
+                  <View style={{ position: "absolute", bottom: 0, left: 0, backgroundColor: "#4CAF50", borderRadius: 14, width: 28, height: 28, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: colors.card }}>
+                    <Feather name="camera" size={14} color="#fff" />
+                  </View>
+                </View>
+              ) : (
+                <View style={{ width: 90, height: 90, borderRadius: 45, backgroundColor: colors.secondary, borderWidth: 2, borderColor: "#4CAF5066", borderStyle: "dashed", alignItems: "center", justifyContent: "center", gap: 6 }}>
+                  <Feather name="camera" size={26} color="#4CAF50" />
+                </View>
+              )}
+              <Text style={{ color: driverPhotoUrl ? "#4CAF50" : colors.mutedForeground, fontFamily: F.semi, fontSize: 12 }}>
+                {driverPhotoUrl ? "تغيير الصورة" : "رفع صورة المندوب 📷"}
+              </Text>
+            </TouchableOpacity>
 
             <TouchableOpacity
               onPress={saveDriver}
