@@ -307,7 +307,7 @@ export default function AdminMenuScreen() {
   const { data: revenueData, loading: revenueLoading, refresh: refreshRevenue } = useRevenue();
   const [revenueView, setRevenueView] = useState<"daily" | "monthly" | "items">("daily");
   const [revenuePeriod, setRevenuePeriod] = useState<"today" | "week" | "month" | "year">("month");
-  const [settingsSection, setSettingsSection] = useState<"hours" | "payment" | "discounts" | "wallets" | "sms" | "security" | "appearance">("hours");
+  const [settingsSection, setSettingsSection] = useState<"hours" | "payment" | "discounts" | "wallets" | "sms" | "security" | "appearance" | "ratings">("hours");
 
   // Combos
   const { combos, addCombo, updateCombo, deleteCombo } = useCombos();
@@ -376,13 +376,61 @@ export default function AdminMenuScreen() {
       setAllowCustomerCancel(r.allowed);
     } catch {}
   }, []);
+  // ── Ratings (admin view) ────────────────────────────────────────────────────
+  interface AdminRating {
+    orderId: number;
+    stars: number;
+    comment: string | null;
+    ratedAt: string;
+    customerName: string | null;
+    customerPhone: string | null;
+    orderTotal: number | null;
+  }
+  const [ratings, setRatings] = useState<AdminRating[]>([]);
+  const [ratingsLoading, setRatingsLoading] = useState(false);
+  const [deletingRating, setDeletingRating] = useState<number | null>(null);
+
+  const loadRatings = useCallback(async () => {
+    setRatingsLoading(true);
+    try {
+      const r = await apiGet<AdminRating[]>("/ratings");
+      setRatings(r);
+    } catch {}
+    setRatingsLoading(false);
+  }, []);
+
+  const deleteRating = useCallback(async (orderId: number) => {
+    setDeletingRating(orderId);
+    try {
+      await apiDelete(`/ratings/${orderId}`);
+      setRatings((prev) => prev.filter((r) => r.orderId !== orderId));
+    } catch {}
+    setDeletingRating(null);
+  }, []);
+
+  // ── Favorites enabled ───────────────────────────────────────────────────────
+  const [favoritesEnabled, setFavoritesEnabled] = useState(true);
+
+  const loadFavoritesEnabled = useCallback(async () => {
+    try {
+      const r = await apiGet<{ enabled: boolean }>("/settings/favorites-enabled");
+      setFavoritesEnabled(r.enabled);
+    } catch {}
+  }, []);
+
   useEffect(() => {
     if (activeTab === "settings") {
       loadSmsSettings();
       loadCancelSetting();
       loadBranchHours();
+      loadFavoritesEnabled();
+      if (settingsSection === "ratings") loadRatings();
     }
-  }, [activeTab, loadSmsSettings, loadCancelSetting, loadBranchHours]);
+  }, [activeTab, loadSmsSettings, loadCancelSetting, loadBranchHours, loadFavoritesEnabled]);
+
+  useEffect(() => {
+    if (activeTab === "settings" && settingsSection === "ratings") loadRatings();
+  }, [settingsSection]);
 
   const [dcCode, setDcCode] = useState("");
   const [dcType, setDcType] = useState<"percentage" | "fixed">("percentage");
@@ -1245,6 +1293,7 @@ export default function AdminMenuScreen() {
               { key: "hours",      icon: "clock",       label: "الأوقات"    },
               { key: "payment",    icon: "credit-card", label: "الدفع"      },
               { key: "discounts",  icon: "tag",         label: "الخصومات"   },
+              { key: "ratings",    icon: "star",        label: "التقييمات"  },
               { key: "wallets",    icon: "dollar-sign", label: "المحافظ"    },
               { key: "sms",        icon: "message-square", label: "الرسائل" },
               { key: "security",   icon: "lock",        label: "الأمان"     },
@@ -1680,6 +1729,120 @@ export default function AdminMenuScreen() {
               </Text>
             </View>
           </View>
+          </>)}
+
+          {/* ══════════════════ RATINGS ══════════════════ */}
+          {settingsSection === "ratings" && (<>
+          <Text style={{ color: colors.gold, fontFamily: F.extra, fontSize: 16, textAlign: "right", marginTop: 8 }}>
+            ⭐ تقييمات العملاء
+          </Text>
+
+          {/* Favorites toggle */}
+          <View style={{ backgroundColor: colors.card, borderRadius: 14, padding: 16, gap: 10, borderWidth: 1, borderColor: colors.border }}>
+            <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center" }}>
+              <View style={{ flex: 1, gap: 3 }}>
+                <Text style={{ color: colors.foreground, fontFamily: F.semi, fontSize: 14, textAlign: "right" }}>
+                  ❤️ تفعيل قسم المفضلة
+                </Text>
+                <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12, textAlign: "right" }}>
+                  {favoritesEnabled ? "العملاء يستطيعون حفظ الأصناف المفضلة وتظهر في أعلى القائمة" : "قسم المفضلة مخفي من التطبيق"}
+                </Text>
+              </View>
+              <Switch
+                value={favoritesEnabled}
+                onValueChange={async (v) => {
+                  setFavoritesEnabled(v);
+                  try { await apiPut("/settings/favorites-enabled", { enabled: v }); } catch {}
+                }}
+                trackColor={{ false: colors.border, true: "#C8171A88" }}
+                thumbColor={favoritesEnabled ? "#C8171A" : colors.mutedForeground}
+              />
+            </View>
+          </View>
+
+          {/* Stats bar */}
+          {!ratingsLoading && ratings.length > 0 && (() => {
+            const avg = ratings.reduce((s, r) => s + r.stars, 0) / ratings.length;
+            const dist = [5,4,3,2,1].map((s) => ({ stars: s, count: ratings.filter((r) => r.stars === s).length }));
+            return (
+              <View style={{ backgroundColor: "#1A0D05", borderRadius: 14, padding: 16, gap: 12, borderWidth: 1, borderColor: "#E8920C44" }}>
+                <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 10 }}>
+                  <Text style={{ color: colors.gold, fontFamily: F.extra, fontSize: 32 }}>{avg.toFixed(1)}</Text>
+                  <View style={{ gap: 4 }}>
+                    <Text style={{ color: "#FFD700", fontSize: 18 }}>{"⭐".repeat(Math.round(avg))}</Text>
+                    <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 12 }}>من {ratings.length} تقييم</Text>
+                  </View>
+                </View>
+                {dist.map(({ stars, count }) => (
+                  <View key={stars} style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
+                    <Text style={{ color: colors.mutedForeground, fontFamily: F.bold, fontSize: 12, width: 14, textAlign: "right" }}>{stars}</Text>
+                    <Text style={{ fontSize: 10 }}>⭐</Text>
+                    <View style={{ flex: 1, height: 8, backgroundColor: colors.secondary, borderRadius: 4, overflow: "hidden" }}>
+                      <View style={{ width: ratings.length > 0 ? `${(count / ratings.length) * 100}%` : "0%", height: "100%", backgroundColor: "#E8920C", borderRadius: 4 }} />
+                    </View>
+                    <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 11, width: 20, textAlign: "left" }}>{count}</Text>
+                  </View>
+                ))}
+              </View>
+            );
+          })()}
+
+          {ratingsLoading && <ActivityIndicator color={colors.gold} style={{ marginVertical: 20 }} />}
+
+          {!ratingsLoading && ratings.length === 0 && (
+            <View style={{ alignItems: "center", paddingVertical: 30 }}>
+              <Text style={{ fontSize: 40 }}>⭐</Text>
+              <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 14, marginTop: 8 }}>لا يوجد تقييمات حتى الآن</Text>
+            </View>
+          )}
+
+          {/* Ratings list */}
+          {ratings.map((r) => (
+            <View key={r.orderId} style={{ backgroundColor: colors.card, borderRadius: 12, borderWidth: 1, borderColor: colors.border, padding: 14, gap: 10 }}>
+              <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "flex-start" }}>
+                <View style={{ gap: 4 }}>
+                  <Text style={{ color: "#FFD700", fontSize: 16 }}>{"⭐".repeat(r.stars)}{"☆".repeat(5 - r.stars)}</Text>
+                  {r.customerName && (
+                    <Text style={{ color: colors.foreground, fontFamily: F.bold, fontSize: 13, textAlign: "right" }}>
+                      {r.customerName}
+                    </Text>
+                  )}
+                  {r.customerPhone && (
+                    <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11, textAlign: "right" }}>
+                      📱 {r.customerPhone}
+                    </Text>
+                  )}
+                  <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11, textAlign: "right" }}>
+                    طلب رقم #{r.orderId}{r.orderTotal ? ` · ${r.orderTotal} ر.س` : ""}
+                  </Text>
+                </View>
+                <View style={{ alignItems: "flex-end", gap: 8 }}>
+                  <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }}>
+                    {new Date(r.ratedAt).toLocaleDateString("ar-SA")}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => Alert.alert("حذف التقييم", "هل تريد حذف هذا التقييم؟", [
+                      { text: "إلغاء", style: "cancel" },
+                      { text: "حذف", style: "destructive", onPress: () => deleteRating(r.orderId) },
+                    ])}
+                    disabled={deletingRating === r.orderId}
+                  >
+                    {deletingRating === r.orderId
+                      ? <ActivityIndicator size="small" color="#E57373" />
+                      : <Feather name="trash-2" size={16} color="#E57373" />
+                    }
+                  </TouchableOpacity>
+                </View>
+              </View>
+              {r.comment ? (
+                <View style={{ backgroundColor: colors.secondary, borderRadius: 8, padding: 10 }}>
+                  <Text style={{ color: colors.foreground, fontFamily: F.regular, fontSize: 13, textAlign: "right", lineHeight: 20 }}>
+                    💬 {r.comment}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+          ))}
           </>)}
 
           {/* ══════════════════ DISCOUNTS ══════════════════ */}

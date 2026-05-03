@@ -16,6 +16,7 @@ import notificationsRouter from "./notifications";
 import pinOtpRouter from "./pin-otp";
 import ratingsRouter from "./ratings";
 
+
 const router: IRouter = Router();
 
 router.use(healthRouter);
