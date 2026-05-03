@@ -90,13 +90,11 @@ const STATUS_COLORS: Record<OrderStatus, string> = {
 const STATUS_NEXT: Partial<Record<OrderStatus, OrderStatus>> = {
   pending: "preparing",
   preparing: "ready",
-  ready: "done",
 };
 
 const STATUS_NEXT_LABEL: Partial<Record<OrderStatus, string>> = {
   pending: "قريبه تجهيز الطلب",
   preparing: "جاري تحضير الطلب",
-  ready: "تم استلام الطلب",
 };
 
 function PinScreen({ onSuccess, correctPin }: { onSuccess: () => void; correctPin: string }) {
