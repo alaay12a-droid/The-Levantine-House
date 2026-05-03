@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useCallback } from "react";
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   Platform,
   StatusBar,
   Linking,
+  Animated,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -81,6 +82,20 @@ export default function CheckoutScreen() {
   const [forOtherExpanded, setForOtherExpanded] = useState(false);
   const [otherName, setOtherName] = useState("");
   const [otherPhone, setOtherPhone] = useState("");
+
+  // ── Closed-hours toast ────────────────────────────────────────────────────
+  const [closedMsg, setClosedMsg] = useState("");
+  const toastAnim = useRef(new Animated.Value(0)).current;
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showClosedToast = useCallback((msg: string) => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setClosedMsg(msg);
+    Animated.spring(toastAnim, { toValue: 1, useNativeDriver: true, tension: 80, friction: 10 }).start();
+    toastTimer.current = setTimeout(() => {
+      Animated.timing(toastAnim, { toValue: 0, duration: 350, useNativeDriver: true }).start();
+    }, 5000);
+  }, [toastAnim]);
 
   React.useEffect(() => {
     if (user?.phone) {
@@ -307,10 +322,9 @@ export default function CheckoutScreen() {
     try {
       const branchStatus = await apiGet<{ isOpen: boolean; message: string | null }>("/branch-status");
       if (!branchStatus.isOpen) {
-        Alert.alert(
-          isEn ? "Outside Working Hours" : "خارج أوقات العمل",
-          branchStatus.message ?? (isEn ? "Ordering is not available now. Please try again during working hours." : "خارج أوقات العمل — لا يمكن الطلب الآن")
-        );
+        const msg = branchStatus.message ?? (isEn ? "Outside working hours — ordering is unavailable now." : "خارج أوقات العمل — لا يمكن الطلب الآن");
+        showClosedToast(msg);
+        try { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error); } catch {}
         return;
       }
     } catch {}
@@ -860,6 +874,46 @@ export default function CheckoutScreen() {
           )}
         </TouchableOpacity>
       </View>
+
+      {/* ── Closed-hours toast ── */}
+      <Animated.View
+        pointerEvents="none"
+        style={{
+          position: "absolute",
+          bottom: bottomInset + 110,
+          left: 16,
+          right: 16,
+          opacity: toastAnim,
+          transform: [{ translateY: toastAnim.interpolate({ inputRange: [0, 1], outputRange: [30, 0] }) }],
+        }}
+      >
+        <View style={{
+          backgroundColor: "#2D0A6E",
+          borderRadius: 16,
+          paddingVertical: 14,
+          paddingHorizontal: 18,
+          flexDirection: "row-reverse",
+          alignItems: "center",
+          gap: 12,
+          shadowColor: "#000",
+          shadowOpacity: 0.4,
+          shadowRadius: 12,
+          shadowOffset: { width: 0, height: 4 },
+          elevation: 8,
+          borderWidth: 1,
+          borderColor: "#6A30CC",
+        }}>
+          <Text style={{ fontSize: 24 }}>🔒</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: "#FFFFFF", fontFamily: F.extra, fontSize: 13, textAlign: "right", marginBottom: 2 }}>
+              {isEn ? "Outside Working Hours" : "خارج أوقات العمل"}
+            </Text>
+            <Text style={{ color: "#C4A8FF", fontFamily: F.semi, fontSize: 12, textAlign: "right", lineHeight: 18 }}>
+              {closedMsg}
+            </Text>
+          </View>
+        </View>
+      </Animated.View>
 
       {/* OTP Overlay */}
       {otpStep === "sent" && (
