@@ -162,3 +162,28 @@ export const orderRatingsTable = pgTable("order_ratings", {
 });
 
 export type OrderRating = typeof orderRatingsTable.$inferSelect;
+
+export const deliveryDriversTable = pgTable("delivery_drivers", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  phone: text("phone").notNull().unique(),
+  photoUrl: text("photo_url"),
+  photoKey: text("photo_key"),
+  active: boolean("active").notNull().default(true),
+  pin: text("pin").notNull().default("0000"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type DeliveryDriver = typeof deliveryDriversTable.$inferSelect;
+
+export const orderDriverAssignmentsTable = pgTable("order_driver_assignments", {
+  id: serial("id").primaryKey(),
+  orderId: integer("order_id").notNull().unique(),
+  driverId: integer("driver_id").notNull(),
+  status: text("status").notNull().default("assigned"),
+  assignedAt: timestamp("assigned_at").defaultNow().notNull(),
+  pickedUpAt: timestamp("picked_up_at"),
+  deliveredAt: timestamp("delivered_at"),
+});
+
+export type OrderDriverAssignment = typeof orderDriverAssignmentsTable.$inferSelect;

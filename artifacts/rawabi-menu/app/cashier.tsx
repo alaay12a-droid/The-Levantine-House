@@ -16,6 +16,7 @@ import {
   Clipboard,
   Linking,
   KeyboardAvoidingView,
+  Image,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -23,7 +24,7 @@ import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import { loadPins, isMasterCode } from "@/hooks/usePins";
 import { useNotifications } from "@/hooks/useNotifications";
-import { apiGet, apiPatch, apiPut, apiPost } from "@/constants/api";
+import { apiGet, apiPatch, apiPut, apiPost, apiDelete } from "@/constants/api";
 import { useChatUnreadAlert } from "@/hooks/useChatSound";
 import { type ApiMenuItem } from "@/hooks/useMenu";
 
@@ -187,6 +188,50 @@ export default function CashierScreen() {
   const [unreadByOrder, setUnreadByOrder]   = useState<Record<number, number>>({});
   const chatScrollRef                        = useRef<ScrollView>(null);
   const chatPollRef                          = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // ─── Drivers state ─────────────────────────────────────
+  interface Driver { id: number; name: string; phone: string; photoUrl: string | null; active: boolean; }
+  const [driversEnabled, setDriversEnabled] = useState(false);
+  const [drivers, setDrivers] = useState<Driver[]>([]);
+  const [assigningOrderId, setAssigningOrderId] = useState<number | null>(null);
+  const [assignments, setAssignments] = useState<Record<number, { driverId: number; driverName: string; status: string }>>({});
+
+  const loadDrivers = useCallback(async () => {
+    try {
+      const [dr, en] = await Promise.all([
+        apiGet<Driver[]>("/drivers"),
+        apiGet<{ enabled: boolean }>("/settings/drivers-enabled"),
+      ]);
+      setDrivers(dr.filter((d) => d.active));
+      setDriversEnabled(en.enabled);
+    } catch {}
+  }, []);
+
+  const loadAssignment = useCallback(async (orderId: number) => {
+    try {
+      const row = await apiGet<{ assignment: { driverId: number; status: string }; driver: { name: string } } | null>(`/orders/${orderId}/assignment`);
+      if (row) {
+        setAssignments((prev) => ({ ...prev, [orderId]: { driverId: row.assignment.driverId, driverName: row.driver?.name ?? "مندوب", status: row.assignment.status } }));
+      }
+    } catch {}
+  }, []);
+
+  const assignDriver = useCallback(async (orderId: number, driverId: number) => {
+    try {
+      await apiPost(`/orders/${orderId}/assign-driver`, { driverId });
+      await loadAssignment(orderId);
+      setAssigningOrderId(null);
+    } catch { Alert.alert("خطأ", "تعذّر تعيين المندوب"); }
+  }, [loadAssignment]);
+
+  const unassignDriver = useCallback(async (orderId: number) => {
+    try {
+      await apiDelete(`/orders/${orderId}/assign-driver`);
+      setAssignments((prev) => { const n = { ...prev }; delete n[orderId]; return n; });
+    } catch {}
+  }, []);
+
+  useEffect(() => { if (authenticated) loadDrivers(); }, [authenticated, loadDrivers]);
 
   // ─── Broadcast notification state ──────────────────────
   const [showBroadcastModal, setShowBroadcastModal] = useState(false);
@@ -823,6 +868,65 @@ export default function CashierScreen() {
                     <Feather name="x" size={14} color="#9E9E9E" />
                     <Text style={[styles.actionBtnText, { fontFamily: F.bold, color: "#9E9E9E" }]}>إلغاء الطلب</Text>
                   </TouchableOpacity>
+                )}
+
+                {/* Assign driver button — only for delivery orders when drivers enabled */}
+                {driversEnabled && (order.notes?.includes("🚗 توصيل") || order.notes?.includes("توصيل")) && (
+                  <View style={{ gap: 6 }}>
+                    {assignments[order.id] ? (
+                      <View style={{ backgroundColor: "#0A1F0A", borderRadius: 10, padding: 10, flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", borderWidth: 1, borderColor: "#2E7D3244" }}>
+                        <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
+                          <Text style={{ fontSize: 16 }}>🛵</Text>
+                          <View>
+                            <Text style={{ color: "#4CAF50", fontFamily: F.bold, fontSize: 13 }}>{assignments[order.id].driverName}</Text>
+                            <Text style={{ color: "#4CAF50AA", fontFamily: F.regular, fontSize: 11 }}>
+                              {assignments[order.id].status === "assigned" ? "بانتظار الاستلام" : assignments[order.id].status === "picked_up" ? "🚗 في الطريق" : "✅ تم التسليم"}
+                            </Text>
+                          </View>
+                        </View>
+                        <TouchableOpacity onPress={() => unassignDriver(order.id)} style={{ padding: 6 }}>
+                          <Feather name="x" size={14} color="#9E9E9E" />
+                        </TouchableOpacity>
+                      </View>
+                    ) : (
+                      <TouchableOpacity
+                        onPress={() => setAssigningOrderId(order.id)}
+                        style={[styles.actionBtn, { backgroundColor: "#0A1A0A", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, borderWidth: 1, borderColor: "#2E7D32" }]}
+                      >
+                        <Text style={{ fontSize: 16 }}>🛵</Text>
+                        <Text style={[styles.actionBtnText, { fontFamily: F.bold, color: "#4CAF50" }]}>تعيين مندوب</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                )}
+
+                {/* Assign driver modal */}
+                {assigningOrderId === order.id && (
+                  <View style={{ backgroundColor: "#0F1A0F", borderRadius: 12, padding: 14, gap: 8, borderWidth: 1, borderColor: "#2E7D32" }}>
+                    <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center" }}>
+                      <Text style={{ color: "#4CAF50", fontFamily: F.bold, fontSize: 13 }}>اختر مندوباً للطلب</Text>
+                      <TouchableOpacity onPress={() => setAssigningOrderId(null)}><Feather name="x" size={16} color="#9E9E9E" /></TouchableOpacity>
+                    </View>
+                    {drivers.length === 0
+                      ? <Text style={{ color: "#9E9E9E", fontFamily: F.regular, fontSize: 12, textAlign: "center" }}>لا يوجد مناديب نشطون</Text>
+                      : drivers.map((d) => (
+                        <TouchableOpacity
+                          key={d.id}
+                          onPress={() => assignDriver(order.id, d.id)}
+                          style={{ backgroundColor: "#1A2A1A", borderRadius: 10, padding: 12, flexDirection: "row-reverse", alignItems: "center", gap: 10 }}
+                        >
+                          {d.photoUrl
+                            ? <Image source={{ uri: d.photoUrl }} style={{ width: 36, height: 36, borderRadius: 18 }} />
+                            : <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: "#2A3A2A", alignItems: "center", justifyContent: "center" }}><Text style={{ fontSize: 18 }}>🛵</Text></View>
+                          }
+                          <View>
+                            <Text style={{ color: "#fff", fontFamily: F.bold, fontSize: 13 }}>{d.name}</Text>
+                            <Text style={{ color: "#9E9E9E", fontFamily: F.regular, fontSize: 11 }}>{d.phone}</Text>
+                          </View>
+                        </TouchableOpacity>
+                      ))
+                    }
+                  </View>
                 )}
 
                 {/* Chat button */}

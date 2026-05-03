@@ -307,7 +307,7 @@ export default function AdminMenuScreen() {
   const { data: revenueData, loading: revenueLoading, refresh: refreshRevenue } = useRevenue();
   const [revenueView, setRevenueView] = useState<"daily" | "monthly" | "items">("daily");
   const [revenuePeriod, setRevenuePeriod] = useState<"today" | "week" | "month" | "year">("month");
-  const [settingsSection, setSettingsSection] = useState<"hours" | "payment" | "discounts" | "wallets" | "sms" | "security" | "appearance" | "ratings">("hours");
+  const [settingsSection, setSettingsSection] = useState<"hours" | "payment" | "discounts" | "wallets" | "sms" | "security" | "appearance" | "ratings" | "drivers">("hours");
 
   // Combos
   const { combos, addCombo, updateCombo, deleteCombo } = useCombos();
@@ -407,6 +407,48 @@ export default function AdminMenuScreen() {
     } catch {}
     setDeletingRating(null);
   }, []);
+
+  // ── Drivers (admin) ─────────────────────────────────────────────────────────
+  interface AdminDriver { id: number; name: string; phone: string; photoUrl: string | null; active: boolean; pin: string; }
+  const [adminDrivers, setAdminDrivers] = useState<AdminDriver[]>([]);
+  const [driversEnabled, setDriversEnabled] = useState(false);
+  const [driversLoading, setDriversLoading] = useState(false);
+  const [driverName, setDriverName] = useState("");
+  const [driverPhone, setDriverPhone] = useState("");
+  const [driverPin, setDriverPin] = useState("");
+  const [driverPhotoUrl, setDriverPhotoUrl] = useState("");
+  const [driverSaving, setDriverSaving] = useState(false);
+
+  const loadAdminDrivers = useCallback(async () => {
+    setDriversLoading(true);
+    try {
+      const [dr, en] = await Promise.all([
+        apiGet<AdminDriver[]>("/drivers"),
+        apiGet<{ enabled: boolean }>("/settings/drivers-enabled"),
+      ]);
+      setAdminDrivers(dr);
+      setDriversEnabled(en.enabled);
+    } catch {}
+    setDriversLoading(false);
+  }, []);
+
+  const saveDriver = useCallback(async () => {
+    if (!driverName.trim() || !driverPhone.trim() || !driverPin.trim()) {
+      Alert.alert("تنبيه", "يرجى تعبئة الاسم والجوال والرقم السري");
+      return;
+    }
+    setDriverSaving(true);
+    try {
+      await apiPost("/drivers", { name: driverName.trim(), phone: driverPhone.trim(), pin: driverPin.trim(), photoUrl: driverPhotoUrl.trim() || null, active: true });
+      await loadAdminDrivers();
+      setDriverName(""); setDriverPhone(""); setDriverPin(""); setDriverPhotoUrl("");
+    } catch (e: unknown) { Alert.alert("خطأ", (e as { message?: string })?.message ?? "تعذر الحفظ"); }
+    setDriverSaving(false);
+  }, [driverName, driverPhone, driverPin, driverPhotoUrl, loadAdminDrivers]);
+
+  useEffect(() => {
+    if (activeTab === "settings" && settingsSection === "drivers") loadAdminDrivers();
+  }, [settingsSection, activeTab]);
 
   // ── Favorites enabled ───────────────────────────────────────────────────────
   const [favoritesEnabled, setFavoritesEnabled] = useState(true);
@@ -1294,6 +1336,7 @@ export default function AdminMenuScreen() {
               { key: "payment",    icon: "credit-card", label: "الدفع"      },
               { key: "discounts",  icon: "tag",         label: "الخصومات"   },
               { key: "ratings",    icon: "star",        label: "التقييمات"  },
+              { key: "drivers",    icon: "truck",       label: "المناديب"   },
               { key: "wallets",    icon: "dollar-sign", label: "المحافظ"    },
               { key: "sms",        icon: "message-square", label: "الرسائل" },
               { key: "security",   icon: "lock",        label: "الأمان"     },
@@ -1843,6 +1886,136 @@ export default function AdminMenuScreen() {
               ) : null}
             </View>
           ))}
+          </>)}
+
+          {/* ══════════════════ DRIVERS ══════════════════ */}
+          {settingsSection === "drivers" && (<>
+          <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 16, textAlign: "right", marginTop: 8 }}>
+            🛵 إدارة المناديب
+          </Text>
+
+          {/* Feature toggle */}
+          <View style={{ backgroundColor: colors.card, borderRadius: 14, padding: 16, gap: 10, borderWidth: 1, borderColor: colors.border }}>
+            <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center" }}>
+              <View style={{ flex: 1, gap: 3 }}>
+                <Text style={{ color: colors.foreground, fontFamily: F.semi, fontSize: 14, textAlign: "right" }}>
+                  تفعيل خاصية المناديب
+                </Text>
+                <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12, textAlign: "right" }}>
+                  {driversEnabled ? "يظهر زر تعيين مندوب للكاشير على طلبات التوصيل" : "خاصية المناديب مُوقفة"}
+                </Text>
+              </View>
+              <Switch
+                value={driversEnabled}
+                onValueChange={async (v) => {
+                  setDriversEnabled(v);
+                  try { await apiPut("/settings/drivers-enabled", { enabled: v }); } catch {}
+                }}
+                trackColor={{ false: colors.border, true: "#4CAF5088" }}
+                thumbColor={driversEnabled ? "#4CAF50" : colors.mutedForeground}
+              />
+            </View>
+          </View>
+
+          {/* Drivers list */}
+          {driversLoading && <ActivityIndicator color="#4CAF50" style={{ marginVertical: 16 }} />}
+
+          {!driversLoading && adminDrivers.length === 0 && (
+            <View style={{ alignItems: "center", paddingVertical: 24, gap: 8 }}>
+              <Text style={{ fontSize: 40 }}>🛵</Text>
+              <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 14 }}>لا يوجد مناديب بعد</Text>
+            </View>
+          )}
+
+          {adminDrivers.map((d) => (
+            <View key={d.id} style={{ backgroundColor: colors.card, borderRadius: 14, borderWidth: 1, borderColor: d.active ? "#4CAF5033" : colors.border, padding: 14, gap: 10 }}>
+              <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" }}>
+                <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 10 }}>
+                  {d.photoUrl
+                    ? <Image source={{ uri: d.photoUrl }} style={{ width: 46, height: 46, borderRadius: 23, borderWidth: 2, borderColor: d.active ? "#4CAF50" : colors.border }} />
+                    : <View style={{ width: 46, height: 46, borderRadius: 23, backgroundColor: "#1A2A1A", alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: d.active ? "#4CAF50" : colors.border }}>
+                        <Text style={{ fontSize: 22 }}>🛵</Text>
+                      </View>
+                  }
+                  <View style={{ gap: 3 }}>
+                    <Text style={{ color: colors.foreground, fontFamily: F.bold, fontSize: 14 }}>{d.name}</Text>
+                    <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 12 }}>📱 {d.phone}</Text>
+                    <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }}>🔑 الرقم السري: {d.pin}</Text>
+                  </View>
+                </View>
+                <View style={{ alignItems: "flex-end", gap: 8 }}>
+                  <Switch
+                    value={d.active}
+                    onValueChange={async (v) => {
+                      await apiPut(`/drivers/${d.id}`, { active: v }).catch(() => {});
+                      await loadAdminDrivers();
+                    }}
+                    trackColor={{ false: colors.border, true: "#4CAF5088" }}
+                    thumbColor={d.active ? "#4CAF50" : colors.mutedForeground}
+                  />
+                  <TouchableOpacity
+                    onPress={() => Alert.alert("حذف المندوب", `هل تريد حذف ${d.name}؟`, [
+                      { text: "إلغاء", style: "cancel" },
+                      { text: "حذف", style: "destructive", onPress: async () => {
+                        await apiDelete(`/drivers/${d.id}`).catch(() => {});
+                        await loadAdminDrivers();
+                      }},
+                    ])}
+                  >
+                    <Feather name="trash-2" size={16} color="#E57373" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          ))}
+
+          {/* Add driver form */}
+          <View style={{ backgroundColor: colors.card, borderRadius: 14, borderWidth: 1, borderColor: colors.border, padding: 16, gap: 12 }}>
+            <Text style={{ color: colors.foreground, fontFamily: F.bold, fontSize: 14, textAlign: "right" }}>➕ إضافة مندوب جديد</Text>
+
+            <TextInput
+              value={driverName}
+              onChangeText={setDriverName}
+              placeholder="الاسم الكامل"
+              placeholderTextColor={colors.mutedForeground}
+              style={{ color: colors.foreground, borderColor: colors.border, backgroundColor: colors.secondary, fontFamily: F.bold, borderWidth: 1, borderRadius: 10, padding: 12, textAlign: "right" }}
+            />
+            <TextInput
+              value={driverPhone}
+              onChangeText={setDriverPhone}
+              placeholder="رقم الجوال"
+              placeholderTextColor={colors.mutedForeground}
+              keyboardType="phone-pad"
+              style={{ color: colors.foreground, borderColor: colors.border, backgroundColor: colors.secondary, fontFamily: F.bold, borderWidth: 1, borderRadius: 10, padding: 12, textAlign: "right" }}
+            />
+            <TextInput
+              value={driverPin}
+              onChangeText={(v) => setDriverPin(v.replace(/\D/g, "").slice(0, 8))}
+              placeholder="الرقم السري (أرقام فقط)"
+              placeholderTextColor={colors.mutedForeground}
+              keyboardType="number-pad"
+              style={{ color: colors.foreground, borderColor: colors.border, backgroundColor: colors.secondary, fontFamily: F.extra, borderWidth: 1, borderRadius: 10, padding: 12, textAlign: "center", fontSize: 18, letterSpacing: 6 }}
+            />
+            <TextInput
+              value={driverPhotoUrl}
+              onChangeText={setDriverPhotoUrl}
+              placeholder="رابط الصورة (اختياري)"
+              placeholderTextColor={colors.mutedForeground}
+              autoCapitalize="none"
+              style={{ color: colors.foreground, borderColor: colors.border, backgroundColor: colors.secondary, fontFamily: F.regular, borderWidth: 1, borderRadius: 10, padding: 12, textAlign: "right" }}
+            />
+            {driverPhotoUrl.trim() ? (
+              <Image source={{ uri: driverPhotoUrl.trim() }} style={{ width: 64, height: 64, borderRadius: 32, alignSelf: "center", borderWidth: 2, borderColor: "#4CAF50" }} />
+            ) : null}
+
+            <TouchableOpacity
+              onPress={saveDriver}
+              disabled={driverSaving}
+              style={{ paddingVertical: 13, borderRadius: 12, alignItems: "center", backgroundColor: "#4CAF50", opacity: driverSaving ? 0.7 : 1 }}
+            >
+              {driverSaving ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontFamily: F.bold, fontSize: 14 }}>حفظ المندوب 🛵</Text>}
+            </TouchableOpacity>
+          </View>
           </>)}
 
           {/* ══════════════════ DISCOUNTS ══════════════════ */}
