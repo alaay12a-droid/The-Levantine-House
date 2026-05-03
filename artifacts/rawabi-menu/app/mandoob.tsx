@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, TextInput,
-  ActivityIndicator, StatusBar, Platform, RefreshControl, Image, Alert,
+  ActivityIndicator, StatusBar, Platform, RefreshControl, Image, Alert, Modal,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -96,6 +96,8 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
   const [updating, setUpdating] = useState<number | null>(null);
   const [sharingLocation, setSharingLocation] = useState(false);
   const [locationError, setLocationError] = useState(false);
+  const [pendingDelivery, setPendingDelivery] = useState<{ orderId: number; total: number; customerName: string } | null>(null);
+  const [cashConfirmed, setCashConfirmed] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const gpsIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const locationSubRef = useRef<Location.LocationSubscription | null>(null);
@@ -231,6 +233,87 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
         )}
       </View>
 
+      {/* ── Cash collection confirmation modal ── */}
+      <Modal
+        visible={!!pendingDelivery}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setPendingDelivery(null)}
+      >
+        <View style={{ flex: 1, backgroundColor: "#000000BB", justifyContent: "flex-end" }}>
+          <View style={{ backgroundColor: colors.card, borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingBottom: insets.bottom + 16, paddingTop: 8 }}>
+            {/* Handle */}
+            <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: colors.border, alignSelf: "center", marginBottom: 20 }} />
+
+            {/* Icon */}
+            <View style={{ alignItems: "center", marginBottom: 16 }}>
+              <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: "#1A2E1A", alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: "#4CAF5066" }}>
+                <Text style={{ fontSize: 40 }}>💵</Text>
+              </View>
+            </View>
+
+            <Text style={{ color: colors.foreground, fontFamily: F.extra, fontSize: 20, textAlign: "center", marginBottom: 6 }}>
+              تأكيد استلام المبلغ
+            </Text>
+            <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 14, textAlign: "center", marginBottom: 24, paddingHorizontal: 32 }}>
+              قبل تأكيد التسليم، تأكد من استلام المبلغ من العميل
+            </Text>
+
+            {/* Amount box */}
+            <View style={{ marginHorizontal: 20, backgroundColor: "#0A2A0A", borderRadius: 16, padding: 20, alignItems: "center", gap: 4, borderWidth: 1, borderColor: "#4CAF5033", marginBottom: 20 }}>
+              <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 13 }}>
+                {pendingDelivery?.customerName}
+              </Text>
+              <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 36 }}>
+                {pendingDelivery?.total} ر.س
+              </Text>
+              <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 12 }}>
+                المبلغ المطلوب تحصيله
+              </Text>
+            </View>
+
+            {/* Checkbox confirm */}
+            <TouchableOpacity
+              onPress={() => setCashConfirmed(v => !v)}
+              style={{ flexDirection: "row-reverse", alignItems: "center", gap: 12, marginHorizontal: 20, marginBottom: 20, backgroundColor: cashConfirmed ? "#1A2E1A" : colors.secondary, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: cashConfirmed ? "#4CAF5066" : colors.border }}
+            >
+              <View style={{ width: 24, height: 24, borderRadius: 6, borderWidth: 2, borderColor: cashConfirmed ? "#4CAF50" : colors.mutedForeground, backgroundColor: cashConfirmed ? "#4CAF50" : "transparent", alignItems: "center", justifyContent: "center" }}>
+                {cashConfirmed && <Feather name="check" size={14} color="#fff" />}
+              </View>
+              <Text style={{ flex: 1, color: cashConfirmed ? "#4CAF50" : colors.foreground, fontFamily: F.semi, fontSize: 14, textAlign: "right" }}>
+                نعم، استلمت المبلغ من العميل ✅
+              </Text>
+            </TouchableOpacity>
+
+            {/* Confirm button */}
+            <TouchableOpacity
+              disabled={!cashConfirmed || updating === pendingDelivery?.orderId}
+              onPress={async () => {
+                if (!pendingDelivery) return;
+                await updateStatus(pendingDelivery.orderId, "delivered");
+                setPendingDelivery(null);
+              }}
+              style={{ marginHorizontal: 20, borderRadius: 14, paddingVertical: 15, alignItems: "center", backgroundColor: cashConfirmed ? "#43A047" : colors.secondary, marginBottom: 10 }}
+            >
+              {updating === pendingDelivery?.orderId
+                ? <ActivityIndicator color="#fff" />
+                : <Text style={{ color: cashConfirmed ? "#fff" : colors.mutedForeground, fontFamily: F.extra, fontSize: 16 }}>
+                    ✅ تأكيد التسليم
+                  </Text>
+              }
+            </TouchableOpacity>
+
+            {/* Cancel */}
+            <TouchableOpacity
+              onPress={() => setPendingDelivery(null)}
+              style={{ alignItems: "center", paddingVertical: 10 }}
+            >
+              <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 14 }}>إلغاء</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       <ScrollView
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadOrders(); }} tintColor={colors.gold} />}
         contentContainerStyle={{ padding: 14, gap: 14, paddingBottom: 60 }}
@@ -312,7 +395,10 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
                 )}
                 {assignment.status === "picked_up" && (
                   <TouchableOpacity
-                    onPress={() => Alert.alert("تأكيد التسليم", "هل وصّلت الطلب للعميل؟", [{ text: "لا", style: "cancel" }, { text: "نعم، تم التسليم ✅", onPress: () => updateStatus(assignment.orderId, "delivered") }])}
+                    onPress={() => {
+                      setCashConfirmed(false);
+                      setPendingDelivery({ orderId: assignment.orderId, total: order.totalPrice, customerName: order.customerName });
+                    }}
                     disabled={updating === assignment.orderId}
                     style={{ backgroundColor: "#43A047", borderRadius: 12, paddingVertical: 13, alignItems: "center" }}
                   >
