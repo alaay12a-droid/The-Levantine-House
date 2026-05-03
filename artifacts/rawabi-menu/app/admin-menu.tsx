@@ -449,6 +449,12 @@ export default function AdminMenuScreen() {
   const [driverPhotoUploading, setDriverPhotoUploading] = useState(false);
   const [driverSaving, setDriverSaving] = useState(false);
 
+  // Delete confirmation modals
+  const [driverToDelete, setDriverToDelete] = useState<AdminDriver | null>(null);
+  const [driverDeleteLoading, setDriverDeleteLoading] = useState(false);
+  const [bannerToDelete, setBannerToDelete] = useState<ApiBanner | null>(null);
+  const [bannerDeleteLoading, setBannerDeleteLoading] = useState(false);
+
   // Edit driver modal
   const [editingDriver, setEditingDriver] = useState<AdminDriver | null>(null);
   const [editDriverName, setEditDriverName] = useState("");
@@ -982,17 +988,7 @@ export default function AdminMenuScreen() {
   };
 
   const handleDeleteBanner = (b: ApiBanner) => {
-    Alert.alert("حذف البانر", "هل تريد حذف هذه الصورة؟", [
-      { text: "إلغاء", style: "cancel" },
-      { text: "حذف", style: "destructive", onPress: async () => {
-        try {
-          await apiDelete(`/banners/${b.bannerId}`);
-          await refreshBanners();
-        } catch {
-          Alert.alert("خطأ", "تعذر الحذف");
-        }
-      }},
-    ]);
+    setBannerToDelete(b);
   };
 
   return (
@@ -2262,17 +2258,7 @@ export default function AdminMenuScreen() {
                     <Feather name="edit-2" size={15} color="#E8920C" />
                   </TouchableOpacity>
                   <TouchableOpacity
-                    onPress={() => Alert.alert("حذف المندوب", `هل تريد حذف ${d.name}؟`, [
-                      { text: "إلغاء", style: "cancel" },
-                      { text: "حذف", style: "destructive", onPress: async () => {
-                        try {
-                          await apiDelete(`/drivers/${d.id}`);
-                          await loadAdminDrivers();
-                        } catch {
-                          Alert.alert("خطأ", "تعذّر حذف المندوب، حاول مرة أخرى.");
-                        }
-                      }},
-                    ])}
+                    onPress={() => setDriverToDelete(d)}
                     style={{ backgroundColor: "#E5737322", borderRadius: 8, padding: 7, borderWidth: 1, borderColor: "#E5737355" }}
                   >
                     <Feather name="trash-2" size={15} color="#E57373" />
@@ -3840,6 +3826,97 @@ export default function AdminMenuScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* ── تأكيد حذف المندوب ── */}
+      <Modal visible={!!driverToDelete} transparent animationType="fade" onRequestClose={() => setDriverToDelete(null)}>
+        <View style={{ flex: 1, backgroundColor: "#000000AA", justifyContent: "center", alignItems: "center", padding: 32 }}>
+          <View style={{ backgroundColor: colors.card, borderRadius: 20, padding: 24, width: "100%", gap: 16, borderWidth: 1, borderColor: "#E5737355" }}>
+            <Text style={{ fontSize: 28, textAlign: "center" }}>🗑️</Text>
+            <Text style={{ color: colors.foreground, fontFamily: F.extra, fontSize: 16, textAlign: "center" }}>
+              حذف المندوب
+            </Text>
+            <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 14, textAlign: "center" }}>
+              هل تريد حذف <Text style={{ color: "#E57373", fontFamily: F.bold }}>{driverToDelete?.name}</Text> بشكل نهائي؟
+            </Text>
+            <View style={{ flexDirection: "row-reverse", gap: 10 }}>
+              <TouchableOpacity
+                onPress={async () => {
+                  if (!driverToDelete) return;
+                  setDriverDeleteLoading(true);
+                  try {
+                    await apiDelete(`/drivers/${driverToDelete.id}`);
+                    await loadAdminDrivers();
+                    setDriverToDelete(null);
+                  } catch {
+                    Alert.alert("خطأ", "تعذّر حذف المندوب، حاول مرة أخرى.");
+                  }
+                  setDriverDeleteLoading(false);
+                }}
+                disabled={driverDeleteLoading}
+                style={{ flex: 1, paddingVertical: 13, borderRadius: 12, alignItems: "center", backgroundColor: "#E57373", opacity: driverDeleteLoading ? 0.7 : 1 }}
+              >
+                {driverDeleteLoading
+                  ? <ActivityIndicator color="#fff" />
+                  : <Text style={{ color: "#fff", fontFamily: F.bold, fontSize: 14 }}>نعم، احذف</Text>
+                }
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setDriverToDelete(null)}
+                style={{ paddingVertical: 13, paddingHorizontal: 20, borderRadius: 12, alignItems: "center", backgroundColor: colors.secondary, borderWidth: 1, borderColor: colors.border }}
+              >
+                <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 14 }}>إلغاء</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── تأكيد حذف البنر ── */}
+      <Modal visible={!!bannerToDelete} transparent animationType="fade" onRequestClose={() => setBannerToDelete(null)}>
+        <View style={{ flex: 1, backgroundColor: "#000000AA", justifyContent: "center", alignItems: "center", padding: 32 }}>
+          <View style={{ backgroundColor: colors.card, borderRadius: 20, padding: 24, width: "100%", gap: 16, borderWidth: 1, borderColor: "#E5737355" }}>
+            {bannerToDelete?.imageUrl && (
+              <Image source={{ uri: bannerToDelete.imageUrl }} style={{ width: "100%", height: 100, borderRadius: 10 }} resizeMode="cover" />
+            )}
+            <Text style={{ color: colors.foreground, fontFamily: F.extra, fontSize: 16, textAlign: "center" }}>
+              حذف البنر
+            </Text>
+            <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 14, textAlign: "center" }}>
+              هل تريد حذف هذه الصورة بشكل نهائي؟
+            </Text>
+            <View style={{ flexDirection: "row-reverse", gap: 10 }}>
+              <TouchableOpacity
+                onPress={async () => {
+                  if (!bannerToDelete) return;
+                  setBannerDeleteLoading(true);
+                  try {
+                    await apiDelete(`/banners/${bannerToDelete.bannerId}`);
+                    await refreshBanners();
+                    setBannerToDelete(null);
+                  } catch {
+                    Alert.alert("خطأ", "تعذّر حذف البنر، حاول مرة أخرى.");
+                  }
+                  setBannerDeleteLoading(false);
+                }}
+                disabled={bannerDeleteLoading}
+                style={{ flex: 1, paddingVertical: 13, borderRadius: 12, alignItems: "center", backgroundColor: "#E57373", opacity: bannerDeleteLoading ? 0.7 : 1 }}
+              >
+                {bannerDeleteLoading
+                  ? <ActivityIndicator color="#fff" />
+                  : <Text style={{ color: "#fff", fontFamily: F.bold, fontSize: 14 }}>نعم، احذف</Text>
+                }
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setBannerToDelete(null)}
+                style={{ paddingVertical: 13, paddingHorizontal: 20, borderRadius: 12, alignItems: "center", backgroundColor: colors.secondary, borderWidth: 1, borderColor: colors.border }}
+              >
+                <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 14 }}>إلغاء</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
     </View>
   );
 }
