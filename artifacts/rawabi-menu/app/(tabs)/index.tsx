@@ -186,6 +186,12 @@ export default function MenuScreen() {
             >
               <Feather name="phone" size={18} color={colors.gold} />
             </TouchableOpacity>
+            <TouchableOpacity
+              onPress={handleLogoTap}
+              style={[styles.phoneBtn, { backgroundColor: "#2A1508" }]}
+            >
+              <Feather name="monitor" size={16} color={colors.gold} />
+            </TouchableOpacity>
           </View>
 
           <View style={styles.titleBlock}>
@@ -197,9 +203,7 @@ export default function MenuScreen() {
             </Text>
           </View>
 
-          <TouchableOpacity onPress={handleLogoTap} activeOpacity={1}>
-            <Image source={logo} style={styles.logo} resizeMode="contain" />
-          </TouchableOpacity>
+          <Image source={logo} style={styles.logo} resizeMode="contain" />
         </Animated.View>
 
         {/* ── CATEGORY TABS ── */}
