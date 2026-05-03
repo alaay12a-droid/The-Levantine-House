@@ -1151,13 +1151,26 @@ export default function CashierScreen() {
                   </Text>
                 </View>
 
-                {nextStatus && nextLabel && (
+                {/* Normal advance button (pending→preparing, preparing→ready) */}
+                {nextStatus && nextLabel && !hasAssignedDriver && (
                   <TouchableOpacity
                     onPress={() => handleUpdateStatus(order, nextStatus)}
                     style={[styles.actionBtn, { backgroundColor: STATUS_COLORS[nextStatus] }]}
                     activeOpacity={0.8}
                   >
                     <Text style={[styles.actionBtnText, { fontFamily: F.bold }]}>{nextLabel}</Text>
+                  </TouchableOpacity>
+                )}
+
+                {/* تسليم للمندوب — فقط لما الطلب جاهز ومعيّن له مندوب */}
+                {hasAssignedDriver && (
+                  <TouchableOpacity
+                    onPress={() => handleUpdateStatus(order, "done")}
+                    style={[styles.actionBtn, { backgroundColor: "#1A3A1A", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, borderWidth: 1.5, borderColor: "#4CAF50" }]}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={{ fontSize: 18 }}>🛵</Text>
+                    <Text style={[styles.actionBtnText, { fontFamily: F.bold, color: "#4CAF50" }]}>تم تسليم الطلب للمندوب</Text>
                   </TouchableOpacity>
                 )}
 
@@ -1176,20 +1189,46 @@ export default function CashierScreen() {
                 {driversEnabled && (!!order.customerAddress || order.notes?.includes("توصيل")) && (
                   <View style={{ gap: 6 }}>
                     {assignments[order.id] ? (
-                      <View style={{ backgroundColor: "#0A1F0A", borderRadius: 10, padding: 10, flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", borderWidth: 1, borderColor: "#2E7D3244" }}>
-                        <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
-                          <Text style={{ fontSize: 16 }}>🛵</Text>
-                          <View>
-                            <Text style={{ color: "#4CAF50", fontFamily: F.bold, fontSize: 13 }}>{assignments[order.id].driverName}</Text>
-                            <Text style={{ color: "#4CAF50AA", fontFamily: F.regular, fontSize: 11 }}>
-                              {assignments[order.id].status === "assigned" ? "بانتظار الاستلام" : assignments[order.id].status === "picked_up" ? "🚗 في الطريق" : "✅ تم التسليم"}
-                            </Text>
+                      assignments[order.id].status === "picked_up" ? (
+                        /* ── بعد التسليم للمندوب: يظهر اسمه بشكل بارز ── */
+                        <View style={{ backgroundColor: "#0A2A0A", borderRadius: 14, padding: 14, borderWidth: 1.5, borderColor: "#4CAF50", gap: 6 }}>
+                          <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 10 }}>
+                            <Text style={{ fontSize: 26 }}>🛵</Text>
+                            <View style={{ flex: 1 }}>
+                              <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 16 }}>
+                                {assignments[order.id].driverName}
+                              </Text>
+                              <Text style={{ color: "#4CAF50BB", fontFamily: F.semi, fontSize: 12 }}>
+                                في قسم المناديب — بانتظار التسليم
+                              </Text>
+                            </View>
+                            <View style={{ backgroundColor: "#4CAF5022", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 }}>
+                              <Text style={{ color: "#4CAF50", fontFamily: F.bold, fontSize: 11 }}>🚗 في الطريق</Text>
+                            </View>
                           </View>
                         </View>
-                        <TouchableOpacity onPress={() => unassignDriver(order.id)} style={{ padding: 6 }}>
-                          <Feather name="x" size={14} color="#9E9E9E" />
-                        </TouchableOpacity>
-                      </View>
+                      ) : assignments[order.id].status === "delivered" ? (
+                        <View style={{ backgroundColor: "#0A1F0A", borderRadius: 10, padding: 10, flexDirection: "row-reverse", alignItems: "center", gap: 8, borderWidth: 1, borderColor: "#2E7D3244" }}>
+                          <Text style={{ fontSize: 16 }}>✅</Text>
+                          <Text style={{ color: "#4CAF50", fontFamily: F.bold, fontSize: 13 }}>
+                            {assignments[order.id].driverName} — تم التسليم
+                          </Text>
+                        </View>
+                      ) : (
+                        /* ── قبل التسليم: assigned ── */
+                        <View style={{ backgroundColor: "#0A1F0A", borderRadius: 10, padding: 10, flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", borderWidth: 1, borderColor: "#2E7D3244" }}>
+                          <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
+                            <Text style={{ fontSize: 16 }}>🛵</Text>
+                            <View>
+                              <Text style={{ color: "#4CAF50", fontFamily: F.bold, fontSize: 13 }}>{assignments[order.id].driverName}</Text>
+                              <Text style={{ color: "#4CAF50AA", fontFamily: F.regular, fontSize: 11 }}>بانتظار الاستلام</Text>
+                            </View>
+                          </View>
+                          <TouchableOpacity onPress={() => unassignDriver(order.id)} style={{ padding: 6 }}>
+                            <Feather name="x" size={14} color="#9E9E9E" />
+                          </TouchableOpacity>
+                        </View>
+                      )
                     ) : (
                       <TouchableOpacity
                         onPress={() => setAssigningOrderId(order.id)}
