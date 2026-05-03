@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, TextInput,
-  ActivityIndicator, StatusBar, Platform, RefreshControl, Image, Alert, Modal,
+  ActivityIndicator, StatusBar, Platform, RefreshControl, Image, Alert, Modal, Vibration,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -121,6 +121,36 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
   const gpsIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const locationSubRef = useRef<Location.LocationSubscription | null>(null);
   const trackedOrderRef = useRef<number | null>(null);
+  const soundEnabled = useRef(false);
+  const knownAssignmentIds = useRef<Set<number>>(new Set());
+
+  const playNotificationSound = useCallback(() => {
+    try {
+      if (Platform.OS !== "web") {
+        Vibration.vibrate([0, 250, 100, 250]);
+        return;
+      }
+      if (typeof window === "undefined") return;
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const notes = [880, 1108, 1320];
+      notes.forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type = "sine";
+        osc.frequency.value = freq;
+        const start = ctx.currentTime + i * 0.18;
+        gain.gain.setValueAtTime(0, start);
+        gain.gain.linearRampToValueAtTime(0.35, start + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, start + 0.28);
+        osc.start(start);
+        osc.stop(start + 0.3);
+      });
+    } catch { /* silent */ }
+  }, []);
 
   const sendLocation = useCallback(async (orderId: number, lat: number, lng: number) => {
     try { await apiPut(`/orders/${orderId}/driver-location`, { lat, lng }); } catch {}
@@ -190,16 +220,34 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
     if (!silent) setLoading(true);
     try {
       const data = await apiGet<Row[]>(`/drivers/${driver.id}/orders`);
+
+      if (silent && soundEnabled.current) {
+        const newOnes = data.filter((r) => !knownAssignmentIds.current.has(r.assignment.orderId));
+        if (newOnes.length > 0) {
+          playNotificationSound();
+          if (Platform.OS === "web" && typeof document !== "undefined") {
+            const prev = document.title;
+            document.title = `🔔 طلب جديد! | المندوب`;
+            setTimeout(() => { document.title = prev; }, 5000);
+          }
+        }
+      }
+
+      data.forEach((r) => knownAssignmentIds.current.add(r.assignment.orderId));
       setRows(data);
     } catch {}
     setLoading(false);
     setRefreshing(false);
-  }, [driver.id]);
+  }, [driver.id, playNotificationSound]);
 
   useEffect(() => {
     loadOrders();
+    const initTimer = setTimeout(() => { soundEnabled.current = true; }, 2000);
     pollRef.current = setInterval(() => loadOrders(true), 15000);
-    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+    return () => {
+      clearInterval(pollRef.current!);
+      clearTimeout(initTimer);
+    };
   }, [loadOrders]);
 
   const updateStatus = async (orderId: number, status: "picked_up" | "delivered") => {
