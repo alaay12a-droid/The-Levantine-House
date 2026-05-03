@@ -11,9 +11,12 @@ import {
   Alert,
   ActivityIndicator,
   Animated,
+  Easing,
   Modal,
   TextInput,
   KeyboardAvoidingView,
+  Linking,
+  Image,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -137,6 +140,24 @@ export default function OrdersScreen() {
   const screenActive = useRef(false);
   const bannerAnim   = useRef(new Animated.Value(0)).current;
   const bannerTimer  = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ── Active driver delivery tracking ──────────────────────────────────────
+  const [activeDriver, setActiveDriver] = useState<{
+    orderId: number; dailyNumber: number; driverName: string; driverPhone: string; driverPhoto: string | null;
+  } | null>(null);
+  const driverPulseAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (!activeDriver) return;
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(driverPulseAnim, { toValue: 1.03, duration: 750, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
+        Animated.timing(driverPulseAnim, { toValue: 1,    duration: 750, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [activeDriver, driverPulseAnim]);
 
   const showCancelBanner = useCallback((orderNum: number, name: string) => {
     if (bannerTimer.current) clearTimeout(bannerTimer.current);
@@ -350,6 +371,31 @@ export default function OrdersScreen() {
   const totalUnreadFromCashier = Object.values(unreadByOrder).reduce((s, n) => s + n, 0);
   useChatUnreadAlert(totalUnreadFromCashier);
 
+  // ── check if any recent order has a driver picked_up ─────────────────────
+  const checkActiveDriver = useCallback(async () => {
+    const stored = ordersRef.current;
+    if (stored.length === 0) return;
+    const recent = stored.slice(0, 5);
+    for (const ord of recent) {
+      try {
+        const row = await apiGet<{ assignment: { status: string }; driver: { name: string; phone: string; photoUrl: string | null } } | null>(
+          `/orders/${ord.id}/assignment`
+        );
+        if (row && row.assignment.status === "picked_up") {
+          setActiveDriver({
+            orderId: ord.id,
+            dailyNumber: ord.dailyNumber,
+            driverName: row.driver.name,
+            driverPhone: row.driver.phone,
+            driverPhoto: row.driver.photoUrl,
+          });
+          return;
+        }
+      } catch { /* skip */ }
+    }
+    setActiveDriver(null);
+  }, []);
+
   // ── screen focus / blur lifecycle ────────────────────────────────────────
   useFocusEffect(
     useCallback(() => {
@@ -359,7 +405,10 @@ export default function OrdersScreen() {
       loadCachedStatus().then(() => {
         // 2. then fetch fresh from server + start polling
         loadOrders().then(() => {
-          if (screenActive.current) startPolling();
+          if (screenActive.current) {
+            startPolling();
+            checkActiveDriver();
+          }
         });
       });
 
@@ -370,7 +419,7 @@ export default function OrdersScreen() {
         screenActive.current = false;
         stopPolling();
       };
-    }, [loadCachedStatus, loadOrders, startPolling, stopPolling, checkUnread])
+    }, [loadCachedStatus, loadOrders, startPolling, stopPolling, checkUnread, checkActiveDriver])
   );
 
   // cleanup on unmount
@@ -539,7 +588,17 @@ export default function OrdersScreen() {
                       </Text>
                     )}
                   </View>
-                  <View style={{ width: 36 }} />
+                  {/* Call driver button — shown when this order has a picked_up driver */}
+                  {activeDriver && activeDriver.orderId === chatOrderId ? (
+                    <TouchableOpacity
+                      onPress={() => Linking.openURL(`tel:${activeDriver.driverPhone}`)}
+                      style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: "#1A3A20", borderWidth: 1.5, borderColor: "#4CAF50", alignItems: "center", justifyContent: "center" }}
+                    >
+                      <Feather name="phone" size={17} color="#4CAF50" />
+                    </TouchableOpacity>
+                  ) : (
+                    <View style={{ width: 36 }} />
+                  )}
                 </View>
 
                 {/* Messages list */}
@@ -601,6 +660,57 @@ export default function OrdersScreen() {
           </Modal>
         );
       })()}
+
+      {/* ── Active Driver Tracking Banner ── */}
+      {activeDriver && (
+        <Animated.View style={{ transform: [{ scale: driverPulseAnim }], marginHorizontal: 14, marginTop: 10, marginBottom: 2 }}>
+          <TouchableOpacity
+            activeOpacity={0.88}
+            onPress={() => router.push(`/order-confirmed?orderId=${activeDriver.orderId}`)}
+            style={{
+              backgroundColor: "#0A1F2A",
+              borderRadius: 16,
+              borderWidth: 1.5,
+              borderColor: "#29B6F6",
+              padding: 14,
+              flexDirection: "row-reverse",
+              alignItems: "center",
+              gap: 12,
+              shadowColor: "#29B6F6",
+              shadowOpacity: 0.3,
+              shadowRadius: 12,
+              elevation: 8,
+            }}
+          >
+            {activeDriver.driverPhoto ? (
+              <Image source={{ uri: activeDriver.driverPhoto }} style={{ width: 48, height: 48, borderRadius: 24, borderWidth: 2, borderColor: "#29B6F6" }} />
+            ) : (
+              <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: "#29B6F622", borderWidth: 2, borderColor: "#29B6F6", alignItems: "center", justifyContent: "center" }}>
+                <Text style={{ fontSize: 22 }}>🛵</Text>
+              </View>
+            )}
+            <View style={{ flex: 1, gap: 3 }}>
+              <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6 }}>
+                <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: "#29B6F6" }} />
+                <Text style={{ color: "#29B6F6", fontFamily: F.extra, fontSize: 13 }}>
+                  {isEn ? "Driver on the way!" : "المندوب في الطريق إليك!"}
+                </Text>
+              </View>
+              <Text style={{ color: "#fff", fontFamily: F.bold, fontSize: 14 }}>{activeDriver.driverName}</Text>
+              <Text style={{ color: "#7ECFF8", fontFamily: F.regular, fontSize: 11 }}>
+                {isEn ? `Order #${activeDriver.dailyNumber} • Tap to track` : `طلب #${activeDriver.dailyNumber} • اضغط للتتبع`}
+              </Text>
+            </View>
+            {/* Call button */}
+            <TouchableOpacity
+              onPress={(e) => { e.stopPropagation(); Linking.openURL(`tel:${activeDriver.driverPhone}`); }}
+              style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: "#29B6F6", alignItems: "center", justifyContent: "center" }}
+            >
+              <Feather name="phone" size={20} color="#032B3D" />
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </Animated.View>
+      )}
 
       {orders.length === 0 ? (
         <View style={styles.emptyWrap}>
