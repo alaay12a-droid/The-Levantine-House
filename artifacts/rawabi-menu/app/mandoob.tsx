@@ -12,7 +12,8 @@ import * as Location from "expo-location";
 import { Audio } from "expo-av";
 import * as Notifications from "expo-notifications";
 
-const NOTIFICATION_SOUND = require("../assets/sounds/new_order.mp3");
+const ORDER_SOUND   = require("../assets/sounds/notification.wav");
+const MESSAGE_SOUND = require("../assets/sounds/new_order.mp3");
 
 const F = { regular: "Cairo_400Regular", semi: "Cairo_600SemiBold", bold: "Cairo_700Bold", extra: "Cairo_800ExtraBold" };
 
@@ -115,13 +116,30 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
   const [chatLoading, setChatLoading]     = useState(false);
   const chatScrollRef                      = useRef<ScrollView>(null);
   const msgsPollRef                        = useRef<ReturnType<typeof setInterval> | null>(null);
+  const knownConvoUnreads                  = useRef<Map<number, number>>(new Map());
+  const msgSoundEnabled                    = useRef(false);
 
-  const loadDriverConvos = useCallback(async () => {
+  const loadDriverConvos = useCallback(async (silent = false) => {
     try {
       const data = await apiGet<DriverConvo[]>(`/messages/driver/${driver.id}/conversations`);
+      if (silent && msgSoundEnabled.current) {
+        for (const c of data) {
+          const prev = knownConvoUnreads.current.get(c.orderId) ?? 0;
+          if (c.unread > prev) {
+            playMessageSound();
+            if (Platform.OS === "web" && typeof document !== "undefined") {
+              const prevTitle = document.title;
+              document.title = `💬 رسالة جديدة! | المندوب`;
+              setTimeout(() => { document.title = prevTitle; }, 5000);
+            }
+            break;
+          }
+        }
+      }
+      data.forEach(c => knownConvoUnreads.current.set(c.orderId, c.unread));
       setDriverConvos(data);
     } catch {}
-  }, [driver.id]);
+  }, [driver.id, playMessageSound]);
 
   const openDriverChat = useCallback(async (orderId: number) => {
     setChatOrderId(orderId);
@@ -149,9 +167,13 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
 
   // Poll conversations every 15s, and active chat every 5s
   useEffect(() => {
-    loadDriverConvos();
-    msgsPollRef.current = setInterval(loadDriverConvos, 15000);
-    return () => { if (msgsPollRef.current) clearInterval(msgsPollRef.current); };
+    loadDriverConvos(false);
+    const initTimer = setTimeout(() => { msgSoundEnabled.current = true; }, 2000);
+    msgsPollRef.current = setInterval(() => loadDriverConvos(true), 15000);
+    return () => {
+      if (msgsPollRef.current) clearInterval(msgsPollRef.current);
+      clearTimeout(initTimer);
+    };
   }, [loadDriverConvos]);
 
   useEffect(() => {
@@ -192,31 +214,63 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
   const soundEnabled = useRef(false);
   const knownAssignmentIds = useRef<Set<number>>(new Set());
 
-  const playNotificationSound = useCallback(async () => {
+  const playOrderSound = useCallback(async () => {
     try {
-      // ── Native: vibrate + play notification.wav via expo-av ──────────────
       if (Platform.OS !== "web") {
         Vibration.vibrate([0, 300, 150, 300]);
         try {
           await Audio.setAudioModeAsync({ playsInSilentModeIOS: true, staysActiveInBackground: true });
-          const { sound } = await Audio.Sound.createAsync(NOTIFICATION_SOUND, { shouldPlay: true, volume: 1.0 });
-          sound.setOnPlaybackStatusUpdate((status) => {
-            if (status.isLoaded && status.didJustFinish) sound.unloadAsync().catch(() => {});
+          const { sound } = await Audio.Sound.createAsync(ORDER_SOUND, { shouldPlay: true, volume: 1.0 });
+          sound.setOnPlaybackStatusUpdate((s) => {
+            if (s.isLoaded && s.didJustFinish) sound.unloadAsync().catch(() => {});
           });
         } catch { /* silent fallback */ }
         return;
       }
+      try {
+        const audio = new (window as any).Audio();
+        audio.src = "/assets/sounds/notification.wav";
+        audio.volume = 1.0;
+        await audio.play();
+        return;
+      } catch {}
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      [660, 880].forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.type = "sine"; osc.frequency.value = freq;
+        const start = ctx.currentTime + i * 0.2;
+        gain.gain.setValueAtTime(0, start);
+        gain.gain.linearRampToValueAtTime(0.35, start + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, start + 0.3);
+        osc.start(start); osc.stop(start + 0.35);
+      });
+    } catch { /* silent */ }
+  }, []);
 
-      // ── Web: play MP3 via Audio element ──────────────────────────────────
+  const playMessageSound = useCallback(async () => {
+    try {
+      if (Platform.OS !== "web") {
+        Vibration.vibrate([0, 200, 100, 200]);
+        try {
+          await Audio.setAudioModeAsync({ playsInSilentModeIOS: true, staysActiveInBackground: true });
+          const { sound } = await Audio.Sound.createAsync(MESSAGE_SOUND, { shouldPlay: true, volume: 1.0 });
+          sound.setOnPlaybackStatusUpdate((s) => {
+            if (s.isLoaded && s.didJustFinish) sound.unloadAsync().catch(() => {});
+          });
+        } catch { /* silent fallback */ }
+        return;
+      }
       try {
         const audio = new (window as any).Audio();
         audio.src = "/assets/sounds/new_order.mp3";
         audio.volume = 1.0;
         await audio.play();
         return;
-      } catch {
-        // fallback to synthesised chime if autoplay blocked
-      }
+      } catch {}
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
       if (!AudioCtx) return;
       const ctx = new AudioCtx();
@@ -246,7 +300,7 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
         content: {
           title: "🛵 طلب جديد!",
           body: `طلب #${orderNum}${customerName ? ` — ${customerName}` : ""}`,
-          sound: Platform.OS === "android" ? "new_order" : "new_order.mp3",
+          sound: Platform.OS === "android" ? "notification" : "notification.wav",
           priority: Notifications.AndroidNotificationPriority.MAX,
           vibrate: [0, 300, 150, 300],
         },
@@ -328,7 +382,7 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
         const newOnes = data.filter((r) => !knownAssignmentIds.current.has(r.assignment.orderId));
         if (newOnes.length > 0) {
           // Play sound in-app
-          playNotificationSound();
+          playOrderSound();
           // Fire system notification (audible even outside the app)
           for (const r of newOnes) {
             const orderNum = r.order?.dailyNumber ?? r.assignment.orderId;
@@ -349,7 +403,7 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
     } catch {}
     setLoading(false);
     setRefreshing(false);
-  }, [driver.id, playNotificationSound, fireOrderNotification]);
+  }, [driver.id, playOrderSound, fireOrderNotification]);
 
   useEffect(() => {
     loadOrders();
