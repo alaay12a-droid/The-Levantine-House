@@ -34,17 +34,17 @@ router.post("/orders", async (req, res) => {
   }
   const data = parsed.data;
 
-  // ── Rate-limit: reject if same phone placed an order within the last 2 minutes ──
-  const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
+  // ── Rate-limit: reject if same phone placed an order within the last 10 seconds ──
+  const tenSecondsAgo = new Date(Date.now() - 10 * 1000);
   const [recentOrder] = await db
     .select({ id: ordersTable.id, createdAt: ordersTable.createdAt })
     .from(ordersTable)
-    .where(and(eq(ordersTable.customerPhone, data.customerPhone), gte(ordersTable.createdAt, twoMinutesAgo)))
+    .where(and(eq(ordersTable.customerPhone, data.customerPhone), gte(ordersTable.createdAt, tenSecondsAgo)))
     .limit(1);
   if (recentOrder) {
-    const secondsLeft = Math.ceil((recentOrder.createdAt.getTime() + 2 * 60 * 1000 - Date.now()) / 1000);
+    const secondsLeft = Math.ceil((recentOrder.createdAt.getTime() + 10 * 1000 - Date.now()) / 1000);
     res.status(429).json({
-      error: `لديك طلب بانتظار المعالجة — انتظر ${secondsLeft} ثانية قبل إرسال طلب جديد`,
+      error: `طلبك السابق قيد الانتظار — انتظر ${secondsLeft} ثانية`,
       retryAfter: secondsLeft,
     });
     return;

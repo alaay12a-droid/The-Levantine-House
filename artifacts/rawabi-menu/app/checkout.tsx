@@ -40,7 +40,7 @@ const F = {
 };
 
 const LAST_ORDER_TS_KEY = "@last_order_submitted_at";
-const ORDER_COOLDOWN_MS = 2 * 60 * 1000; // 2 minutes
+const ORDER_COOLDOWN_MS = 10 * 1000; // 10 seconds
 
 type PaymentMethod = "cash" | "moyasar" | "wallet";
 
@@ -901,12 +901,12 @@ export default function CheckoutScreen() {
       {/* ── Bottom submit bar ── */}
       <View style={[styles.bottomBar, { backgroundColor: colors.card, borderTopColor: colors.border, paddingBottom: bottomInset + 16 }]}>
         {cooldownSeconds > 0 ? (
-          <View style={[styles.submitBtn, { backgroundColor: "#3A2A00", alignItems: "center", justifyContent: "center" }]}>
-            <Text style={{ color: "#E8920C", fontFamily: F.extra, fontSize: 15, textAlign: "center" }}>
-              ⏳ {isEn ? `Wait ${cooldownSeconds}s before next order` : `انتظر ${cooldownSeconds} ثانية قبل الطلب التالي`}
+          <View style={[styles.submitBtn, { backgroundColor: "#1A2A1A", alignItems: "center", justifyContent: "center", gap: 4 }]}>
+            <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 15, textAlign: "center" }}>
+              ✅ {isEn ? "Your order is pending!" : "طلبك السابق قيد الانتظار"}
             </Text>
-            <Text style={{ color: "#9A7A30", fontFamily: F.regular, fontSize: 11, textAlign: "center", marginTop: 2 }}>
-              {isEn ? "Preventing duplicate orders" : "حماية من تكرار الطلب"}
+            <Text style={{ color: "#7A9A7A", fontFamily: F.regular, fontSize: 12, textAlign: "center" }}>
+              {isEn ? `You can reorder in ${cooldownSeconds}s` : `يمكنك الطلب مجدداً خلال ${cooldownSeconds} ث`}
             </Text>
           </View>
         ) : (
