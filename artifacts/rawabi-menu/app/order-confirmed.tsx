@@ -333,8 +333,9 @@ function StatusDelivered({
 
 /* ─── Driver card ─────────────────────────────────────────── */
 
-function DriverCard({ row, colors, isEn }: { row: AssignmentRow; colors: ReturnType<typeof useColors>; isEn: boolean }) {
+function DriverCard({ row, colors, isEn, orderId }: { row: AssignmentRow; colors: ReturnType<typeof useColors>; isEn: boolean; orderId: string }) {
   const { driver, assignment } = row;
+  const router = useRouter();
   const driverStatusLabel: Record<DriverStatus, string> = {
     assigned:  isEn ? "Picking up your order" : "يستلم طلبك الآن",
     picked_up: isEn ? "On the way 🚗"         : "في الطريق إليك 🚗",
@@ -358,13 +359,7 @@ function DriverCard({ row, colors, isEn }: { row: AssignmentRow; colors: ReturnT
   };
 
   const trackDriver = () => {
-    if (!assignment.driverLat || !assignment.driverLng) return;
-    const url = `https://www.google.com/maps?q=${assignment.driverLat},${assignment.driverLng}`;
-    if (Platform.OS === "web") {
-      if (typeof window !== "undefined") window.open(url, "_blank");
-    } else {
-      Linking.openURL(url);
-    }
+    router.push(`/driver-map?orderId=${orderId}`);
   };
 
   return (
@@ -615,7 +610,7 @@ export default function OrderConfirmedScreen() {
       {/* Driver card — hide when delivered (rating card takes over) */}
       {assignment && isDelivery && panel !== "delivered" && (
         <View style={{ paddingHorizontal: 20, marginBottom: 4 }}>
-          <DriverCard row={assignment} colors={colors} isEn={isEn} />
+          <DriverCard row={assignment} colors={colors} isEn={isEn} orderId={orderId ?? ""} />
         </View>
       )}
 
