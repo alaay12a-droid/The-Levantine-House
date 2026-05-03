@@ -76,7 +76,7 @@ router.get("/branch-status", async (_req, res) => {
 
   const today = hours.days[dayIdx];
   if (!today || !today.enabled) {
-    return res.json({ isOpen: false, message: "الفرع مغلق اليوم" });
+    return res.json({ isOpen: false, message: "خارج أوقات العمل — لا يمكن الطلب الآن" });
   }
 
   const openMin  = toMinutes(today.open);
@@ -104,7 +104,7 @@ router.get("/branch-status", async (_req, res) => {
     }
   }
 
-  return res.json({ isOpen: false, message: `الفرع مغلق حالياً — ${nextMsg}` });
+  return res.json({ isOpen: false, message: `خارج أوقات العمل — ${nextMsg}` });
 });
 
 export { router as hoursRouter };

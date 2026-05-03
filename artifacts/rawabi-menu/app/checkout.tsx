@@ -270,7 +270,10 @@ export default function CheckoutScreen() {
     try {
       const branchStatus = await apiGet<{ isOpen: boolean; message: string | null }>("/branch-status");
       if (!branchStatus.isOpen) {
-        Alert.alert(isEn ? "Branch Closed 🔒" : "الفرع مغلق 🔒", branchStatus.message ?? (isEn ? "The branch is currently closed. Please try again later." : "الفرع مغلق حالياً، يرجى المحاولة لاحقاً"));
+        Alert.alert(
+          isEn ? "Outside Working Hours" : "خارج أوقات العمل",
+          branchStatus.message ?? (isEn ? "Ordering is not available now. Please try again during working hours." : "خارج أوقات العمل — لا يمكن الطلب الآن")
+        );
         return;
       }
     } catch {}
