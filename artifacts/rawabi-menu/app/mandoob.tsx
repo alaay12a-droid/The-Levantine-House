@@ -102,7 +102,7 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
   const [locationError, setLocationError] = useState(false);
   const [pendingDelivery, setPendingDelivery] = useState<{ orderId: number; total: number; customerName: string } | null>(null);
   const [cashConfirmed, setCashConfirmed] = useState(false);
-  const [activeView, setActiveView] = useState<"orders" | "statement">("orders");
+  const [activeView, setActiveView] = useState<"waiting" | "delivered" | "statement">("waiting");
 
   interface StmtOrder { orderId: number; dailyNumber: number | null; customerName: string; totalPrice: number; deliveredAt: string; }
   interface StmtPeriod { ordersCount: number; totalCollected: number; }
@@ -297,11 +297,11 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
     setUpdating(null);
   };
 
-  const activeRows = rows.filter((r) => r.assignment.status !== "delivered");
-  const doneRows = rows.filter((r) => r.assignment.status === "delivered");
+  const waitingRows  = rows.filter((r) => r.assignment.status === "assigned" || r.assignment.status === "picked_up");
+  const deliveredRows = rows.filter((r) => r.assignment.status === "delivered");
 
-  const statusLabel: Record<string, string> = { assigned: "بانتظار الاستلام", picked_up: "في الطريق 🚗", delivered: "تم التسليم ✅" };
-  const statusColor: Record<string, string> = { assigned: "#FB8C00", picked_up: "#43A047", delivered: "#757575" };
+  const statusLabel: Record<string, string> = { assigned: "بانتظار الاستلام من المطعم", picked_up: "🚗 في الطريق — انتظار التسليم", delivered: "تم التسليم ✅" };
+  const statusColor: Record<string, string> = { assigned: "#FB8C00", picked_up: "#29B6F6", delivered: "#757575" };
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background, paddingTop: Platform.OS === "web" ? 60 : insets.top }}>
@@ -340,21 +340,27 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
         {/* Tab bar */}
         <View style={{ flexDirection: "row-reverse", borderTopWidth: 1, borderTopColor: colors.border }}>
           {([
-            { key: "orders",    label: "طلباتي",     icon: "list" },
-            { key: "statement", label: "كشف الحساب", icon: "dollar-sign" },
+            { key: "waiting",   label: "انتظار التسليم", icon: "clock",        badge: waitingRows.length   },
+            { key: "delivered", label: "تم التسليم",     icon: "check-circle", badge: deliveredRows.length },
+            { key: "statement", label: "كشف الحساب",     icon: "dollar-sign",  badge: 0                   },
           ] as const).map(tab => {
             const active = activeView === tab.key;
+            const accentColor = tab.key === "delivered" ? "#4CAF50" : "#E8920C";
             return (
               <TouchableOpacity
                 key={tab.key}
-                onPress={() => {
-                  setActiveView(tab.key);
-                  if (tab.key === "statement") loadSummary();
-                }}
-                style={{ flex: 1, flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 10, borderBottomWidth: 2, borderBottomColor: active ? "#E8920C" : "transparent" }}
+                onPress={() => { setActiveView(tab.key); if (tab.key === "statement") loadSummary(); }}
+                style={{ flex: 1, alignItems: "center", paddingVertical: 10, borderBottomWidth: 2, borderBottomColor: active ? accentColor : "transparent", gap: 3 }}
               >
-                <Feather name={tab.icon} size={14} color={active ? "#E8920C" : colors.mutedForeground} />
-                <Text style={{ color: active ? "#E8920C" : colors.mutedForeground, fontFamily: active ? F.bold : F.regular, fontSize: 13 }}>{tab.label}</Text>
+                <View style={{ position: "relative" }}>
+                  <Feather name={tab.icon} size={18} color={active ? accentColor : colors.mutedForeground} />
+                  {tab.badge > 0 && (
+                    <View style={{ position: "absolute", top: -5, right: -8, backgroundColor: active ? accentColor : "#555", borderRadius: 8, minWidth: 16, height: 16, alignItems: "center", justifyContent: "center", paddingHorizontal: 3 }}>
+                      <Text style={{ color: "#fff", fontSize: 9, fontFamily: F.bold }}>{tab.badge}</Text>
+                    </View>
+                  )}
+                </View>
+                <Text style={{ color: active ? accentColor : colors.mutedForeground, fontFamily: active ? F.bold : F.regular, fontSize: 10 }}>{tab.label}</Text>
               </TouchableOpacity>
             );
           })}
@@ -663,123 +669,209 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
         </ScrollView>
       )}
 
-      {/* ── Orders view ── */}
-      {activeView === "orders" && (
-      <ScrollView
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadOrders(); }} tintColor={colors.gold} />}
-        contentContainerStyle={{ padding: 14, gap: 14, paddingBottom: 60 }}
-      >
-        {loading && <ActivityIndicator color="#E8920C" style={{ marginTop: 40 }} />}
+      {/* ══════════════════════════════════════════
+           تاب: انتظار التسليم
+          ══════════════════════════════════════════ */}
+      {activeView === "waiting" && (
+        <ScrollView
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadOrders(); }} tintColor={colors.gold} />}
+          contentContainerStyle={{ padding: 14, gap: 14, paddingBottom: 60 }}
+        >
+          {loading && <ActivityIndicator color="#E8920C" style={{ marginTop: 40 }} />}
 
-        {!loading && activeRows.length === 0 && doneRows.length === 0 && (
-          <View style={{ alignItems: "center", paddingTop: 60, gap: 12 }}>
-            <Text style={{ fontSize: 52 }}>🛵</Text>
-            <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 15, textAlign: "center" }}>لا يوجد طلبات مسندة إليك الآن</Text>
-            <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 13 }}>اسحب للتحديث</Text>
-          </View>
-        )}
-
-        {activeRows.length > 0 && (
-          <Text style={{ color: "#E8920C", fontFamily: F.extra, fontSize: 15, textAlign: "right" }}>🔔 الطلبات النشطة ({activeRows.length})</Text>
-        )}
-
-        {activeRows.map(({ assignment, order }) => order && (
-          <View key={assignment.orderId} style={{ backgroundColor: colors.card, borderRadius: 18, overflow: "hidden", borderWidth: 1, borderColor: colors.border }}>
-            {/* Status bar */}
-            <View style={{ backgroundColor: statusColor[assignment.status] + "22", paddingHorizontal: 16, paddingVertical: 8, flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", borderBottomWidth: 1, borderBottomColor: statusColor[assignment.status] + "44" }}>
-              <Text style={{ color: statusColor[assignment.status], fontFamily: F.extra, fontSize: 13 }}>{statusLabel[assignment.status]}</Text>
-              <Text style={{ color: colors.gold, fontFamily: F.extra, fontSize: 14 }}>طلب #{order.dailyNumber}</Text>
+          {!loading && waitingRows.length === 0 && (
+            <View style={{ alignItems: "center", paddingTop: 80, gap: 14 }}>
+              <Text style={{ fontSize: 60 }}>🛵</Text>
+              <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 15, textAlign: "center" }}>
+                لا يوجد طلبات في الانتظار
+              </Text>
+              <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12 }}>اسحب للتحديث</Text>
             </View>
+          )}
 
-            <View style={{ padding: 16, gap: 10 }}>
-              {/* Customer */}
-              <View style={{ gap: 6 }}>
-                <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
-                  <Feather name="user" size={14} color={colors.mutedForeground} />
-                  <Text style={{ color: colors.foreground, fontFamily: F.bold, fontSize: 14 }}>{order.customerName}</Text>
-                </View>
-                <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
-                  <Feather name="phone" size={14} color={colors.mutedForeground} />
-                  <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 13 }}>{order.customerPhone}</Text>
-                </View>
-                {order.customerAddress && (
-                  <TouchableOpacity
-                    onPress={() => { const q = encodeURIComponent(order.customerAddress!); if (Platform.OS === "web") window.open(`https://maps.google.com/?q=${q}`); else import("react-native").then(({ Linking }) => Linking.openURL(`https://maps.google.com/?q=${q}`)); }}
-                    style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}
-                  >
-                    <Feather name="map-pin" size={14} color="#4CAF50" />
-                    <Text style={{ color: "#4CAF50", fontFamily: F.semi, fontSize: 13, flex: 1, textAlign: "right" }} numberOfLines={2}>{order.customerAddress}</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
+          {waitingRows.map(({ assignment, order }) => order && (
+            <View key={assignment.orderId} style={{ backgroundColor: colors.card, borderRadius: 18, overflow: "hidden", borderWidth: 1.5, borderColor: statusColor[assignment.status] + "66" }}>
 
-              {/* Items */}
-              <View style={{ backgroundColor: colors.secondary, borderRadius: 10, padding: 10, gap: 4 }}>
-                {order.items.map((item, i) => (
-                  <View key={i} style={{ flexDirection: "row-reverse", justifyContent: "space-between" }}>
-                    <Text style={{ color: colors.foreground, fontFamily: F.semi, fontSize: 13 }}>×{item.quantity} {item.name}</Text>
-                    <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12 }}>{item.price * item.quantity} ر.س</Text>
+              {/* شريط الحالة */}
+              <View style={{ backgroundColor: statusColor[assignment.status] + "22", paddingHorizontal: 16, paddingVertical: 10, flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", borderBottomWidth: 1, borderBottomColor: statusColor[assignment.status] + "44" }}>
+                <Text style={{ color: statusColor[assignment.status], fontFamily: F.extra, fontSize: 13 }}>{statusLabel[assignment.status]}</Text>
+                <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
+                  <Text style={{ color: colors.gold, fontFamily: F.extra, fontSize: 14 }}>طلب #{order.dailyNumber}</Text>
+                  <View style={{ backgroundColor: colors.gold + "22", borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 }}>
+                    <Text style={{ color: colors.gold, fontFamily: F.bold, fontSize: 11 }}>
+                      {new Date(order.createdAt).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" })}
+                    </Text>
                   </View>
-                ))}
-                <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", marginTop: 4, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 6 }}>
-                  <Text style={{ color: colors.gold, fontFamily: F.extra, fontSize: 14 }}>الإجمالي</Text>
-                  <Text style={{ color: colors.gold, fontFamily: F.extra, fontSize: 14 }}>{(order.totalPrice / 100).toFixed(2)} ر.س</Text>
                 </View>
               </View>
 
-              {order.notes && (
-                <View style={{ flexDirection: "row-reverse", gap: 8, backgroundColor: "#2A1508", borderRadius: 8, padding: 10 }}>
-                  <Text style={{ color: "#E8920C", fontFamily: F.regular, fontSize: 12, flex: 1, textAlign: "right" }}>📝 {order.notes}</Text>
-                </View>
-              )}
+              <View style={{ padding: 16, gap: 12 }}>
 
-              {/* Action buttons */}
-              <View style={{ gap: 8, marginTop: 4 }}>
-                {assignment.status === "assigned" && (
-                  <TouchableOpacity
-                    onPress={() => updateStatus(assignment.orderId, "picked_up")}
-                    disabled={updating === assignment.orderId}
-                    style={{ backgroundColor: "#FB8C00", borderRadius: 12, paddingVertical: 13, alignItems: "center" }}
-                  >
-                    {updating === assignment.orderId ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontFamily: F.extra, fontSize: 15 }}>🛵 استلمت الطلب — في الطريق</Text>}
-                  </TouchableOpacity>
+                {/* بيانات العميل */}
+                <View style={{ gap: 8 }}>
+                  <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
+                    <Feather name="user" size={14} color={colors.mutedForeground} />
+                    <Text style={{ color: colors.foreground, fontFamily: F.bold, fontSize: 15 }}>{order.customerName}</Text>
+                  </View>
+                  <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
+                    <Feather name="phone" size={14} color={colors.mutedForeground} />
+                    <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 13 }}>{order.customerPhone}</Text>
+                  </View>
+                  {order.customerAddress && (
+                    <TouchableOpacity
+                      onPress={() => { const q = encodeURIComponent(order.customerAddress!); if (Platform.OS === "web") window.open(`https://maps.google.com/?q=${q}`); else import("react-native").then(({ Linking }) => Linking.openURL(`https://maps.google.com/?q=${q}`)); }}
+                      style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8, backgroundColor: "#0A2A0A", borderRadius: 10, padding: 10 }}
+                    >
+                      <Feather name="map-pin" size={14} color="#4CAF50" />
+                      <Text style={{ color: "#4CAF50", fontFamily: F.semi, fontSize: 13, flex: 1, textAlign: "right" }} numberOfLines={2}>
+                        {order.customerAddress.startsWith("https://") ? "📍 افتح الموقع على الخريطة" : order.customerAddress}
+                      </Text>
+                      {order.customerAddress.startsWith("https://") && <Feather name="external-link" size={13} color="#4CAF50" />}
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                {/* المشتريات */}
+                <View style={{ backgroundColor: colors.secondary, borderRadius: 10, padding: 10, gap: 4 }}>
+                  {order.items.map((item, i) => (
+                    <View key={i} style={{ flexDirection: "row-reverse", justifyContent: "space-between" }}>
+                      <Text style={{ color: colors.foreground, fontFamily: F.semi, fontSize: 13 }}>×{item.quantity} {item.name}</Text>
+                      <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12 }}>{item.price * item.quantity} ر.س</Text>
+                    </View>
+                  ))}
+                  <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", marginTop: 4, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 6 }}>
+                    <Text style={{ color: colors.gold, fontFamily: F.extra, fontSize: 14 }}>الإجمالي</Text>
+                    <Text style={{ color: colors.gold, fontFamily: F.extra, fontSize: 14 }}>{(order.totalPrice / 100).toFixed(2)} ر.س</Text>
+                  </View>
+                </View>
+
+                {order.notes && (
+                  <View style={{ flexDirection: "row-reverse", gap: 8, backgroundColor: "#2A1508", borderRadius: 8, padding: 10 }}>
+                    <Text style={{ color: "#E8920C", fontFamily: F.regular, fontSize: 12, flex: 1, textAlign: "right" }}>📝 {order.notes}</Text>
+                  </View>
                 )}
-                {assignment.status === "picked_up" && (
+
+                {/* أزرار الإجراء */}
+                <View style={{ gap: 8, marginTop: 4 }}>
+                  {/* بانتظار الاستلام من المطعم */}
+                  {assignment.status === "assigned" && (
+                    <View style={{ backgroundColor: "#1A1208", borderRadius: 12, padding: 14, borderWidth: 1, borderColor: "#FB8C0044", alignItems: "center", gap: 4 }}>
+                      <Text style={{ fontSize: 26 }}>🏠</Text>
+                      <Text style={{ color: "#FB8C00", fontFamily: F.bold, fontSize: 14 }}>بانتظار استلامه من المطعم</Text>
+                      <Text style={{ color: "#FB8C0099", fontFamily: F.regular, fontSize: 11 }}>سيتم إشعارك عند جاهزية التسليم</Text>
+                    </View>
+                  )}
+
+                  {/* زر تسليم للعميل — فقط للـ picked_up */}
+                  {assignment.status === "picked_up" && (
+                    <TouchableOpacity
+                      onPress={() => { setCashConfirmed(false); setPendingDelivery({ orderId: assignment.orderId, total: order.totalPrice / 100, customerName: order.customerName }); }}
+                      disabled={updating === assignment.orderId}
+                      style={{ backgroundColor: "#1A3A1A", borderRadius: 12, paddingVertical: 14, alignItems: "center", borderWidth: 1.5, borderColor: "#43A047" }}
+                    >
+                      {updating === assignment.orderId
+                        ? <ActivityIndicator color="#4CAF50" />
+                        : <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 15 }}>✅ تم التسليم للعميل</Text>}
+                    </TouchableOpacity>
+                  )}
+
+                  {/* اتصال بالعميل */}
                   <TouchableOpacity
-                    onPress={() => {
-                      setCashConfirmed(false);
-                      setPendingDelivery({ orderId: assignment.orderId, total: order.totalPrice / 100, customerName: order.customerName });
-                    }}
-                    disabled={updating === assignment.orderId}
-                    style={{ backgroundColor: "#43A047", borderRadius: 12, paddingVertical: 13, alignItems: "center" }}
+                    onPress={() => { const p = order.customerPhone; if (Platform.OS === "web") window.open(`tel:${p}`); else import("react-native").then(({ Linking }) => Linking.openURL(`tel:${p}`)); }}
+                    style={{ backgroundColor: colors.secondary, borderRadius: 12, paddingVertical: 11, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 8, borderWidth: 1, borderColor: colors.border }}
                   >
-                    {updating === assignment.orderId ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontFamily: F.extra, fontSize: 15 }}>✅ تم التسليم للعميل</Text>}
+                    <Feather name="phone" size={15} color="#4CAF50" />
+                    <Text style={{ color: "#4CAF50", fontFamily: F.bold, fontSize: 14 }}>اتصال بالعميل</Text>
                   </TouchableOpacity>
-                )}
-                <TouchableOpacity
-                  onPress={() => { const p = order.customerPhone; if (Platform.OS === "web") window.open(`tel:${p}`); else import("react-native").then(({ Linking }) => Linking.openURL(`tel:${p}`)); }}
-                  style={{ backgroundColor: colors.secondary, borderRadius: 12, paddingVertical: 11, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 8, borderWidth: 1, borderColor: colors.border }}
-                >
-                  <Feather name="phone" size={15} color="#4CAF50" />
-                  <Text style={{ color: "#4CAF50", fontFamily: F.bold, fontSize: 14 }}>اتصال بالعميل</Text>
-                </TouchableOpacity>
+                </View>
               </View>
             </View>
-          </View>
-        ))}
+          ))}
+        </ScrollView>
+      )}
 
-        {doneRows.length > 0 && (
-          <>
-            <Text style={{ color: colors.mutedForeground, fontFamily: F.extra, fontSize: 14, textAlign: "right", marginTop: 8 }}>✅ المسلّمة اليوم ({doneRows.length})</Text>
-            {doneRows.slice(0, 5).map(({ assignment, order }) => order && (
-              <View key={assignment.orderId} style={{ backgroundColor: colors.card, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: colors.border, opacity: 0.65, flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center" }}>
-                <Text style={{ color: colors.foreground, fontFamily: F.bold, fontSize: 14 }}>{order.customerName} — طلب #{order.dailyNumber}</Text>
-                <Text style={{ color: "#4CAF50", fontFamily: F.semi, fontSize: 12 }}>✅ مسلّم</Text>
+      {/* ══════════════════════════════════════════
+           تاب: تم التسليم
+          ══════════════════════════════════════════ */}
+      {activeView === "delivered" && (
+        <ScrollView
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadOrders(); }} tintColor={colors.gold} />}
+          contentContainerStyle={{ padding: 14, gap: 12, paddingBottom: 60 }}
+        >
+          {loading && <ActivityIndicator color="#4CAF50" style={{ marginTop: 40 }} />}
+
+          {!loading && deliveredRows.length === 0 && (
+            <View style={{ alignItems: "center", paddingTop: 80, gap: 14 }}>
+              <Text style={{ fontSize: 60 }}>📦</Text>
+              <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 15, textAlign: "center" }}>
+                لا يوجد طلبات مسلّمة بعد
+              </Text>
+              <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12 }}>ستظهر هنا بعد التسليم</Text>
+            </View>
+          )}
+
+          {deliveredRows.length > 0 && (
+            <View style={{ backgroundColor: "#0A2A0A", borderRadius: 14, padding: 14, borderWidth: 1, borderColor: "#4CAF5033", flexDirection: "row-reverse", justifyContent: "space-around", alignItems: "center" }}>
+              <View style={{ alignItems: "center", gap: 4 }}>
+                <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 28 }}>{deliveredRows.length}</Text>
+                <Text style={{ color: "#4CAF5099", fontFamily: F.semi, fontSize: 12 }}>طلب مسلّم</Text>
               </View>
-            ))}
-          </>
-        )}
-      </ScrollView>
+              <View style={{ width: 1, height: 40, backgroundColor: "#4CAF5033" }} />
+              <View style={{ alignItems: "center", gap: 4 }}>
+                <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 24 }}>
+                  {deliveredRows.reduce((s, r) => s + (r.order ? r.order.totalPrice / 100 : 0), 0).toFixed(2)}
+                </Text>
+                <Text style={{ color: "#4CAF5099", fontFamily: F.semi, fontSize: 12 }}>ريال محصّل</Text>
+              </View>
+            </View>
+          )}
+
+          {deliveredRows.map(({ assignment, order }) => order && (
+            <View key={assignment.orderId} style={{ backgroundColor: colors.card, borderRadius: 16, overflow: "hidden", borderWidth: 1, borderColor: "#4CAF5033" }}>
+              {/* Header */}
+              <View style={{ backgroundColor: "#4CAF5011", paddingHorizontal: 16, paddingVertical: 10, flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", borderBottomWidth: 1, borderBottomColor: "#4CAF5022" }}>
+                <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
+                  <Text style={{ fontSize: 16 }}>✅</Text>
+                  <Text style={{ color: "#4CAF50", fontFamily: F.bold, fontSize: 13 }}>تم التسليم</Text>
+                </View>
+                <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
+                  <Text style={{ color: colors.gold, fontFamily: F.extra, fontSize: 14 }}>طلب #{order.dailyNumber}</Text>
+                  {assignment.deliveredAt && (
+                    <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }}>
+                      {new Date(assignment.deliveredAt).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" })}
+                    </Text>
+                  )}
+                </View>
+              </View>
+
+              <View style={{ padding: 14, gap: 10 }}>
+                {/* بيانات العميل */}
+                <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" }}>
+                  <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
+                    <Feather name="user" size={13} color={colors.mutedForeground} />
+                    <Text style={{ color: colors.foreground, fontFamily: F.bold, fontSize: 14 }}>{order.customerName}</Text>
+                  </View>
+                  <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 16 }}>{(order.totalPrice / 100).toFixed(2)} ر.س</Text>
+                </View>
+
+                <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
+                  <Feather name="phone" size={13} color={colors.mutedForeground} />
+                  <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 12 }}>{order.customerPhone}</Text>
+                </View>
+
+                {/* المشتريات (مطوية) */}
+                <View style={{ backgroundColor: colors.secondary, borderRadius: 8, padding: 8, gap: 3 }}>
+                  {order.items.map((item, i) => (
+                    <View key={i} style={{ flexDirection: "row-reverse", justifyContent: "space-between" }}>
+                      <Text style={{ color: colors.foreground, fontFamily: F.semi, fontSize: 12 }}>×{item.quantity} {item.name}</Text>
+                      <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }}>{item.price * item.quantity} ر.س</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            </View>
+          ))}
+        </ScrollView>
       )}
     </View>
   );
