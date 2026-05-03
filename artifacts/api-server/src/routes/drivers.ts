@@ -203,4 +203,124 @@ router.put("/settings/drivers-enabled", async (req, res) => {
   res.json({ enabled: !!enabled });
 });
 
+// ── GET /map/:orderId  (live driver tracking HTML page) ───────────────────────
+router.get("/map/:orderId", async (req, res) => {
+  const orderId = parseInt(req.params.orderId);
+  if (isNaN(orderId)) { res.status(400).send("معرّف غير صحيح"); return; }
+
+  const html = `<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+  <title>تتبع المندوب</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    html,body{width:100%;height:100%;background:#0D1117;font-family:Cairo,sans-serif;overflow:hidden}
+    #map{width:100%;height:100vh}
+    #status{
+      position:fixed;top:12px;left:50%;transform:translateX(-50%);
+      background:rgba(13,32,48,0.92);color:#29B6F6;
+      font-size:13px;font-weight:700;padding:7px 18px;border-radius:20px;
+      border:1px solid #29B6F644;z-index:1000;white-space:nowrap;
+      display:flex;align-items:center;gap:8px;
+    }
+    .dot{width:8px;height:8px;border-radius:50%;background:#4CAF50;animation:blink 1.2s infinite}
+    @keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+    .pulse-ring{
+      width:50px;height:50px;border-radius:50%;
+      background:rgba(41,182,246,.18);border:2px solid #29B6F6;
+      display:flex;align-items:center;justify-content:center;
+      animation:pulse 1.8s ease-in-out infinite;
+    }
+    @keyframes pulse{
+      0%{box-shadow:0 0 0 0 rgba(41,182,246,.5)}
+      70%{box-shadow:0 0 0 16px rgba(41,182,246,0)}
+      100%{box-shadow:0 0 0 0 rgba(41,182,246,0)}
+    }
+    .scooter{font-size:28px;line-height:1}
+    .no-loc{
+      position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+      text-align:center;color:#aaa;display:none;
+    }
+    .no-loc span{font-size:48px;display:block;margin-bottom:12px}
+    .leaflet-tile{filter:brightness(.82) saturate(.9)}
+  </style>
+</head>
+<body>
+<div id="map"></div>
+<div id="status"><div class="dot"></div><span id="statusText">جاري تحديد موقع المندوب...</span></div>
+<div class="no-loc" id="noLoc"><span>📍</span>لم يشارك المندوب موقعه بعد</div>
+<script>
+  var ORDER_ID = ${orderId};
+  var POLL_MS  = 10000;
+  var map = null, driverMarker = null;
+  var curLat = null, curLng = null, animReq = null;
+
+  var driverIcon = L.divIcon({
+    html: '<div class="pulse-ring"><div class="scooter">🛵</div></div>',
+    iconSize:[50,50], iconAnchor:[25,25], className:''
+  });
+
+  function initMap(lat, lng) {
+    map = L.map('map',{zoomControl:true,attributionControl:false});
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
+    curLat = lat; curLng = lng;
+    driverMarker = L.marker([lat,lng],{icon:driverIcon}).addTo(map);
+    map.setView([lat,lng],15);
+    document.getElementById('statusText').textContent = 'موقع مباشر • يُحدَّث كل 10 ثوانٍ';
+    document.getElementById('noLoc').style.display = 'none';
+  }
+
+  function animateTo(tLat, tLng) {
+    var STEPS = 40;
+    var sLat = curLat, sLng = curLng;
+    var step = 0;
+    if (animReq) cancelAnimationFrame(animReq);
+    function frame() {
+      step++;
+      var t = step/STEPS;
+      curLat = sLat + (tLat-sLat)*t;
+      curLng = sLng + (tLng-sLng)*t;
+      driverMarker.setLatLng([curLat,curLng]);
+      if (step < STEPS) animReq = requestAnimationFrame(frame);
+      else { curLat=tLat; curLng=tLng; }
+    }
+    frame();
+    if (!map.getBounds().contains([tLat,tLng])) {
+      map.panTo([tLat,tLng],{animate:true,duration:1});
+    }
+  }
+
+  async function poll() {
+    try {
+      var r = await fetch('/api/orders/'+ORDER_ID+'/assignment');
+      if (!r.ok) return;
+      var data = await r.json();
+      if (!data || !data.assignment) return;
+      var lat = data.assignment.driverLat;
+      var lng = data.assignment.driverLng;
+      if (!lat || !lng) {
+        document.getElementById('noLoc').style.display = 'block';
+        return;
+      }
+      document.getElementById('noLoc').style.display = 'none';
+      if (!map) { initMap(lat, lng); }
+      else { animateTo(lat, lng); }
+    } catch(e){}
+  }
+
+  poll();
+  setInterval(poll, POLL_MS);
+</script>
+</body>
+</html>`;
+
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Cache-Control", "no-store");
+  res.send(html);
+});
+
 export default router;
