@@ -36,6 +36,7 @@ import { useCombos, type ApiCombo } from "@/hooks/useCombos";
 import { useCart } from "@/context/CartContext";
 import { useBranchStatus } from "@/hooks/useBranchStatus";
 import { useLanguage } from "@/context/LanguageContext";
+import { useFavorites } from "@/hooks/useFavorites";
 
 const logo = require("@/assets/images/logo.png");
 const deliveryCar = require("@/assets/images/delivery_car.jpg");
@@ -63,6 +64,7 @@ export default function MenuScreen() {
   const { addItem } = useCart();
   const { isOpen, message: closedMessage } = useBranchStatus();
   const { language } = useLanguage();
+  const { favorites } = useFavorites();
   const isEn = language === "en";
   const availableCombos = combos.filter((c) => c.available);
   const [activeCategory, setActiveCategory] = useState("chicken");
@@ -360,10 +362,46 @@ export default function MenuScreen() {
           contentContainerStyle={{ paddingBottom: Platform.OS === "web" ? 130 : 110 }}
           onScroll={scrollHandler}
           scrollEventThrottle={16}
-          ListHeaderComponent={() => (
+          ListHeaderComponent={() => {
+            const allItems = categories.flatMap((c) => c.items);
+            const favItems = allItems.filter((it) => favorites.includes(it.id));
+            return (
             <View>
               {/* ── BANNER inside scroll ── */}
               <BannerCarousel banners={banners} />
+
+              {/* ── FAVORITES ── */}
+              {favItems.length > 0 && (
+                <View style={{ paddingBottom: 4 }}>
+                  <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8, paddingHorizontal: 16, paddingTop: 14, paddingBottom: 8 }}>
+                    <Text style={{ color: "#E8920C", fontFamily: F.extra, fontSize: 16 }}>
+                      ❤️ {isEn ? "Favourites" : "المفضلة"}
+                    </Text>
+                    <Text style={{ color: "#9A7A5A", fontFamily: F.semi, fontSize: 12 }}>({favItems.length})</Text>
+                  </View>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 12, gap: 10, flexDirection: "row-reverse" }}>
+                    {favItems.map((item) => (
+                      <View key={item.id} style={{ width: 130, backgroundColor: "#1A0D05", borderRadius: 14, overflow: "hidden", borderWidth: 1, borderColor: "#C8171A33" }}>
+                        {item.imageUrl ? (
+                          <Image source={{ uri: item.imageUrl }} style={{ width: "100%", height: 80 }} resizeMode="cover" />
+                        ) : (
+                          <View style={{ width: "100%", height: 80, alignItems: "center", justifyContent: "center", backgroundColor: "#2A1508" }}>
+                            <Text style={{ fontSize: 32 }}>🍽️</Text>
+                          </View>
+                        )}
+                        <View style={{ padding: 8, gap: 4 }}>
+                          <Text style={{ color: "#fff", fontFamily: F.bold, fontSize: 12, textAlign: "right" }} numberOfLines={2}>
+                            {isEn && item.nameEn ? item.nameEn : item.name}
+                          </Text>
+                          <Text style={{ color: "#E8920C", fontFamily: F.extra, fontSize: 14, textAlign: "right" }}>
+                            {item.price} <Text style={{ fontSize: 10, fontFamily: F.regular, color: "#9A7A5A" }}>{isEn ? "SAR" : "ر.س"}</Text>
+                          </Text>
+                        </View>
+                      </View>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
 
               {/* ── COMBOS ── */}
               {availableCombos.length > 0 && (
@@ -407,7 +445,8 @@ export default function MenuScreen() {
             </View>
               )}
             </View>
-          )}
+            );
+          }}
           renderSectionHeader={({ section }) => (
             <View style={[styles.sectionRow, { backgroundColor: colors.background, borderBottomColor: "#2A1A0A", borderTopColor: "#2A1A0A" }]}>
               <Text style={[styles.itemCount, { color: colors.mutedForeground, fontFamily: F.semi }]}>

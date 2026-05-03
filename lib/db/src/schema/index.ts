@@ -152,3 +152,13 @@ export const messagesTable = pgTable("messages", {
 });
 
 export type Message = typeof messagesTable.$inferSelect;
+
+export const orderRatingsTable = pgTable("order_ratings", {
+  id: serial("id").primaryKey(),
+  orderId: integer("order_id").notNull().unique(),
+  stars: integer("stars").notNull(),
+  comment: text("comment"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type OrderRating = typeof orderRatingsTable.$inferSelect;

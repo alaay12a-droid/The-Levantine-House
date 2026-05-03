@@ -14,6 +14,7 @@ import { hoursRouter } from "./hours";
 import messagesRouter from "./messages";
 import notificationsRouter from "./notifications";
 import pinOtpRouter from "./pin-otp";
+import ratingsRouter from "./ratings";
 
 const router: IRouter = Router();
 
@@ -32,5 +33,6 @@ router.use(hoursRouter);
 router.use(messagesRouter);
 router.use(notificationsRouter);
 router.use(pinOtpRouter);
+router.use(ratingsRouter);
 
 export default router;

@@ -115,6 +115,13 @@ export default function OrdersScreen() {
   const [cancellingId, setCancellingId] = useState<number | null>(null);
   const [cancelBanner, setCancelBanner] = useState<{ orderNum: number; name: string } | null>(null);
 
+  // ─── Rating state ──────────────────────────────────────
+  const [ratingOrderId, setRatingOrderId]   = useState<number | null>(null);
+  const [ratingStars, setRatingStars]       = useState(0);
+  const [ratingComment, setRatingComment]   = useState("");
+  const [ratingSending, setRatingSending]   = useState(false);
+  const [ratedOrders, setRatedOrders]       = useState<Record<number, number>>({});
+
   // ─── Chat state ────────────────────────────────────────
   const [chatOrderId, setChatOrderId]       = useState<number | null>(null);
   const [chatMessages, setChatMessages]     = useState<ChatMsg[]>([]);
@@ -231,6 +238,28 @@ export default function OrdersScreen() {
       pollTimerRef.current = null;
     }
   }, []);
+
+  // ─── Load rated orders from AsyncStorage ──────────────────────────────────
+  useEffect(() => {
+    AsyncStorage.getItem("@rawabi_rated_orders").then((raw) => {
+      if (raw) setRatedOrders(JSON.parse(raw));
+    }).catch(() => {});
+  }, []);
+
+  const submitRating = useCallback(async () => {
+    if (!ratingOrderId || ratingStars === 0) return;
+    setRatingSending(true);
+    try {
+      await apiPost(`/orders/${ratingOrderId}/rate`, { stars: ratingStars, comment: ratingComment.trim() || undefined });
+      const updated = { ...ratedOrders, [ratingOrderId]: ratingStars };
+      setRatedOrders(updated);
+      await AsyncStorage.setItem("@rawabi_rated_orders", JSON.stringify(updated));
+      setRatingOrderId(null);
+      setRatingStars(0);
+      setRatingComment("");
+    } catch {}
+    setRatingSending(false);
+  }, [ratingOrderId, ratingStars, ratingComment, ratedOrders]);
 
   // ── load orders from AsyncStorage + initial status fetch ─────────────────
   const loadOrders = useCallback(async () => {
@@ -435,6 +464,59 @@ export default function OrdersScreen() {
         </Animated.View>
       )}
 
+      {/* ── Rating Modal ── */}
+      {ratingOrderId !== null && (
+        <Modal visible animationType="fade" transparent onRequestClose={() => setRatingOrderId(null)}>
+          <View style={{ flex: 1, backgroundColor: "#000A", alignItems: "center", justifyContent: "center", padding: 24 }}>
+            <View style={{ backgroundColor: colors.card, borderRadius: 24, padding: 28, width: "100%", gap: 18, borderWidth: 1, borderColor: colors.border }}>
+              <Text style={{ color: colors.foreground, fontFamily: F.extra, fontSize: 20, textAlign: "center" }}>
+                {isEn ? "Rate your order" : "قيّم طلبك"}
+              </Text>
+              <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 13, textAlign: "center" }}>
+                {isEn ? "How was your experience?" : "كيف كانت تجربتك؟"}
+              </Text>
+              {/* Stars */}
+              <View style={{ flexDirection: "row", justifyContent: "center", gap: 10 }}>
+                {[1, 2, 3, 4, 5].map((s) => (
+                  <TouchableOpacity key={s} onPress={() => setRatingStars(s)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <Text style={{ fontSize: 38 }}>{s <= ratingStars ? "⭐" : "☆"}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              {/* Comment */}
+              <TextInput
+                value={ratingComment}
+                onChangeText={setRatingComment}
+                placeholder={isEn ? "Add a comment (optional)" : "أضف تعليق (اختياري)"}
+                placeholderTextColor={colors.mutedForeground}
+                multiline
+                numberOfLines={2}
+                style={{ backgroundColor: colors.secondary, borderRadius: 12, padding: 12, color: colors.foreground, fontFamily: F.regular, fontSize: 14, textAlign: "right", borderWidth: 1, borderColor: colors.border }}
+                textAlignVertical="top"
+              />
+              <View style={{ flexDirection: "row-reverse", gap: 10 }}>
+                <TouchableOpacity
+                  onPress={submitRating}
+                  disabled={ratingStars === 0 || ratingSending}
+                  style={{ flex: 1, backgroundColor: ratingStars > 0 ? colors.gold : colors.secondary, borderRadius: 14, paddingVertical: 13, alignItems: "center" }}
+                >
+                  {ratingSending
+                    ? <ActivityIndicator size="small" color="#1A0A00" />
+                    : <Text style={{ color: "#1A0A00", fontFamily: F.extra, fontSize: 15 }}>{isEn ? "Submit" : "إرسال"}</Text>
+                  }
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => { setRatingOrderId(null); setRatingStars(0); setRatingComment(""); }}
+                  style={{ paddingHorizontal: 18, backgroundColor: colors.secondary, borderRadius: 14, paddingVertical: 13, alignItems: "center" }}
+                >
+                  <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 14 }}>{isEn ? "Later" : "لاحقاً"}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      )}
+
       {/* ── Chat Modal ── */}
       {chatOrderId !== null && (() => {
         const chatOrder = orders.find(o => o.id === chatOrderId);
@@ -611,6 +693,27 @@ export default function OrdersScreen() {
                     {formatDate(order.createdAt, isEn)}
                   </Text>
                 </View>
+
+                {/* Rating button — for done orders not yet rated */}
+                {status === "done" && !ratedOrders[order.id] && (
+                  <TouchableOpacity
+                    style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 10, backgroundColor: "#2A1800", borderTopWidth: 1, borderTopColor: "#5A3800" }}
+                    onPress={() => { setRatingOrderId(order.id); setRatingStars(0); setRatingComment(""); }}
+                  >
+                    <Text style={{ fontSize: 16 }}>⭐</Text>
+                    <Text style={{ color: "#E8920C", fontFamily: F.bold, fontSize: 13 }}>
+                      {isEn ? "Rate your order" : "قيّم طلبك"}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+                {status === "done" && !!ratedOrders[order.id] && (
+                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 8, backgroundColor: "#1A2A1A" }}>
+                    <Text style={{ fontSize: 13 }}>{"⭐".repeat(ratedOrders[order.id])}</Text>
+                    <Text style={{ color: "#4CAF50", fontFamily: F.semi, fontSize: 12 }}>
+                      {isEn ? "Rated" : "تم التقييم"}
+                    </Text>
+                  </View>
+                )}
 
                 {/* Chat button */}
                 <TouchableOpacity

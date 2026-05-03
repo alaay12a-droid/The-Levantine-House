@@ -28,6 +28,7 @@ import { usePaymentSettings } from "@/hooks/usePaymentSettings";
 import { ORDERS_STORAGE_KEY, StoredOrder } from "./(tabs)/orders";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useLanguage } from "@/context/LanguageContext";
+import { useDiscountCodes } from "@/hooks/useDiscountCodes";
 
 const F = {
   regular: "Cairo_400Regular",
@@ -55,11 +56,17 @@ export default function CheckoutScreen() {
   const { incrementBadge } = useOrderBadge();
   const { settings: paymentSettings } = usePaymentSettings();
 
+  const { activeCodes } = useDiscountCodes();
   const { t } = useTranslation();
   const { language } = useLanguage();
   const isEn = language === "en";
   const [notes, setNotes] = useState("");
   const [notesExpanded, setNotesExpanded] = useState(false);
+  const [promoExpanded, setPromoExpanded] = useState(false);
+  const [promoInput, setPromoInput] = useState("");
+  const [appliedDiscount, setAppliedDiscount] = useState(0);
+  const [appliedCodeLabel, setAppliedCodeLabel] = useState("");
+  const [promoError, setPromoError] = useState("");
   const [orderType, setOrderType] = useState<"delivery" | "pickup">("delivery");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
   const [loading, setLoading] = useState(false);
@@ -125,9 +132,38 @@ export default function CheckoutScreen() {
   const deliveryFee = (paymentSettings.deliveryEnabled && orderType === "delivery")
     ? (paymentSettings.deliveryFee ?? 0)
     : 0;
-  const grandTotal = totalPrice + deliveryFee;
+  const grandTotal = Math.max(0, totalPrice + deliveryFee - appliedDiscount);
   const grandTotalStr = grandTotal % 1 === 0 ? grandTotal.toString() : grandTotal.toFixed(2);
   const deliveryFeeStr = deliveryFee % 1 === 0 ? deliveryFee.toString() : deliveryFee.toFixed(2);
+
+  const applyPromoCode = () => {
+    const code = promoInput.trim().toUpperCase();
+    if (!code) { setPromoError(isEn ? "Enter a code first" : "أدخل الكود أولاً"); return; }
+    const found = activeCodes.find((c) => c.code.toUpperCase() === code);
+    if (!found) { setPromoError(isEn ? "Code not found or inactive" : "الكود غير صحيح أو غير فعّال"); return; }
+    const base = totalPrice + deliveryFee;
+    if (base < found.minOrder) {
+      setPromoError(isEn
+        ? `Min order ${found.minOrder} SAR to use this code`
+        : `الحد الأدنى للطلب ${found.minOrder} ر.س لاستخدام هذا الكود`);
+      return;
+    }
+    const discount = found.type === "percentage"
+      ? Math.round(base * found.value / 100)
+      : found.value;
+    setAppliedDiscount(Math.min(discount, base));
+    setAppliedCodeLabel(found.description || found.code);
+    setPromoError("");
+    setPromoInput("");
+    setPromoExpanded(false);
+  };
+
+  const removePromo = () => {
+    setAppliedDiscount(0);
+    setAppliedCodeLabel("");
+    setPromoInput("");
+    setPromoError("");
+  };
 
   const handleSendOtp = async () => {
     if (!user?.phone) return;
@@ -206,6 +242,7 @@ export default function CheckoutScreen() {
             ? (orderType === "delivery" ? "🚗 توصيل" : "🏪 استلام من الفرع")
             : null,
           paymentMethod === "wallet" ? "💰 محفظة" : null,
+          appliedDiscount > 0 ? `🏷️ خصم ${appliedDiscount} ر.س (${appliedCodeLabel})` : null,
           forOtherExpanded && (otherName.trim() || otherPhone.trim())
             ? `👤 لشخص آخر: ${otherName.trim()} ${otherPhone.trim()}`.trim()
             : null,
@@ -576,6 +613,61 @@ export default function CheckoutScreen() {
           )}
         </View>
 
+        {/* ── Promo Code ── */}
+        <View style={[styles.listCard, { backgroundColor: colors.card, borderColor: appliedDiscount > 0 ? "#22C55E60" : colors.border }]}>
+          {appliedDiscount > 0 ? (
+            <View style={styles.listRow}>
+              <TouchableOpacity onPress={removePromo} style={[styles.locActionBtn, { backgroundColor: "#3A1A1A" }]}>
+                <Feather name="x" size={13} color="#E57373" />
+                <Text style={{ color: "#E57373", fontFamily: F.bold, fontSize: 12 }}>{isEn ? "Remove" : "إزالة"}</Text>
+              </TouchableOpacity>
+              <View style={styles.rowLeft}>
+                <Feather name="tag" size={16} color="#22C55E" />
+                <Text style={[styles.rowLabel, { color: "#22C55E", fontFamily: F.bold }]}>{appliedCodeLabel}</Text>
+              </View>
+            </View>
+          ) : (
+            <TouchableOpacity style={styles.listRow} onPress={() => setPromoExpanded(!promoExpanded)} activeOpacity={0.7}>
+              <Feather name={promoExpanded ? "chevron-up" : "chevron-left"} size={16} color={promoExpanded ? GOLD : colors.mutedForeground} />
+              <View style={styles.rowLeft}>
+                <Feather name="tag" size={16} color={promoExpanded ? GOLD : colors.mutedForeground} />
+                <Text style={[styles.rowLabel, { color: promoExpanded ? GOLD : colors.mutedForeground, fontFamily: promoExpanded ? F.bold : F.regular }]}>
+                  {isEn ? "Promo Code" : "كود الخصم"}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          )}
+          {promoExpanded && appliedDiscount === 0 && (
+            <>
+              <View style={[styles.rowDivider, { backgroundColor: colors.border }]} />
+              <View style={{ paddingHorizontal: 16, paddingBottom: 14, gap: 8 }}>
+                <View style={{ flexDirection: "row-reverse", gap: 8 }}>
+                  <TextInput
+                    value={promoInput}
+                    onChangeText={(v) => { setPromoInput(v); setPromoError(""); }}
+                    placeholder={isEn ? "Enter code" : "أدخل الكود"}
+                    placeholderTextColor={colors.mutedForeground}
+                    autoCapitalize="characters"
+                    style={[styles.otherInput, { flex: 1, color: colors.foreground, backgroundColor: colors.secondary, borderColor: colors.border, fontFamily: F.bold, letterSpacing: 2 }]}
+                    textAlign="right"
+                    returnKeyType="done"
+                    onSubmitEditing={applyPromoCode}
+                  />
+                  <TouchableOpacity
+                    onPress={applyPromoCode}
+                    style={{ paddingHorizontal: 16, paddingVertical: 10, backgroundColor: GOLD, borderRadius: 10, justifyContent: "center" }}
+                  >
+                    <Text style={{ color: "#1A0A00", fontFamily: F.extra, fontSize: 13 }}>{isEn ? "Apply" : "تطبيق"}</Text>
+                  </TouchableOpacity>
+                </View>
+                {promoError ? (
+                  <Text style={{ color: "#E57373", fontFamily: F.semi, fontSize: 12, textAlign: "right" }}>{promoError}</Text>
+                ) : null}
+              </View>
+            </>
+          )}
+        </View>
+
         {/* ── Price breakdown ── */}
         <View style={[styles.listCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Text style={[styles.sectionLabel, { color: colors.mutedForeground, fontFamily: F.semi }]}>
@@ -620,6 +712,21 @@ export default function CheckoutScreen() {
                   {orderType === "delivery"
                     ? (isEn ? "🚗 Delivery" : "🚗 رسوم التوصيل")
                     : (isEn ? "🏪 Branch Pickup" : "🏪 استلام")}
+                </Text>
+              </View>
+            </>
+          )}
+
+          {/* Discount row */}
+          {appliedDiscount > 0 && (
+            <>
+              <View style={[styles.rowDivider, { backgroundColor: colors.border }]} />
+              <View style={styles.listRow}>
+                <Text style={[styles.rowValue, { color: "#22C55E", fontFamily: F.bold }]}>
+                  -{appliedDiscount % 1 === 0 ? appliedDiscount : appliedDiscount.toFixed(2)} {isEn ? "SAR" : "ر.س"}
+                </Text>
+                <Text style={[styles.rowLabel, { color: "#22C55E", fontFamily: F.semi }]}>
+                  🏷️ {isEn ? "Discount" : "خصم الكود"}
                 </Text>
               </View>
             </>

@@ -12,6 +12,7 @@ import * as Haptics from "expo-haptics";
 import { useColors } from "@/hooks/useColors";
 import { useCart } from "@/context/CartContext";
 import { useLanguage } from "@/context/LanguageContext";
+import { useFavorites } from "@/hooks/useFavorites";
 import { MenuItem, FOOD_IMAGES, RESTAURANT_INFO } from "@/constants/menu";
 
 const F = {
@@ -29,6 +30,7 @@ export function MenuItemCard({ item }: Props) {
   const colors = useColors();
   const { items, addItem, updateQuantity } = useCart();
   const { language } = useLanguage();
+  const { isFavorite, toggleFavorite } = useFavorites();
   const isEn = language === "en";
 
   const cartItem = items.find((c) => c.item.id === item.id);
@@ -39,8 +41,8 @@ export function MenuItemCard({ item }: Props) {
     : item.imageKey ? FOOD_IMAGES[item.imageKey] : null;
   const isDhabiha = item.price === 0;
   const isUnavailable = item.available === false;
+  const faved = isFavorite(item.id);
 
-  // Stock limit: how many can still be added
   const stockLimit = (item.stock !== null && item.stock !== undefined) ? item.stock : null;
   const atStockLimit = stockLimit !== null && quantity >= stockLimit;
   const lowStock = stockLimit !== null && stockLimit > 0 && stockLimit <= 3;
@@ -64,6 +66,11 @@ export function MenuItemCard({ item }: Props) {
   const handleDecrease = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     updateQuantity(item.id, quantity - 1);
+  };
+
+  const handleToggleFav = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    toggleFavorite(item.id);
   };
 
   const priceStr = item.price % 1 === 0 ? item.price.toString() : item.price.toFixed(1);
@@ -173,19 +180,29 @@ export function MenuItemCard({ item }: Props) {
           </View>
         </View>
 
-        {/* Right: food image */}
-        {foodImage ? (
-          <View style={[styles.imageWrap, { backgroundColor: "#2A1508" }]}>
-            <Image source={foodImage} style={styles.foodImage} resizeMode="cover" />
-            {inCart && (
-              <View style={[styles.inCartDot, { backgroundColor: colors.gold }]} />
-            )}
-          </View>
-        ) : (
-          <View style={[styles.imageWrap, styles.noImage, { backgroundColor: "#2A1508", borderColor: colors.border }]}>
-            <Text style={styles.noImageIcon}>🍽️</Text>
-          </View>
-        )}
+        {/* Right: food image + favorite */}
+        <View>
+          {foodImage ? (
+            <View style={[styles.imageWrap, { backgroundColor: "#2A1508" }]}>
+              <Image source={foodImage} style={styles.foodImage} resizeMode="cover" />
+              {inCart && (
+                <View style={[styles.inCartDot, { backgroundColor: colors.gold }]} />
+              )}
+            </View>
+          ) : (
+            <View style={[styles.imageWrap, styles.noImage, { backgroundColor: "#2A1508", borderColor: colors.border }]}>
+              <Text style={styles.noImageIcon}>🍽️</Text>
+            </View>
+          )}
+          {/* Heart button */}
+          <TouchableOpacity
+            onPress={handleToggleFav}
+            style={[styles.heartBtn, { backgroundColor: faved ? "#C8171A22" : "#1A1008BB" }]}
+            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+          >
+            <Feather name="heart" size={13} color={faved ? "#C8171A" : "#888"} />
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
@@ -299,6 +316,16 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
+  },
+  heartBtn: {
+    position: "absolute",
+    top: 6,
+    right: 6,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
   },
   unavailableBanner: {
     backgroundColor: "#4A1A1A",
