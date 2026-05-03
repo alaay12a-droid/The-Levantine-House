@@ -151,7 +151,7 @@ router.get("/drivers/:id/statement", async (req, res) => {
   const thisYear:  PeriodAcc = { ordersCount: 0, totalCollected: 0 };
   const allTime:   PeriodAcc = { ordersCount: 0, totalCollected: 0 };
 
-  const dayMap = new Map<string, { ordersCount: number; totalCollected: number; orders: { orderId: number; dailyNumber: number | null; customerName: string; totalPrice: number; deliveredAt: string }[] }>();
+  const dayMap = new Map<string, { ordersCount: number; totalCollected: number; orders: { orderId: number; dailyNumber: number | null; customerName: string; totalPrice: number; assignedAt: string | null; pickedUpAt: string | null; deliveredAt: string }[] }>();
 
   for (const r of rows) {
     const deliveredAt = r.assignment.deliveredAt;
@@ -174,6 +174,8 @@ router.get("/drivers/:id/statement", async (req, res) => {
       dailyNumber: r.order?.dailyNumber ?? null,
       customerName: r.order?.customerName ?? "",
       totalPrice: price,
+      assignedAt: r.assignment.assignedAt ? r.assignment.assignedAt.toISOString() : null,
+      pickedUpAt: r.assignment.pickedUpAt ? r.assignment.pickedUpAt.toISOString() : null,
       deliveredAt: deliveredAt.toISOString(),
     });
   }

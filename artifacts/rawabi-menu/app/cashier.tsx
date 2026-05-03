@@ -205,6 +205,22 @@ export default function CashierScreen() {
   const [drvExpanded, setDrvExpanded] = useState<number | null>(null);
   const [drvDetailRow, setDrvDetailRow] = useState<DrvSummary | null>(null);
 
+  // ─── Full driver statement (calendar) ───────────────────
+  interface StatOrder {
+    orderId: number; dailyNumber: number | null; customerName: string;
+    totalPrice: number;
+    assignedAt: string | null; pickedUpAt: string | null; deliveredAt: string;
+  }
+  interface StatDay { date: string; ordersCount: number; totalCollected: number; orders: StatOrder[]; }
+  interface PeriodAcc { ordersCount: number; totalCollected: number; }
+  interface DrvStatement {
+    today: PeriodAcc; thisMonth: PeriodAcc; thisYear: PeriodAcc; allTime: PeriodAcc;
+    daily: StatDay[];
+  }
+  const [drvStatement, setDrvStatement] = useState<DrvStatement | null>(null);
+  const [drvStatLoading, setDrvStatLoading] = useState(false);
+  const [drvStatTab, setDrvStatTab] = useState<"today" | "month" | "all">("today");
+
   // ─── Active driver assignments (picked_up — in transit) ─
   interface ActiveAssignment {
     orderId: number; driverId: number; pickedUpAt: string | null;
@@ -232,6 +248,16 @@ export default function CashierScreen() {
       setActiveAssignments(data);
     } catch {}
     setActiveAssignmentsLoading(false);
+  }, []);
+
+  const loadDrvStatement = useCallback(async (driverId: number) => {
+    setDrvStatLoading(true);
+    setDrvStatement(null);
+    try {
+      const data = await apiGet<DrvStatement>(`/drivers/${driverId}/statement`);
+      setDrvStatement(data);
+    } catch {}
+    setDrvStatLoading(false);
   }, []);
 
   const confirmDeliveryByCashier = useCallback(async (orderId: number) => {
@@ -955,7 +981,7 @@ export default function CashierScreen() {
             return (
               <TouchableOpacity
                 key={row.driver.id}
-                onPress={() => setDrvDetailRow(row)}
+                onPress={() => { setDrvDetailRow(row); setDrvStatTab("today"); loadDrvStatement(row.driver.id); }}
                 activeOpacity={0.75}
                 style={{ backgroundColor: colors.card, borderRadius: 18, borderWidth: 1, borderColor: totalToday > 0 ? "#4CAF5033" : colors.border, overflow: "hidden" }}
               >
@@ -1405,7 +1431,7 @@ export default function CashierScreen() {
         </View>
       </Modal>
 
-      {/* ── Driver Detail Modal ── */}
+      {/* ── Driver Detail Modal (full calendar report) ── */}
       <Modal
         visible={!!drvDetailRow}
         transparent
@@ -1413,123 +1439,193 @@ export default function CashierScreen() {
         onRequestClose={() => setDrvDetailRow(null)}
       >
         <View style={{ flex: 1, backgroundColor: "#000000BB", justifyContent: "flex-end" }}>
-          <View style={{ backgroundColor: colors.card, borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingBottom: insets.bottom + 16, maxHeight: "88%" }}>
+          <View style={{ backgroundColor: colors.card, borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingBottom: insets.bottom + 16, maxHeight: "92%" }}>
             {/* Handle */}
-            <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: colors.border, alignSelf: "center", marginTop: 10, marginBottom: 14 }} />
+            <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: colors.border, alignSelf: "center", marginTop: 10, marginBottom: 10 }} />
 
             {drvDetailRow && (() => {
               const d = drvDetailRow.driver;
               const inTransit = activeAssignments.filter(a => a.driverId === d.id);
-              const totalOrders = drvDetailRow.ordersCount + inTransit.length;
+
+              // pick summary numbers based on selected tab
+              const tabPeriod = drvStatTab === "today"
+                ? drvStatement?.today
+                : drvStatTab === "month"
+                  ? drvStatement?.thisMonth
+                  : drvStatement?.allTime;
+
+              // filter daily list to match tab
+              const today0 = new Date(); today0.setHours(0,0,0,0);
+              const month0 = new Date(today0.getFullYear(), today0.getMonth(), 1);
+              const filteredDays = (drvStatement?.daily ?? []).filter(day => {
+                const d0 = new Date(day.date);
+                if (drvStatTab === "today")  return d0 >= today0;
+                if (drvStatTab === "month")  return d0 >= month0;
+                return true;
+              });
+
+              const fmt = (iso: string | null) =>
+                iso ? new Date(iso).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" }) : "--:--";
+
               return (
                 <>
                   {/* Driver header */}
-                  <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 14, paddingHorizontal: 20, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+                  <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 12, paddingHorizontal: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: colors.border }}>
                     {d.photoUrl
-                      ? <Image source={{ uri: d.photoUrl }} style={{ width: 60, height: 60, borderRadius: 30, borderWidth: 2, borderColor: "#4CAF50" }} />
-                      : <View style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: "#0A2010", alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: "#4CAF50" }}>
-                          <Text style={{ fontSize: 28 }}>🛵</Text>
+                      ? <Image source={{ uri: d.photoUrl }} style={{ width: 52, height: 52, borderRadius: 26, borderWidth: 2, borderColor: "#4CAF50" }} />
+                      : <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: "#0A2010", alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: "#4CAF50" }}>
+                          <Text style={{ fontSize: 24 }}>🛵</Text>
                         </View>
                     }
-                    <View style={{ flex: 1, gap: 3 }}>
-                      <Text style={{ color: colors.foreground, fontFamily: F.extra, fontSize: 18 }}>{d.name}</Text>
-                      <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 13 }}>📱 {d.phone}</Text>
+                    <View style={{ flex: 1, gap: 2 }}>
+                      <Text style={{ color: colors.foreground, fontFamily: F.extra, fontSize: 17 }}>{d.name}</Text>
+                      <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12 }}>📱 {d.phone}</Text>
                     </View>
-                    <TouchableOpacity onPress={() => setDrvDetailRow(null)} style={{ padding: 8 }}>
+                    <TouchableOpacity onPress={() => { setDrvDetailRow(null); setDrvStatement(null); }} style={{ padding: 8 }}>
                       <Feather name="x" size={20} color={colors.mutedForeground} />
                     </TouchableOpacity>
                   </View>
 
-                  {/* Stats row */}
-                  <View style={{ flexDirection: "row-reverse", gap: 10, padding: 16 }}>
-                    <View style={{ flex: 1, backgroundColor: "#1A1A0A", borderRadius: 16, borderWidth: 1, borderColor: "#E8920C44", padding: 14, alignItems: "center", gap: 4 }}>
-                      <Text style={{ fontSize: 24 }}>📦</Text>
-                      <Text style={{ color: "#E8920C", fontFamily: F.extra, fontSize: 30 }}>{totalOrders}</Text>
-                      <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 12, textAlign: "center" }}>طلبات اليوم</Text>
-                    </View>
-                    <View style={{ flex: 1, backgroundColor: "#0A1A0A", borderRadius: 16, borderWidth: 1, borderColor: "#4CAF5044", padding: 14, alignItems: "center", gap: 4 }}>
-                      <Text style={{ fontSize: 24 }}>💵</Text>
-                      <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 26 }}>{drvDetailRow.totalCollected.toFixed(2)}</Text>
-                      <Text style={{ color: "#4CAF50", fontFamily: F.bold, fontSize: 11 }}>ريال سعودي</Text>
-                      <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 12, textAlign: "center" }}>المحصّل اليوم</Text>
-                    </View>
+                  {/* Period tabs */}
+                  <View style={{ flexDirection: "row-reverse", gap: 8, paddingHorizontal: 16, paddingVertical: 10 }}>
+                    {([ ["today","اليوم","📅"], ["month","هذا الشهر","🗓️"], ["all","كل الوقت","📊"] ] as const).map(([key, label, icon]) => (
+                      <TouchableOpacity
+                        key={key}
+                        onPress={() => setDrvStatTab(key)}
+                        style={{ flex: 1, backgroundColor: drvStatTab === key ? colors.gold : colors.secondary, borderRadius: 12, paddingVertical: 8, alignItems: "center", borderWidth: 1, borderColor: drvStatTab === key ? colors.gold : colors.border }}
+                      >
+                        <Text style={{ fontSize: 14 }}>{icon}</Text>
+                        <Text style={{ color: drvStatTab === key ? "#000" : colors.foreground, fontFamily: F.bold, fontSize: 11, marginTop: 2 }}>{label}</Text>
+                      </TouchableOpacity>
+                    ))}
                   </View>
 
-                  <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 360 }} contentContainerStyle={{ paddingHorizontal: 16, gap: 6, paddingBottom: 16 }}>
-                    {/* In-transit orders */}
-                    {inTransit.length > 0 && (
+                  {/* Summary numbers */}
+                  {drvStatLoading
+                    ? <ActivityIndicator color={colors.gold} style={{ marginVertical: 12 }} />
+                    : (
+                      <View style={{ flexDirection: "row-reverse", gap: 10, paddingHorizontal: 16, marginBottom: 6 }}>
+                        <View style={{ flex: 1, backgroundColor: "#1A1A0A", borderRadius: 14, borderWidth: 1, borderColor: "#E8920C33", padding: 12, alignItems: "center", gap: 2 }}>
+                          <Text style={{ color: "#E8920C", fontFamily: F.extra, fontSize: 26 }}>
+                            {drvStatTab === "today" ? (tabPeriod?.ordersCount ?? 0) + inTransit.length : (tabPeriod?.ordersCount ?? 0)}
+                          </Text>
+                          <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 11 }}>طلب</Text>
+                        </View>
+                        <View style={{ flex: 1, backgroundColor: "#0A1A0A", borderRadius: 14, borderWidth: 1, borderColor: "#4CAF5033", padding: 12, alignItems: "center", gap: 2 }}>
+                          <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 22 }}>{(tabPeriod?.totalCollected ?? 0).toFixed(2)}</Text>
+                          <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 11 }}>ر.س محصّل</Text>
+                        </View>
+                      </View>
+                    )
+                  }
+
+                  <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 14, paddingBottom: 20, gap: 6 }}>
+
+                    {/* In-transit orders (only shown in "today" tab) */}
+                    {drvStatTab === "today" && inTransit.length > 0 && (
                       <>
-                        <Text style={{ color: "#4CAF50", fontFamily: F.bold, fontSize: 13, textAlign: "right", marginBottom: 4 }}>🚗 في الطريق</Text>
+                        <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                          <View style={{ flex: 1, height: 1, backgroundColor: "#4CAF5033" }} />
+                          <Text style={{ color: "#4CAF50", fontFamily: F.bold, fontSize: 12 }}>🚗 في الطريق ({inTransit.length})</Text>
+                        </View>
                         {inTransit.map(a => (
-                          <View key={a.orderId} style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", backgroundColor: "#0A2A0A", borderRadius: 12, padding: 12, borderWidth: 1, borderColor: "#4CAF5033" }}>
-                            <View style={{ gap: 2 }}>
+                          <View key={a.orderId} style={{ backgroundColor: "#0A1A0A", borderRadius: 12, padding: 12, borderWidth: 1, borderColor: "#4CAF5033", gap: 8 }}>
+                            <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" }}>
                               <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6 }}>
                                 <View style={{ backgroundColor: "#E8920C22", paddingHorizontal: 7, paddingVertical: 2, borderRadius: 7 }}>
                                   <Text style={{ color: "#E8920C", fontFamily: F.extra, fontSize: 11 }}>#{a.dailyNumber ?? a.orderId}</Text>
                                 </View>
                                 <Text style={{ color: colors.foreground, fontFamily: F.semi, fontSize: 13 }}>{a.customerName}</Text>
                               </View>
-                              <Text style={{ color: "#4CAF50", fontFamily: F.semi, fontSize: 11 }}>في الطريق 🚗</Text>
+                              <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 14 }}>{a.totalPrice.toFixed(2)} ر.س</Text>
                             </View>
-                            <View style={{ alignItems: "flex-end", gap: 2 }}>
-                              <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 15 }}>{a.totalPrice.toFixed(2)}</Text>
-                              <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 10 }}>
+                            <View style={{ flexDirection: "row-reverse", gap: 10 }}>
+                              <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4, backgroundColor: colors.secondary, borderRadius: 7, paddingHorizontal: 8, paddingVertical: 4 }}>
+                                <Feather name="package" size={10} color={colors.gold} />
+                                <Text style={{ color: colors.gold, fontFamily: F.semi, fontSize: 10 }}>
+                                  {a.pickedUpAt ? fmt(a.pickedUpAt) : "جارٍ التوصيل"}
+                                </Text>
+                              </View>
+                              <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 10, alignSelf: "center" }}>
                                 {a.paymentMethod === "cash" ? "💵 نقدي" : "💳 إلكتروني"}
                               </Text>
                             </View>
                           </View>
                         ))}
-                        <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 6 }} />
                       </>
                     )}
 
-                    {/* Delivered orders */}
-                    {drvDetailRow.orders.length === 0 && inTransit.length === 0 ? (
-                      <View style={{ alignItems: "center", paddingVertical: 30, gap: 8 }}>
-                        <Text style={{ fontSize: 36 }}>📋</Text>
-                        <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 13 }}>لا يوجد طلبات مسلّمة اليوم</Text>
+                    {/* Delivered orders grouped by day */}
+                    {!drvStatLoading && filteredDays.length === 0 && inTransit.length === 0 && (
+                      <View style={{ alignItems: "center", paddingVertical: 40, gap: 8 }}>
+                        <Text style={{ fontSize: 40 }}>📋</Text>
+                        <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 13 }}>لا يوجد طلبات في هذه الفترة</Text>
                       </View>
-                    ) : drvDetailRow.orders.length > 0 ? (
-                      <>
-                        <Text style={{ color: colors.mutedForeground, fontFamily: F.bold, fontSize: 13, textAlign: "right", marginBottom: 4 }}>✅ تم التسليم</Text>
-                        {drvDetailRow.orders.map(ord => {
-                          const dt = ord.deliveredAt ? new Date(ord.deliveredAt) : null;
-                          const dayName  = dt ? dt.toLocaleDateString("ar-SA", { weekday: "long" }) : "";
-                          const dateStr  = dt ? dt.toLocaleDateString("ar-SA", { day: "numeric", month: "long", year: "numeric" }) : "";
-                          const timeStr  = dt ? dt.toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" }) : "--:--";
-                          return (
+                    )}
+
+                    {filteredDays.map(day => {
+                      const dayDate = new Date(day.date);
+                      const dayLabel = dayDate.toLocaleDateString("ar-SA", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+                      const today0Local = new Date(); today0Local.setHours(0,0,0,0);
+                      const isToday = dayDate.toDateString() === today0Local.toDateString();
+                      const yesterday = new Date(today0Local); yesterday.setDate(yesterday.getDate() - 1);
+                      const isYesterday = dayDate.toDateString() === yesterday.toDateString();
+                      const headerLabel = isToday ? `اليوم — ${dayLabel}` : isYesterday ? `أمس — ${dayLabel}` : dayLabel;
+
+                      return (
+                        <View key={day.date} style={{ gap: 6 }}>
+                          {/* Day header */}
+                          <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8, marginTop: 8 }}>
+                            <View style={{ flex: 1, height: 1, backgroundColor: colors.border }} />
+                            <View style={{ backgroundColor: isToday ? "#E8920C22" : colors.secondary, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 4, borderWidth: 1, borderColor: isToday ? "#E8920C55" : colors.border }}>
+                              <Text style={{ color: isToday ? colors.gold : colors.mutedForeground, fontFamily: F.bold, fontSize: 11 }}>{headerLabel}</Text>
+                            </View>
+                            <View style={{ backgroundColor: "#4CAF5022", borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 }}>
+                              <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 10 }}>{day.ordersCount} طلب · {day.totalCollected.toFixed(0)} ر.س</Text>
+                            </View>
+                          </View>
+
+                          {/* Orders */}
+                          {day.orders.map(ord => (
                             <View key={ord.orderId} style={{ backgroundColor: colors.background, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border, gap: 8 }}>
-                              {/* Header row: order number + name + price */}
+                              {/* Order number + name + price */}
                               <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" }}>
                                 <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6 }}>
                                   <View style={{ backgroundColor: "#E8920C22", paddingHorizontal: 7, paddingVertical: 2, borderRadius: 7 }}>
-                                    <Text style={{ color: "#E8920C", fontFamily: F.extra, fontSize: 11 }}>#{ord.dailyNumber ?? ord.orderId}</Text>
+                                    <Text style={{ color: "#E8920C", fontFamily: F.extra, fontSize: 12 }}>#{ord.dailyNumber ?? ord.orderId}</Text>
                                   </View>
                                   <Text style={{ color: colors.foreground, fontFamily: F.semi, fontSize: 13 }}>{ord.customerName}</Text>
                                 </View>
                                 <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 15 }}>{ord.totalPrice.toFixed(2)} ر.س</Text>
                               </View>
-                              {/* Date/time row */}
-                              {dt && (
-                                <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6, backgroundColor: colors.secondary, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 }}>
-                                  <Feather name="clock" size={11} color={colors.gold} />
-                                  <Text style={{ color: colors.gold, fontFamily: F.bold, fontSize: 11 }}>{timeStr}</Text>
-                                  <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }}>•</Text>
-                                  <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 11 }}>{dayName}</Text>
-                                  <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }}>•</Text>
-                                  <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }}>{dateStr}</Text>
+
+                              {/* Timeline: assigned → picked_up → delivered */}
+                              <View style={{ flexDirection: "row-reverse", gap: 6 }}>
+                                {ord.assignedAt && (
+                                  <View style={{ flex: 1, backgroundColor: "#1A1A2A", borderRadius: 8, padding: 7, alignItems: "center", gap: 2, borderWidth: 1, borderColor: "#5C6BC033" }}>
+                                    <Feather name="bell" size={10} color="#7986CB" />
+                                    <Text style={{ color: "#7986CB", fontFamily: F.bold, fontSize: 11 }}>{fmt(ord.assignedAt)}</Text>
+                                    <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 9 }}>استلام الطلب</Text>
+                                  </View>
+                                )}
+                                {ord.pickedUpAt && (
+                                  <View style={{ flex: 1, backgroundColor: "#1A140A", borderRadius: 8, padding: 7, alignItems: "center", gap: 2, borderWidth: 1, borderColor: "#E8920C33" }}>
+                                    <Feather name="package" size={10} color={colors.gold} />
+                                    <Text style={{ color: colors.gold, fontFamily: F.bold, fontSize: 11 }}>{fmt(ord.pickedUpAt)}</Text>
+                                    <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 9 }}>أخذ الطلب</Text>
+                                  </View>
+                                )}
+                                <View style={{ flex: 1, backgroundColor: "#0A1A0A", borderRadius: 8, padding: 7, alignItems: "center", gap: 2, borderWidth: 1, borderColor: "#4CAF5033" }}>
+                                  <Feather name="check-circle" size={10} color="#4CAF50" />
+                                  <Text style={{ color: "#4CAF50", fontFamily: F.bold, fontSize: 11 }}>{fmt(ord.deliveredAt)}</Text>
+                                  <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 9 }}>تسليم الطلب</Text>
                                 </View>
-                              )}
+                              </View>
                             </View>
-                          );
-                        })}
-                        {/* Total row */}
-                        <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center", backgroundColor: "#0A2A0A", borderRadius: 12, padding: 14, borderWidth: 1, borderColor: "#4CAF5033" }}>
-                          <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 14 }}>💰 إجمالي المحصّل</Text>
-                          <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 18 }}>{drvDetailRow.totalCollected.toFixed(2)} ر.س</Text>
+                          ))}
                         </View>
-                      </>
-                    ) : null}
+                      );
+                    })}
                   </ScrollView>
                 </>
               );
