@@ -391,6 +391,27 @@ export default function CashierScreen() {
       }
 
       setOrders(data);
+
+      // Load assignments for all delivery orders (have an address)
+      const deliveryOrders = data.filter(
+        (o) => !!o.customerAddress || o.notes?.includes("توصيل")
+      );
+      if (deliveryOrders.length > 0) {
+        Promise.allSettled(
+          deliveryOrders.map((o) =>
+            apiGet<{ assignment: { driverId: number; status: string }; driver: { name: string } } | null>(
+              `/orders/${o.id}/assignment`
+            ).then((row) => {
+              if (row) {
+                setAssignments((prev) => ({
+                  ...prev,
+                  [o.id]: { driverId: row.assignment.driverId, driverName: row.driver?.name ?? "مندوب", status: row.assignment.status },
+                }));
+              }
+            })
+          )
+        );
+      }
     } catch {
       /* silent */
     } finally {
@@ -870,8 +891,8 @@ export default function CashierScreen() {
                   </TouchableOpacity>
                 )}
 
-                {/* Assign driver button — only for delivery orders when drivers enabled */}
-                {driversEnabled && (order.notes?.includes("🚗 توصيل") || order.notes?.includes("توصيل")) && (
+                {/* Assign driver button — delivery = has address OR notes contain توصيل */}
+                {driversEnabled && (!!order.customerAddress || order.notes?.includes("توصيل")) && (
                   <View style={{ gap: 6 }}>
                     {assignments[order.id] ? (
                       <View style={{ backgroundColor: "#0A1F0A", borderRadius: 10, padding: 10, flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", borderWidth: 1, borderColor: "#2E7D3244" }}>
