@@ -108,7 +108,7 @@ export default function OrdersScreen() {
   const isEn = language === "en";
 
   // ─── Chat types ────────────────────────────────────────
-  interface ChatMsg { id: number; orderId: number; text: string; fromCashier: boolean; createdAt: string; readAt: string | null; }
+  interface ChatMsg { id: number; orderId: number; text: string; fromCashier: boolean; driverId: number | null; createdAt: string; readAt: string | null; }
 
   // ─── Orders state ──────────────────────────────────────
   const [orders, setOrders]           = useState<StoredOrder[]>([]);
@@ -580,7 +580,9 @@ export default function OrdersScreen() {
                   </TouchableOpacity>
                   <View style={{ alignItems: "center", gap: 3 }}>
                     <Text style={{ color: colors.foreground, fontFamily: F.extra, fontSize: 16 }}>
-                      {isEn ? "💬 Support Chat" : "💬 تواصل مع الكاشير"}
+                      {activeDriver && activeDriver.orderId === chatOrderId
+                        ? (isEn ? "💬 Chat with Driver" : "💬 تواصل مع المندوب")
+                        : (isEn ? "💬 Support Chat" : "💬 تواصل مع الكاشير")}
                     </Text>
                     {chatOrder && (
                       <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12 }}>
@@ -627,7 +629,7 @@ export default function OrdersScreen() {
                         <View style={{ maxWidth: "80%", backgroundColor: isCustomer ? "#2A1800" : colors.secondary, borderRadius: 18, borderTopRightRadius: isCustomer ? 4 : 18, borderTopLeftRadius: isCustomer ? 18 : 4, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1, borderColor: isCustomer ? colors.gold + "55" : colors.border }}>
                           <Text style={{ color: isCustomer ? colors.gold : colors.foreground, fontFamily: F.semi, fontSize: 14, textAlign: isCustomer ? "right" : "left" }}>{msg.text}</Text>
                           <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 10, marginTop: 4, textAlign: isCustomer ? "right" : "left" }}>
-                            {time}{isCustomer ? (isEn ? " • You" : " • أنت") : (isEn ? " • Cashier" : " • الكاشير")}
+                            {time}{isCustomer ? (isEn ? " • You" : " • أنت") : (msg.driverId ? (isEn ? " • Driver" : " • المندوب") : (isEn ? " • Cashier" : " • الكاشير"))}
                           </Text>
                         </View>
                       </View>

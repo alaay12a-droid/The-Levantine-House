@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, TextInput,
-  ActivityIndicator, StatusBar, Platform, RefreshControl, Image, Alert, Modal, Vibration,
+  ActivityIndicator, StatusBar, Platform, RefreshControl, Image, Alert, Modal, Vibration, KeyboardAvoidingView,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -102,7 +102,71 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
   const [locationError, setLocationError] = useState(false);
   const [pendingDelivery, setPendingDelivery] = useState<{ orderId: number; total: number; customerName: string } | null>(null);
   const [cashConfirmed, setCashConfirmed] = useState(false);
-  const [activeView, setActiveView] = useState<"waiting" | "delivered" | "statement">("waiting");
+  const [activeView, setActiveView] = useState<"waiting" | "delivered" | "statement" | "messages">("waiting");
+
+  // ── Driver chat ────────────────────────────────────────────────────────────
+  interface DriverConvo { orderId: number; lastText: string; fromDriver: boolean; lastAt: string; unread: number; order: { id: number; dailyNumber: number; customerName: string; customerPhone: string } | null; }
+  interface DriverMsg { id: number; orderId: number; text: string; fromCashier: boolean; driverId: number | null; createdAt: string; readAt: string | null; }
+  const [driverConvos, setDriverConvos]   = useState<DriverConvo[]>([]);
+  const [chatOrderId, setChatOrderId]     = useState<number | null>(null);
+  const [chatMessages, setChatMessages]   = useState<DriverMsg[]>([]);
+  const [chatInput, setChatInput]         = useState("");
+  const [chatSending, setChatSending]     = useState(false);
+  const [chatLoading, setChatLoading]     = useState(false);
+  const chatScrollRef                      = useRef<ScrollView>(null);
+  const msgsPollRef                        = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const loadDriverConvos = useCallback(async () => {
+    try {
+      const data = await apiGet<DriverConvo[]>(`/messages/driver/${driver.id}/conversations`);
+      setDriverConvos(data);
+    } catch {}
+  }, [driver.id]);
+
+  const openDriverChat = useCallback(async (orderId: number) => {
+    setChatOrderId(orderId);
+    setChatLoading(true);
+    setChatMessages([]);
+    try {
+      const msgs = await apiGet<DriverMsg[]>(`/messages/driver/${driver.id}/order/${orderId}`);
+      setChatMessages(msgs);
+      setDriverConvos(prev => prev.map(c => c.orderId === orderId ? { ...c, unread: 0 } : c));
+    } catch {}
+    setChatLoading(false);
+  }, [driver.id]);
+
+  const sendDriverMsg = useCallback(async () => {
+    if (!chatOrderId || !chatInput.trim()) return;
+    const text = chatInput.trim();
+    setChatInput("");
+    setChatSending(true);
+    try {
+      const msg = await apiPost<DriverMsg>(`/messages/driver/${driver.id}/order/${chatOrderId}`, { text });
+      setChatMessages(prev => [...prev, msg]);
+      setTimeout(() => chatScrollRef.current?.scrollToEnd({ animated: true }), 100);
+    } catch {} finally { setChatSending(false); }
+  }, [chatOrderId, chatInput, driver.id]);
+
+  // Poll conversations every 15s, and active chat every 5s
+  useEffect(() => {
+    loadDriverConvos();
+    msgsPollRef.current = setInterval(loadDriverConvos, 15000);
+    return () => { if (msgsPollRef.current) clearInterval(msgsPollRef.current); };
+  }, [loadDriverConvos]);
+
+  useEffect(() => {
+    if (!chatOrderId) return;
+    const t = setInterval(async () => {
+      try {
+        const msgs = await apiGet<DriverMsg[]>(`/messages/driver/${driver.id}/order/${chatOrderId}`);
+        setChatMessages(msgs);
+        setDriverConvos(prev => prev.map(c => c.orderId === chatOrderId ? { ...c, unread: 0 } : c));
+      } catch {}
+    }, 5000);
+    return () => clearInterval(t);
+  }, [chatOrderId, driver.id]);
+
+  const totalUnreadMsgs = driverConvos.reduce((s, c) => s + c.unread, 0);
 
   interface StmtOrder { orderId: number; dailyNumber: number | null; customerName: string; totalPrice: number; deliveredAt: string; }
   interface StmtPeriod { ordersCount: number; totalCollected: number; }
@@ -349,27 +413,27 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
         {/* Tab bar */}
         <View style={{ flexDirection: "row-reverse", borderTopWidth: 1, borderTopColor: colors.border }}>
           {([
-            { key: "waiting",   label: "انتظار التسليم", icon: "clock",        badge: waitingRows.length   },
-            { key: "delivered", label: "تم التسليم",     icon: "check-circle", badge: deliveredRows.length },
-            { key: "statement", label: "كشف الحساب",     icon: "dollar-sign",  badge: 0                   },
+            { key: "waiting",   label: "انتظار",    icon: "clock",          badge: waitingRows.length,   accent: "#E8920C" },
+            { key: "messages",  label: "رسائل",     icon: "message-circle", badge: totalUnreadMsgs,      accent: "#29B6F6" },
+            { key: "delivered", label: "تسليم",     icon: "check-circle",   badge: deliveredRows.length, accent: "#4CAF50" },
+            { key: "statement", label: "حساب",      icon: "dollar-sign",    badge: 0,                    accent: "#E8920C" },
           ] as const).map(tab => {
             const active = activeView === tab.key;
-            const accentColor = tab.key === "delivered" ? "#4CAF50" : "#E8920C";
             return (
               <TouchableOpacity
                 key={tab.key}
                 onPress={() => { setActiveView(tab.key); if (tab.key === "statement") loadSummary(); }}
-                style={{ flex: 1, alignItems: "center", paddingVertical: 10, borderBottomWidth: 2, borderBottomColor: active ? accentColor : "transparent", gap: 3 }}
+                style={{ flex: 1, alignItems: "center", paddingVertical: 10, borderBottomWidth: 2, borderBottomColor: active ? tab.accent : "transparent", gap: 3 }}
               >
                 <View style={{ position: "relative" }}>
-                  <Feather name={tab.icon} size={18} color={active ? accentColor : colors.mutedForeground} />
+                  <Feather name={tab.icon} size={18} color={active ? tab.accent : colors.mutedForeground} />
                   {tab.badge > 0 && (
-                    <View style={{ position: "absolute", top: -5, right: -8, backgroundColor: active ? accentColor : "#555", borderRadius: 8, minWidth: 16, height: 16, alignItems: "center", justifyContent: "center", paddingHorizontal: 3 }}>
+                    <View style={{ position: "absolute", top: -5, right: -8, backgroundColor: active ? tab.accent : "#555", borderRadius: 8, minWidth: 16, height: 16, alignItems: "center", justifyContent: "center", paddingHorizontal: 3 }}>
                       <Text style={{ color: "#fff", fontSize: 9, fontFamily: F.bold }}>{tab.badge}</Text>
                     </View>
                   )}
                 </View>
-                <Text style={{ color: active ? accentColor : colors.mutedForeground, fontFamily: active ? F.bold : F.regular, fontSize: 10 }}>{tab.label}</Text>
+                <Text style={{ color: active ? tab.accent : colors.mutedForeground, fontFamily: active ? F.bold : F.regular, fontSize: 10 }}>{tab.label}</Text>
               </TouchableOpacity>
             );
           })}
@@ -456,6 +520,151 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
           </View>
         </View>
       </Modal>
+
+      {/* ══════════════════════════════════════════
+           تاب: رسائل العملاء
+          ══════════════════════════════════════════ */}
+      {activeView === "messages" && (
+        <ScrollView contentContainerStyle={{ padding: 14, gap: 10, paddingBottom: 60 }}>
+          {driverConvos.length === 0 ? (
+            <View style={{ alignItems: "center", paddingTop: 80, gap: 14 }}>
+              <Text style={{ fontSize: 52 }}>💬</Text>
+              <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 15, textAlign: "center" }}>
+                لا توجد رسائل من العملاء
+              </Text>
+              <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12 }}>
+                ستظهر هنا رسائل العملاء المعيّنين لك
+              </Text>
+            </View>
+          ) : driverConvos.map(convo => {
+            const time = new Date(convo.lastAt).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" });
+            return (
+              <TouchableOpacity
+                key={convo.orderId}
+                onPress={() => openDriverChat(convo.orderId)}
+                style={{ backgroundColor: colors.card, borderRadius: 16, padding: 14, borderWidth: 1.5, borderColor: convo.unread > 0 ? "#29B6F6" : colors.border, gap: 8 }}
+              >
+                <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" }}>
+                  <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
+                    <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: "#0A1F2A", alignItems: "center", justifyContent: "center", borderWidth: 1.5, borderColor: "#29B6F6" }}>
+                      <Text style={{ fontSize: 18 }}>👤</Text>
+                    </View>
+                    <View>
+                      <Text style={{ color: colors.foreground, fontFamily: F.bold, fontSize: 14 }}>
+                        {convo.order?.customerName ?? "عميل"}
+                      </Text>
+                      <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }}>
+                        طلب #{convo.order?.dailyNumber ?? convo.orderId}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={{ alignItems: "flex-end", gap: 4 }}>
+                    <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }}>{time}</Text>
+                    {convo.unread > 0 && (
+                      <View style={{ backgroundColor: "#29B6F6", borderRadius: 10, minWidth: 20, height: 20, alignItems: "center", justifyContent: "center", paddingHorizontal: 5 }}>
+                        <Text style={{ color: "#fff", fontFamily: F.bold, fontSize: 11 }}>{convo.unread}</Text>
+                      </View>
+                    )}
+                  </View>
+                </View>
+                <Text style={{ color: convo.unread > 0 ? colors.foreground : colors.mutedForeground, fontFamily: convo.unread > 0 ? F.semi : F.regular, fontSize: 13, textAlign: "right" }} numberOfLines={1}>
+                  {convo.fromDriver ? "أنت: " : ""}{convo.lastText}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      )}
+
+      {/* ── Chat modal (driver ↔ customer) ── */}
+      {chatOrderId !== null && (() => {
+        const convo = driverConvos.find(c => c.orderId === chatOrderId);
+        return (
+          <Modal visible animationType="slide" onRequestClose={() => setChatOrderId(null)}>
+            <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+              <View style={{ flex: 1, backgroundColor: colors.background }}>
+                {/* Header */}
+                <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingTop: (Platform.OS === "web" ? 20 : insets.top) + 12, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: "#0A1F2A" }}>
+                  <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 10 }}>
+                    <TouchableOpacity onPress={() => { setChatOrderId(null); loadDriverConvos(); }} style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: colors.secondary, alignItems: "center", justifyContent: "center" }}>
+                      <Feather name="arrow-right" size={20} color={colors.foreground} />
+                    </TouchableOpacity>
+                    <View>
+                      <Text style={{ color: colors.foreground, fontFamily: F.bold, fontSize: 15 }}>
+                        {convo?.order?.customerName ?? "عميل"}
+                      </Text>
+                      <Text style={{ color: "#29B6F6", fontFamily: F.regular, fontSize: 12 }}>
+                        طلب #{convo?.order?.dailyNumber ?? chatOrderId}
+                      </Text>
+                    </View>
+                  </View>
+                  {convo?.order?.customerPhone ? (
+                    <TouchableOpacity
+                      onPress={() => { const p = convo.order!.customerPhone; if (Platform.OS === "web") window.open(`tel:${p}`); else import("react-native").then(({ Linking }) => Linking.openURL(`tel:${p}`)); }}
+                      style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: "#1A3A20", borderWidth: 1.5, borderColor: "#4CAF50", alignItems: "center", justifyContent: "center" }}
+                    >
+                      <Feather name="phone" size={17} color="#4CAF50" />
+                    </TouchableOpacity>
+                  ) : <View style={{ width: 36 }} />}
+                </View>
+
+                {/* Messages */}
+                <ScrollView
+                  ref={chatScrollRef}
+                  style={{ flex: 1 }}
+                  contentContainerStyle={{ padding: 14, gap: 10 }}
+                  onContentSizeChange={() => chatScrollRef.current?.scrollToEnd({ animated: false })}
+                >
+                  {chatLoading ? (
+                    <ActivityIndicator size="large" color="#29B6F6" style={{ margin: 40 }} />
+                  ) : chatMessages.length === 0 ? (
+                    <View style={{ alignItems: "center", padding: 40, gap: 14 }}>
+                      <Text style={{ fontSize: 48 }}>💬</Text>
+                      <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 14, textAlign: "center" }}>
+                        لا توجد رسائل بعد
+                      </Text>
+                    </View>
+                  ) : chatMessages.map(msg => {
+                    const isDriver = msg.fromCashier;
+                    const time = new Date(msg.createdAt).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" });
+                    return (
+                      <View key={msg.id} style={{ alignItems: isDriver ? "flex-start" : "flex-end" }}>
+                        <View style={{ maxWidth: "80%", backgroundColor: isDriver ? "#0A1F2A" : "#2A1800", borderRadius: 18, borderTopRightRadius: isDriver ? 18 : 4, borderTopLeftRadius: isDriver ? 4 : 18, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1, borderColor: isDriver ? "#29B6F6" + "55" : colors.gold + "55" }}>
+                          <Text style={{ color: isDriver ? "#29B6F6" : colors.gold, fontFamily: F.semi, fontSize: 14, textAlign: isDriver ? "left" : "right" }}>{msg.text}</Text>
+                          <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 10, marginTop: 4, textAlign: isDriver ? "left" : "right" }}>
+                            {time}{isDriver ? " • أنت" : " • العميل"}
+                          </Text>
+                        </View>
+                      </View>
+                    );
+                  })}
+                </ScrollView>
+
+                {/* Input */}
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 14, paddingVertical: 12, paddingBottom: insets.bottom + 12, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.card }}>
+                  <TouchableOpacity
+                    onPress={sendDriverMsg}
+                    disabled={chatSending || !chatInput.trim()}
+                    style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: chatInput.trim() ? "#29B6F6" : colors.secondary, alignItems: "center", justifyContent: "center" }}
+                  >
+                    {chatSending ? <ActivityIndicator size="small" color="#fff" /> : <Feather name="send" size={18} color={chatInput.trim() ? "#fff" : colors.mutedForeground} />}
+                  </TouchableOpacity>
+                  <TextInput
+                    value={chatInput}
+                    onChangeText={setChatInput}
+                    placeholder="اكتب ردك…"
+                    placeholderTextColor={colors.mutedForeground}
+                    style={{ flex: 1, backgroundColor: colors.background, borderRadius: 22, paddingHorizontal: 16, paddingVertical: 10, color: colors.foreground, fontFamily: F.regular, fontSize: 14, borderWidth: 1, borderColor: colors.border, textAlign: "right" }}
+                    onSubmitEditing={sendDriverMsg}
+                    returnKeyType="send"
+                    multiline
+                  />
+                </View>
+              </View>
+            </KeyboardAvoidingView>
+          </Modal>
+        );
+      })()}
 
       {/* ── كشف الحساب view ── */}
       {activeView === "statement" && (

@@ -147,6 +147,7 @@ export const messagesTable = pgTable("messages", {
   orderId: integer("order_id").notNull(),
   text: text("text").notNull(),
   fromCashier: boolean("from_cashier").notNull().default(false),
+  driverId: integer("driver_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   readAt: timestamp("read_at"),
 });
