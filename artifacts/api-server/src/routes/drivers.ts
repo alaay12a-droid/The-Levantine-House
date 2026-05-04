@@ -364,6 +364,24 @@ router.put("/settings/drivers-enabled", async (req, res) => {
   res.json({ enabled: !!enabled });
 });
 
+// ── GET /settings/commission-rate ─────────────────────────────────────────────
+router.get("/settings/commission-rate", async (_req, res) => {
+  const [row] = await db.select().from(appSettingsTable).where(eq(appSettingsTable.key, "commission_rate"));
+  res.json({ rate: row ? parseFloat(row.value) : 5 });
+});
+
+// ── PUT /settings/commission-rate ─────────────────────────────────────────────
+router.put("/settings/commission-rate", async (req, res) => {
+  const rate = parseFloat(req.body.rate);
+  if (isNaN(rate) || rate < 0 || rate > 100) {
+    res.status(400).json({ error: "نسبة غير صحيحة" }); return;
+  }
+  await db.insert(appSettingsTable)
+    .values({ key: "commission_rate", value: String(rate) })
+    .onConflictDoUpdate({ target: appSettingsTable.key, set: { value: String(rate), updatedAt: new Date() } });
+  res.json({ rate });
+});
+
 // ── GET /map/:orderId  (live driver tracking HTML page) ───────────────────────
 router.get("/map/:orderId", async (req, res) => {
   const orderId = parseInt(req.params.orderId);

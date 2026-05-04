@@ -351,6 +351,32 @@ export default function AdminMenuScreen() {
     setTextsSaving(false);
   };
 
+  // Commission rate
+  const [commissionRate, setCommissionRate] = useState(5);
+  const [commissionModalVisible, setCommissionModalVisible] = useState(false);
+  const [commissionInput, setCommissionInput] = useState("5");
+  const [commissionSaving, setCommissionSaving] = useState(false);
+
+  const loadCommissionRate = async () => {
+    try {
+      const r = await apiGet<{ rate: number }>("/settings/commission-rate");
+      setCommissionRate(r.rate);
+      setCommissionInput(String(r.rate));
+    } catch {}
+  };
+
+  const saveCommissionRate = async () => {
+    const v = parseFloat(commissionInput.replace(",", "."));
+    if (isNaN(v) || v < 0 || v > 100) { Alert.alert("خطأ", "أدخل نسبة صحيحة بين 0 و 100"); return; }
+    setCommissionSaving(true);
+    try {
+      await apiPut("/settings/commission-rate", { rate: v });
+      setCommissionRate(v);
+      setCommissionModalVisible(false);
+    } catch { Alert.alert("خطأ", "تعذّر حفظ النسبة"); }
+    setCommissionSaving(false);
+  };
+
   // SMS OTP settings
   const [smsEnabled, setSmsEnabled] = useState(false);
   const [smsHasKey, setSmsHasKey] = useState(false);
@@ -390,7 +416,7 @@ export default function AdminMenuScreen() {
   const [bannerLoading, setBannerLoading] = useState<string | null>(null);
 
   useEffect(() => { refreshBanners(); }, [refreshBanners]);
-  useEffect(() => { if (activeTab === "revenue") refreshRevenue(); }, [activeTab, refreshRevenue]);
+  useEffect(() => { if (activeTab === "revenue") { refreshRevenue(); loadCommissionRate(); } }, [activeTab, refreshRevenue]);
   useEffect(() => { if (activeTab === "stock") refresh(); }, [activeTab, refresh]);
 
   const loadSmsSettings = useCallback(async () => {
@@ -3159,7 +3185,7 @@ export default function AdminMenuScreen() {
 
                 {/* ── علاء الباسطي Commission Card ── */}
                 {(() => {
-                  const COMMISSION_RATE = 0.05;
+                  const COMMISSION_RATE = commissionRate / 100;
                   const commissionBase  = pd.totalRevenue;
                   const commission      = commissionBase * COMMISSION_RATE;
                   const netAfter        = commissionBase - commission;
@@ -3179,9 +3205,13 @@ export default function AdminMenuScreen() {
                         <Text style={{ color: "#1A1008", fontFamily: F.extra, fontSize: 13, flex: 1, textAlign: "right" }}>
                           عمولة علاء الباسطي
                         </Text>
-                        <View style={{ backgroundColor: "#1A1008", paddingHorizontal: 10, paddingVertical: 3, borderRadius: 20 }}>
-                          <Text style={{ color: "#E8920C", fontFamily: F.extra, fontSize: 12 }}>5%</Text>
-                        </View>
+                        <TouchableOpacity
+                          onPress={() => { setCommissionInput(String(commissionRate)); setCommissionModalVisible(true); }}
+                          style={{ backgroundColor: "#1A1008", paddingHorizontal: 10, paddingVertical: 3, borderRadius: 20, flexDirection: "row", alignItems: "center", gap: 4 }}
+                        >
+                          <Text style={{ color: "#E8920C", fontFamily: F.extra, fontSize: 12 }}>{commissionRate}%</Text>
+                          <Feather name="edit-2" size={10} color="#E8920C" />
+                        </TouchableOpacity>
                       </View>
 
                       {/* Rows */}
@@ -3194,7 +3224,7 @@ export default function AdminMenuScreen() {
                         {/* Rate */}
                         <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: "#E8920C22" }}>
                           <Text style={{ color: "#9A7A5A", fontFamily: F.regular, fontSize: 12 }}>نسبة العمولة</Text>
-                          <Text style={{ color: "#E8920C", fontFamily: F.semi, fontSize: 12 }}>5%</Text>
+                          <Text style={{ color: "#E8920C", fontFamily: F.semi, fontSize: 12 }}>{commissionRate}%</Text>
                         </View>
                         {/* Commission amount — highlighted */}
                         <View style={{
@@ -3280,8 +3310,7 @@ export default function AdminMenuScreen() {
                 {/* ── Yearly view ── */}
                 {revenueView === "yearly" && (() => {
                   const yr = revenueData.year;
-                  const COMMISSION_RATE = 0.05;
-                  const commission = yr.totalRevenue * COMMISSION_RATE;
+                  const commission = yr.totalRevenue * (commissionRate / 100);
                   const netAfterComm = yr.totalRevenue - commission;
                   return (
                     <>
@@ -3318,14 +3347,18 @@ export default function AdminMenuScreen() {
                         <View style={{ backgroundColor: "#E8920C", paddingVertical: 10, paddingHorizontal: 16, flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
                           <Text style={{ fontSize: 16 }}>🤝</Text>
                           <Text style={{ color: "#1A1008", fontFamily: F.extra, fontSize: 13, flex: 1, textAlign: "right" }}>عمولة علاء الباسطي — السنوية</Text>
-                          <View style={{ backgroundColor: "#1A1008", paddingHorizontal: 10, paddingVertical: 3, borderRadius: 20 }}>
-                            <Text style={{ color: "#E8920C", fontFamily: F.extra, fontSize: 12 }}>5%</Text>
-                          </View>
+                          <TouchableOpacity
+                            onPress={() => { setCommissionInput(String(commissionRate)); setCommissionModalVisible(true); }}
+                            style={{ backgroundColor: "#1A1008", paddingHorizontal: 10, paddingVertical: 3, borderRadius: 20, flexDirection: "row", alignItems: "center", gap: 4 }}
+                          >
+                            <Text style={{ color: "#E8920C", fontFamily: F.extra, fontSize: 12 }}>{commissionRate}%</Text>
+                            <Feather name="edit-2" size={10} color="#E8920C" />
+                          </TouchableOpacity>
                         </View>
                         <View style={{ padding: 14, gap: 0 }}>
                           {[
                             { label: "إجمالي إيرادات السنة", value: `${yr.totalRevenue.toFixed(2)} ر.س`, color: colors.foreground },
-                            { label: "نسبة العمولة", value: "5%", color: "#E8920C" },
+                            { label: "نسبة العمولة", value: `${commissionRate}%`, color: "#E8920C" },
                           ].map((r, i) => (
                             <View key={i} style={{ flexDirection: "row-reverse", justifyContent: "space-between", paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: "#E8920C22" }}>
                               <Text style={{ color: "#9A7A5A", fontFamily: F.regular, fontSize: 12 }}>{r.label}</Text>
@@ -3792,6 +3825,55 @@ export default function AdminMenuScreen() {
             </View>
           </View>
         </KeyboardAvoidingView>
+      </Modal>
+
+      {/* ── Commission Rate Edit Modal ── */}
+      <Modal
+        visible={commissionModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setCommissionModalVisible(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.modalSheet, { backgroundColor: colors.card, maxHeight: 280 }]}>
+            <Text style={[styles.modalTitle, { color: colors.foreground, fontFamily: F.extra, textAlign: "right" }]}>
+              🤝 تعديل نسبة عمولة علاء الباسطي
+            </Text>
+            <View style={{ gap: 12 }}>
+              <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 13, textAlign: "right" }}>
+                أدخل النسبة المئوية الجديدة (0 - 100)
+              </Text>
+              <View style={{ flexDirection: "row-reverse", alignItems: "center", backgroundColor: colors.secondary, borderRadius: 12, borderWidth: 1, borderColor: colors.gold, paddingHorizontal: 14, gap: 8 }}>
+                <TextInput
+                  value={commissionInput}
+                  onChangeText={setCommissionInput}
+                  keyboardType="decimal-pad"
+                  style={{ flex: 1, color: colors.foreground, fontFamily: F.bold, fontSize: 22, paddingVertical: 12, textAlign: "center" }}
+                  selectTextOnFocus
+                  maxLength={5}
+                />
+                <Text style={{ color: colors.gold, fontFamily: F.extra, fontSize: 22 }}>%</Text>
+              </View>
+            </View>
+            <View style={{ flexDirection: "row-reverse", gap: 10, marginTop: 8 }}>
+              <TouchableOpacity
+                onPress={saveCommissionRate}
+                disabled={commissionSaving}
+                style={{ flex: 1, backgroundColor: colors.gold, borderRadius: 12, paddingVertical: 14, alignItems: "center", opacity: commissionSaving ? 0.6 : 1 }}
+              >
+                <Text style={{ color: "#1A1008", fontFamily: F.extra, fontSize: 14 }}>
+                  {commissionSaving ? "جارٍ الحفظ..." : "حفظ"}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setCommissionModalVisible(false)}
+                style={{ flex: 1, backgroundColor: colors.secondary, borderRadius: 12, paddingVertical: 14, alignItems: "center", borderWidth: 1, borderColor: colors.border }}
+              >
+                <Text style={{ color: colors.mutedForeground, fontFamily: F.bold, fontSize: 14 }}>إلغاء</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
       </Modal>
 
       {/* Stock Management Modal */}
