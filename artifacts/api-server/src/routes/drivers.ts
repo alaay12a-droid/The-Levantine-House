@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, deliveryDriversTable, orderDriverAssignmentsTable, ordersTable, appSettingsTable, messagesTable } from "@workspace/db";
-import { eq, desc, and, gte, lt } from "drizzle-orm";
+import { eq, desc, and, gte, lt, ne } from "drizzle-orm";
 import { z } from "zod";
 
 const router = Router();
@@ -129,12 +129,13 @@ router.get("/drivers/daily-summaries", async (_req, res) => {
   res.json(results);
 });
 
-// ── GET /drivers/:id/statement  (full history — today/month/year + daily log) ─
+// ── GET /drivers/:id/statement  (full history + cancelled orders) ─────────────
 router.get("/drivers/:id/statement", async (req, res) => {
   const id = parseInt(req.params.id);
   if (isNaN(id)) { res.status(400).json({ error: "معرّف غير صحيح" }); return; }
 
-  const rows = await db
+  // Delivered orders
+  const deliveredRows = await db
     .select({ assignment: orderDriverAssignmentsTable, order: ordersTable })
     .from(orderDriverAssignmentsTable)
     .leftJoin(ordersTable, eq(orderDriverAssignmentsTable.orderId, ordersTable.id))
@@ -144,43 +145,98 @@ router.get("/drivers/:id/statement", async (req, res) => {
     ))
     .orderBy(desc(orderDriverAssignmentsTable.deliveredAt));
 
+  // Cancelled orders that were once assigned to this driver
+  const cancelledRows = await db
+    .select({ assignment: orderDriverAssignmentsTable, order: ordersTable })
+    .from(orderDriverAssignmentsTable)
+    .leftJoin(ordersTable, eq(orderDriverAssignmentsTable.orderId, ordersTable.id))
+    .where(and(
+      eq(orderDriverAssignmentsTable.driverId, id),
+      ne(orderDriverAssignmentsTable.status, "delivered"),
+      eq(ordersTable.status, "cancelled"),
+    ))
+    .orderBy(desc(orderDriverAssignmentsTable.assignedAt));
+
   const now = new Date();
-  const todayStart   = new Date(now); todayStart.setHours(0,0,0,0);
-  const monthStart   = new Date(now.getFullYear(), now.getMonth(), 1);
-  const yearStart    = new Date(now.getFullYear(), 0, 1);
+  const todayStart = new Date(now); todayStart.setHours(0,0,0,0);
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const yearStart  = new Date(now.getFullYear(), 0, 1);
 
-  type PeriodAcc = { ordersCount: number; totalCollected: number };
-  const today:     PeriodAcc = { ordersCount: 0, totalCollected: 0 };
-  const thisMonth: PeriodAcc = { ordersCount: 0, totalCollected: 0 };
-  const thisYear:  PeriodAcc = { ordersCount: 0, totalCollected: 0 };
-  const allTime:   PeriodAcc = { ordersCount: 0, totalCollected: 0 };
+  type PeriodAcc = { ordersCount: number; totalCollected: number; cashCollected: number; electronicCollected: number; cancelledCount: number };
+  const mkPeriod = (): PeriodAcc => ({ ordersCount: 0, totalCollected: 0, cashCollected: 0, electronicCollected: 0, cancelledCount: 0 });
+  const today     = mkPeriod();
+  const thisMonth = mkPeriod();
+  const thisYear  = mkPeriod();
+  const allTime   = mkPeriod();
 
-  const dayMap = new Map<string, { ordersCount: number; totalCollected: number; orders: { orderId: number; dailyNumber: number | null; customerName: string; totalPrice: number; assignedAt: string | null; pickedUpAt: string | null; deliveredAt: string }[] }>();
+  type DayOrder = { orderId: number; dailyNumber: number | null; customerName: string; totalPrice: number; paymentMethod: string; assignedAt: string | null; pickedUpAt: string | null; deliveredAt: string | null; cancelled: boolean };
+  const dayMap = new Map<string, { ordersCount: number; totalCollected: number; cashCollected: number; electronicCollected: number; cancelledCount: number; orders: DayOrder[] }>();
+  const ensureDay = (key: string) => {
+    if (!dayMap.has(key)) dayMap.set(key, { ordersCount: 0, totalCollected: 0, cashCollected: 0, electronicCollected: 0, cancelledCount: 0, orders: [] });
+    return dayMap.get(key)!;
+  };
 
-  for (const r of rows) {
+  // Process delivered
+  for (const r of deliveredRows) {
     const deliveredAt = r.assignment.deliveredAt;
     if (!deliveredAt) continue;
     const d = new Date(deliveredAt);
     const price = (r.order?.totalPrice ?? 0) / 100;
+    const pm = r.order?.paymentMethod ?? "cash";
+    const isCash = pm === "cash";
 
-    allTime.ordersCount++;   allTime.totalCollected += price;
-    if (d >= yearStart)  { thisYear.ordersCount++;  thisYear.totalCollected  += price; }
-    if (d >= monthStart) { thisMonth.ordersCount++; thisMonth.totalCollected += price; }
-    if (d >= todayStart) { today.ordersCount++;     today.totalCollected     += price; }
+    const addTo = (acc: PeriodAcc) => {
+      acc.ordersCount++;
+      acc.totalCollected += price;
+      if (isCash) acc.cashCollected += price; else acc.electronicCollected += price;
+    };
+    addTo(allTime);
+    if (d >= yearStart)  addTo(thisYear);
+    if (d >= monthStart) addTo(thisMonth);
+    if (d >= todayStart) addTo(today);
 
     const dayKey = d.toISOString().slice(0, 10);
-    if (!dayMap.has(dayKey)) dayMap.set(dayKey, { ordersCount: 0, totalCollected: 0, orders: [] });
-    const day = dayMap.get(dayKey)!;
+    const day = ensureDay(dayKey);
     day.ordersCount++;
     day.totalCollected += price;
+    if (isCash) day.cashCollected += price; else day.electronicCollected += price;
     day.orders.push({
       orderId: r.assignment.orderId,
       dailyNumber: r.order?.dailyNumber ?? null,
       customerName: r.order?.customerName ?? "",
       totalPrice: price,
+      paymentMethod: pm,
       assignedAt: r.assignment.assignedAt ? r.assignment.assignedAt.toISOString() : null,
       pickedUpAt: r.assignment.pickedUpAt ? r.assignment.pickedUpAt.toISOString() : null,
       deliveredAt: deliveredAt.toISOString(),
+      cancelled: false,
+    });
+  }
+
+  // Process cancelled
+  for (const r of cancelledRows) {
+    const refDate = r.assignment.assignedAt ?? r.order?.createdAt;
+    if (!refDate) continue;
+    const d = new Date(refDate);
+
+    allTime.cancelledCount++;
+    if (d >= yearStart)  thisYear.cancelledCount++;
+    if (d >= monthStart) thisMonth.cancelledCount++;
+    if (d >= todayStart) today.cancelledCount++;
+
+    const dayKey = d.toISOString().slice(0, 10);
+    const day = ensureDay(dayKey);
+    day.cancelledCount++;
+    day.orders.push({
+      orderId: r.assignment.orderId,
+      dailyNumber: r.order?.dailyNumber ?? null,
+      customerName: r.order?.customerName ?? "",
+      totalPrice: 0,
+      paymentMethod: r.order?.paymentMethod ?? "cash",
+      assignedAt: r.assignment.assignedAt ? r.assignment.assignedAt.toISOString() : null,
+      pickedUpAt: null,
+      deliveredAt: null,
+      cancelled: true,
     });
   }
 

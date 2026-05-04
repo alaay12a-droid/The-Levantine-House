@@ -208,11 +208,11 @@ export default function CashierScreen() {
   // ─── Full driver statement (calendar) ───────────────────
   interface StatOrder {
     orderId: number; dailyNumber: number | null; customerName: string;
-    totalPrice: number;
-    assignedAt: string | null; pickedUpAt: string | null; deliveredAt: string;
+    totalPrice: number; paymentMethod: string;
+    assignedAt: string | null; pickedUpAt: string | null; deliveredAt: string | null; cancelled: boolean;
   }
-  interface StatDay { date: string; ordersCount: number; totalCollected: number; orders: StatOrder[]; }
-  interface PeriodAcc { ordersCount: number; totalCollected: number; }
+  interface StatDay { date: string; ordersCount: number; totalCollected: number; cashCollected: number; electronicCollected: number; cancelledCount: number; orders: StatOrder[]; }
+  interface PeriodAcc { ordersCount: number; totalCollected: number; cashCollected: number; electronicCollected: number; cancelledCount: number; }
   interface DrvStatement {
     today: PeriodAcc; thisMonth: PeriodAcc; thisYear: PeriodAcc; allTime: PeriodAcc;
     daily: StatDay[];
@@ -1504,16 +1504,34 @@ export default function CashierScreen() {
                   {drvStatLoading
                     ? <ActivityIndicator color={colors.gold} style={{ marginVertical: 12 }} />
                     : (
-                      <View style={{ flexDirection: "row-reverse", gap: 10, paddingHorizontal: 16, marginBottom: 6 }}>
-                        <View style={{ flex: 1, backgroundColor: "#1A1A0A", borderRadius: 14, borderWidth: 1, borderColor: "#E8920C33", padding: 12, alignItems: "center", gap: 2 }}>
-                          <Text style={{ color: "#E8920C", fontFamily: F.extra, fontSize: 26 }}>
-                            {drvStatTab === "today" ? (tabPeriod?.ordersCount ?? 0) + inTransit.length : (tabPeriod?.ordersCount ?? 0)}
-                          </Text>
-                          <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 11 }}>طلب</Text>
+                      <View style={{ paddingHorizontal: 16, marginBottom: 6, gap: 8 }}>
+                        {/* Row 1: orders + cancelled */}
+                        <View style={{ flexDirection: "row-reverse", gap: 8 }}>
+                          <View style={{ flex: 1, backgroundColor: "#1A1A0A", borderRadius: 14, borderWidth: 1, borderColor: "#E8920C33", padding: 12, alignItems: "center", gap: 2 }}>
+                            <Text style={{ color: "#E8920C", fontFamily: F.extra, fontSize: 26 }}>
+                              {drvStatTab === "today" ? (tabPeriod?.ordersCount ?? 0) + inTransit.length : (tabPeriod?.ordersCount ?? 0)}
+                            </Text>
+                            <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 11 }}>✅ طلبات مُسلَّمة</Text>
+                          </View>
+                          <View style={{ flex: 1, backgroundColor: "#1A0A0A", borderRadius: 14, borderWidth: 1, borderColor: "#E5737333", padding: 12, alignItems: "center", gap: 2 }}>
+                            <Text style={{ color: "#E57373", fontFamily: F.extra, fontSize: 26 }}>{tabPeriod?.cancelledCount ?? 0}</Text>
+                            <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 11 }}>❌ طلبات ملغاة</Text>
+                          </View>
                         </View>
-                        <View style={{ flex: 1, backgroundColor: "#0A1A0A", borderRadius: 14, borderWidth: 1, borderColor: "#4CAF5033", padding: 12, alignItems: "center", gap: 2 }}>
-                          <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 22 }}>{(tabPeriod?.totalCollected ?? 0).toFixed(2)}</Text>
-                          <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 11 }}>ر.س محصّل</Text>
+                        {/* Row 2: total + cash + electronic */}
+                        <View style={{ flexDirection: "row-reverse", gap: 8 }}>
+                          <View style={{ flex: 1, backgroundColor: "#0A1A0A", borderRadius: 14, borderWidth: 1, borderColor: "#4CAF5033", padding: 10, alignItems: "center", gap: 2 }}>
+                            <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 18 }}>{(tabPeriod?.totalCollected ?? 0).toFixed(2)}</Text>
+                            <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 10 }}>💰 إجمالي ر.س</Text>
+                          </View>
+                          <View style={{ flex: 1, backgroundColor: "#0F1A14", borderRadius: 14, borderWidth: 1, borderColor: "#2E7D3233", padding: 10, alignItems: "center", gap: 2 }}>
+                            <Text style={{ color: "#81C784", fontFamily: F.extra, fontSize: 18 }}>{(tabPeriod?.cashCollected ?? 0).toFixed(2)}</Text>
+                            <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 10 }}>💵 نقدي</Text>
+                          </View>
+                          <View style={{ flex: 1, backgroundColor: "#0A0F1A", borderRadius: 14, borderWidth: 1, borderColor: "#1565C033", padding: 10, alignItems: "center", gap: 2 }}>
+                            <Text style={{ color: "#64B5F6", fontFamily: F.extra, fontSize: 18 }}>{(tabPeriod?.electronicCollected ?? 0).toFixed(2)}</Text>
+                            <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 10 }}>💳 إلكتروني</Text>
+                          </View>
                         </View>
                       </View>
                     )
@@ -1575,52 +1593,94 @@ export default function CashierScreen() {
                       return (
                         <View key={day.date} style={{ gap: 6 }}>
                           {/* Day header */}
-                          <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8, marginTop: 8 }}>
+                          <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
                             <View style={{ flex: 1, height: 1, backgroundColor: colors.border }} />
                             <View style={{ backgroundColor: isToday ? "#E8920C22" : colors.secondary, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 4, borderWidth: 1, borderColor: isToday ? "#E8920C55" : colors.border }}>
                               <Text style={{ color: isToday ? colors.gold : colors.mutedForeground, fontFamily: F.bold, fontSize: 11 }}>{headerLabel}</Text>
                             </View>
                             <View style={{ backgroundColor: "#4CAF5022", borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 }}>
-                              <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 10 }}>{day.ordersCount} طلب · {day.totalCollected.toFixed(0)} ر.س</Text>
+                              <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 10 }}>✅ {day.ordersCount} · {day.totalCollected.toFixed(0)} ر.س</Text>
                             </View>
+                            {day.cancelledCount > 0 && (
+                              <View style={{ backgroundColor: "#E5737322", borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 }}>
+                                <Text style={{ color: "#E57373", fontFamily: F.extra, fontSize: 10 }}>❌ {day.cancelledCount} ملغى</Text>
+                              </View>
+                            )}
                           </View>
+
+                          {/* Day payment summary row */}
+                          {(day.cashCollected > 0 || day.electronicCollected > 0) && (
+                            <View style={{ flexDirection: "row-reverse", gap: 6 }}>
+                              {day.cashCollected > 0 && (
+                                <View style={{ backgroundColor: "#0F1A14", borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4, borderWidth: 1, borderColor: "#2E7D3222" }}>
+                                  <Text style={{ color: "#81C784", fontFamily: F.semi, fontSize: 10 }}>💵 نقدي: {day.cashCollected.toFixed(2)} ر.س</Text>
+                                </View>
+                              )}
+                              {day.electronicCollected > 0 && (
+                                <View style={{ backgroundColor: "#0A0F1A", borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4, borderWidth: 1, borderColor: "#1565C022" }}>
+                                  <Text style={{ color: "#64B5F6", fontFamily: F.semi, fontSize: 10 }}>💳 إلكتروني: {day.electronicCollected.toFixed(2)} ر.س</Text>
+                                </View>
+                              )}
+                            </View>
+                          )}
 
                           {/* Orders */}
                           {day.orders.map(ord => (
-                            <View key={ord.orderId} style={{ backgroundColor: colors.background, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border, gap: 8 }}>
+                            <View key={`${ord.orderId}-${ord.cancelled}`}
+                              style={{ backgroundColor: ord.cancelled ? "#1A0A0A" : colors.background, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: ord.cancelled ? "#E5737344" : colors.border, gap: 8 }}
+                            >
                               {/* Order number + name + price */}
                               <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" }}>
                                 <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6 }}>
-                                  <View style={{ backgroundColor: "#E8920C22", paddingHorizontal: 7, paddingVertical: 2, borderRadius: 7 }}>
-                                    <Text style={{ color: "#E8920C", fontFamily: F.extra, fontSize: 12 }}>#{ord.dailyNumber ?? ord.orderId}</Text>
+                                  <View style={{ backgroundColor: ord.cancelled ? "#E5737322" : "#E8920C22", paddingHorizontal: 7, paddingVertical: 2, borderRadius: 7 }}>
+                                    <Text style={{ color: ord.cancelled ? "#E57373" : "#E8920C", fontFamily: F.extra, fontSize: 12 }}>#{ord.dailyNumber ?? ord.orderId}</Text>
                                   </View>
-                                  <Text style={{ color: colors.foreground, fontFamily: F.semi, fontSize: 13 }}>{ord.customerName}</Text>
+                                  <Text style={{ color: ord.cancelled ? "#E57373" : colors.foreground, fontFamily: F.semi, fontSize: 13 }}>{ord.customerName}</Text>
+                                  {ord.cancelled && (
+                                    <View style={{ backgroundColor: "#E5737322", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
+                                      <Text style={{ color: "#E57373", fontFamily: F.bold, fontSize: 9 }}>ملغى</Text>
+                                    </View>
+                                  )}
                                 </View>
-                                <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 15 }}>{ord.totalPrice.toFixed(2)} ر.س</Text>
+                                {ord.cancelled
+                                  ? <Text style={{ color: "#E57373", fontFamily: F.semi, fontSize: 12 }}>—</Text>
+                                  : <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 4 }}>
+                                      <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 15 }}>{ord.totalPrice.toFixed(2)} ر.س</Text>
+                                      <Text style={{ fontSize: 12 }}>{ord.paymentMethod === "cash" ? "💵" : "💳"}</Text>
+                                    </View>
+                                }
                               </View>
 
-                              {/* Timeline: assigned → picked_up → delivered */}
-                              <View style={{ flexDirection: "row-reverse", gap: 6 }}>
-                                {ord.assignedAt && (
-                                  <View style={{ flex: 1, backgroundColor: "#1A1A2A", borderRadius: 8, padding: 7, alignItems: "center", gap: 2, borderWidth: 1, borderColor: "#5C6BC033" }}>
-                                    <Feather name="bell" size={10} color="#7986CB" />
-                                    <Text style={{ color: "#7986CB", fontFamily: F.bold, fontSize: 11 }}>{fmt(ord.assignedAt)}</Text>
-                                    <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 9 }}>استلام الطلب</Text>
+                              {/* Timeline */}
+                              {!ord.cancelled && (
+                                <View style={{ flexDirection: "row-reverse", gap: 6 }}>
+                                  {ord.assignedAt && (
+                                    <View style={{ flex: 1, backgroundColor: "#1A1A2A", borderRadius: 8, padding: 7, alignItems: "center", gap: 2, borderWidth: 1, borderColor: "#5C6BC033" }}>
+                                      <Feather name="bell" size={10} color="#7986CB" />
+                                      <Text style={{ color: "#7986CB", fontFamily: F.bold, fontSize: 11 }}>{fmt(ord.assignedAt)}</Text>
+                                      <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 9 }}>استلام</Text>
+                                    </View>
+                                  )}
+                                  {ord.pickedUpAt && (
+                                    <View style={{ flex: 1, backgroundColor: "#1A140A", borderRadius: 8, padding: 7, alignItems: "center", gap: 2, borderWidth: 1, borderColor: "#E8920C33" }}>
+                                      <Feather name="package" size={10} color={colors.gold} />
+                                      <Text style={{ color: colors.gold, fontFamily: F.bold, fontSize: 11 }}>{fmt(ord.pickedUpAt)}</Text>
+                                      <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 9 }}>أخذ</Text>
+                                    </View>
+                                  )}
+                                  <View style={{ flex: 1, backgroundColor: "#0A1A0A", borderRadius: 8, padding: 7, alignItems: "center", gap: 2, borderWidth: 1, borderColor: "#4CAF5033" }}>
+                                    <Feather name="check-circle" size={10} color="#4CAF50" />
+                                    <Text style={{ color: "#4CAF50", fontFamily: F.bold, fontSize: 11 }}>{fmt(ord.deliveredAt)}</Text>
+                                    <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 9 }}>تسليم</Text>
                                   </View>
-                                )}
-                                {ord.pickedUpAt && (
-                                  <View style={{ flex: 1, backgroundColor: "#1A140A", borderRadius: 8, padding: 7, alignItems: "center", gap: 2, borderWidth: 1, borderColor: "#E8920C33" }}>
-                                    <Feather name="package" size={10} color={colors.gold} />
-                                    <Text style={{ color: colors.gold, fontFamily: F.bold, fontSize: 11 }}>{fmt(ord.pickedUpAt)}</Text>
-                                    <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 9 }}>أخذ الطلب</Text>
-                                  </View>
-                                )}
-                                <View style={{ flex: 1, backgroundColor: "#0A1A0A", borderRadius: 8, padding: 7, alignItems: "center", gap: 2, borderWidth: 1, borderColor: "#4CAF5033" }}>
-                                  <Feather name="check-circle" size={10} color="#4CAF50" />
-                                  <Text style={{ color: "#4CAF50", fontFamily: F.bold, fontSize: 11 }}>{fmt(ord.deliveredAt)}</Text>
-                                  <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 9 }}>تسليم الطلب</Text>
                                 </View>
-                              </View>
+                              )}
+                              {ord.cancelled && ord.assignedAt && (
+                                <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 5 }}>
+                                  <Feather name="x-circle" size={11} color="#E57373" />
+                                  <Text style={{ color: "#E57373", fontFamily: F.regular, fontSize: 11 }}>تم الإلغاء · {fmt(ord.assignedAt)}</Text>
+                                </View>
+                              )}
                             </View>
                           ))}
                         </View>
