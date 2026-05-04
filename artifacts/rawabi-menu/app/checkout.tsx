@@ -31,6 +31,7 @@ import { useTranslation } from "@/hooks/useTranslation";
 import { useLanguage } from "@/context/LanguageContext";
 import { useDiscountCodes } from "@/hooks/useDiscountCodes";
 import { useUIDensity } from "@/hooks/useUIDensity";
+import { MapPickerModal } from "@/components/MapPickerModal";
 
 const F = {
   regular: "Cairo_400Regular",
@@ -77,6 +78,9 @@ export default function CheckoutScreen() {
   const [loading, setLoading] = useState(false);
   const [locationUrl, setLocationUrl] = useState<string | null>(null);
   const [locationLoading, setLocationLoading] = useState(false);
+  const [mapPickerVisible, setMapPickerVisible] = useState(false);
+  const [manualLat, setManualLat] = useState<number | undefined>();
+  const [manualLng, setManualLng] = useState<number | undefined>();
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
 
   const [otpStep, setOtpStep] = useState<"idle" | "sent" | "verified">("idle");
@@ -543,6 +547,21 @@ export default function CheckoutScreen() {
                       </Text>
                     </TouchableOpacity>
                     <TouchableOpacity
+                      onPress={() => {
+                        const cur = manualLat ?? user?.lat;
+                        const cln = manualLng ?? user?.lng;
+                        setManualLat(cur);
+                        setManualLng(cln);
+                        setMapPickerVisible(true);
+                      }}
+                      style={[styles.locActionBtn, { backgroundColor: "#1A1A3A" }]}
+                    >
+                      <Feather name="map" size={13} color="#CE93D8" />
+                      <Text style={{ color: "#CE93D8", fontFamily: F.bold, fontSize: 12 }}>
+                        {isEn ? "Adjust" : "تعديل"}
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
                       onPress={() => Linking.openURL(locationUrl)}
                       style={[styles.locActionBtn, { backgroundColor: "#1A2A3A" }]}
                     >
@@ -567,27 +586,48 @@ export default function CheckoutScreen() {
                 </View>
               </>
             ) : (
-              <TouchableOpacity
-                onPress={handleGetLocation}
-                disabled={locationLoading}
-                style={[styles.listRow, dyn.row]}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.rowValue, dyn.val, { color: locationLoading ? colors.mutedForeground : GOLD, fontFamily: F.bold }]}>
-                  {locationLoading
-                    ? (isEn ? "Getting location..." : "جاري التحديد...")
-                    : (isEn ? "Tap to share location" : "اضغط لمشاركة موقعك")}
-                </Text>
-                <View style={styles.rowLeft}>
-                  {locationLoading
-                    ? <ActivityIndicator size="small" color={GOLD} />
-                    : <Feather name="map-pin" size={16} color={colors.mutedForeground} />
-                  }
-                  <Text style={[styles.rowLabel, dyn.lbl, { color: colors.mutedForeground, fontFamily: F.regular }]}>
-                    {isEn ? "Location" : "الموقع"}
-                  </Text>
+              <View>
+                <View style={[styles.listRow, dyn.row]}>
+                  <View style={{ flexDirection: "row", gap: 8 }}>
+                    <TouchableOpacity
+                      onPress={handleGetLocation}
+                      disabled={locationLoading}
+                      style={[styles.locActionBtn, { backgroundColor: "#1A2A1A", opacity: locationLoading ? 0.6 : 1 }]}
+                      activeOpacity={0.7}
+                    >
+                      {locationLoading
+                        ? <ActivityIndicator size="small" color="#81C784" />
+                        : <Feather name="crosshair" size={13} color="#81C784" />}
+                      <Text style={{ color: "#81C784", fontFamily: F.bold, fontSize: 12 }}>
+                        {isEn ? "Auto" : "تلقائي"}
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => {
+                        setManualLat(user?.lat);
+                        setManualLng(user?.lng);
+                        setMapPickerVisible(true);
+                      }}
+                      style={[styles.locActionBtn, { backgroundColor: "#1A1A3A" }]}
+                      activeOpacity={0.7}
+                    >
+                      <Feather name="map" size={13} color="#CE93D8" />
+                      <Text style={{ color: "#CE93D8", fontFamily: F.bold, fontSize: 12 }}>
+                        {isEn ? "Manual" : "خريطة"}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                  <View style={styles.rowLeft}>
+                    <Feather name="map-pin" size={16} color={colors.mutedForeground} />
+                    <Text style={[styles.rowLabel, dyn.lbl, { color: colors.mutedForeground, fontFamily: F.regular }]}>
+                      {isEn ? "Location" : "الموقع"}
+                    </Text>
+                  </View>
                 </View>
-              </TouchableOpacity>
+                <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11, textAlign: "right", paddingHorizontal: 14, paddingBottom: 10 }}>
+                  {isEn ? "Share your location for precise delivery" : "حدد موقعك للتوصيل الدقيق"}
+                </Text>
+              </View>
             )}
           </View>
         )}
@@ -1028,6 +1068,20 @@ export default function CheckoutScreen() {
           </View>
         </View>
       )}
+
+      {/* ── Map Picker Modal ── */}
+      <MapPickerModal
+        visible={mapPickerVisible}
+        initialLat={manualLat ?? user?.lat}
+        initialLng={manualLng ?? user?.lng}
+        onConfirm={(lat, lng, url) => {
+          setManualLat(lat);
+          setManualLng(lng);
+          setLocationUrl(url);
+          setMapPickerVisible(false);
+        }}
+        onClose={() => setMapPickerVisible(false)}
+      />
     </View>
   );
 }
