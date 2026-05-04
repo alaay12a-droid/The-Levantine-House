@@ -18,24 +18,24 @@ export function BannerCarousel({ banners }: Props) {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const scrollToIndex = useCallback((index: number) => {
-    try {
-      flatRef.current?.scrollToIndex({ index, animated: true });
-    } catch {}
+    flatRef.current?.scrollToOffset({ offset: index * CARD_WIDTH, animated: true });
     setCurrent(index);
     currentRef.current = index;
   }, []);
 
-  useEffect(() => {
-    if (active.length <= 1) return;
+  const startAutoScroll = useCallback(() => {
     if (intervalRef.current) clearInterval(intervalRef.current);
     intervalRef.current = setInterval(() => {
       const next = (currentRef.current + 1) % active.length;
       scrollToIndex(next);
-    }, 5000);
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
+    }, 4000);
   }, [active.length, scrollToIndex]);
+
+  useEffect(() => {
+    if (active.length <= 1) return;
+    startAutoScroll();
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+  }, [active.length, startAutoScroll]);
 
   if (active.length === 0) return null;
 
@@ -46,9 +46,12 @@ export function BannerCarousel({ banners }: Props) {
         data={active}
         keyExtractor={(b) => String(b.bannerId)}
         horizontal
-        pagingEnabled
         showsHorizontalScrollIndicator={false}
         scrollEventThrottle={16}
+        snapToInterval={CARD_WIDTH}
+        snapToAlignment="start"
+        decelerationRate="fast"
+        disableIntervalMomentum
         getItemLayout={(_, index) => ({
           length: CARD_WIDTH,
           offset: CARD_WIDTH * index,
@@ -58,6 +61,15 @@ export function BannerCarousel({ banners }: Props) {
           const idx = Math.round(e.nativeEvent.contentOffset.x / CARD_WIDTH);
           setCurrent(idx);
           currentRef.current = idx;
+        }}
+        onScrollBeginDrag={() => {
+          if (intervalRef.current) clearInterval(intervalRef.current);
+        }}
+        onMomentumScrollEnd={(e) => {
+          const idx = Math.round(e.nativeEvent.contentOffset.x / CARD_WIDTH);
+          setCurrent(idx);
+          currentRef.current = idx;
+          if (active.length > 1) startAutoScroll();
         }}
         style={{ width: CARD_WIDTH }}
         renderItem={({ item }) => (
