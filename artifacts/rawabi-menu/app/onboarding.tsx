@@ -7,8 +7,10 @@ import { MapPickerModal } from "@/components/MapPickerModal";
 import {
   ActivityIndicator,
   Alert,
+  FlatList,
   Image,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   ScrollView,
   StatusBar,
@@ -21,6 +23,17 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useUser } from "@/context/UserContext";
 import { apiPost } from "@/constants/api";
+
+type Country = { dialCode: string; flag: string; name: string; localLength: number; hint: string; };
+const COUNTRIES: Country[] = [
+  { dialCode: "966", flag: "🇸🇦", name: "السعودية",  localLength: 10, hint: "05XXXXXXXX" },
+  { dialCode: "967", flag: "🇾🇪", name: "اليمن",     localLength: 9,  hint: "7XXXXXXXX" },
+  { dialCode: "974", flag: "🇶🇦", name: "قطر",       localLength: 8,  hint: "3XXXXXXX" },
+  { dialCode: "965", flag: "🇰🇼", name: "الكويت",    localLength: 8,  hint: "5XXXXXXX" },
+  { dialCode: "970", flag: "🇵🇸", name: "فلسطين",    localLength: 10, hint: "05XXXXXXXX" },
+  { dialCode: "963", flag: "🇸🇾", name: "سوريا",     localLength: 10, hint: "09XXXXXXXX" },
+  { dialCode: "964", flag: "🇮🇶", name: "العراق",    localLength: 11, hint: "07XXXXXXXXX" },
+];
 
 const C = {
   bg: "#0F0A05",
@@ -81,6 +94,8 @@ export default function OnboardingScreen() {
   const [otpStep, setOtpStep] = useState<"idle" | "sent">("idle");
   const [otpCode, setOtpCode] = useState("");
   const [otpLoading, setOtpLoading] = useState(false);
+  const [country, setCountry] = useState<Country>(COUNTRIES[0]);
+  const [showCountryPicker, setShowCountryPicker] = useState(false);
 
   const phoneRef = useRef<TextInput>(null);
   const addressRef = useRef<TextInput>(null);
@@ -102,12 +117,23 @@ export default function OnboardingScreen() {
     setTimeout(() => addressRef.current?.focus(), 300);
   };
 
+  // Build full international number: strip leading zeros, prepend +dialCode
+  const buildIntlPhone = () => {
+    const local = phone.trim().replace(/\D/g, "");
+    const stripped = local.replace(/^0+/, "");
+    return `+${country.dialCode}${stripped}`;
+  };
+
   const handleSendOtp = async () => {
-    const cleanPhone = phone.trim().replace(/\D/g, "");
-    if (cleanPhone.length !== 10) { Alert.alert("", "رقم الجوال يجب أن يكون 10 أرقام بالضبط"); return; }
+    const local = phone.trim().replace(/\D/g, "");
+    if (local.length !== country.localLength) {
+      Alert.alert("", `رقم الجوال يجب أن يكون ${country.localLength} أرقام لـ ${country.name}`);
+      return;
+    }
     setOtpLoading(true);
     try {
-      const r = await apiPost<{ ok: boolean; skipped?: boolean }>("/sms/send-otp", { phone: cleanPhone });
+      const intlPhone = buildIntlPhone();
+      const r = await apiPost<{ ok: boolean; skipped?: boolean }>("/sms/send-otp", { phone: intlPhone });
       if (r.skipped) { goToLocation(); return; }
       setOtpStep("sent");
       setOtpCode("");
@@ -123,8 +149,8 @@ export default function OnboardingScreen() {
     if (otpCode.length !== 4) return;
     setOtpLoading(true);
     try {
-      const cleanPhone = phone.trim().replace(/\D/g, "");
-      await apiPost("/sms/verify-otp", { phone: cleanPhone, code: otpCode });
+      const intlPhone = buildIntlPhone();
+      await apiPost("/sms/verify-otp", { phone: intlPhone, code: otpCode });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       goToLocation();
     } catch (e: any) {
@@ -142,6 +168,11 @@ export default function OnboardingScreen() {
       setTimeout(() => phoneRef.current?.focus(), 300);
     } else if (step === "phone") {
       if (otpStep === "sent") { handleVerifyOtp(); return; }
+      const local = phone.trim().replace(/\D/g, "");
+      if (local.length !== country.localLength) {
+        Alert.alert("", `رقم الجوال يجب أن يكون ${country.localLength} أرقام لـ ${country.name}`);
+        return;
+      }
       handleSendOtp();
     } else {
       if (!address.trim()) { Alert.alert("", "يرجى إدخال عنوانك أو تحديد موقعك"); return; }
@@ -254,30 +285,52 @@ export default function OnboardingScreen() {
 
           {step === "phone" && otpStep === "idle" && (
             <>
-              <TextInput
-                ref={phoneRef}
-                style={[styles.input, { borderColor: phone.replace(/\D/g,"").length === 10 ? C.green : phone.length > 0 ? C.border : C.border }]}
-                placeholder="05XXXXXXXX"
-                placeholderTextColor={C.muted}
-                value={phone}
-                onChangeText={(t) => {
-                  const digits = t.replace(/\D/g, "");
-                  if (digits.length <= 10) setPhone(digits);
-                }}
-                keyboardType="phone-pad"
-                maxLength={10}
-                returnKeyType="next"
-                onSubmitEditing={handleNext}
-                textAlign="right"
-              />
+              {/* Country + Phone row */}
+              <View style={{ flexDirection: "row-reverse", gap: 8, alignItems: "center" }}>
+                {/* Country picker button */}
+                <TouchableOpacity
+                  onPress={() => setShowCountryPicker(true)}
+                  style={{
+                    flexDirection: "row-reverse", alignItems: "center", gap: 4,
+                    backgroundColor: C.surface, borderRadius: 12, borderWidth: 1,
+                    borderColor: C.border, paddingHorizontal: 10, paddingVertical: 14,
+                  }}
+                >
+                  <Text style={{ fontSize: 20 }}>{country.flag}</Text>
+                  <Text style={{ fontFamily: F.regular, color: C.muted, fontSize: 12 }}>+{country.dialCode}</Text>
+                  <Feather name="chevron-down" size={12} color={C.muted} />
+                </TouchableOpacity>
+
+                {/* Phone input */}
+                <TextInput
+                  ref={phoneRef}
+                  style={[styles.input, {
+                    flex: 1, marginBottom: 0,
+                    borderColor: phone.replace(/\D/g,"").length === country.localLength ? C.green : phone.length > 0 ? C.border : C.border,
+                  }]}
+                  placeholder={country.hint}
+                  placeholderTextColor={C.muted}
+                  value={phone}
+                  onChangeText={(t) => {
+                    const digits = t.replace(/\D/g, "");
+                    if (digits.length <= country.localLength) setPhone(digits);
+                  }}
+                  keyboardType="phone-pad"
+                  maxLength={country.localLength}
+                  returnKeyType="next"
+                  onSubmitEditing={handleNext}
+                  textAlign="right"
+                />
+              </View>
+
               {phone.length > 0 && (
                 <Text style={{
-                  color: phone.replace(/\D/g,"").length === 10 ? C.green : "#EF4444",
-                  fontFamily: F.regular, fontSize: 12, textAlign: "right", marginTop: -8,
+                  color: phone.replace(/\D/g,"").length === country.localLength ? C.green : "#EF4444",
+                  fontFamily: F.regular, fontSize: 12, textAlign: "right", marginTop: -4,
                 }}>
-                  {phone.replace(/\D/g,"").length === 10
-                    ? "✓ رقم صحيح"
-                    : `${phone.replace(/\D/g,"").length}/10 أرقام`}
+                  {phone.replace(/\D/g,"").length === country.localLength
+                    ? `✓ ${country.name} — ${buildIntlPhone()}`
+                    : `${phone.replace(/\D/g,"").length}/${country.localLength} أرقام`}
                 </Text>
               )}
             </>
@@ -288,8 +341,8 @@ export default function OnboardingScreen() {
               {/* Phone badge */}
               <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8,
                 backgroundColor: C.surface, borderRadius: 10, padding: 10, borderWidth: 1, borderColor: C.border }}>
-                <Feather name="phone" size={14} color={C.gold} />
-                <Text style={{ fontFamily: F.regular, color: C.muted, fontSize: 13 }}>{phone}</Text>
+                <Text style={{ fontSize: 18 }}>{country.flag}</Text>
+                <Text style={{ fontFamily: F.regular, color: C.muted, fontSize: 13 }}>{buildIntlPhone()}</Text>
                 <TouchableOpacity onPress={() => { setOtpStep("idle"); setOtpCode(""); }} style={{ marginRight: "auto" }}>
                   <Text style={{ fontFamily: F.regular, color: C.primary, fontSize: 12 }}>تعديل</Text>
                 </TouchableOpacity>
@@ -444,6 +497,57 @@ export default function OnboardingScreen() {
           </TouchableOpacity>
         )}
       </ScrollView>
+
+      {/* ── Country Picker Modal ── */}
+      <Modal
+        visible={showCountryPicker}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowCountryPicker(false)}
+      >
+        <TouchableOpacity
+          style={{ flex: 1, backgroundColor: "#00000088" }}
+          activeOpacity={1}
+          onPress={() => setShowCountryPicker(false)}
+        />
+        <View style={{
+          position: "absolute", bottom: 0, left: 0, right: 0,
+          backgroundColor: C.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24,
+          paddingBottom: 40, paddingTop: 16,
+        }}>
+          <View style={{ width: 40, height: 4, backgroundColor: C.border, borderRadius: 2, alignSelf: "center", marginBottom: 16 }} />
+          <Text style={{ fontFamily: F.bold, color: C.gold, fontSize: 16, textAlign: "center", marginBottom: 12 }}>
+            اختر الدولة
+          </Text>
+          <FlatList
+            data={COUNTRIES}
+            keyExtractor={(c) => c.dialCode}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                onPress={() => {
+                  setCountry(item);
+                  setPhone("");
+                  setShowCountryPicker(false);
+                  setTimeout(() => phoneRef.current?.focus(), 200);
+                }}
+                style={{
+                  flexDirection: "row-reverse", alignItems: "center", gap: 12,
+                  paddingHorizontal: 24, paddingVertical: 14,
+                  backgroundColor: item.dialCode === country.dialCode ? C.gold + "18" : "transparent",
+                  borderBottomWidth: 1, borderBottomColor: C.border + "44",
+                }}
+              >
+                <Text style={{ fontSize: 28 }}>{item.flag}</Text>
+                <Text style={{ fontFamily: F.semi, color: C.fg, fontSize: 15, flex: 1 }}>{item.name}</Text>
+                <Text style={{ fontFamily: F.regular, color: C.muted, fontSize: 13 }}>+{item.dialCode}</Text>
+                {item.dialCode === country.dialCode && (
+                  <Feather name="check" size={16} color={C.gold} />
+                )}
+              </TouchableOpacity>
+            )}
+          />
+        </View>
+      </Modal>
 
       {/* ── Map Picker Modal ── */}
       <MapPickerModal
