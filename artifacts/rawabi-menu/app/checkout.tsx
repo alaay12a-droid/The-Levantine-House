@@ -139,6 +139,13 @@ export default function CheckoutScreen() {
     }
   }, [user?.phone]);
 
+  // Auto-load saved coordinates from onboarding as exact location link
+  React.useEffect(() => {
+    if (user?.lat && user?.lng && !locationUrl) {
+      setLocationUrl(`https://maps.google.com/?q=${user.lat},${user.lng}`);
+    }
+  }, [user?.lat, user?.lng]);
+
   const handleGetLocation = async () => {
     setLocationLoading(true);
     try {
