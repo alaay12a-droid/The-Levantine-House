@@ -12,7 +12,7 @@ import * as Location from "expo-location";
 import { Audio } from "expo-av";
 import * as Notifications from "expo-notifications";
 
-const ORDER_SOUND   = require("../assets/sounds/new_order.mp3");
+const ORDER_SOUND   = require("../assets/sounds/notification_loop.wav");
 const MESSAGE_SOUND = require("../assets/sounds/notification.wav");
 
 const F = { regular: "Cairo_400Regular", semi: "Cairo_600SemiBold", bold: "Cairo_700Bold", extra: "Cairo_800ExtraBold" };
@@ -230,7 +230,7 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
       }
       try {
         const audio = new (window as any).Audio();
-        audio.src = "/assets/sounds/new_order.mp3";
+        audio.src = "/assets/sounds/notification_loop.wav";
         audio.volume = 1.0;
         await audio.play();
         return;
@@ -304,7 +304,7 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
         content: {
           title: "🛵 طلب جديد!",
           body: `طلب #${orderNum}${customerName ? ` — ${customerName}` : ""}`,
-          sound: Platform.OS === "android" ? "new_order" : "new_order.mp3",
+          sound: Platform.OS === "android" ? "notification_loop" : "notification_loop.wav",
           priority: Notifications.AndroidNotificationPriority.MAX,
           vibrate: [0, 300, 150, 300],
         },
