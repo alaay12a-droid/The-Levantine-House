@@ -205,3 +205,11 @@ export const discountCodesTable = pgTable("discount_codes", {
 });
 
 export type DiscountCode = typeof discountCodesTable.$inferSelect;
+
+export const discountCodeUsagesTable = pgTable("discount_code_usages", {
+  id: serial("id").primaryKey(),
+  discountCodeId: integer("discount_code_id").notNull().references(() => discountCodesTable.id, { onDelete: "cascade" }),
+  phone: text("phone").notNull(),
+  orderId: integer("order_id"),
+  usedAt: timestamp("used_at").defaultNow().notNull(),
+});

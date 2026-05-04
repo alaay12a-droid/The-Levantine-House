@@ -71,6 +71,7 @@ export default function CheckoutScreen() {
   const [promoInput, setPromoInput] = useState("");
   const [appliedDiscount, setAppliedDiscount] = useState(0);
   const [appliedCodeLabel, setAppliedCodeLabel] = useState("");
+  const [appliedCodeId, setAppliedCodeId] = useState<number | null>(null);
   const [promoError, setPromoError] = useState("");
   const [orderType, setOrderType] = useState<"delivery" | "pickup">("delivery");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
@@ -202,15 +203,16 @@ export default function CheckoutScreen() {
     setPromoLoading(true);
     setPromoError("");
     try {
-      const found = await apiPost<{ code: string; type: string; value: number; minOrder: number; description: string }>(
+      const found = await apiPost<{ id: number; code: string; type: string; value: number; minOrder: number; description: string }>(
         "/discount-codes/validate",
-        { code, orderTotal: base },
+        { code, orderTotal: base, phone: user?.phone ?? undefined },
       );
       const discount = found.type === "percentage"
         ? Math.round(base * found.value / 100)
         : found.value;
       setAppliedDiscount(Math.min(discount, base));
       setAppliedCodeLabel(found.description || found.code);
+      setAppliedCodeId(found.id);
       setPromoInput("");
       setPromoExpanded(false);
     } catch (e: any) {
@@ -223,6 +225,7 @@ export default function CheckoutScreen() {
   const removePromo = () => {
     setAppliedDiscount(0);
     setAppliedCodeLabel("");
+    setAppliedCodeId(null);
     setPromoInput("");
     setPromoError("");
   };
@@ -318,6 +321,12 @@ export default function CheckoutScreen() {
         try {
           await apiPost("/wallet/pay", { phone: user.phone, amount: grandTotal, orderId: order.id });
           setWalletBalance((prev) => (prev !== null ? prev - grandTotal : null));
+        } catch {}
+      }
+      // Record discount code usage (single-use per phone)
+      if (appliedCodeId !== null && user.phone) {
+        try {
+          await apiPost("/discount-codes/use", { codeId: appliedCodeId, phone: user.phone, orderId: order.id });
         } catch {}
       }
       const storedOrder: StoredOrder = {

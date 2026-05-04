@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
-import { db, discountCodesTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { db, discountCodesTable, discountCodeUsagesTable } from "@workspace/db";
+import { eq, and } from "drizzle-orm";
 
 const router = Router();
 
@@ -65,6 +65,7 @@ router.post("/discount-codes/validate", async (req, res) => {
   const parsed = z.object({
     code: z.string().min(1),
     orderTotal: z.number().min(0),
+    phone: z.string().optional(),
   }).safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "بيانات غير صحيحة" }); return; }
 
@@ -78,6 +79,20 @@ router.post("/discount-codes/validate", async (req, res) => {
     return;
   }
 
+  // Check single-use per phone
+  if (parsed.data.phone) {
+    const phone = parsed.data.phone.trim();
+    const [usage] = await db.select().from(discountCodeUsagesTable)
+      .where(and(
+        eq(discountCodeUsagesTable.discountCodeId, found.id),
+        eq(discountCodeUsagesTable.phone, phone),
+      ));
+    if (usage) {
+      res.status(409).json({ error: "لقد استخدمت هذا الكود مسبقاً" });
+      return;
+    }
+  }
+
   res.json({
     id: found.id,
     code: found.code,
@@ -86,6 +101,28 @@ router.post("/discount-codes/validate", async (req, res) => {
     minOrder: found.minOrder,
     description: found.description,
   });
+});
+
+// ── POST /discount-codes/use  (record usage after order placed)
+router.post("/discount-codes/use", async (req, res) => {
+  const parsed = z.object({
+    codeId: z.number().int(),
+    phone: z.string().min(1),
+    orderId: z.number().int().optional(),
+  }).safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "بيانات غير صحيحة" }); return; }
+
+  try {
+    await db.insert(discountCodeUsagesTable).values({
+      discountCodeId: parsed.data.codeId,
+      phone: parsed.data.phone.trim(),
+      orderId: parsed.data.orderId ?? null,
+    });
+    res.json({ ok: true });
+  } catch (e: any) {
+    // Ignore duplicate (already used) — order already placed, just don't double-record
+    res.json({ ok: true });
+  }
 });
 
 export default router;
