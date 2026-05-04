@@ -98,7 +98,8 @@ export default function OnboardingScreen() {
       setStep("phone");
       setTimeout(() => phoneRef.current?.focus(), 300);
     } else if (step === "phone") {
-      if (phone.trim().length < 9) { Alert.alert("", "يرجى إدخال رقم جوال صحيح"); return; }
+      const cleanPhone = phone.trim().replace(/\D/g, "");
+      if (cleanPhone.length !== 10) { Alert.alert("", "رقم الجوال يجب أن يكون 10 أرقام بالضبط"); return; }
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       setStep("location");
       autoDetectLocation();
@@ -213,18 +214,34 @@ export default function OnboardingScreen() {
           )}
 
           {step === "phone" && (
-            <TextInput
-              ref={phoneRef}
-              style={styles.input}
-              placeholder="05XXXXXXXX"
-              placeholderTextColor={C.muted}
-              value={phone}
-              onChangeText={setPhone}
-              keyboardType="phone-pad"
-              returnKeyType="next"
-              onSubmitEditing={handleNext}
-              textAlign="right"
-            />
+            <>
+              <TextInput
+                ref={phoneRef}
+                style={[styles.input, { borderColor: phone.replace(/\D/g,"").length === 10 ? C.green : phone.length > 0 ? C.border : C.border }]}
+                placeholder="05XXXXXXXX"
+                placeholderTextColor={C.muted}
+                value={phone}
+                onChangeText={(t) => {
+                  const digits = t.replace(/\D/g, "");
+                  if (digits.length <= 10) setPhone(digits);
+                }}
+                keyboardType="phone-pad"
+                maxLength={10}
+                returnKeyType="next"
+                onSubmitEditing={handleNext}
+                textAlign="right"
+              />
+              {phone.length > 0 && (
+                <Text style={{
+                  color: phone.replace(/\D/g,"").length === 10 ? C.green : "#EF4444",
+                  fontFamily: F.regular, fontSize: 12, textAlign: "right", marginTop: -8,
+                }}>
+                  {phone.replace(/\D/g,"").length === 10
+                    ? "✓ رقم صحيح"
+                    : `${phone.replace(/\D/g,"").length}/10 أرقام`}
+                </Text>
+              )}
+            </>
           )}
 
           {step === "location" && (
