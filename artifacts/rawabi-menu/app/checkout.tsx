@@ -29,7 +29,6 @@ import { usePaymentSettings } from "@/hooks/usePaymentSettings";
 import { ORDERS_STORAGE_KEY, StoredOrder } from "./(tabs)/orders";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useLanguage } from "@/context/LanguageContext";
-import { useDiscountCodes } from "@/hooks/useDiscountCodes";
 import { useUIDensity } from "@/hooks/useUIDensity";
 import { MapPickerModal } from "@/components/MapPickerModal";
 
@@ -62,7 +61,7 @@ export default function CheckoutScreen() {
   const { incrementBadge } = useOrderBadge();
   const { settings: paymentSettings } = usePaymentSettings();
 
-  const { activeCodes } = useDiscountCodes();
+  const [promoLoading, setPromoLoading] = useState(false);
   const { t } = useTranslation();
   const { language } = useLanguage();
   const isEn = language === "en";
@@ -196,26 +195,29 @@ export default function CheckoutScreen() {
   const grandTotalStr = grandTotal % 1 === 0 ? grandTotal.toString() : grandTotal.toFixed(2);
   const deliveryFeeStr = deliveryFee % 1 === 0 ? deliveryFee.toString() : deliveryFee.toFixed(2);
 
-  const applyPromoCode = () => {
+  const applyPromoCode = async () => {
     const code = promoInput.trim().toUpperCase();
     if (!code) { setPromoError(isEn ? "Enter a code first" : "أدخل الكود أولاً"); return; }
-    const found = activeCodes.find((c) => c.code.toUpperCase() === code);
-    if (!found) { setPromoError(isEn ? "Code not found or inactive" : "الكود غير صحيح أو غير فعّال"); return; }
     const base = totalPrice + deliveryFee;
-    if (base < found.minOrder) {
-      setPromoError(isEn
-        ? `Min order ${found.minOrder} SAR to use this code`
-        : `الحد الأدنى للطلب ${found.minOrder} ر.س لاستخدام هذا الكود`);
-      return;
-    }
-    const discount = found.type === "percentage"
-      ? Math.round(base * found.value / 100)
-      : found.value;
-    setAppliedDiscount(Math.min(discount, base));
-    setAppliedCodeLabel(found.description || found.code);
+    setPromoLoading(true);
     setPromoError("");
-    setPromoInput("");
-    setPromoExpanded(false);
+    try {
+      const found = await apiPost<{ code: string; type: string; value: number; minOrder: number; description: string }>(
+        "/discount-codes/validate",
+        { code, orderTotal: base },
+      );
+      const discount = found.type === "percentage"
+        ? Math.round(base * found.value / 100)
+        : found.value;
+      setAppliedDiscount(Math.min(discount, base));
+      setAppliedCodeLabel(found.description || found.code);
+      setPromoInput("");
+      setPromoExpanded(false);
+    } catch (e: any) {
+      setPromoError(e?.message || (isEn ? "Code not found or inactive" : "الكود غير صحيح أو غير فعّال"));
+    } finally {
+      setPromoLoading(false);
+    }
   };
 
   const removePromo = () => {
@@ -765,9 +767,13 @@ export default function CheckoutScreen() {
                   />
                   <TouchableOpacity
                     onPress={applyPromoCode}
-                    style={{ paddingHorizontal: 16, paddingVertical: 10, backgroundColor: GOLD, borderRadius: 10, justifyContent: "center" }}
+                    disabled={promoLoading}
+                    style={{ paddingHorizontal: 16, paddingVertical: 10, backgroundColor: GOLD, borderRadius: 10, justifyContent: "center", opacity: promoLoading ? 0.6 : 1 }}
                   >
-                    <Text style={{ color: "#1A0A00", fontFamily: F.extra, fontSize: 13 }}>{isEn ? "Apply" : "تطبيق"}</Text>
+                    {promoLoading
+                      ? <ActivityIndicator size="small" color="#1A0A00" />
+                      : <Text style={{ color: "#1A0A00", fontFamily: F.extra, fontSize: 13 }}>{isEn ? "Apply" : "تطبيق"}</Text>
+                    }
                   </TouchableOpacity>
                 </View>
                 {promoError ? (

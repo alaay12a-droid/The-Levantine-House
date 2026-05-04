@@ -192,3 +192,16 @@ export const orderDriverAssignmentsTable = pgTable("order_driver_assignments", {
 });
 
 export type OrderDriverAssignment = typeof orderDriverAssignmentsTable.$inferSelect;
+
+export const discountCodesTable = pgTable("discount_codes", {
+  id: serial("id").primaryKey(),
+  code: text("code").notNull().unique(),
+  type: text("type").notNull().default("fixed"), // "fixed" | "percentage"
+  value: integer("value").notNull().default(0),
+  minOrder: integer("min_order").notNull().default(0),
+  description: text("description").notNull().default(""),
+  active: boolean("active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type DiscountCode = typeof discountCodesTable.$inferSelect;

@@ -2596,15 +2596,19 @@ export default function AdminMenuScreen() {
                   Alert.alert("تنبيه", "يرجى إدخال كود وقيمة صحيحة");
                   return;
                 }
-                await addCode({
-                  code: dcCode.trim(),
-                  type: dcType,
-                  value: val,
-                  minOrder: parseFloat(dcMinOrder) || 0,
-                  description: dcDesc.trim(),
-                  active: true,
-                });
-                setDcCode(""); setDcValue(""); setDcMinOrder(""); setDcDesc("");
+                try {
+                  await addCode({
+                    code: dcCode.trim(),
+                    type: dcType,
+                    value: val,
+                    minOrder: parseFloat(dcMinOrder) || 0,
+                    description: dcDesc.trim(),
+                    active: true,
+                  });
+                  setDcCode(""); setDcValue(""); setDcMinOrder(""); setDcDesc("");
+                } catch (e: any) {
+                  Alert.alert("خطأ", e?.message || "تعذّر حفظ الكود");
+                }
               }}
               style={{ paddingVertical: 13, borderRadius: 12, alignItems: "center", backgroundColor: colors.gold }}
             >

@@ -17,6 +17,7 @@ import pinOtpRouter from "./pin-otp";
 import ratingsRouter from "./ratings";
 import driversRouter from "./drivers";
 import textsRouter from "./texts";
+import discountsRouter from "./discounts";
 
 const router: IRouter = Router();
 
@@ -38,5 +39,6 @@ router.use(pinOtpRouter);
 router.use(ratingsRouter);
 router.use(driversRouter);
 router.use(textsRouter);
+router.use(discountsRouter);
 
 export default router;

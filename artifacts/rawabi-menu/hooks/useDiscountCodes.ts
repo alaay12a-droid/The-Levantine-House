@@ -1,14 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-
-function genId() {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
-}
-
-const STORAGE_KEY = "@rawabi_discount_codes";
+import { apiGet, apiPost, apiPatch, apiDelete } from "@/constants/api";
 
 export interface DiscountCode {
-  id: string;
+  id: number;
   code: string;
   type: "percentage" | "fixed";
   value: number;
@@ -23,33 +17,30 @@ export function useDiscountCodes() {
 
   const load = useCallback(async () => {
     try {
-      const raw = await AsyncStorage.getItem(STORAGE_KEY);
-      setCodes(raw ? JSON.parse(raw) : []);
+      const data = await apiGet<DiscountCode[]>("/discount-codes");
+      setCodes(data);
     } catch {}
     setLoaded(true);
   }, []);
 
   useEffect(() => { load(); }, [load]);
 
-  const persist = async (updated: DiscountCode[]) => {
-    setCodes(updated);
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-  };
-
   const addCode = async (input: Omit<DiscountCode, "id">) => {
-    const newCode: DiscountCode = { ...input, id: genId() };
-    await persist([...codes, newCode]);
+    const created = await apiPost<DiscountCode>("/discount-codes", input);
+    setCodes((prev) => [...prev, created]);
   };
 
-  const updateCode = async (id: string, changes: Partial<DiscountCode>) => {
-    await persist(codes.map((c) => (c.id === id ? { ...c, ...changes } : c)));
+  const updateCode = async (id: number, changes: Partial<DiscountCode>) => {
+    const updated = await apiPatch<DiscountCode>(`/discount-codes/${id}`, changes);
+    setCodes((prev) => prev.map((c) => (c.id === id ? updated : c)));
   };
 
-  const deleteCode = async (id: string) => {
-    await persist(codes.filter((c) => c.id !== id));
+  const deleteCode = async (id: number) => {
+    await apiDelete(`/discount-codes/${id}`);
+    setCodes((prev) => prev.filter((c) => c.id !== id));
   };
 
   const activeCodes = codes.filter((c) => c.active);
 
-  return { codes, activeCodes, loaded, addCode, updateCode, deleteCode };
+  return { codes, activeCodes, loaded, load, addCode, updateCode, deleteCode };
 }
