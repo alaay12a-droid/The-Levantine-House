@@ -45,7 +45,9 @@ export async function registerCustomerNotifications(): Promise<string | null> {
     const cached = await AsyncStorage.getItem(TOKEN_KEY);
     if (cached) return cached;
 
-    const { data } = await Notifications.getExpoPushTokenAsync();
+    const { data } = await Notifications.getExpoPushTokenAsync({
+      projectId: "6bc7ecd0-c306-4464-a3a9-82074adfb750",
+    });
     await AsyncStorage.setItem(TOKEN_KEY, data);
     return data;
   } catch {

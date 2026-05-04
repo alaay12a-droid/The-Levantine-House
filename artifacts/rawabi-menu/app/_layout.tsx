@@ -5,6 +5,7 @@ import {
   Cairo_800ExtraBold,
   useFonts,
 } from "@expo-google-fonts/cairo";
+import { Feather } from "@expo/vector-icons";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
@@ -103,6 +104,7 @@ export default function RootLayout() {
     Cairo_600SemiBold,
     Cairo_700Bold,
     Cairo_800ExtraBold,
+    ...Feather.font,
   });
 
   useEffect(() => {
