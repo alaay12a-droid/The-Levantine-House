@@ -124,6 +124,8 @@ export default function OnboardingScreen() {
     return `+${country.dialCode}${stripped}`;
   };
 
+  const [devCode, setDevCode] = useState<string | null>(null);
+
   const handleSendOtp = async () => {
     const local = phone.trim().replace(/\D/g, "");
     if (local.length !== country.localLength) {
@@ -133,10 +135,17 @@ export default function OnboardingScreen() {
     setOtpLoading(true);
     try {
       const intlPhone = buildIntlPhone();
-      const r = await apiPost<{ ok: boolean; skipped?: boolean }>("/sms/send-otp", { phone: intlPhone });
+      const r = await apiPost<{ ok: boolean; skipped?: boolean; devCode?: string }>("/sms/send-otp", { phone: intlPhone });
       if (r.skipped) { goToLocation(); return; }
       setOtpStep("sent");
       setOtpCode("");
+      // Dev mode: no API key configured → code returned directly
+      if (r.devCode) {
+        setDevCode(r.devCode);
+        setOtpCode(r.devCode);
+      } else {
+        setDevCode(null);
+      }
       setTimeout(() => otpRef.current?.focus(), 300);
     } catch {
       Alert.alert("خطأ", "تعذّر إرسال رمز التحقق، تأكد من الرقم وحاول مرة أخرى");
@@ -348,9 +357,20 @@ export default function OnboardingScreen() {
                 </TouchableOpacity>
               </View>
 
-              <Text style={{ fontFamily: F.regular, color: C.muted, fontSize: 13, textAlign: "right", lineHeight: 20 }}>
-                أُرسل رمز مكوّن من 4 أرقام إلى هاتفك
-              </Text>
+              {devCode ? (
+                <View style={{ backgroundColor: "#1a3a1a", borderRadius: 10, padding: 10, borderWidth: 1, borderColor: "#2d6a2d" }}>
+                  <Text style={{ fontFamily: F.bold, color: "#4ade80", fontSize: 12, textAlign: "center" }}>
+                    وضع التطوير — الرمز: {devCode}
+                  </Text>
+                  <Text style={{ fontFamily: F.regular, color: "#86efac", fontSize: 11, textAlign: "center", marginTop: 2 }}>
+                    لا يوجد API key — الرمز ظهر هنا للاختبار فقط
+                  </Text>
+                </View>
+              ) : (
+                <Text style={{ fontFamily: F.regular, color: C.muted, fontSize: 13, textAlign: "right", lineHeight: 20 }}>
+                  أُرسل رمز مكوّن من 4 أرقام إلى هاتفك
+                </Text>
+              )}
 
               {/* OTP boxes */}
               <View style={{ flexDirection: "row", justifyContent: "center", gap: 12 }}>

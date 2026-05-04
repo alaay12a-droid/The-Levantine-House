@@ -65,13 +65,19 @@ router.post("/sms/send-otp", async (req, res) => {
 
   const apiKey = await getSetting(SETTING_API_KEY);
   const sender = await getSetting(SETTING_SENDER) ?? "روابي المندي";
-  if (!apiKey) { res.status(500).json({ error: "لم يتم ضبط مفتاح API للرسائل" }); return; }
 
   const code = String(Math.floor(1000 + Math.random() * 9000));
   const phone = parsed.data.phone.replace(/\s/g, "");
 
   // store with 5-minute expiry
   otpStore.set(phone, { code, expiresAt: Date.now() + 5 * 60 * 1000 });
+
+  // No API key configured → dev mode: return code directly so app can display it
+  if (!apiKey) {
+    req.log.warn({ phone, code }, "SMS OTP dev mode: no API key configured");
+    res.json({ ok: true, devCode: code });
+    return;
+  }
 
   const message = encodeURIComponent(`${code} هو رمز التحقق الخاص بطلبك في روابي المندي. صالح لمدة 5 دقائق.`);
   const url = `https://www.msegat.com/gw/sendsms.php?userName=${encodeURIComponent(apiKey)}&apiKey=${encodeURIComponent(apiKey)}&numbers=${encodeURIComponent(phone)}&userSender=${encodeURIComponent(sender)}&msg=${message}&lang=3`;
