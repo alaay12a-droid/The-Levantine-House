@@ -308,7 +308,7 @@ export default function AdminMenuScreen() {
   const { codes: discountCodes, addCode, updateCode, deleteCode } = useDiscountCodes();
   const { banners: allBanners, refresh: refreshBanners } = useBanners();
   const { data: revenueData, loading: revenueLoading, refresh: refreshRevenue } = useRevenue();
-  const [revenueView, setRevenueView] = useState<"daily" | "monthly" | "items">("daily");
+  const [revenueView, setRevenueView] = useState<"daily" | "monthly" | "yearly" | "items">("daily");
   const [revenuePeriod, setRevenuePeriod] = useState<"today" | "week" | "month" | "year">("month");
   const [settingsSection, setSettingsSection] = useState<"hours" | "payment" | "discounts" | "wallets" | "sms" | "security" | "appearance" | "ratings" | "drivers" | "texts">("hours");
 
@@ -3222,9 +3222,10 @@ export default function AdminMenuScreen() {
                 {/* ── View toggle ── */}
                 <View style={{ flexDirection: "row-reverse", gap: 6 }}>
                   {([
-                    { key: "daily",  label: "📅 يومي" },
+                    { key: "daily",   label: "📅 يومي" },
                     { key: "monthly", label: "📆 شهري" },
-                    { key: "items",  label: "🏆 الأصناف" },
+                    { key: "yearly",  label: "🗓️ سنوي" },
+                    { key: "items",   label: "🏆 الأصناف" },
                   ] as const).map(({ key, label }) => (
                     <TouchableOpacity
                       key={key}
@@ -3235,7 +3236,7 @@ export default function AdminMenuScreen() {
                         borderWidth: 1, borderColor: revenueView === key ? colors.gold : colors.border,
                       }}
                     >
-                      <Text style={{ color: revenueView === key ? "#1A1008" : colors.mutedForeground, fontFamily: F.bold, fontSize: 11 }}>
+                      <Text style={{ color: revenueView === key ? "#1A1008" : colors.mutedForeground, fontFamily: F.bold, fontSize: 10 }}>
                         {label}
                       </Text>
                     </TouchableOpacity>
@@ -3275,6 +3276,118 @@ export default function AdminMenuScreen() {
                     ))}
                   </View>
                 )}
+
+                {/* ── Yearly view ── */}
+                {revenueView === "yearly" && (() => {
+                  const yr = revenueData.year;
+                  const COMMISSION_RATE = 0.05;
+                  const commission = yr.totalRevenue * COMMISSION_RATE;
+                  const netAfterComm = yr.totalRevenue - commission;
+                  return (
+                    <>
+                      {/* Year KPIs */}
+                      <View style={{ gap: 8 }}>
+                        <View style={{ flexDirection: "row-reverse", gap: 8 }}>
+                          <View style={{ flex: 1, backgroundColor: "#1A1008", borderRadius: 14, borderWidth: 1, borderColor: "#E8920C44", padding: 14, gap: 4 }}>
+                            <Text style={{ color: "#9A7A5A", fontFamily: F.regular, fontSize: 10, textAlign: "right" }}>💰 إجمالي العام</Text>
+                            <Text style={{ color: "#E8920C", fontFamily: F.extra, fontSize: 18, textAlign: "right" }}>{yr.totalRevenue.toFixed(2)}</Text>
+                            <Text style={{ color: "#9A7A5A", fontFamily: F.regular, fontSize: 10, textAlign: "right" }}>ر.س</Text>
+                          </View>
+                          <View style={{ flex: 1, backgroundColor: "#0A1A0A", borderRadius: 14, borderWidth: 1, borderColor: "#4CAF5044", padding: 14, gap: 4 }}>
+                            <Text style={{ color: "#9A7A5A", fontFamily: F.regular, fontSize: 10, textAlign: "right" }}>✅ الصافي بعد الضريبة</Text>
+                            <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 18, textAlign: "right" }}>{yr.netRevenue.toFixed(2)}</Text>
+                            <Text style={{ color: "#9A7A5A", fontFamily: F.regular, fontSize: 10, textAlign: "right" }}>ر.س</Text>
+                          </View>
+                        </View>
+                        <View style={{ flexDirection: "row-reverse", gap: 8 }}>
+                          <View style={{ flex: 1, backgroundColor: "#0A0F1A", borderRadius: 14, borderWidth: 1, borderColor: "#82B1FF44", padding: 14, gap: 4 }}>
+                            <Text style={{ color: "#9A7A5A", fontFamily: F.regular, fontSize: 10, textAlign: "right" }}>🏛️ ضريبة السنة 15%</Text>
+                            <Text style={{ color: "#82B1FF", fontFamily: F.extra, fontSize: 18, textAlign: "right" }}>{yr.taxAmount.toFixed(2)}</Text>
+                            <Text style={{ color: "#9A7A5A", fontFamily: F.regular, fontSize: 10, textAlign: "right" }}>ر.س</Text>
+                          </View>
+                          <View style={{ flex: 1, backgroundColor: colors.card, borderRadius: 14, borderWidth: 1, borderColor: colors.border, padding: 14, gap: 4 }}>
+                            <Text style={{ color: "#9A7A5A", fontFamily: F.regular, fontSize: 10, textAlign: "right" }}>📦 إجمالي الطلبات</Text>
+                            <Text style={{ color: colors.foreground, fontFamily: F.extra, fontSize: 22, textAlign: "right" }}>{yr.orderCount}</Text>
+                            <Text style={{ color: "#9A7A5A", fontFamily: F.regular, fontSize: 10, textAlign: "right" }}>طلب</Text>
+                          </View>
+                        </View>
+                      </View>
+
+                      {/* Commission yearly */}
+                      <View style={{ borderRadius: 16, overflow: "hidden", borderWidth: 1.5, borderColor: "#E8920C88", backgroundColor: "#110D00" }}>
+                        <View style={{ backgroundColor: "#E8920C", paddingVertical: 10, paddingHorizontal: 16, flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
+                          <Text style={{ fontSize: 16 }}>🤝</Text>
+                          <Text style={{ color: "#1A1008", fontFamily: F.extra, fontSize: 13, flex: 1, textAlign: "right" }}>عمولة علاء الباسطي — السنوية</Text>
+                          <View style={{ backgroundColor: "#1A1008", paddingHorizontal: 10, paddingVertical: 3, borderRadius: 20 }}>
+                            <Text style={{ color: "#E8920C", fontFamily: F.extra, fontSize: 12 }}>5%</Text>
+                          </View>
+                        </View>
+                        <View style={{ padding: 14, gap: 0 }}>
+                          {[
+                            { label: "إجمالي إيرادات السنة", value: `${yr.totalRevenue.toFixed(2)} ر.س`, color: colors.foreground },
+                            { label: "نسبة العمولة", value: "5%", color: "#E8920C" },
+                          ].map((r, i) => (
+                            <View key={i} style={{ flexDirection: "row-reverse", justifyContent: "space-between", paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: "#E8920C22" }}>
+                              <Text style={{ color: "#9A7A5A", fontFamily: F.regular, fontSize: 12 }}>{r.label}</Text>
+                              <Text style={{ color: r.color, fontFamily: F.semi, fontSize: 12 }}>{r.value}</Text>
+                            </View>
+                          ))}
+                          <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center", paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: "#E8920C22", backgroundColor: "#E8920C11", marginHorizontal: -14, paddingHorizontal: 14 }}>
+                            <Text style={{ color: "#E8920C", fontFamily: F.bold, fontSize: 13 }}>💰 العمولة السنوية</Text>
+                            <Text style={{ color: "#E8920C", fontFamily: F.extra, fontSize: 18 }}>{commission.toFixed(2)} ر.س</Text>
+                          </View>
+                          <View style={{ flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center", paddingVertical: 12, backgroundColor: "#0A1A0A", marginHorizontal: -14, paddingHorizontal: 14, marginBottom: -14, borderBottomLeftRadius: 14, borderBottomRightRadius: 14 }}>
+                            <Text style={{ color: "#4CAF50", fontFamily: F.bold, fontSize: 13 }}>✅ الإجمالي بعد العمولة</Text>
+                            <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 18 }}>{netAfterComm.toFixed(2)} ر.س</Text>
+                          </View>
+                        </View>
+                      </View>
+
+                      {/* Monthly breakdown for the year */}
+                      <View style={{ backgroundColor: colors.card, borderRadius: 14, overflow: "hidden", borderWidth: 1, borderColor: colors.border }}>
+                        <View style={{ backgroundColor: colors.secondary, paddingVertical: 8, paddingHorizontal: 14 }}>
+                          <Text style={{ color: colors.gold, fontFamily: F.bold, fontSize: 12, textAlign: "right" }}>📆 التفصيل الشهري للسنة الحالية</Text>
+                        </View>
+                        <View style={{ flexDirection: "row-reverse", backgroundColor: colors.secondary, paddingVertical: 10, paddingHorizontal: 8, borderTopWidth: 1, borderTopColor: colors.border }}>
+                          {[
+                            { label: "الشهر", flex: 1.4 }, { label: "الطلبات", flex: 0.8 },
+                            { label: "الإجمالي", flex: 1.1 }, { label: "الضريبة", flex: 1 },
+                            { label: "الصافي", flex: 1 }, { label: "الملغاة", flex: 0.8 },
+                          ].map((h) => (
+                            <Text key={h.label} style={{ flex: h.flex, color: colors.gold, fontFamily: F.bold, fontSize: 9.5, textAlign: "center" }}>{h.label}</Text>
+                          ))}
+                        </View>
+                        {revenueData.monthlyBreakdown.map((row, i) => {
+                          const hasData = row.total > 0;
+                          return (
+                            <View key={i} style={{ flexDirection: "row-reverse", paddingVertical: 9, paddingHorizontal: 8, backgroundColor: i % 2 === 0 ? colors.card : colors.secondary + "66", borderTopWidth: 1, borderTopColor: colors.border + "44" }}>
+                              <Text style={{ flex: 1.4, color: hasData ? colors.foreground : colors.mutedForeground, fontFamily: F.semi, fontSize: 10, textAlign: "center" }}>{row.month}</Text>
+                              <Text style={{ flex: 0.8, color: hasData ? colors.foreground : colors.mutedForeground, fontFamily: F.semi, fontSize: 10, textAlign: "center" }}>{row.orders > 0 ? row.orders : "—"}</Text>
+                              <Text style={{ flex: 1.1, color: hasData ? "#E8920C" : colors.mutedForeground, fontFamily: F.bold, fontSize: 10, textAlign: "center" }}>{row.total > 0 ? row.total.toFixed(1) : "—"}</Text>
+                              <Text style={{ flex: 1, color: hasData ? "#82B1FF" : colors.mutedForeground, fontFamily: F.semi, fontSize: 10, textAlign: "center" }}>{row.tax > 0 ? row.tax.toFixed(1) : "—"}</Text>
+                              <Text style={{ flex: 1, color: hasData ? "#4CAF50" : colors.mutedForeground, fontFamily: F.bold, fontSize: 10, textAlign: "center" }}>{row.net > 0 ? row.net.toFixed(1) : "—"}</Text>
+                              <Text style={{ flex: 0.8, color: row.cancelledCount > 0 ? "#EF4444" : colors.mutedForeground, fontFamily: F.semi, fontSize: 10, textAlign: "center" }}>{row.cancelledCount > 0 ? row.cancelledCount : "—"}</Text>
+                            </View>
+                          );
+                        })}
+                        {/* Footer totals */}
+                        {(() => {
+                          const t = revenueData.monthlyBreakdown.reduce((acc, r) => ({ orders: acc.orders + r.orders, total: acc.total + r.total, tax: acc.tax + r.tax, net: acc.net + r.net, cancelled: acc.cancelled + r.cancelledCount }), { orders: 0, total: 0, tax: 0, net: 0, cancelled: 0 });
+                          return (
+                            <View style={{ flexDirection: "row-reverse", paddingVertical: 10, paddingHorizontal: 8, backgroundColor: colors.secondary, borderTopWidth: 1, borderTopColor: colors.gold + "44" }}>
+                              <Text style={{ flex: 1.4, color: colors.gold, fontFamily: F.bold, fontSize: 10, textAlign: "center" }}>المجموع</Text>
+                              <Text style={{ flex: 0.8, color: colors.foreground, fontFamily: F.bold, fontSize: 10, textAlign: "center" }}>{t.orders}</Text>
+                              <Text style={{ flex: 1.1, color: "#E8920C", fontFamily: F.bold, fontSize: 10, textAlign: "center" }}>{t.total.toFixed(1)}</Text>
+                              <Text style={{ flex: 1, color: "#82B1FF", fontFamily: F.bold, fontSize: 10, textAlign: "center" }}>{t.tax.toFixed(1)}</Text>
+                              <Text style={{ flex: 1, color: "#4CAF50", fontFamily: F.bold, fontSize: 10, textAlign: "center" }}>{t.net.toFixed(1)}</Text>
+                              <Text style={{ flex: 0.8, color: "#EF4444", fontFamily: F.bold, fontSize: 10, textAlign: "center" }}>{t.cancelled || "—"}</Text>
+                            </View>
+                          );
+                        })()}
+                      </View>
+                    </>
+                  );
+                })()}
 
                 {/* ── Daily / Monthly breakdown table ── */}
                 {(revenueView === "daily" || revenueView === "monthly") && (
