@@ -29,3 +29,9 @@ id = "HWHbb8SioEOg7vaeP7mZi"
 uri = "file://expo-qr.png"
 type = "image"
 title = "QR Code — Expo Go"
+
+[[outputs]]
+id = "TWgZiHigzMS8ByJPZEC9B"
+uri = "file://expo_qr.jpg"
+type = "image"
+title = "بركود Expo Go — روابي المندي"
