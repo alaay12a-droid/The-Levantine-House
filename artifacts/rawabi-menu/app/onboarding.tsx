@@ -20,6 +20,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useUser } from "@/context/UserContext";
+import { apiPost } from "@/constants/api";
 
 const C = {
   bg: "#0F0A05",
@@ -77,9 +78,13 @@ export default function OnboardingScreen() {
   const [lng, setLng] = useState<number | undefined>();
   const [locLoading, setLocLoading] = useState(false);
   const [mapPickerVisible, setMapPickerVisible] = useState(false);
+  const [otpStep, setOtpStep] = useState<"idle" | "sent">("idle");
+  const [otpCode, setOtpCode] = useState("");
+  const [otpLoading, setOtpLoading] = useState(false);
 
   const phoneRef = useRef<TextInput>(null);
   const addressRef = useRef<TextInput>(null);
+  const otpRef = useRef<TextInput>(null);
 
   const stepIndex = step === "name" ? 0 : step === "phone" ? 1 : 2;
 
@@ -91,6 +96,44 @@ export default function OnboardingScreen() {
 
   const current = steps[stepIndex];
 
+  const goToLocation = () => {
+    setStep("location");
+    autoDetectLocation();
+    setTimeout(() => addressRef.current?.focus(), 300);
+  };
+
+  const handleSendOtp = async () => {
+    const cleanPhone = phone.trim().replace(/\D/g, "");
+    if (cleanPhone.length !== 10) { Alert.alert("", "رقم الجوال يجب أن يكون 10 أرقام بالضبط"); return; }
+    setOtpLoading(true);
+    try {
+      const r = await apiPost<{ ok: boolean; skipped?: boolean }>("/sms/send-otp", { phone: cleanPhone });
+      if (r.skipped) { goToLocation(); return; }
+      setOtpStep("sent");
+      setOtpCode("");
+      setTimeout(() => otpRef.current?.focus(), 300);
+    } catch {
+      Alert.alert("خطأ", "تعذّر إرسال رمز التحقق، تأكد من الرقم وحاول مرة أخرى");
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (otpCode.length !== 4) return;
+    setOtpLoading(true);
+    try {
+      const cleanPhone = phone.trim().replace(/\D/g, "");
+      await apiPost("/sms/verify-otp", { phone: cleanPhone, code: otpCode });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      goToLocation();
+    } catch (e: any) {
+      Alert.alert("خطأ", e?.message || "الرمز غير صحيح أو منتهي الصلاحية");
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
   const handleNext = () => {
     if (step === "name") {
       if (!name.trim()) { Alert.alert("", "يرجى إدخال اسمك"); return; }
@@ -98,12 +141,8 @@ export default function OnboardingScreen() {
       setStep("phone");
       setTimeout(() => phoneRef.current?.focus(), 300);
     } else if (step === "phone") {
-      const cleanPhone = phone.trim().replace(/\D/g, "");
-      if (cleanPhone.length !== 10) { Alert.alert("", "رقم الجوال يجب أن يكون 10 أرقام بالضبط"); return; }
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      setStep("location");
-      autoDetectLocation();
-      setTimeout(() => addressRef.current?.focus(), 300);
+      if (otpStep === "sent") { handleVerifyOtp(); return; }
+      handleSendOtp();
     } else {
       if (!address.trim()) { Alert.alert("", "يرجى إدخال عنوانك أو تحديد موقعك"); return; }
       handleSave();
@@ -213,7 +252,7 @@ export default function OnboardingScreen() {
             />
           )}
 
-          {step === "phone" && (
+          {step === "phone" && otpStep === "idle" && (
             <>
               <TextInput
                 ref={phoneRef}
@@ -241,6 +280,58 @@ export default function OnboardingScreen() {
                     : `${phone.replace(/\D/g,"").length}/10 أرقام`}
                 </Text>
               )}
+            </>
+          )}
+
+          {step === "phone" && otpStep === "sent" && (
+            <>
+              {/* Phone badge */}
+              <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8,
+                backgroundColor: C.surface, borderRadius: 10, padding: 10, borderWidth: 1, borderColor: C.border }}>
+                <Feather name="phone" size={14} color={C.gold} />
+                <Text style={{ fontFamily: F.regular, color: C.muted, fontSize: 13 }}>{phone}</Text>
+                <TouchableOpacity onPress={() => { setOtpStep("idle"); setOtpCode(""); }} style={{ marginRight: "auto" }}>
+                  <Text style={{ fontFamily: F.regular, color: C.primary, fontSize: 12 }}>تعديل</Text>
+                </TouchableOpacity>
+              </View>
+
+              <Text style={{ fontFamily: F.regular, color: C.muted, fontSize: 13, textAlign: "right", lineHeight: 20 }}>
+                أُرسل رمز مكوّن من 4 أرقام إلى هاتفك
+              </Text>
+
+              {/* OTP boxes */}
+              <View style={{ flexDirection: "row", justifyContent: "center", gap: 12 }}>
+                {[0,1,2,3].map(i => (
+                  <View key={i} style={{
+                    width: 54, height: 60, borderRadius: 12, borderWidth: 2,
+                    borderColor: otpCode[i] ? C.gold : C.border,
+                    backgroundColor: C.surface,
+                    alignItems: "center", justifyContent: "center",
+                  }}>
+                    <Text style={{ fontFamily: F.bold, fontSize: 24, color: C.gold }}>
+                      {otpCode[i] ?? ""}
+                    </Text>
+                  </View>
+                ))}
+                {/* hidden input capturing all 4 digits */}
+                <TextInput
+                  ref={otpRef}
+                  value={otpCode}
+                  onChangeText={(t) => {
+                    const d = t.replace(/\D/g, "");
+                    if (d.length <= 4) setOtpCode(d);
+                  }}
+                  keyboardType="number-pad"
+                  maxLength={4}
+                  style={{ position: "absolute", opacity: 0, width: "100%", height: "100%" }}
+                  onSubmitEditing={handleVerifyOtp}
+                />
+              </View>
+              <TouchableOpacity onPress={() => { setOtpStep("idle"); setOtpCode(""); }} style={{ alignItems: "center" }}>
+                <Text style={{ fontFamily: F.regular, color: C.muted, fontSize: 12 }}>
+                  ما وصل الرمز؟ <Text style={{ color: C.gold }}>إعادة الإرسال</Text>
+                </Text>
+              </TouchableOpacity>
             </>
           )}
 
@@ -316,16 +407,29 @@ export default function OnboardingScreen() {
           )}
 
           <TouchableOpacity
-            style={[styles.nextBtn, { backgroundColor: C.primary }]}
+            style={[styles.nextBtn, {
+              backgroundColor:
+                otpStep === "sent" && otpCode.length !== 4 ? C.border :
+                C.primary,
+              opacity: otpLoading ? 0.6 : 1,
+            }]}
             onPress={handleNext}
             activeOpacity={0.85}
+            disabled={otpLoading || (otpStep === "sent" && otpCode.length !== 4)}
           >
-            <Text style={styles.nextBtnText}>
-              {step === "location" ? "ابدأ الطلب 🍗" : "التالي"}
-            </Text>
-            {step !== "location" && (
-              <Feather name="arrow-left" size={18} color="#FFF" />
-            )}
+            {otpLoading
+              ? <ActivityIndicator color="#FFF" size="small" />
+              : <>
+                  <Text style={styles.nextBtnText}>
+                    {step === "location"
+                      ? "ابدأ الطلب 🍗"
+                      : otpStep === "sent"
+                        ? "تحقق من الرمز"
+                        : "التالي"}
+                  </Text>
+                  {step !== "location" && <Feather name="arrow-left" size={18} color="#FFF" />}
+                </>
+            }
           </TouchableOpacity>
         </View>
 
