@@ -5,6 +5,8 @@ import { z } from "zod";
 
 const router = Router();
 
+const cleanPhone = (p: string) => p.replace(/[^\d+]/g, "").trim();
+
 const driverSchema = z.object({
   name: z.string().min(1),
   phone: z.string().min(1),
@@ -26,7 +28,7 @@ router.post("/drivers", async (req, res) => {
   if (!parsed.success) { res.status(400).json({ error: "بيانات غير صحيحة" }); return; }
   const [driver] = await db.insert(deliveryDriversTable).values({
     name: parsed.data.name,
-    phone: parsed.data.phone,
+    phone: cleanPhone(parsed.data.phone),
     photoUrl: parsed.data.photoUrl ?? null,
     photoKey: parsed.data.photoKey ?? null,
     active: parsed.data.active ?? true,
@@ -41,7 +43,8 @@ router.put("/drivers/:id", async (req, res) => {
   if (isNaN(id)) { res.status(400).json({ error: "معرّف غير صحيح" }); return; }
   const parsed = driverSchema.partial().safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "بيانات غير صحيحة" }); return; }
-  const [driver] = await db.update(deliveryDriversTable).set(parsed.data).where(eq(deliveryDriversTable.id, id)).returning();
+  const updateData = { ...parsed.data, ...(parsed.data.phone ? { phone: cleanPhone(parsed.data.phone) } : {}) };
+  const [driver] = await db.update(deliveryDriversTable).set(updateData).where(eq(deliveryDriversTable.id, id)).returning();
   res.json(driver);
 });
 
@@ -59,8 +62,9 @@ router.delete("/drivers/:id", async (req, res) => {
 router.post("/drivers/login", async (req, res) => {
   const { phone, pin } = req.body;
   if (!phone || !pin) { res.status(400).json({ error: "أدخل رقم الجوال والرقم السري" }); return; }
+  const normalizedPhone = cleanPhone(String(phone));
   const [driver] = await db.select().from(deliveryDriversTable)
-    .where(and(eq(deliveryDriversTable.phone, String(phone)), eq(deliveryDriversTable.pin, String(pin))));
+    .where(and(eq(deliveryDriversTable.phone, normalizedPhone), eq(deliveryDriversTable.pin, String(pin).trim())));
   if (!driver) { res.status(401).json({ error: "رقم الجوال أو الرقم السري غير صحيح" }); return; }
   if (!driver.active) { res.status(403).json({ error: "حسابك موقوف، تواصل مع المشرف" }); return; }
   res.json(driver);
