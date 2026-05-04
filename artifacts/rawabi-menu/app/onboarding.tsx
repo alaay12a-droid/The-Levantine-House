@@ -3,6 +3,7 @@ import * as Haptics from "expo-haptics";
 import * as Location from "expo-location";
 import { useRouter } from "expo-router";
 import React, { useRef, useState } from "react";
+import { MapPickerModal } from "@/components/MapPickerModal";
 import {
   ActivityIndicator,
   Alert,
@@ -75,6 +76,7 @@ export default function OnboardingScreen() {
   const [lat, setLat] = useState<number | undefined>();
   const [lng, setLng] = useState<number | undefined>();
   const [locLoading, setLocLoading] = useState(false);
+  const [mapPickerVisible, setMapPickerVisible] = useState(false);
 
   const phoneRef = useRef<TextInput>(null);
   const addressRef = useRef<TextInput>(null);
@@ -227,25 +229,39 @@ export default function OnboardingScreen() {
 
           {step === "location" && (
             <View style={styles.locationBlock}>
-              <TouchableOpacity
-                style={[styles.gpsBtn, { borderColor: C.gold, backgroundColor: C.gold + "18" }]}
-                onPress={handleDetectLocation}
-                activeOpacity={0.75}
-                disabled={locLoading}
-              >
-                {locLoading ? (
-                  <ActivityIndicator color={C.gold} size="small" />
-                ) : (
-                  <Feather name="crosshair" size={18} color={C.gold} />
-                )}
-                <Text style={[styles.gpsBtnText, { color: C.gold }]}>
-                  {locLoading ? "جاري تحديد الموقع..." : "تحديد موقعي تلقائياً"}
-                </Text>
-              </TouchableOpacity>
+              {/* Auto + Map picker buttons */}
+              <View style={{ flexDirection: "row-reverse", gap: 10 }}>
+                <TouchableOpacity
+                  style={[styles.gpsBtn, { flex: 1, borderColor: C.gold, backgroundColor: C.gold + "18" }]}
+                  onPress={handleDetectLocation}
+                  activeOpacity={0.75}
+                  disabled={locLoading}
+                >
+                  {locLoading ? (
+                    <ActivityIndicator color={C.gold} size="small" />
+                  ) : (
+                    <Feather name="crosshair" size={16} color={C.gold} />
+                  )}
+                  <Text style={[styles.gpsBtnText, { color: C.gold, fontSize: 13 }]}>
+                    {locLoading ? "جاري..." : "تلقائي"}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.gpsBtn, { flex: 1, borderColor: "#CE93D8", backgroundColor: "#CE93D818" }]}
+                  onPress={() => setMapPickerVisible(true)}
+                  activeOpacity={0.75}
+                >
+                  <Feather name="map-pin" size={16} color="#CE93D8" />
+                  <Text style={[styles.gpsBtnText, { color: "#CE93D8", fontSize: 13 }]}>
+                    خريطة دقيقة
+                  </Text>
+                </TouchableOpacity>
+              </View>
 
               <View style={styles.orRow}>
                 <View style={[styles.orLine, { backgroundColor: C.border }]} />
-                <Text style={[styles.orText, { color: C.muted }]}>أو</Text>
+                <Text style={[styles.orText, { color: C.muted }]}>أو اكتب</Text>
                 <View style={[styles.orLine, { backgroundColor: C.border }]} />
               </View>
 
@@ -263,15 +279,21 @@ export default function OnboardingScreen() {
               />
 
               {lat && lng && (
-                <View
+                <TouchableOpacity
+                  onPress={() => setMapPickerVisible(true)}
                   style={[
                     styles.locBadge,
-                    { backgroundColor: C.green + "22", borderColor: C.green + "44" },
+                    { backgroundColor: C.green + "22", borderColor: C.green + "44", alignSelf: "stretch", justifyContent: "space-between" },
                   ]}
                 >
-                  <Feather name="check-circle" size={14} color={C.green} />
-                  <Text style={[styles.locBadgeText, { color: C.green }]}>تم تحديد الموقع</Text>
-                </View>
+                  <Feather name="edit-2" size={12} color={C.green} />
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    <Text style={[styles.locBadgeText, { color: C.green }]}>
+                      تم تحديد الموقع بدقة ✓
+                    </Text>
+                    <Feather name="check-circle" size={14} color={C.green} />
+                  </View>
+                </TouchableOpacity>
               )}
             </View>
           )}
@@ -301,6 +323,21 @@ export default function OnboardingScreen() {
           </TouchableOpacity>
         )}
       </ScrollView>
+
+      {/* ── Map Picker Modal ── */}
+      <MapPickerModal
+        visible={mapPickerVisible}
+        initialLat={lat}
+        initialLng={lng}
+        onConfirm={(pickedLat, pickedLng, _url) => {
+          setLat(pickedLat);
+          setLng(pickedLng);
+          setAddress(`${pickedLat.toFixed(5)}، ${pickedLng.toFixed(5)}`);
+          setMapPickerVisible(false);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }}
+        onClose={() => setMapPickerVisible(false)}
+      />
     </KeyboardAvoidingView>
   );
 }
