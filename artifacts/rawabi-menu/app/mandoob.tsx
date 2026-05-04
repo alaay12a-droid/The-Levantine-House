@@ -995,14 +995,25 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
                   </View>
                   {order.customerAddress && (
                     <TouchableOpacity
-                      onPress={() => { const q = encodeURIComponent(order.customerAddress!); if (Platform.OS === "web") window.open(`https://maps.google.com/?q=${q}`); else import("react-native").then(({ Linking }) => Linking.openURL(`https://maps.google.com/?q=${q}`)); }}
+                      onPress={() => {
+                        const addr = order.customerAddress!;
+                        const url = addr.startsWith("https://") || addr.startsWith("http://")
+                          ? addr
+                          : `https://maps.google.com/?q=${encodeURIComponent(addr)}`;
+                        if (Platform.OS === "web") window.open(url);
+                        else import("react-native").then(({ Linking }) => Linking.openURL(url));
+                      }}
                       style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8, backgroundColor: "#0A2A0A", borderRadius: 10, padding: 10 }}
                     >
                       <Feather name="map-pin" size={14} color="#4CAF50" />
                       <Text style={{ color: "#4CAF50", fontFamily: F.semi, fontSize: 13, flex: 1, textAlign: "right" }} numberOfLines={2}>
-                        {order.customerAddress.startsWith("https://") ? "📍 افتح الموقع على الخريطة" : order.customerAddress}
+                        {order.customerAddress.startsWith("https://") || order.customerAddress.startsWith("http://")
+                          ? "📍 افتح الموقع على الخريطة"
+                          : order.customerAddress}
                       </Text>
-                      {order.customerAddress.startsWith("https://") && <Feather name="external-link" size={13} color="#4CAF50" />}
+                      {(order.customerAddress.startsWith("https://") || order.customerAddress.startsWith("http://")) && (
+                        <Feather name="external-link" size={13} color="#4CAF50" />
+                      )}
                     </TouchableOpacity>
                   )}
                 </View>
