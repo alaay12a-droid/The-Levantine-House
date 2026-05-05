@@ -21,6 +21,7 @@ import { UserProvider, useUser } from "@/context/UserContext";
 import { OrderBadgeProvider } from "@/context/OrderBadgeContext";
 import { LanguageProvider } from "@/context/LanguageContext";
 import { AppConfigProvider } from "@/context/AppConfigContext";
+import { FavoritesProvider } from "@/context/FavoritesContext";
 import { registerCustomerNotifications } from "@/hooks/useCustomerPushToken";
 
 SplashScreen.preventAutoHideAsync();
@@ -122,6 +123,7 @@ export default function RootLayout() {
           <LanguageProvider>
             <AppConfigProvider>
               <UserProvider>
+                <FavoritesProvider>
                 <CartProvider>
                   <OrderBadgeProvider>
                     <GestureHandlerRootView>
@@ -131,6 +133,7 @@ export default function RootLayout() {
                     </GestureHandlerRootView>
                   </OrderBadgeProvider>
                 </CartProvider>
+                </FavoritesProvider>
               </UserProvider>
             </AppConfigProvider>
           </LanguageProvider>
