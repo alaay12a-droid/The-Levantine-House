@@ -41,6 +41,15 @@ export default function TabLayout() {
       }}
     >
       <Tabs.Screen
+        name="home"
+        options={{
+          title: "الرئيسية",
+          tabBarIcon: ({ color, size }) => (
+            <Feather name="home" size={size - 2} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="index"
         options={{
           title: "القائمة",
