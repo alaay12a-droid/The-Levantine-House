@@ -127,6 +127,7 @@ export default function MenuScreen() {
   const sectionListRef = useRef<any>(null);
   const tabsScrollRef = useRef<ScrollView>(null);
   const isScrollingProgrammatically = useRef(false);
+  const sectionYs = useRef<Record<string, number>>({});
 
   // ── Collapsing header animation ──
   const lastY = useSharedValue(0);
@@ -170,12 +171,21 @@ export default function MenuScreen() {
     setActiveCategory(catId);
     const cat = categories.find((c) => c.id === catId);
     if (cat?.isDelivery || cat?.isDhabiha || cat?.isOccasions) return;
-    const sectionIndex = regularCats.findIndex((c) => c.id === catId);
-    if (sectionIndex === -1 || !sectionListRef.current) return;
+    if (!sectionListRef.current) return;
     isScrollingProgrammatically.current = true;
-    try {
-      sectionListRef.current.scrollToLocation({ sectionIndex, itemIndex: 0, viewPosition: 0, animated: true });
-    } catch {}
+    const trackedY = sectionYs.current[catId];
+    if (trackedY !== undefined) {
+      // Use precise Y captured via onLayout
+      sectionListRef.current.scrollToOffset({ offset: trackedY, animated: true });
+    } else {
+      // Fallback to scrollToLocation
+      const sectionIndex = regularCats.findIndex((c) => c.id === catId);
+      if (sectionIndex !== -1) {
+        try {
+          sectionListRef.current.scrollToLocation({ sectionIndex, itemIndex: 0, viewPosition: 0, animated: true });
+        } catch {}
+      }
+    }
     setTimeout(() => { isScrollingProgrammatically.current = false; }, 800);
   }, [categories, regularCats]);
 
@@ -523,7 +533,10 @@ export default function MenuScreen() {
             );
           }}
           renderSectionHeader={({ section }) => (
-            <View style={[styles.sectionRow, { backgroundColor: colors.background, borderBottomColor: colors.border, borderTopColor: colors.border }]}>
+            <View
+              onLayout={(e) => { sectionYs.current[section.id] = e.nativeEvent.layout.y; }}
+              style={[styles.sectionRow, { backgroundColor: colors.background, borderBottomColor: colors.border, borderTopColor: colors.border }]}
+            >
               <Text style={[styles.itemCount, { color: colors.mutedForeground, fontFamily: F.semi }]}>
                 {section.count} {isEn ? "items" : "أصناف"}
               </Text>
