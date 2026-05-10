@@ -21,6 +21,11 @@ const F = {
   extra: "Cairo_800ExtraBold",
 };
 
+const SIZE_OPTIONS: { label: string; icon: string }[] = [
+  { label: "نصف", icon: "½" },
+  { label: "حبة كاملة", icon: "1" },
+];
+
 const RICE_OPTIONS: { label: string; extra: number }[] = [
   { label: "أرز بشاور أبيض", extra: 1 },
   { label: "أرز مندي", extra: 1 },
@@ -52,12 +57,14 @@ export function ProductDetailSheet({ item, visible, onClose }: Props) {
   const { addItem } = useCart();
 
   const [qty, setQty] = useState(1);
+  const [sizeIdx, setSizeIdx] = useState(0);
   const [riceIdx, setRiceIdx] = useState(0);
   const [addonIdx, setAddonIdx] = useState(0);
 
   useEffect(() => {
     if (visible) {
       setQty(1);
+      setSizeIdx(0);
       setRiceIdx(0);
       setAddonIdx(0);
     }
@@ -77,10 +84,13 @@ export function ProductDetailSheet({ item, visible, onClose }: Props) {
   const totalPrice = unitPrice * qty;
   const priceStr = (v: number) => v % 1 === 0 ? v.toString() : v.toFixed(1);
 
+  const selectedSize = showCustomization ? SIZE_OPTIONS[sizeIdx] : null;
+
   const handleAdd = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     const customization: CartCustomization | undefined = showCustomization
       ? {
+          size: selectedSize?.label,
           riceType: selectedRice?.label,
           addon: selectedAddon?.label,
           extraPrice,
@@ -133,6 +143,40 @@ export function ProductDetailSheet({ item, visible, onClose }: Props) {
                 </Text>
               ) : null}
             </View>
+
+            {/* ── Size ── */}
+            {showCustomization && (
+              <View style={{ gap: 10 }}>
+                <Text style={[styles.sectionTitle, { color: colors.foreground }]}>الحجم</Text>
+                <View style={{ flexDirection: "row", gap: 10 }}>
+                  {SIZE_OPTIONS.map((opt, i) => {
+                    const active = sizeIdx === i;
+                    return (
+                      <TouchableOpacity
+                        key={i}
+                        onPress={() => { setSizeIdx(i); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
+                        style={[
+                          styles.sizeBtn,
+                          {
+                            flex: 1,
+                            backgroundColor: active ? "#C8171A" : colors.secondary,
+                            borderColor: active ? "#C8171A" : colors.border,
+                          },
+                        ]}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={{ color: active ? "#fff" : colors.mutedForeground, fontFamily: F.extra, fontSize: 20 }}>
+                          {opt.icon}
+                        </Text>
+                        <Text style={{ color: active ? "#fff" : colors.foreground, fontFamily: active ? F.bold : F.regular, fontSize: 14 }}>
+                          {opt.label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+            )}
 
             {/* ── Rice Type ── */}
             {showCustomization && (
@@ -316,6 +360,14 @@ const styles = StyleSheet.create({
   extraBadge: {
     minWidth: 44,
     alignItems: "flex-end",
+  },
+  sizeBtn: {
+    borderRadius: 14,
+    borderWidth: 1.5,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 14,
+    gap: 4,
   },
   footer: {
     position: "absolute",

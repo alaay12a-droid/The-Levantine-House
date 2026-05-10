@@ -161,6 +161,7 @@ export default function CartScreen() {
                 const unitStr = unitPrice % 1 === 0 ? unitPrice.toString() : unitPrice.toFixed(1);
                 const itemName = isEn && cartItem.item.nameEn ? cartItem.item.nameEn : cartItem.item.name;
                 const customParts: string[] = [];
+                if (cartItem.customization?.size) customParts.push(cartItem.customization.size);
                 if (cartItem.customization?.riceType) customParts.push(cartItem.customization.riceType);
                 if (cartItem.customization?.addon) customParts.push(cartItem.customization.addon);
 

@@ -298,6 +298,7 @@ export default function CheckoutScreen() {
         items: items.map((ci) => {
           const extra = ci.customization?.extraPrice ?? 0;
           const parts: string[] = [];
+          if (ci.customization?.size) parts.push(ci.customization.size);
           if (ci.customization?.riceType) parts.push(ci.customization.riceType);
           if (ci.customization?.addon) parts.push(ci.customization.addon);
           return {
@@ -342,6 +343,7 @@ export default function CheckoutScreen() {
         total: grandTotal,
         items: items.map((ci) => {
           const parts: string[] = [];
+          if (ci.customization?.size) parts.push(ci.customization.size);
           if (ci.customization?.riceType) parts.push(ci.customization.riceType);
           if (ci.customization?.addon) parts.push(ci.customization.addon);
           return {

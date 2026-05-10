@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useCallback } from "react";
 import { MenuItem } from "@/constants/menu";
 
 export interface CartCustomization {
+  size?: string;
   riceType?: string;
   addon?: string;
   extraPrice?: number;
