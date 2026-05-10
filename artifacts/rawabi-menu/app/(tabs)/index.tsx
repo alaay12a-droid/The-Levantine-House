@@ -174,7 +174,7 @@ export default function MenuScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
-      <StatusBar barStyle="light-content" backgroundColor={colors.background} />
+      <StatusBar barStyle={colors.isLight ? "dark-content" : "light-content"} backgroundColor={colors.background} />
 
       {/* ── HEADER ── */}
       <View style={[styles.header, { paddingTop: topInset }]}>

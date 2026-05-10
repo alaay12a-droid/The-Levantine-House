@@ -6,7 +6,7 @@ export function useColors() {
   const palette = colors.light;
 
   if (!loaded) {
-    return { ...palette, radius: colors.radius };
+    return { ...palette, radius: colors.radius, isLight: false };
   }
 
   const themeColors = BG_THEMES[config.bgTheme] ?? BG_THEMES["dark-brown"];
@@ -14,8 +14,11 @@ export function useColors() {
   return {
     ...palette,
     ...themeColors,
+    foreground: themeColors.foreground ?? palette.foreground,
+    mutedForeground: themeColors.mutedForeground ?? palette.mutedForeground,
     gold: config.accentColor,
     accent: config.accentColor,
     radius: colors.radius,
+    isLight: themeColors.isLight ?? false,
   };
 }

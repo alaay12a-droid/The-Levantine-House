@@ -292,6 +292,7 @@ function BgSwatch({
   const colors = useColors();
   const meta = BG_THEME_META[themeKey];
   const theme = BG_THEMES[themeKey];
+  const isLightTheme = theme.isLight ?? false;
 
   return (
     <TouchableOpacity style={bgSwatchStyles.item} onPress={onPress} activeOpacity={0.8}>
@@ -299,7 +300,9 @@ function BgSwatch({
         style={[
           bgSwatchStyles.preview,
           { backgroundColor: theme.background },
-          selected && { borderWidth: 3, borderColor: colors.foreground },
+          selected
+            ? { borderWidth: 3, borderColor: isLightTheme ? "#333" : colors.foreground }
+            : { borderWidth: 1, borderColor: theme.border },
         ]}
       >
         <View style={[bgSwatchStyles.previewCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
@@ -309,7 +312,7 @@ function BgSwatch({
         </View>
         {selected && (
           <View style={[bgSwatchStyles.checkWrap, { backgroundColor: accent }]}>
-            <Feather name="check" size={10} color="#fff" />
+            <Feather name="check" size={10} color={isLightTheme ? "#333" : "#fff"} />
           </View>
         )}
       </View>
@@ -365,7 +368,7 @@ export default function AppSettingsScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <StatusBar barStyle="light-content" />
+      <StatusBar barStyle={colors.isLight ? "dark-content" : "light-content"} />
 
       {/* Header */}
       <View

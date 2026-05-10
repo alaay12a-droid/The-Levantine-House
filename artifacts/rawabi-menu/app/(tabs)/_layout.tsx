@@ -4,15 +4,12 @@ import { Platform } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useOrderBadge } from "@/context/OrderBadgeContext";
 import { useAppConfig } from "@/context/AppConfigContext";
-
-const GOLD = "#E8920C";
-const MUTED = "#9A7A5A";
-const BG = "#1A1008";
-const BORDER = "#3A2410";
+import { useColors } from "@/hooks/useColors";
 
 export default function TabLayout() {
   const { config, loaded } = useAppConfig();
   const { activeCount } = useOrderBadge();
+  const colors = useColors();
 
   if (!loaded) return null;
 
@@ -24,15 +21,15 @@ export default function TabLayout() {
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: BG,
-          borderTopColor: BORDER,
+          backgroundColor: colors.card,
+          borderTopColor: colors.border,
           borderTopWidth: 1,
           height: h,
           paddingBottom: pb,
           paddingTop: 8,
         },
-        tabBarActiveTintColor: GOLD,
-        tabBarInactiveTintColor: MUTED,
+        tabBarActiveTintColor: config.accentColor,
+        tabBarInactiveTintColor: colors.mutedForeground,
         tabBarLabelStyle: {
           fontFamily: "Cairo_700Bold",
           fontSize: config.tabFontSize,

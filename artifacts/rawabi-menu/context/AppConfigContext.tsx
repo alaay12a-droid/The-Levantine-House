@@ -3,7 +3,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const STORAGE_KEY = "@rawabi_app_config_v2";
 
-export type BgThemeKey = "dark-brown" | "dark-gray" | "dark-blue" | "dark-green" | "dark-red" | "dark-purple";
+export type BgThemeKey = "dark-brown" | "dark-gray" | "dark-blue" | "dark-green" | "dark-red" | "dark-purple" | "light" | "light-warm";
 
 export interface BgTheme {
   background: string;
@@ -11,6 +11,9 @@ export interface BgTheme {
   secondary: string;
   border: string;
   surface: string;
+  foreground?: string;
+  mutedForeground?: string;
+  isLight?: boolean;
 }
 
 export const BG_THEMES: Record<BgThemeKey, BgTheme> = {
@@ -56,6 +59,26 @@ export const BG_THEMES: Record<BgThemeKey, BgTheme> = {
     border: "#281840",
     surface: "#0D0818",
   },
+  "light": {
+    background: "#FFFFFF",
+    card: "#F5F5F5",
+    secondary: "#EBEBEB",
+    border: "#DEDEDE",
+    surface: "#F0F0F0",
+    foreground: "#1A0A00",
+    mutedForeground: "#777777",
+    isLight: true,
+  },
+  "light-warm": {
+    background: "#FFF8F0",
+    card: "#FFF0E0",
+    secondary: "#FFE5CC",
+    border: "#E8D0B8",
+    surface: "#FAEBD7",
+    foreground: "#3A1A00",
+    mutedForeground: "#8B6040",
+    isLight: true,
+  },
 };
 
 export const ACCENT_COLORS = [
@@ -78,6 +101,8 @@ export const BG_THEME_META: Record<BgThemeKey, { label: string; preview: string 
   "dark-green":  { label: "أخضر داكن",   preview: "#0D180D" },
   "dark-red":    { label: "أحمر داكن",   preview: "#180A0A" },
   "dark-purple": { label: "بنفسجي داكن", preview: "#120A20" },
+  "light":       { label: "أبيض",        preview: "#FFFFFF" },
+  "light-warm":  { label: "كريمي",       preview: "#FFF8F0" },
 };
 
 export interface AppConfig {
