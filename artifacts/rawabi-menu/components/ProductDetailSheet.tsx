@@ -23,7 +23,6 @@ const F = {
 
 const RICE_OPTIONS: { label: string; extra: number }[] = [
   { label: "أرز بشاور أبيض", extra: 1 },
-  { label: "أرز بشاور حائلي", extra: 1 },
   { label: "أرز مندي", extra: 1 },
 ];
 
