@@ -203,7 +203,13 @@ export default function CashierScreen() {
   const chatPollRef                          = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // ─── Cashier view ──────────────────────────────────────
-  const [cashierView, setCashierView] = useState<"orders" | "drivers">("orders");
+  const [cashierView, setCashierView] = useState<"orders" | "drivers" | "pickup">("orders");
+
+  // ─── Pickup (branch) filter ─────────────────────────────
+  const [pickupFromHour, setPickupFromHour] = useState("00");
+  const [pickupToHour,   setPickupToHour]   = useState("23");
+  const [pickupFromMin,  setPickupFromMin]  = useState("00");
+  const [pickupToMin,    setPickupToMin]    = useState("59");
 
   // ─── Drivers state ─────────────────────────────────────
   interface Driver { id: number; name: string; phone: string; photoUrl: string | null; active: boolean; }
@@ -836,6 +842,8 @@ export default function CashierScreen() {
   }, [fetchUnreadCounts]);
 
   const pendingCount = orders.filter((o) => o.status === "pending").length;
+  const pickupOrders = orders.filter((o) => o.notes?.includes("استلام من الفرع"));
+  const pickupPendingCount = pickupOrders.filter((o) => o.status === "pending" || o.status === "preparing" || o.status === "ready").length;
   const totalUnread  = Object.values(unreadByOrder).reduce((s, n) => s + n, 0);
 
   useChatUnreadAlert(totalUnread);
@@ -937,15 +945,16 @@ export default function CashierScreen() {
       {/* ── Bottom Nav Bar ── */}
       <View style={{ flexDirection: "row-reverse", backgroundColor: "#1A1008", borderBottomWidth: 1, borderBottomColor: colors.border }}>
         {([
-          { key: "orders",  label: "استقبال الطلبات", icon: "clipboard" as const, color: "#E8920C", badge: pendingCount },
-          { key: "drivers", label: "المناديب",         icon: "truck"     as const, color: "#4CAF50", badge: activeAssignments.length },
+          { key: "orders",  label: "استقبال الطلبات", icon: "clipboard"  as const, color: "#E8920C", badge: pendingCount },
+          { key: "pickup",  label: "تسليم الفرع",     icon: "package"    as const, color: "#82B1FF", badge: pickupPendingCount },
+          { key: "drivers", label: "المناديب",         icon: "truck"      as const, color: "#4CAF50", badge: activeAssignments.length },
         ]).map(tab => {
           const active = cashierView === tab.key;
           return (
             <TouchableOpacity
               key={tab.key}
               onPress={() => {
-                setCashierView(tab.key as "orders" | "drivers");
+                setCashierView(tab.key as "orders" | "drivers" | "pickup");
                 if (tab.key === "drivers") { loadDrvSummaries(); loadActiveAssignments(); }
               }}
               style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 10, borderBottomWidth: 3, borderBottomColor: active ? tab.color : "transparent", gap: 3 }}
@@ -1189,6 +1198,209 @@ export default function CashierScreen() {
           })}
         </ScrollView>
       )}
+
+      {/* ── Pickup (branch) view ── */}
+      {cashierView === "pickup" && (() => {
+        const fromMins = parseInt(pickupFromHour) * 60 + parseInt(pickupFromMin);
+        const toMins   = parseInt(pickupToHour)   * 60 + parseInt(pickupToMin);
+        const filtered = pickupOrders.filter(o => {
+          const d = new Date(o.createdAt);
+          const m = d.getHours() * 60 + d.getMinutes();
+          return m >= fromMins && m <= toMins;
+        });
+        const activeFiltered  = filtered.filter(o => o.status !== "done" && o.status !== "cancelled");
+        const doneFiltered    = filtered.filter(o => o.status === "done");
+        return (
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 14, gap: 12, paddingBottom: 60 }}>
+            {/* Header */}
+            <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" }}>
+              <View style={{ gap: 2 }}>
+                <Text style={{ color: colors.foreground, fontFamily: F.extra, fontSize: 16 }}>🏪 تسليم من الفرع</Text>
+                <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12 }}>
+                  {new Date().toLocaleDateString("ar-SA", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+                </Text>
+              </View>
+              <View style={{ backgroundColor: "#82B1FF22", borderRadius: 14, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1, borderColor: "#82B1FF44" }}>
+                <Text style={{ color: "#82B1FF", fontFamily: F.extra, fontSize: 18 }}>{activeFiltered.length}</Text>
+                <Text style={{ color: "#82B1FF", fontFamily: F.semi, fontSize: 10, textAlign: "center" }}>بانتظار</Text>
+              </View>
+            </View>
+
+            {/* Time range filter */}
+            <View style={{ backgroundColor: colors.card, borderRadius: 16, padding: 14, borderWidth: 1, borderColor: "#82B1FF33", gap: 10 }}>
+              <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6 }}>
+                <Feather name="clock" size={15} color="#82B1FF" />
+                <Text style={{ color: "#82B1FF", fontFamily: F.bold, fontSize: 14 }}>تصفية بالوقت</Text>
+              </View>
+              <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
+                {/* From */}
+                <View style={{ flex: 1, gap: 4 }}>
+                  <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 11, textAlign: "center" }}>من</Text>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                    <TextInput
+                      value={pickupFromMin}
+                      onChangeText={v => setPickupFromMin(v.replace(/\D/g,"").slice(0,2))}
+                      keyboardType="numeric"
+                      maxLength={2}
+                      placeholder="00"
+                      placeholderTextColor={colors.mutedForeground}
+                      style={{ flex: 1, backgroundColor: colors.secondary, borderRadius: 10, borderWidth: 1, borderColor: colors.border, color: colors.foreground, fontFamily: F.bold, fontSize: 18, textAlign: "center", paddingVertical: 8 }}
+                    />
+                    <Text style={{ color: colors.mutedForeground, fontFamily: F.bold }}>:</Text>
+                    <TextInput
+                      value={pickupFromHour}
+                      onChangeText={v => setPickupFromHour(v.replace(/\D/g,"").slice(0,2))}
+                      keyboardType="numeric"
+                      maxLength={2}
+                      placeholder="00"
+                      placeholderTextColor={colors.mutedForeground}
+                      style={{ flex: 1, backgroundColor: colors.secondary, borderRadius: 10, borderWidth: 1, borderColor: colors.border, color: colors.foreground, fontFamily: F.bold, fontSize: 18, textAlign: "center", paddingVertical: 8 }}
+                    />
+                  </View>
+                </View>
+                <Feather name="arrow-left" size={18} color={colors.mutedForeground} />
+                {/* To */}
+                <View style={{ flex: 1, gap: 4 }}>
+                  <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 11, textAlign: "center" }}>إلى</Text>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                    <TextInput
+                      value={pickupToMin}
+                      onChangeText={v => setPickupToMin(v.replace(/\D/g,"").slice(0,2))}
+                      keyboardType="numeric"
+                      maxLength={2}
+                      placeholder="59"
+                      placeholderTextColor={colors.mutedForeground}
+                      style={{ flex: 1, backgroundColor: colors.secondary, borderRadius: 10, borderWidth: 1, borderColor: colors.border, color: colors.foreground, fontFamily: F.bold, fontSize: 18, textAlign: "center", paddingVertical: 8 }}
+                    />
+                    <Text style={{ color: colors.mutedForeground, fontFamily: F.bold }}>:</Text>
+                    <TextInput
+                      value={pickupToHour}
+                      onChangeText={v => setPickupToHour(v.replace(/\D/g,"").slice(0,2))}
+                      keyboardType="numeric"
+                      maxLength={2}
+                      placeholder="23"
+                      placeholderTextColor={colors.mutedForeground}
+                      style={{ flex: 1, backgroundColor: colors.secondary, borderRadius: 10, borderWidth: 1, borderColor: colors.border, color: colors.foreground, fontFamily: F.bold, fontSize: 18, textAlign: "center", paddingVertical: 8 }}
+                    />
+                  </View>
+                </View>
+              </View>
+            </View>
+
+            {/* Active pickup orders */}
+            {activeFiltered.length === 0 ? (
+              <View style={{ backgroundColor: colors.card, borderRadius: 16, padding: 28, alignItems: "center", gap: 8, borderWidth: 1, borderColor: colors.border }}>
+                <Text style={{ fontSize: 40 }}>🏪</Text>
+                <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 14 }}>لا يوجد طلبات استلام في هذا النطاق</Text>
+              </View>
+            ) : (
+              <View style={{ gap: 8 }}>
+                <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
+                  <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: "#82B1FF" }} />
+                  <Text style={{ color: colors.foreground, fontFamily: F.bold, fontSize: 14 }}>بانتظار الاستلام ({activeFiltered.length})</Text>
+                </View>
+                {activeFiltered.map(order => {
+                  const d = new Date(order.createdAt);
+                  const timeStr = d.toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit", hour12: true });
+                  const dateStr = d.toLocaleDateString("ar-SA", { day: "numeric", month: "long", year: "numeric" });
+                  return (
+                    <View key={order.id} style={{ backgroundColor: colors.card, borderRadius: 16, borderWidth: 1, borderColor: "#82B1FF44", overflow: "hidden" }}>
+                      {/* Top bar */}
+                      <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 14, paddingVertical: 10, backgroundColor: "#82B1FF11" }}>
+                        <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
+                          <View style={{ backgroundColor: "#82B1FF22", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 }}>
+                            <Text style={{ color: "#82B1FF", fontFamily: F.extra, fontSize: 14 }}>#{order.dailyNumber ?? order.id}</Text>
+                          </View>
+                          <Text style={{ color: colors.foreground, fontFamily: F.bold, fontSize: 15 }}>{order.customerName}</Text>
+                        </View>
+                        <View style={{ alignItems: "flex-end", gap: 1 }}>
+                          <Text style={{ color: "#82B1FF", fontFamily: F.extra, fontSize: 16 }}>{order.totalPrice.toFixed(2)} ر.س</Text>
+                          <View style={{ backgroundColor: STATUS_COLORS[order.status] + "22", paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8 }}>
+                            <Text style={{ color: STATUS_COLORS[order.status], fontFamily: F.bold, fontSize: 11 }}>{STATUS_LABELS[order.status]}</Text>
+                          </View>
+                        </View>
+                      </View>
+                      {/* Items */}
+                      <View style={{ paddingHorizontal: 14, paddingVertical: 8, gap: 3 }}>
+                        {order.items.map((item, i) => (
+                          <View key={i} style={{ flexDirection: "row-reverse", justifyContent: "space-between" }}>
+                            <Text style={{ color: colors.foreground, fontFamily: F.semi, fontSize: 13 }} numberOfLines={1}>× {item.quantity}  {item.name}</Text>
+                            <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12 }}>{(item.price * item.quantity).toFixed(2)}</Text>
+                          </View>
+                        ))}
+                      </View>
+                      {/* Time / date row */}
+                      <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 14, paddingBottom: 10, paddingTop: 4 }}>
+                        <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 5 }}>
+                          <Feather name="clock" size={13} color={colors.mutedForeground} />
+                          <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 12 }}>{timeStr}</Text>
+                        </View>
+                        <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 5 }}>
+                          <Feather name="calendar" size={13} color={colors.mutedForeground} />
+                          <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12 }}>{dateStr}</Text>
+                        </View>
+                      </View>
+                      {/* Phone */}
+                      {order.customerPhone && (
+                        <TouchableOpacity
+                          onPress={() => Linking.openURL(`tel:${order.customerPhone}`)}
+                          style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingBottom: 10 }}
+                        >
+                          <Feather name="phone" size={13} color="#82B1FF" />
+                          <Text style={{ color: "#82B1FF", fontFamily: F.semi, fontSize: 13 }}>{order.customerPhone}</Text>
+                        </TouchableOpacity>
+                      )}
+                      {/* Mark done button */}
+                      <TouchableOpacity
+                        onPress={() => handleUpdateStatus(order, "done")}
+                        style={{ backgroundColor: "#0D1F35", borderTopWidth: 1, borderTopColor: "#82B1FF22", paddingVertical: 13, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 8 }}
+                        activeOpacity={0.75}
+                      >
+                        <Feather name="check-circle" size={16} color="#82B1FF" />
+                        <Text style={{ color: "#82B1FF", fontFamily: F.extra, fontSize: 14 }}>✅ تم تسليم الطلب للعميل</Text>
+                      </TouchableOpacity>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+
+            {/* Done pickup orders (collapsible) */}
+            {doneFiltered.length > 0 && (
+              <View style={{ gap: 8 }}>
+                <View style={{ height: 1, backgroundColor: colors.border }} />
+                <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 13 }}>✅ تم استلامها ({doneFiltered.length})</Text>
+                {doneFiltered.map(order => {
+                  const d = new Date(order.createdAt);
+                  const timeStr = d.toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit", hour12: true });
+                  const dateStr = d.toLocaleDateString("ar-SA", { day: "numeric", month: "long", year: "numeric" });
+                  return (
+                    <View key={order.id} style={{ backgroundColor: colors.card, borderRadius: 14, borderWidth: 1, borderColor: "#4CAF5033", padding: 12, gap: 4, opacity: 0.75 }}>
+                      <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" }}>
+                        <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
+                          <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 13 }}>#{order.dailyNumber ?? order.id}</Text>
+                          <Text style={{ color: colors.foreground, fontFamily: F.semi, fontSize: 13 }}>{order.customerName}</Text>
+                        </View>
+                        <Text style={{ color: "#4CAF50", fontFamily: F.bold, fontSize: 14 }}>{order.totalPrice.toFixed(2)} ر.س</Text>
+                      </View>
+                      <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" }}>
+                        <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 5 }}>
+                          <Feather name="clock" size={12} color={colors.mutedForeground} />
+                          <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }}>{timeStr}</Text>
+                        </View>
+                        <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 5 }}>
+                          <Feather name="calendar" size={12} color={colors.mutedForeground} />
+                          <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }}>{dateStr}</Text>
+                        </View>
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+          </ScrollView>
+        );
+      })()}
 
       {/* ── Orders view ── */}
       {cashierView === "orders" && (<>
