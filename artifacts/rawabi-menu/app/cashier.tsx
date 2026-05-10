@@ -99,20 +99,6 @@ const STATUS_NEXT_LABEL: Partial<Record<OrderStatus, string>> = {
   preparing: "جاري تحضير الطلب",
 };
 
-// ─── Music player helpers ──────────────────────────────────────────────────
-const PRESET_MUSIC: { name: string; ytId: string }[] = [
-  { name: "🎵 موسيقى عربية هادئة",    ytId: "ScNNfyq3d_U" },
-  { name: "🎸 موسيقى عود كلاسيكية",   ytId: "6ximTDyOKpA" },
-  { name: "🌙 موسيقى شرقية استرخاء",  ytId: "BGiHupF-hM4" },
-  { name: "☕ موسيقى مطعم هادئة",     ytId: "3kMBxg2gU3s" },
-  { name: "🎶 موسيقى خلفية رائعة",    ytId: "0w8B0H8Hdps" },
-];
-
-function extractYtId(raw: string): string | null {
-  const m = raw.match(/(?:youtube\.com\/(?:watch\?.*?v=|embed\/|v\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
-  return m ? m[1] : /^[a-zA-Z0-9_-]{11}$/.test(raw.trim()) ? raw.trim() : null;
-}
-
 function PinScreen({ onSuccess, correctPin }: { onSuccess: () => void; correctPin: string }) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -452,65 +438,6 @@ export default function CashierScreen() {
   const [stockSaving, setStockSaving] = useState<string | null>(null);
   const [stockViewMode, setStockViewMode] = useState<"table" | "edit">("table");
 
-  // ─── Music player state ──────────────────────────────────────────────────
-  const [showMusicModal, setShowMusicModal] = useState(false);
-  const [musicPlaying, setMusicPlaying]     = useState(false);
-  const [musicIdx, setMusicIdx]             = useState(0);
-  const [musicVolume, setMusicVolume]       = useState<number>(() => {
-    if (Platform.OS !== "web" || typeof window === "undefined") return 80;
-    return parseInt(localStorage.getItem("cashier_music_vol") ?? "80", 10);
-  });
-  const [musicTracks, setMusicTracks] = useState<{ name: string; ytId: string }[]>(() => {
-    if (Platform.OS !== "web" || typeof window === "undefined") return PRESET_MUSIC;
-    try {
-      const s = localStorage.getItem("cashier_music_tracks");
-      return s ? JSON.parse(s) : PRESET_MUSIC;
-    } catch { return PRESET_MUSIC; }
-  });
-  const [musicAddName, setMusicAddName] = useState("");
-  const [musicAddUrl,  setMusicAddUrl]  = useState("");
-  const musicFrameKey = useRef(0);
-  const musicFrameRef = useRef<any>(null);
-
-  const persistMusicTracks = useCallback((tracks: typeof musicTracks) => {
-    if (Platform.OS !== "web" || typeof window === "undefined") return;
-    try { localStorage.setItem("cashier_music_tracks", JSON.stringify(tracks)); } catch {}
-  }, []);
-
-  const handleMusicVolume = useCallback((v: number) => {
-    const clamped = Math.max(0, Math.min(100, v));
-    setMusicVolume(clamped);
-    if (Platform.OS !== "web" || typeof window === "undefined") return;
-    try { localStorage.setItem("cashier_music_vol", String(clamped)); } catch {}
-    try {
-      musicFrameRef.current?.contentWindow?.postMessage(
-        JSON.stringify({ event: "command", func: "setVolume", args: [clamped] }), "*"
-      );
-    } catch {}
-  }, []);
-
-  const handleAddMusicTrack = useCallback(() => {
-    const ytId = extractYtId(musicAddUrl.trim());
-    if (!ytId) { Alert.alert("خطأ", "الرابط غير صحيح، أدخل رابط YouTube أو ID المقطع"); return; }
-    const newTracks = [...musicTracks, { name: musicAddName.trim() || `مقطع ${musicTracks.length + 1}`, ytId }];
-    setMusicTracks(newTracks);
-    persistMusicTracks(newTracks);
-    setMusicAddName(""); setMusicAddUrl("");
-  }, [musicAddName, musicAddUrl, musicTracks, persistMusicTracks]);
-
-  const handleDeleteMusicTrack = useCallback((i: number) => {
-    if (musicTracks.length <= 1) return;
-    const newTracks = musicTracks.filter((_, j) => j !== i);
-    setMusicTracks(newTracks);
-    persistMusicTracks(newTracks);
-    setMusicIdx(prev => (prev >= newTracks.length ? 0 : prev));
-  }, [musicTracks, persistMusicTracks]);
-
-  const handlePlayMusicTrack = useCallback((i: number) => {
-    musicFrameKey.current += 1;
-    setMusicIdx(i);
-    setMusicPlaying(true);
-  }, []);
 
   const fetchMenuItems = useCallback(async () => {
     try {
@@ -993,17 +920,15 @@ export default function CashierScreen() {
       {/* ── Bottom Nav Bar ── */}
       <View style={{ flexDirection: "row-reverse", backgroundColor: "#1A1008", borderBottomWidth: 1, borderBottomColor: colors.border }}>
         {([
-          { key: "orders",  label: "الطلبات",   icon: "clipboard"  as const, color: "#E8920C", badge: pendingCount },
-          { key: "pickup",  label: "الفرع",     icon: "package"    as const, color: "#82B1FF", badge: pickupPendingCount },
-          { key: "drivers", label: "المناديب",  icon: "truck"      as const, color: "#4CAF50", badge: activeAssignments.length },
-          { key: "music",   label: musicPlaying ? "♪ شغّال" : "موسيقى", icon: musicPlaying ? ("volume-2" as const) : ("music" as const), color: "#81C784", badge: 0 },
-        ] as { key: string; label: string; icon: any; color: string; badge: number }[]).map(tab => {
+          { key: "orders",  label: "استقبال الطلبات", icon: "clipboard"  as const, color: "#E8920C", badge: pendingCount },
+          { key: "pickup",  label: "تسليم الفرع",     icon: "package"    as const, color: "#82B1FF", badge: pickupPendingCount },
+          { key: "drivers", label: "المناديب",         icon: "truck"      as const, color: "#4CAF50", badge: activeAssignments.length },
+        ]).map(tab => {
           const active = cashierView === tab.key;
           return (
             <TouchableOpacity
               key={tab.key}
               onPress={() => {
-                if (tab.key === "music") { setShowMusicModal(true); return; }
                 setCashierView(tab.key as "orders" | "drivers" | "pickup");
                 if (tab.key === "drivers") { loadActiveAssignments(); loadAllDeliveries(drvSelectedDate); }
               }}
@@ -1025,31 +950,6 @@ export default function CashierScreen() {
         })}
       </View>
 
-      {/* ── Hidden YouTube music player iframe ── */}
-      {Platform.OS === "web" && musicPlaying && musicTracks.length > 0 && (
-        // @ts-ignore
-        <iframe
-          key={`yt-music-${musicFrameKey.current}`}
-          ref={(el: any) => {
-            musicFrameRef.current = el;
-            if (el) {
-              const tryVol = () => {
-                try {
-                  el.contentWindow?.postMessage(
-                    JSON.stringify({ event: "command", func: "setVolume", args: [musicVolume] }), "*"
-                  );
-                } catch {}
-              };
-              setTimeout(tryVol, 2500);
-              setTimeout(tryVol, 5000);
-            }
-          }}
-          src={`https://www.youtube-nocookie.com/embed/${musicTracks[musicIdx]?.ytId ?? ""}?autoplay=1&loop=1&playlist=${musicTracks[musicIdx]?.ytId ?? ""}&enablejsapi=1&rel=0&controls=0`}
-          allow="autoplay; encrypted-media"
-          style={{ position: "absolute", width: 1, height: 1, opacity: 0, pointerEvents: "none", border: "none" } as any}
-          title="bg-music"
-        />
-      )}
 
       {/* New Order Alert Banner */}
       {cashierView === "orders" && hasNewOrder && (
@@ -2705,160 +2605,6 @@ export default function CashierScreen() {
         </View>
       </Modal>
 
-      {/* ─── Music Player Modal ─────────────────────────────── */}
-      <Modal
-        visible={showMusicModal}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowMusicModal(false)}
-      >
-        <View style={{ flex: 1, justifyContent: "flex-end", backgroundColor: "#00000099" }}>
-          <View style={{ backgroundColor: colors.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, borderTopWidth: 1, borderColor: colors.border, maxHeight: "92%" }}>
-            <ScrollView contentContainerStyle={{ padding: 24, gap: 14 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-
-              {/* ── Header ── */}
-              <View style={{ alignItems: "center", gap: 6 }}>
-                <Text style={{ fontSize: 32 }}>{musicPlaying ? "🎵" : "🎼"}</Text>
-                <Text style={{ color: colors.foreground, fontFamily: F.extra, fontSize: 18 }}>التحكم بالموسيقى</Text>
-                <View style={{ backgroundColor: musicPlaying ? "#0D2A1A" : colors.secondary, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 4, borderWidth: 1, borderColor: musicPlaying ? "#4CAF50" : colors.border }}>
-                  <Text style={{ color: musicPlaying ? "#81C784" : colors.mutedForeground, fontFamily: F.bold, fontSize: 13 }}>
-                    {musicPlaying ? `▶ يعزف: ${musicTracks[musicIdx]?.name ?? ""}` : "الموسيقى متوقفة"}
-                  </Text>
-                </View>
-              </View>
-
-              {/* ── Play / Pause + Volume ── */}
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
-                <TouchableOpacity
-                  onPress={() => {
-                    if (musicPlaying) {
-                      setMusicPlaying(false);
-                    } else {
-                      musicFrameKey.current += 1;
-                      setMusicPlaying(true);
-                    }
-                  }}
-                  style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: musicPlaying ? "#2E7D32" : colors.gold, alignItems: "center", justifyContent: "center" }}
-                >
-                  <Feather name={musicPlaying ? "pause" : "play"} size={26} color="#fff" />
-                </TouchableOpacity>
-
-                <View style={{ flex: 1, gap: 6 }}>
-                  <Text style={{ color: colors.mutedForeground, fontFamily: F.bold, fontSize: 12, textAlign: "right" }}>
-                    مستوى الصوت: {musicVolume}%
-                  </Text>
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                    <TouchableOpacity
-                      onPress={() => handleMusicVolume(musicVolume - 10)}
-                      style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: colors.secondary, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.border }}
-                    >
-                      <Text style={{ color: colors.foreground, fontFamily: F.extra, fontSize: 18, lineHeight: 20 }}>−</Text>
-                    </TouchableOpacity>
-                    <View style={{ flex: 1, height: 8, backgroundColor: colors.secondary, borderRadius: 4, overflow: "hidden" }}>
-                      <View style={{ height: 8, width: `${musicVolume}%` as any, backgroundColor: "#4CAF50", borderRadius: 4 }} />
-                    </View>
-                    <TouchableOpacity
-                      onPress={() => handleMusicVolume(musicVolume + 10)}
-                      style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: colors.secondary, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.border }}
-                    >
-                      <Text style={{ color: colors.foreground, fontFamily: F.extra, fontSize: 18, lineHeight: 20 }}>+</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </View>
-
-              {/* ── Track List ── */}
-              <Text style={{ color: colors.mutedForeground, fontFamily: F.bold, fontSize: 13, textAlign: "right" }}>
-                قائمة المقاطع ({musicTracks.length})
-              </Text>
-              {musicTracks.map((track, i) => {
-                const active = musicIdx === i && musicPlaying;
-                return (
-                  <TouchableOpacity
-                    key={i}
-                    onPress={() => handlePlayMusicTrack(i)}
-                    style={{
-                      flexDirection: "row",
-                      alignItems: "center",
-                      backgroundColor: active ? "#0D2A1A" : colors.secondary,
-                      borderRadius: 12,
-                      padding: 12,
-                      borderWidth: 1,
-                      borderColor: active ? "#4CAF50" : colors.border,
-                      gap: 10,
-                    }}
-                  >
-                    {active && (
-                      <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: "#4CAF50" }} />
-                    )}
-                    {!active && (
-                      <Feather name="play-circle" size={16} color={colors.mutedForeground} />
-                    )}
-                    <Text style={{ flex: 1, color: active ? "#81C784" : colors.foreground, fontFamily: active ? F.bold : F.regular, fontSize: 13, textAlign: "right" }}>
-                      {track.name}
-                    </Text>
-                    <TouchableOpacity
-                      onPress={() => handleDeleteMusicTrack(i)}
-                      disabled={musicTracks.length <= 1}
-                      style={{ padding: 4 }}
-                    >
-                      <Feather name="trash-2" size={14} color={musicTracks.length <= 1 ? colors.border : "#E57373"} />
-                    </TouchableOpacity>
-                  </TouchableOpacity>
-                );
-              })}
-
-              {/* ── Add Custom Track ── */}
-              <View style={{ borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 16, gap: 10 }}>
-                <Text style={{ color: colors.foreground, fontFamily: F.bold, fontSize: 14, textAlign: "right" }}>
-                  ➕ إضافة مقطع جديد
-                </Text>
-                <TextInput
-                  value={musicAddName}
-                  onChangeText={setMusicAddName}
-                  placeholder="اسم المقطع (اختياري)"
-                  placeholderTextColor={colors.mutedForeground}
-                  style={{ backgroundColor: colors.background, borderRadius: 10, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 14, paddingVertical: 10, fontFamily: F.regular, fontSize: 13, color: colors.foreground, textAlign: "right" }}
-                />
-                <TextInput
-                  value={musicAddUrl}
-                  onChangeText={setMusicAddUrl}
-                  placeholder="رابط YouTube (مثال: youtube.com/watch?v=XXXXXXXXXXX)"
-                  placeholderTextColor={colors.mutedForeground}
-                  style={{ backgroundColor: colors.background, borderRadius: 10, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 14, paddingVertical: 10, fontFamily: F.regular, fontSize: 12, color: colors.foreground, textAlign: "right" }}
-                />
-                <TouchableOpacity
-                  onPress={handleAddMusicTrack}
-                  style={{ backgroundColor: colors.gold, borderRadius: 12, paddingVertical: 13, alignItems: "center" }}
-                >
-                  <Text style={{ color: "#1A0A00", fontFamily: F.bold, fontSize: 14 }}>إضافة المقطع للقائمة</Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* ── Reset to presets ── */}
-              <TouchableOpacity
-                onPress={() => {
-                  setMusicTracks(PRESET_MUSIC);
-                  persistMusicTracks(PRESET_MUSIC);
-                  setMusicIdx(0);
-                }}
-                style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingVertical: 11, alignItems: "center" }}
-              >
-                <Text style={{ color: colors.mutedForeground, fontFamily: F.bold, fontSize: 13 }}>🔄 استعادة المقاطع الافتراضية</Text>
-              </TouchableOpacity>
-
-              {/* ── Close ── */}
-              <TouchableOpacity
-                onPress={() => setShowMusicModal(false)}
-                style={{ backgroundColor: colors.secondary, borderRadius: 12, paddingVertical: 13, alignItems: "center", marginBottom: 8 }}
-              >
-                <Text style={{ color: colors.foreground, fontFamily: F.bold, fontSize: 14 }}>إغلاق</Text>
-              </TouchableOpacity>
-
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
 
       {/* ══════════════════════════════════════════════════════
           ── نافذة إدارة المناديب ──

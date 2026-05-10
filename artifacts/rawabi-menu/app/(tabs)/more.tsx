@@ -39,6 +39,7 @@ import {
 } from "@/constants/occasions";
 import { SOUND_CHOICES, SOUND_KEYS, type SoundOption } from "@/constants/appSounds";
 import { useAppSound } from "@/hooks/useAppSound";
+import { useMusic, PRESET_MUSIC } from "@/context/MusicContext";
 
 const LOGO_BG_KEY = "rawabi_logo_bg";
 
@@ -104,6 +105,17 @@ export default function MoreScreen() {
     setLogoBg(color);
     await AsyncStorage.setItem(LOGO_BG_KEY, color);
   }, []);
+
+  // ─── Music player ────────────────────────────────────────
+  const {
+    musicPlaying, musicIdx, musicVolume, musicTracks,
+    musicAddName, musicAddUrl,
+    setMusicAddName, setMusicAddUrl,
+    setMusicPlaying,
+    handlePlayMusicTrack, handleMusicVolume,
+    handleAddMusicTrack, handleDeleteMusicTrack, resetToPresets,
+  } = useMusic();
+  const [showAddTrack, setShowAddTrack] = useState(false);
 
   // ─── Sound settings ──────────────────────────────────────
   const { previewSound } = useAppSound();
@@ -472,6 +484,132 @@ export default function MoreScreen() {
               );
             })}
           </View>
+        </View>
+
+        {/* ── Music Player ── */}
+        <View style={[styles.langCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          {/* Header */}
+          <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+            <Text style={[styles.sectionLabel, { color: colors.mutedForeground, fontFamily: F.semi }]}>
+              🎵 موسيقى الخلفية
+            </Text>
+            <View style={{ backgroundColor: musicPlaying ? "#0D2A1A" : colors.secondary, borderRadius: 16, paddingHorizontal: 10, paddingVertical: 4, borderWidth: 1, borderColor: musicPlaying ? "#4CAF5040" : colors.border }}>
+              <Text style={{ color: musicPlaying ? "#81C784" : colors.mutedForeground, fontFamily: F.bold, fontSize: 12 }}>
+                {musicPlaying ? "▶ شغّال" : "متوقف"}
+              </Text>
+            </View>
+          </View>
+
+          {/* Play/Pause + Volume */}
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 14, marginBottom: 14 }}>
+            <TouchableOpacity
+              onPress={() => setMusicPlaying(!musicPlaying)}
+              style={{ width: 54, height: 54, borderRadius: 27, backgroundColor: musicPlaying ? "#2E7D32" : colors.gold, alignItems: "center", justifyContent: "center" }}
+              activeOpacity={0.8}
+            >
+              <Feather name={musicPlaying ? "pause" : "play"} size={24} color="#fff" />
+            </TouchableOpacity>
+            <View style={{ flex: 1, gap: 6 }}>
+              <Text style={{ color: colors.mutedForeground, fontFamily: F.bold, fontSize: 12, textAlign: "right" }}>
+                مستوى الصوت: {musicVolume}%
+              </Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <TouchableOpacity
+                  onPress={() => handleMusicVolume(musicVolume - 10)}
+                  style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: colors.secondary, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.border }}
+                >
+                  <Text style={{ color: colors.foreground, fontFamily: F.extra, fontSize: 16, lineHeight: 18 }}>−</Text>
+                </TouchableOpacity>
+                <View style={{ flex: 1, height: 6, backgroundColor: colors.secondary, borderRadius: 3, overflow: "hidden" }}>
+                  <View style={{ height: 6, width: `${musicVolume}%` as any, backgroundColor: "#4CAF50", borderRadius: 3 }} />
+                </View>
+                <TouchableOpacity
+                  onPress={() => handleMusicVolume(musicVolume + 10)}
+                  style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: colors.secondary, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.border }}
+                >
+                  <Text style={{ color: colors.foreground, fontFamily: F.extra, fontSize: 16, lineHeight: 18 }}>+</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+
+          {/* Track list */}
+          <Text style={{ color: colors.mutedForeground, fontFamily: F.bold, fontSize: 12, textAlign: "right", marginBottom: 8 }}>
+            قائمة المقاطع ({musicTracks.length})
+          </Text>
+          {musicTracks.map((track, i) => {
+            const active = musicIdx === i && musicPlaying;
+            return (
+              <TouchableOpacity
+                key={i}
+                onPress={() => handlePlayMusicTrack(i)}
+                style={{
+                  flexDirection: "row", alignItems: "center",
+                  backgroundColor: active ? "#0D2A1A" : colors.secondary,
+                  borderRadius: 10, padding: 10, marginBottom: 6,
+                  borderWidth: 1, borderColor: active ? "#4CAF50" : colors.border, gap: 8,
+                }}
+                activeOpacity={0.8}
+              >
+                {active
+                  ? <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: "#4CAF50" }} />
+                  : <Feather name="play-circle" size={14} color={colors.mutedForeground} />
+                }
+                <Text style={{ flex: 1, color: active ? "#81C784" : colors.foreground, fontFamily: active ? F.bold : F.regular, fontSize: 13, textAlign: "right" }}>
+                  {track.name}
+                </Text>
+                <TouchableOpacity onPress={() => handleDeleteMusicTrack(i)} disabled={musicTracks.length <= 1} style={{ padding: 4 }}>
+                  <Feather name="trash-2" size={13} color={musicTracks.length <= 1 ? colors.border : "#E57373"} />
+                </TouchableOpacity>
+              </TouchableOpacity>
+            );
+          })}
+
+          {/* Add track */}
+          <TouchableOpacity
+            onPress={() => setShowAddTrack(v => !v)}
+            style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 6, marginTop: 8, paddingVertical: 10, borderRadius: 10, borderWidth: 1, borderColor: colors.border }}
+            activeOpacity={0.8}
+          >
+            <Feather name={showAddTrack ? "minus" : "plus"} size={14} color={colors.gold} />
+            <Text style={{ color: colors.gold, fontFamily: F.bold, fontSize: 13 }}>
+              {showAddTrack ? "إلغاء" : "إضافة مقطع"}
+            </Text>
+          </TouchableOpacity>
+
+          {showAddTrack && (
+            <View style={{ gap: 8, marginTop: 10 }}>
+              <TextInput
+                value={musicAddName}
+                onChangeText={setMusicAddName}
+                placeholder="اسم المقطع (اختياري)"
+                placeholderTextColor={colors.mutedForeground}
+                style={{ backgroundColor: colors.background, borderRadius: 10, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 12, paddingVertical: 9, fontFamily: F.regular, fontSize: 13, color: colors.foreground, textAlign: "right" }}
+              />
+              <TextInput
+                value={musicAddUrl}
+                onChangeText={setMusicAddUrl}
+                placeholder="رابط YouTube"
+                placeholderTextColor={colors.mutedForeground}
+                style={{ backgroundColor: colors.background, borderRadius: 10, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 12, paddingVertical: 9, fontFamily: F.regular, fontSize: 12, color: colors.foreground, textAlign: "right" }}
+              />
+              <TouchableOpacity
+                onPress={() => { handleAddMusicTrack(); setShowAddTrack(false); }}
+                style={{ backgroundColor: colors.gold, borderRadius: 10, paddingVertical: 11, alignItems: "center" }}
+                activeOpacity={0.8}
+              >
+                <Text style={{ color: "#1A0A00", fontFamily: F.bold, fontSize: 13 }}>إضافة للقائمة</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          <TouchableOpacity
+            onPress={resetToPresets}
+            style={{ marginTop: 8, paddingVertical: 9, borderRadius: 10, borderWidth: 1, borderColor: colors.border, alignItems: "center" }}
+            activeOpacity={0.8}
+          >
+            <Text style={{ color: colors.mutedForeground, fontFamily: F.bold, fontSize: 12 }}>🔄 استعادة المقاطع الافتراضية</Text>
+          </TouchableOpacity>
         </View>
 
         {/* ── Sound Settings ── */}
