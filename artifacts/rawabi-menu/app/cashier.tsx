@@ -261,6 +261,67 @@ export default function CashierScreen() {
   const [allDeliveriesLoading, setAllDeliveriesLoading] = useState(false);
   const [drvExpandedId, setDrvExpandedId]     = useState<number | null>(null);
 
+  // ─── Driver management ──────────────────────────────────
+  const [showDriversMgmt, setShowDriversMgmt]   = useState(false);
+  const [allDrivers, setAllDrivers]             = useState<Driver[]>([]);
+  const [allDriversLoading, setAllDriversLoading] = useState(false);
+  interface DriverForm { id?: number; name: string; phone: string; pin: string; active: boolean; }
+  const [driverForm, setDriverForm]             = useState<DriverForm | null>(null);
+  const [driverFormSaving, setDriverFormSaving] = useState(false);
+  const [driverDeleteId, setDriverDeleteId]     = useState<number | null>(null);
+
+  const loadAllDrivers = useCallback(async () => {
+    setAllDriversLoading(true);
+    try {
+      const data = await apiGet<Driver[]>("/drivers");
+      setAllDrivers(data);
+    } catch {}
+    setAllDriversLoading(false);
+  }, []);
+
+  const saveDriverForm = useCallback(async () => {
+    if (!driverForm) return;
+    const { name, phone, pin } = driverForm;
+    if (!name.trim() || !phone.trim()) { Alert.alert("خطأ", "الاسم ورقم الجوال مطلوبان"); return; }
+    if (!driverForm.id && (!pin || pin.length < 4)) { Alert.alert("خطأ", "الرقم السري لازم يكون 4 أرقام على الأقل"); return; }
+    setDriverFormSaving(true);
+    try {
+      const body: Record<string, unknown> = { name: name.trim(), phone: phone.trim(), active: driverForm.active };
+      if (pin.trim()) body.pin = pin.trim();
+      if (driverForm.id) {
+        await apiPut(`/drivers/${driverForm.id}`, body);
+      } else {
+        await apiPost("/drivers", body);
+      }
+      await loadAllDrivers();
+      setDriverForm(null);
+    } catch { Alert.alert("خطأ", "تعذر حفظ بيانات المندوب"); }
+    setDriverFormSaving(false);
+  }, [driverForm, loadAllDrivers]);
+
+  const confirmDeleteDriver = useCallback(async (id: number) => {
+    setDriverDeleteId(id);
+    Alert.alert("حذف المندوب", "هل أنت متأكد؟ سيتم حذف جميع بياناته.", [
+      { text: "إلغاء", onPress: () => setDriverDeleteId(null) },
+      { text: "حذف", style: "destructive", onPress: async () => {
+        try {
+          await apiDelete(`/drivers/${id}`);
+          await loadAllDrivers();
+          setDrivers(prev => prev.filter(d => d.id !== id));
+        } catch { Alert.alert("خطأ", "تعذر حذف المندوب"); }
+        setDriverDeleteId(null);
+      }},
+    ]);
+  }, [loadAllDrivers]);
+
+  const toggleDriverActive = useCallback(async (driver: Driver) => {
+    try {
+      await apiPut(`/drivers/${driver.id}`, { active: !driver.active });
+      setAllDrivers(prev => prev.map(d => d.id === driver.id ? { ...d, active: !d.active } : d));
+      setDrivers(prev => !driver.active ? [...prev, { ...driver, active: true }] : prev.filter(d => d.id !== driver.id));
+    } catch { Alert.alert("خطأ", "تعذر تحديث حالة المندوب"); }
+  }, []);
+
   const loadAllDeliveries = useCallback(async (date: Date) => {
     setAllDeliveriesLoading(true);
     try {
@@ -942,6 +1003,14 @@ export default function CashierScreen() {
           >
             <Feather name="settings" size={14} color="#1A0A00" />
             <Text style={{ color: "#1A0A00", fontFamily: "Cairo_700Bold", fontSize: 12 }}>القائمة</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => { setShowDriversMgmt(true); loadAllDrivers(); }}
+            style={[styles.headerActionBtn, { backgroundColor: "#0A2A1A", borderWidth: 1, borderColor: "#4CAF5044" }]}
+          >
+            <Feather name="users" size={14} color="#4CAF50" />
+            <Text style={{ color: "#4CAF50", fontFamily: "Cairo_700Bold", fontSize: 12 }}>مناديب</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -2823,6 +2892,223 @@ export default function CashierScreen() {
                 <Text style={{ color: colors.foreground, fontFamily: F.bold, fontSize: 14 }}>إغلاق</Text>
               </TouchableOpacity>
 
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ══════════════════════════════════════════════════════
+          ── نافذة إدارة المناديب ──
+      ══════════════════════════════════════════════════════ */}
+      <Modal
+        visible={showDriversMgmt}
+        transparent
+        animationType="slide"
+        onRequestClose={() => { setShowDriversMgmt(false); setDriverForm(null); }}
+      >
+        <View style={{ flex: 1, backgroundColor: "#000000CC", justifyContent: "flex-end" }}>
+          <View style={{ backgroundColor: colors.card, borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingBottom: insets.bottom + 16, maxHeight: "94%" }}>
+            {/* Handle */}
+            <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: colors.border, alignSelf: "center", marginTop: 10, marginBottom: 6 }} />
+
+            {/* Header */}
+            <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 18, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+              <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
+                <Text style={{ fontSize: 20 }}>🛵</Text>
+                <Text style={{ color: colors.foreground, fontFamily: F.extra, fontSize: 18 }}>إدارة المناديب</Text>
+                {allDrivers.length > 0 && (
+                  <View style={{ backgroundColor: "#4CAF5022", borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: "#4CAF5044" }}>
+                    <Text style={{ color: "#4CAF50", fontFamily: F.bold, fontSize: 12 }}>{allDrivers.length}</Text>
+                  </View>
+                )}
+              </View>
+              <TouchableOpacity onPress={() => { setShowDriversMgmt(false); setDriverForm(null); }} style={{ padding: 8 }}>
+                <Feather name="x" size={22} color={colors.mutedForeground} />
+              </TouchableOpacity>
+            </View>
+
+            {/* ─── Add driver button ─── */}
+            {!driverForm && (
+              <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
+                <TouchableOpacity
+                  onPress={() => setDriverForm({ name: "", phone: "", pin: "", active: true })}
+                  style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: "#0A2A1A", borderRadius: 14, paddingVertical: 13, borderWidth: 1.5, borderColor: "#4CAF50" }}
+                  activeOpacity={0.8}
+                >
+                  <Feather name="user-plus" size={18} color="#4CAF50" />
+                  <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 15 }}>➕ إضافة مندوب جديد</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* ─── Driver form (add / edit) ─── */}
+            {driverForm && (
+              <View style={{ margin: 16, backgroundColor: colors.background, borderRadius: 16, padding: 16, gap: 12, borderWidth: 1, borderColor: "#4CAF5044" }}>
+                <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 15, textAlign: "right" }}>
+                  {driverForm.id ? "✏️ تعديل بيانات المندوب" : "➕ مندوب جديد"}
+                </Text>
+
+                {/* Name */}
+                <View style={{ gap: 4 }}>
+                  <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 12, textAlign: "right" }}>الاسم *</Text>
+                  <TextInput
+                    value={driverForm.name}
+                    onChangeText={v => setDriverForm(p => p ? { ...p, name: v } : p)}
+                    placeholder="اسم المندوب"
+                    placeholderTextColor={colors.mutedForeground}
+                    style={{ backgroundColor: colors.card, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, color: colors.foreground, fontFamily: F.regular, fontSize: 14, borderWidth: 1, borderColor: colors.border, textAlign: "right" }}
+                  />
+                </View>
+
+                {/* Phone */}
+                <View style={{ gap: 4 }}>
+                  <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 12, textAlign: "right" }}>رقم الجوال *</Text>
+                  <TextInput
+                    value={driverForm.phone}
+                    onChangeText={v => setDriverForm(p => p ? { ...p, phone: v } : p)}
+                    placeholder="05xxxxxxxx"
+                    placeholderTextColor={colors.mutedForeground}
+                    keyboardType="phone-pad"
+                    style={{ backgroundColor: colors.card, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, color: colors.foreground, fontFamily: F.regular, fontSize: 14, borderWidth: 1, borderColor: colors.border, textAlign: "right" }}
+                  />
+                </View>
+
+                {/* PIN */}
+                <View style={{ gap: 4 }}>
+                  <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 12, textAlign: "right" }}>
+                    الرقم السري {driverForm.id ? "(اتركه فارغاً إذا لا تريد تغييره)" : "*"}
+                  </Text>
+                  <TextInput
+                    value={driverForm.pin}
+                    onChangeText={v => setDriverForm(p => p ? { ...p, pin: v } : p)}
+                    placeholder="4 أرقام على الأقل"
+                    placeholderTextColor={colors.mutedForeground}
+                    keyboardType="number-pad"
+                    secureTextEntry
+                    style={{ backgroundColor: colors.card, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, color: colors.foreground, fontFamily: F.regular, fontSize: 14, borderWidth: 1, borderColor: colors.border, textAlign: "right" }}
+                  />
+                </View>
+
+                {/* Active toggle */}
+                <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" }}>
+                  <Text style={{ color: colors.foreground, fontFamily: F.semi, fontSize: 14 }}>الحالة</Text>
+                  <View style={{ flexDirection: "row-reverse", gap: 8 }}>
+                    {[true, false].map(v => (
+                      <TouchableOpacity
+                        key={String(v)}
+                        onPress={() => setDriverForm(p => p ? { ...p, active: v } : p)}
+                        style={{ paddingHorizontal: 16, paddingVertical: 7, borderRadius: 10, borderWidth: 1,
+                          backgroundColor: driverForm.active === v ? (v ? "#0A2A1A" : "#2A0A0A") : colors.secondary,
+                          borderColor: driverForm.active === v ? (v ? "#4CAF50" : "#E57373") : colors.border }}
+                      >
+                        <Text style={{ color: driverForm.active === v ? (v ? "#4CAF50" : "#E57373") : colors.mutedForeground, fontFamily: F.bold, fontSize: 13 }}>
+                          {v ? "نشط" : "موقوف"}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
+                {/* Buttons */}
+                <View style={{ flexDirection: "row-reverse", gap: 10, marginTop: 4 }}>
+                  <TouchableOpacity
+                    onPress={saveDriverForm}
+                    disabled={driverFormSaving}
+                    style={{ flex: 1, backgroundColor: "#4CAF50", borderRadius: 12, paddingVertical: 12, alignItems: "center" }}
+                    activeOpacity={0.8}
+                  >
+                    {driverFormSaving
+                      ? <ActivityIndicator size="small" color="#fff" />
+                      : <Text style={{ color: "#fff", fontFamily: F.extra, fontSize: 15 }}>💾 حفظ</Text>
+                    }
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => setDriverForm(null)}
+                    style={{ paddingHorizontal: 20, backgroundColor: colors.secondary, borderRadius: 12, paddingVertical: 12, alignItems: "center", borderWidth: 1, borderColor: colors.border }}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 14 }}>إلغاء</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+
+            {/* ─── Drivers list ─── */}
+            <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }} contentContainerStyle={{ padding: 16, gap: 10 }}>
+              {allDriversLoading && <ActivityIndicator color="#4CAF50" style={{ marginTop: 20 }} />}
+
+              {!allDriversLoading && allDrivers.length === 0 && (
+                <View style={{ alignItems: "center", paddingVertical: 40, gap: 8 }}>
+                  <Text style={{ fontSize: 40 }}>🛵</Text>
+                  <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 14 }}>لا يوجد مناديب — أضف أول مندوب</Text>
+                </View>
+              )}
+
+              {!allDriversLoading && allDrivers.map(driver => (
+                <View
+                  key={driver.id}
+                  style={{ backgroundColor: colors.background, borderRadius: 16, borderWidth: 1, borderColor: driver.active ? "#4CAF5033" : colors.border, overflow: "hidden" }}
+                >
+                  <View style={{ flexDirection: "row-reverse", alignItems: "center", padding: 14, gap: 12 }}>
+                    {/* Avatar */}
+                    {driver.photoUrl
+                      ? <Image source={{ uri: driver.photoUrl }} style={{ width: 50, height: 50, borderRadius: 25, borderWidth: 2, borderColor: driver.active ? "#4CAF50" : colors.border }} />
+                      : <View style={{ width: 50, height: 50, borderRadius: 25, backgroundColor: driver.active ? "#0A2A1A" : colors.secondary, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: driver.active ? "#4CAF50" : colors.border }}>
+                          <Text style={{ fontSize: 22 }}>🛵</Text>
+                        </View>
+                    }
+
+                    {/* Info */}
+                    <View style={{ flex: 1, gap: 3 }}>
+                      <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 7 }}>
+                        <Text style={{ color: colors.foreground, fontFamily: F.bold, fontSize: 15 }}>{driver.name}</Text>
+                        <View style={{ backgroundColor: driver.active ? "#4CAF5022" : "#E5737322", paddingHorizontal: 7, paddingVertical: 2, borderRadius: 7, borderWidth: 1, borderColor: driver.active ? "#4CAF5044" : "#E5737344" }}>
+                          <Text style={{ color: driver.active ? "#4CAF50" : "#E57373", fontFamily: F.bold, fontSize: 10 }}>
+                            {driver.active ? "● نشط" : "● موقوف"}
+                          </Text>
+                        </View>
+                      </View>
+                      <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 13 }}>📱 {driver.phone}</Text>
+                    </View>
+
+                    {/* Action buttons */}
+                    <View style={{ gap: 6 }}>
+                      {/* Edit */}
+                      <TouchableOpacity
+                        onPress={() => setDriverForm({ id: driver.id, name: driver.name, phone: driver.phone, pin: "", active: driver.active })}
+                        style={{ backgroundColor: "#1A2A3A", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, flexDirection: "row", alignItems: "center", gap: 4, borderWidth: 1, borderColor: "#1E3A5A" }}
+                        activeOpacity={0.8}
+                      >
+                        <Feather name="edit-2" size={13} color="#64B5F6" />
+                        <Text style={{ color: "#64B5F6", fontFamily: F.semi, fontSize: 12 }}>تعديل</Text>
+                      </TouchableOpacity>
+
+                      {/* Toggle active */}
+                      <TouchableOpacity
+                        onPress={() => toggleDriverActive(driver)}
+                        style={{ backgroundColor: driver.active ? "#2A1A0A" : "#0A2A1A", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, flexDirection: "row", alignItems: "center", gap: 4, borderWidth: 1, borderColor: driver.active ? "#E8920C44" : "#4CAF5044" }}
+                        activeOpacity={0.8}
+                      >
+                        <Feather name={driver.active ? "pause-circle" : "play-circle"} size={13} color={driver.active ? "#E8920C" : "#4CAF50"} />
+                        <Text style={{ color: driver.active ? "#E8920C" : "#4CAF50", fontFamily: F.semi, fontSize: 12 }}>
+                          {driver.active ? "إيقاف" : "تفعيل"}
+                        </Text>
+                      </TouchableOpacity>
+
+                      {/* Delete */}
+                      <TouchableOpacity
+                        onPress={() => confirmDeleteDriver(driver.id)}
+                        disabled={driverDeleteId === driver.id}
+                        style={{ backgroundColor: "#2A0A0A", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, flexDirection: "row", alignItems: "center", gap: 4, borderWidth: 1, borderColor: "#E5737344" }}
+                        activeOpacity={0.8}
+                      >
+                        <Feather name="trash-2" size={13} color="#E57373" />
+                        <Text style={{ color: "#E57373", fontFamily: F.semi, fontSize: 12 }}>حذف</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </View>
+              ))}
             </ScrollView>
           </View>
         </View>
