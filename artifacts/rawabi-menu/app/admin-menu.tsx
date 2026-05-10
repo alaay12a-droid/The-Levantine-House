@@ -32,6 +32,7 @@ import { useRevenue } from "@/hooks/useRevenue";
 import { useCombos, type ApiCombo, type ComboComponent } from "@/hooks/useCombos";
 import { apiGet, apiPost, apiPut, apiDelete, API_BASE } from "@/constants/api";
 import { invalidateAppTextsCache, DEFAULT_TEXTS } from "@/hooks/useAppTexts";
+import { useMusic, PRESET_MUSIC } from "@/context/MusicContext";
 
 const F = {
   regular: "Cairo_400Regular",
@@ -310,7 +311,18 @@ export default function AdminMenuScreen() {
   const { data: revenueData, loading: revenueLoading, refresh: refreshRevenue } = useRevenue();
   const [revenueView, setRevenueView] = useState<"daily" | "monthly" | "yearly" | "items">("daily");
   const [revenuePeriod, setRevenuePeriod] = useState<"today" | "week" | "month" | "year">("month");
-  const [settingsSection, setSettingsSection] = useState<"hours" | "payment" | "discounts" | "wallets" | "sms" | "security" | "appearance" | "ratings" | "drivers" | "texts">("hours");
+  const [settingsSection, setSettingsSection] = useState<"hours" | "payment" | "discounts" | "wallets" | "sms" | "security" | "appearance" | "ratings" | "drivers" | "texts" | "music">("hours");
+
+  // ─── Music ────────────────────────────────────────────────
+  const {
+    musicPlaying, musicIdx, musicVolume, musicTracks,
+    musicAddName, musicAddUrl,
+    setMusicAddName, setMusicAddUrl,
+    setMusicPlaying,
+    handlePlayMusicTrack, handleMusicVolume,
+    handleAddMusicTrack, handleDeleteMusicTrack, resetToPresets,
+  } = useMusic();
+  const [showAddTrack, setShowAddTrack] = useState(false);
 
   // Combos
   const { combos, addCombo, updateCombo, deleteCombo } = useCombos();
@@ -1514,6 +1526,7 @@ export default function AdminMenuScreen() {
               { key: "security",   icon: "lock",        label: "الأمان"     },
               { key: "appearance", icon: "sliders",     label: "المظهر"     },
               { key: "texts",      icon: "edit-2",      label: "النصوص"     },
+              { key: "music",      icon: "music",       label: "الموسيقى"   },
             ] as const).map(({ key, icon, label }) => {
               const active = settingsSection === key;
               return (
@@ -2928,6 +2941,136 @@ export default function AdminMenuScreen() {
             </TouchableOpacity>
             </>
           )}
+          </>)}
+
+          {/* ══════════════════ MUSIC ══════════════════ */}
+          {settingsSection === "music" && (<>
+
+          <Text style={{ color: colors.gold, fontFamily: F.extra, fontSize: 16, textAlign: "right" }}>
+            🎵 موسيقى الخلفية
+          </Text>
+
+          {/* Status + Play/Pause */}
+          <View style={{ backgroundColor: colors.card, borderRadius: 14, borderWidth: 1, borderColor: musicPlaying ? "#4CAF5044" : colors.border, padding: 16, gap: 14 }}>
+            <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" }}>
+              <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
+                <Text style={{ fontSize: 20 }}>{musicPlaying ? "🎵" : "🎼"}</Text>
+                <Text style={{ color: musicPlaying ? "#81C784" : colors.mutedForeground, fontFamily: F.bold, fontSize: 14 }}>
+                  {musicPlaying ? `▶ يعزف: ${musicTracks[musicIdx]?.name ?? ""}` : "الموسيقى متوقفة"}
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setMusicPlaying(!musicPlaying)}
+                style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: musicPlaying ? "#2E7D32" : colors.gold, alignItems: "center", justifyContent: "center" }}
+                activeOpacity={0.8}
+              >
+                <Feather name={musicPlaying ? "pause" : "play"} size={22} color="#fff" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Volume */}
+            <View style={{ gap: 6 }}>
+              <Text style={{ color: colors.mutedForeground, fontFamily: F.bold, fontSize: 12, textAlign: "right" }}>
+                مستوى الصوت: {musicVolume}%
+              </Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                <TouchableOpacity
+                  onPress={() => handleMusicVolume(musicVolume - 10)}
+                  style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: colors.secondary, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.border }}
+                >
+                  <Text style={{ color: colors.foreground, fontFamily: F.extra, fontSize: 18, lineHeight: 20 }}>−</Text>
+                </TouchableOpacity>
+                <View style={{ flex: 1, height: 8, backgroundColor: colors.secondary, borderRadius: 4, overflow: "hidden" }}>
+                  <View style={{ height: 8, width: `${musicVolume}%` as any, backgroundColor: "#4CAF50", borderRadius: 4 }} />
+                </View>
+                <TouchableOpacity
+                  onPress={() => handleMusicVolume(musicVolume + 10)}
+                  style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: colors.secondary, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.border }}
+                >
+                  <Text style={{ color: colors.foreground, fontFamily: F.extra, fontSize: 18, lineHeight: 20 }}>+</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+
+          {/* Track list */}
+          <Text style={{ color: colors.mutedForeground, fontFamily: F.bold, fontSize: 13, textAlign: "right" }}>
+            قائمة المقاطع ({musicTracks.length})
+          </Text>
+          {musicTracks.map((track, i) => {
+            const active = musicIdx === i && musicPlaying;
+            return (
+              <TouchableOpacity
+                key={i}
+                onPress={() => handlePlayMusicTrack(i)}
+                style={{
+                  flexDirection: "row", alignItems: "center",
+                  backgroundColor: active ? "#0D2A1A" : colors.card,
+                  borderRadius: 12, padding: 14,
+                  borderWidth: 1, borderColor: active ? "#4CAF50" : colors.border, gap: 10,
+                }}
+                activeOpacity={0.8}
+              >
+                {active
+                  ? <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: "#4CAF50" }} />
+                  : <Feather name="play-circle" size={16} color={colors.mutedForeground} />
+                }
+                <Text style={{ flex: 1, color: active ? "#81C784" : colors.foreground, fontFamily: active ? F.bold : F.regular, fontSize: 14, textAlign: "right" }}>
+                  {track.name}
+                </Text>
+                <TouchableOpacity onPress={() => handleDeleteMusicTrack(i)} disabled={musicTracks.length <= 1} style={{ padding: 6 }}>
+                  <Feather name="trash-2" size={15} color={musicTracks.length <= 1 ? colors.border : "#E57373"} />
+                </TouchableOpacity>
+              </TouchableOpacity>
+            );
+          })}
+
+          {/* Add track */}
+          <TouchableOpacity
+            onPress={() => setShowAddTrack(v => !v)}
+            style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 12, borderRadius: 12, borderWidth: 1.5, borderColor: showAddTrack ? colors.gold : colors.border, backgroundColor: showAddTrack ? colors.gold + "11" : colors.card }}
+            activeOpacity={0.8}
+          >
+            <Feather name={showAddTrack ? "minus" : "plus"} size={15} color={colors.gold} />
+            <Text style={{ color: colors.gold, fontFamily: F.bold, fontSize: 14 }}>
+              {showAddTrack ? "إلغاء" : "➕ إضافة مقطع YouTube"}
+            </Text>
+          </TouchableOpacity>
+
+          {showAddTrack && (
+            <View style={{ backgroundColor: colors.card, borderRadius: 14, borderWidth: 1, borderColor: colors.border, padding: 16, gap: 10 }}>
+              <TextInput
+                value={musicAddName}
+                onChangeText={setMusicAddName}
+                placeholder="اسم المقطع (اختياري)"
+                placeholderTextColor={colors.mutedForeground}
+                style={{ backgroundColor: colors.secondary, borderRadius: 10, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 14, paddingVertical: 10, fontFamily: F.regular, fontSize: 14, color: colors.foreground, textAlign: "right" }}
+              />
+              <TextInput
+                value={musicAddUrl}
+                onChangeText={setMusicAddUrl}
+                placeholder="رابط YouTube (مثال: youtube.com/watch?v=...)"
+                placeholderTextColor={colors.mutedForeground}
+                style={{ backgroundColor: colors.secondary, borderRadius: 10, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 14, paddingVertical: 10, fontFamily: F.regular, fontSize: 13, color: colors.foreground, textAlign: "right" }}
+              />
+              <TouchableOpacity
+                onPress={() => { handleAddMusicTrack(); setShowAddTrack(false); }}
+                style={{ backgroundColor: colors.gold, borderRadius: 12, paddingVertical: 13, alignItems: "center" }}
+                activeOpacity={0.8}
+              >
+                <Text style={{ color: "#1A0A00", fontFamily: F.bold, fontSize: 14 }}>إضافة للقائمة</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          <TouchableOpacity
+            onPress={resetToPresets}
+            style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingVertical: 12, alignItems: "center", backgroundColor: colors.card }}
+            activeOpacity={0.8}
+          >
+            <Text style={{ color: colors.mutedForeground, fontFamily: F.bold, fontSize: 13 }}>🔄 استعادة المقاطع الافتراضية</Text>
+          </TouchableOpacity>
+
           </>)}
 
           </ScrollView>
