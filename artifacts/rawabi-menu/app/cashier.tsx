@@ -253,6 +253,24 @@ export default function CashierScreen() {
   const [activeAssignmentsLoading, setActiveAssignmentsLoading] = useState(false);
   const [deliveringOrderId, setDeliveringOrderId] = useState<number | null>(null);
 
+  // ─── All-deliveries calendar view ──────────────────────────
+  interface AllDeliveryRow { orderId: number; dailyNumber: number | null; customerName: string; customerPhone: string; totalPrice: number; paymentMethod: string; driverName: string; deliveredAt: string | null; }
+  const [drvSelectedDate, setDrvSelectedDate] = useState<Date>(() => { const d = new Date(); d.setHours(0,0,0,0); return d; });
+  const [drvWeekOffset, setDrvWeekOffset]     = useState(0);
+  const [allDeliveries, setAllDeliveries]     = useState<AllDeliveryRow[]>([]);
+  const [allDeliveriesLoading, setAllDeliveriesLoading] = useState(false);
+  const [drvExpandedId, setDrvExpandedId]     = useState<number | null>(null);
+
+  const loadAllDeliveries = useCallback(async (date: Date) => {
+    setAllDeliveriesLoading(true);
+    try {
+      const dateStr = date.toISOString().slice(0, 10);
+      const data = await apiGet<AllDeliveryRow[]>(`/drivers/all-deliveries?date=${dateStr}`);
+      setAllDeliveries(data);
+    } catch {}
+    setAllDeliveriesLoading(false);
+  }, []);
+
   const loadDrvSummaries = useCallback(async () => {
     setDrvSummLoading(true);
     try {
@@ -955,7 +973,7 @@ export default function CashierScreen() {
               key={tab.key}
               onPress={() => {
                 setCashierView(tab.key as "orders" | "drivers" | "pickup");
-                if (tab.key === "drivers") { loadDrvSummaries(); loadActiveAssignments(); }
+                if (tab.key === "drivers") { loadActiveAssignments(); loadAllDeliveries(drvSelectedDate); }
               }}
               style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 10, borderBottomWidth: 3, borderBottomColor: active ? tab.color : "transparent", gap: 3 }}
             >
@@ -1013,191 +1031,256 @@ export default function CashierScreen() {
       )}
 
       {/* ── Drivers view ── */}
-      {cashierView === "drivers" && (
-        <ScrollView contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+      {cashierView === "drivers" && (() => {
+        // ── Week helpers ──
+        const DAY_ABBR = ["ح", "ن", "ث", "ر", "خ", "ج", "س"];
+        const today0 = new Date(); today0.setHours(0,0,0,0);
 
-          {/* ── Active (in-transit) orders section ── */}
-          <View style={{ gap: 8 }}>
-            <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" }}>
-              <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
-                <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: "#4CAF50" }} />
-                <Text style={{ color: colors.foreground, fontFamily: F.extra, fontSize: 15 }}>🚗 بانتظار التسليم</Text>
-                {activeAssignments.length > 0 && (
-                  <View style={{ backgroundColor: "#4CAF50", borderRadius: 10, minWidth: 20, height: 20, alignItems: "center", justifyContent: "center", paddingHorizontal: 5 }}>
-                    <Text style={{ color: "#fff", fontFamily: F.extra, fontSize: 11 }}>{activeAssignments.length}</Text>
-                  </View>
-                )}
-              </View>
-              <TouchableOpacity onPress={loadActiveAssignments} style={{ padding: 6 }}>
-                <Feather name="refresh-cw" size={14} color="#4CAF50" />
-              </TouchableOpacity>
-            </View>
+        // Sunday-anchored week
+        const weekDays: Date[] = (() => {
+          const anchor = new Date(today0);
+          anchor.setDate(today0.getDate() - today0.getDay() + drvWeekOffset * 7);
+          return Array.from({ length: 7 }, (_, i) => {
+            const d = new Date(anchor); d.setDate(anchor.getDate() + i); return d;
+          });
+        })();
 
-            {activeAssignmentsLoading && <ActivityIndicator color="#4CAF50" style={{ marginVertical: 10 }} />}
+        const isToday    = (d: Date) => d.toDateString() === today0.toDateString();
+        const isSelected = (d: Date) => d.toDateString() === drvSelectedDate.toDateString();
+        const isFuture   = (d: Date) => d > today0;
 
-            {!activeAssignmentsLoading && activeAssignments.length === 0 && (
-              <View style={{ backgroundColor: colors.card, borderRadius: 14, padding: 18, alignItems: "center", gap: 6, borderWidth: 1, borderColor: colors.border }}>
-                <Text style={{ fontSize: 32 }}>✅</Text>
-                <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 13 }}>لا يوجد طلبات في الطريق حالياً</Text>
-              </View>
-            )}
+        // month label for the visible week (use middle day)
+        const midDay   = weekDays[3];
+        const monthLabel = midDay.toLocaleDateString("ar-SA", { month: "long", year: "numeric" });
 
-            {!activeAssignmentsLoading && activeAssignments.map(a => (
-              <View key={a.orderId} style={{ backgroundColor: colors.card, borderRadius: 16, borderWidth: 1, borderColor: "#4CAF5044", overflow: "hidden" }}>
-                {/* Order info */}
-                <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", padding: 14, gap: 10 }}>
-                  <View style={{ flex: 1, gap: 3 }}>
-                    <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 7 }}>
-                      <View style={{ backgroundColor: "#E8920C22", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 }}>
-                        <Text style={{ color: "#E8920C", fontFamily: F.extra, fontSize: 13 }}>#{a.dailyNumber ?? a.orderId}</Text>
-                      </View>
-                      <Text style={{ color: colors.foreground, fontFamily: F.bold, fontSize: 14 }}>{a.customerName}</Text>
-                    </View>
-                    <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6 }}>
-                      <Text style={{ fontSize: 13 }}>🛵</Text>
-                      <Text style={{ color: "#4CAF50", fontFamily: F.semi, fontSize: 13 }}>{a.driverName}</Text>
-                      <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }}>• في الطريق</Text>
-                    </View>
-                    {a.customerAddress && (
-                      <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }} numberOfLines={1}>
-                        📍 {a.customerAddress.startsWith("https://") ? "موقع GPS" : a.customerAddress}
-                      </Text>
-                    )}
-                  </View>
-                  <View style={{ alignItems: "flex-end", gap: 4 }}>
-                    <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 18 }}>{a.totalPrice.toFixed(2)}</Text>
-                    <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 11 }}>
-                      {a.paymentMethod === "cash" ? "💵 نقدي" : "💳 إلكتروني"}
-                    </Text>
-                  </View>
+        // stats for selected day
+        const totalCollected = allDeliveries.reduce((s, r) => s + r.totalPrice, 0);
+        const cashCollected  = allDeliveries.filter(r => r.paymentMethod === "cash").reduce((s, r) => s + r.totalPrice, 0);
+
+        const fmtTime = (iso: string | null) =>
+          iso ? new Date(iso).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" }) : "--:--";
+
+        return (
+          <>
+            {/* ── Calendar header ── */}
+            <View style={{ backgroundColor: "#0D0D0D", borderBottomWidth: 1, borderBottomColor: colors.border }}>
+
+              {/* Month row */}
+              <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingTop: 14, paddingBottom: 8 }}>
+                <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
+                  <Text style={{ color: colors.foreground, fontFamily: F.extra, fontSize: 16 }}>{monthLabel}</Text>
+                  <Feather name="chevron-down" size={14} color={colors.mutedForeground} />
                 </View>
-                {/* Confirm delivery button */}
                 <TouchableOpacity
-                  onPress={() => confirmDeliveryByCashier(a.orderId)}
-                  disabled={deliveringOrderId === a.orderId}
-                  style={{ backgroundColor: "#1A3A1A", borderTopWidth: 1, borderTopColor: "#4CAF5033", paddingVertical: 13, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 8 }}
-                  activeOpacity={0.75}
+                  onPress={() => { setDrvWeekOffset(0); const d = new Date(); d.setHours(0,0,0,0); setDrvSelectedDate(d); loadAllDeliveries(d); }}
+                  style={{ backgroundColor: "#1A2A1A", borderRadius: 10, paddingHorizontal: 12, paddingVertical: 5, borderWidth: 1, borderColor: "#4CAF5044" }}
                 >
-                  {deliveringOrderId === a.orderId
-                    ? <ActivityIndicator size="small" color="#4CAF50" />
-                    : <>
-                        <Feather name="check-circle" size={16} color="#4CAF50" />
-                        <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 14 }}>✅ تم التسليم للعميل</Text>
-                      </>
-                  }
+                  <Text style={{ color: "#4CAF50", fontFamily: F.bold, fontSize: 12 }}>اليوم</Text>
                 </TouchableOpacity>
               </View>
-            ))}
-          </View>
 
-          {/* Divider */}
-          <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 4 }} />
-
-          {/* Header row */}
-          <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" }}>
-            <View style={{ gap: 2 }}>
-              <Text style={{ color: colors.foreground, fontFamily: F.extra, fontSize: 16 }}>🛵 تقرير المناديب</Text>
-              <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12 }}>
-                {new Date().toLocaleDateString("ar-SA", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
-              </Text>
-            </View>
-            <TouchableOpacity
-              onPress={loadDrvSummaries}
-              style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 9, borderRadius: 12, borderWidth: 1, borderColor: "#4CAF5044", backgroundColor: "#0A2010" }}
-            >
-              <Feather name="refresh-cw" size={14} color="#4CAF50" />
-              <Text style={{ color: "#4CAF50", fontFamily: F.semi, fontSize: 13 }}>تحديث</Text>
-            </TouchableOpacity>
-          </View>
-
-          {drvSummLoading && <ActivityIndicator color="#4CAF50" style={{ marginTop: 30 }} />}
-
-          {!drvSummLoading && drvSummaries.length === 0 && (
-            <View style={{ alignItems: "center", paddingVertical: 60, gap: 10 }}>
-              <Text style={{ fontSize: 44 }}>🛵</Text>
-              <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 14 }}>لا يوجد مناديب مفعّلون</Text>
-            </View>
-          )}
-
-          {/* Grand totals row */}
-          {!drvSummLoading && drvSummaries.length > 0 && (() => {
-            const totalOrders  = drvSummaries.reduce((s, r) => s + r.ordersCount, 0);
-            const totalMoney   = drvSummaries.reduce((s, r) => s + r.totalCollected, 0);
-            return (
-              <View style={{ flexDirection: "row-reverse", gap: 10 }}>
-                <View style={{ flex: 1, backgroundColor: colors.card, borderRadius: 16, borderWidth: 1, borderColor: "#E8920C44", padding: 16, alignItems: "center", gap: 6 }}>
-                  <Feather name="package" size={20} color="#E8920C" />
-                  <Text style={{ color: "#E8920C", fontFamily: F.extra, fontSize: 30 }}>{totalOrders}</Text>
-                  <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 12, textAlign: "center" }}>إجمالي الطلبات</Text>
-                </View>
-                <View style={{ flex: 1, backgroundColor: colors.card, borderRadius: 16, borderWidth: 1, borderColor: "#4CAF5044", padding: 16, alignItems: "center", gap: 6 }}>
-                  <Feather name="dollar-sign" size={20} color="#4CAF50" />
-                  <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 24 }}>{totalMoney.toFixed(2)}</Text>
-                  <Text style={{ color: "#4CAF50", fontFamily: F.bold, fontSize: 11 }}>ريال سعودي</Text>
-                  <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 12, textAlign: "center" }}>إجمالي المحصّل</Text>
-                </View>
+              {/* Day abbreviations */}
+              <View style={{ flexDirection: "row-reverse", paddingHorizontal: 8 }}>
+                {weekDays.map((_, i) => (
+                  <View key={i} style={{ flex: 1, alignItems: "center" }}>
+                    <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 11 }}>{DAY_ABBR[i]}</Text>
+                  </View>
+                ))}
               </View>
-            );
-          })()}
 
-          {/* Per-driver cards — tap to open detail modal */}
-          {!drvSummLoading && drvSummaries.map(row => {
-            const inTransit = activeAssignments.filter(a => a.driverId === row.driver.id).length;
-            const totalToday = row.ordersCount + inTransit;
-            return (
-              <TouchableOpacity
-                key={row.driver.id}
-                onPress={() => { setDrvDetailRow(row); setDrvStatTab("today"); loadDrvStatement(row.driver.id); }}
-                activeOpacity={0.75}
-                style={{ backgroundColor: colors.card, borderRadius: 18, borderWidth: 1, borderColor: totalToday > 0 ? "#4CAF5033" : colors.border, overflow: "hidden" }}
-              >
-                <View style={{ flexDirection: "row-reverse", alignItems: "center", padding: 14, gap: 12 }}>
-                  {/* Avatar */}
-                  {row.driver.photoUrl
-                    ? <Image source={{ uri: row.driver.photoUrl }} style={{ width: 54, height: 54, borderRadius: 27, borderWidth: 2, borderColor: row.driver.active ? "#4CAF50" : colors.border }} />
-                    : <View style={{ width: 54, height: 54, borderRadius: 27, backgroundColor: "#0A2010", alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: row.driver.active ? "#4CAF50" : colors.border }}>
-                        <Text style={{ fontSize: 26 }}>🛵</Text>
-                      </View>
-                  }
-
-                  {/* Name + status */}
-                  <View style={{ flex: 1, gap: 4 }}>
-                    <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 7 }}>
-                      <Text style={{ color: colors.foreground, fontFamily: F.bold, fontSize: 15 }}>{row.driver.name}</Text>
-                      <View style={{ backgroundColor: row.driver.active ? "#4CAF5022" : "#75757522", paddingHorizontal: 7, paddingVertical: 2, borderRadius: 7 }}>
-                        <Text style={{ color: row.driver.active ? "#4CAF50" : colors.mutedForeground, fontFamily: F.semi, fontSize: 10 }}>
-                          {row.driver.active ? "نشط" : "موقوف"}
+              {/* Date numbers */}
+              <View style={{ flexDirection: "row-reverse", paddingHorizontal: 8, paddingBottom: 12, paddingTop: 4 }}>
+                {weekDays.map((d, i) => {
+                  const sel  = isSelected(d);
+                  const tod  = isToday(d);
+                  const fut  = isFuture(d);
+                  return (
+                    <TouchableOpacity
+                      key={i}
+                      disabled={fut}
+                      onPress={() => { setDrvSelectedDate(d); loadAllDeliveries(d); setDrvExpandedId(null); }}
+                      style={{ flex: 1, alignItems: "center", paddingVertical: 4 }}
+                    >
+                      <View style={{
+                        width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center",
+                        backgroundColor: sel ? "#4CAF50" : tod ? "#4CAF5022" : "transparent",
+                        borderWidth: tod && !sel ? 1 : 0, borderColor: "#4CAF5066",
+                      }}>
+                        <Text style={{
+                          color: sel ? "#fff" : fut ? colors.border : tod ? "#4CAF50" : colors.foreground,
+                          fontFamily: sel ? F.extra : F.semi, fontSize: 14,
+                        }}>
+                          {d.getDate()}
                         </Text>
                       </View>
-                    </View>
-                    <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12 }}>📱 {row.driver.phone}</Text>
-                    {inTransit > 0 && (
-                      <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 5 }}>
-                        <View style={{ width: 7, height: 7, borderRadius: 3.5, backgroundColor: "#4CAF50" }} />
-                        <Text style={{ color: "#4CAF50", fontFamily: F.semi, fontSize: 11 }}>{inTransit} في الطريق</Text>
-                      </View>
-                    )}
-                  </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
 
-                  {/* Stats */}
-                  <View style={{ alignItems: "flex-end", gap: 6 }}>
-                    <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 5, backgroundColor: "#E8920C18", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10 }}>
-                      <Text style={{ color: "#E8920C", fontFamily: F.extra, fontSize: 18 }}>{totalToday}</Text>
-                      <Text style={{ color: "#E8920C", fontFamily: F.semi, fontSize: 11 }}>طلب</Text>
-                    </View>
-                    <View style={{ flexDirection: "row-reverse", alignItems: "baseline", gap: 3 }}>
-                      <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 16 }}>{row.totalCollected.toFixed(2)}</Text>
-                      <Text style={{ color: "#4CAF50", fontFamily: F.semi, fontSize: 11 }}>ر.س</Text>
-                    </View>
-                  </View>
+              {/* Week navigation arrows */}
+              <View style={{ flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 16, paddingBottom: 10 }}>
+                <TouchableOpacity
+                  onPress={() => setDrvWeekOffset(p => p + 1)}
+                  disabled={drvWeekOffset >= 0}
+                  style={{ opacity: drvWeekOffset >= 0 ? 0.3 : 1, padding: 6 }}
+                >
+                  <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => setDrvWeekOffset(p => p - 1)}
+                  style={{ padding: 6 }}
+                >
+                  <Feather name="chevron-left" size={18} color={colors.mutedForeground} />
+                </TouchableOpacity>
+              </View>
+            </View>
 
-                  <Feather name="chevron-left" size={16} color={colors.mutedForeground} />
+            {/* ── Stats summary ── */}
+            <View style={{ flexDirection: "row-reverse", backgroundColor: "#111", borderBottomWidth: 1, borderBottomColor: colors.border, paddingVertical: 14 }}>
+              {[
+                { icon: "🛒", label: "تم جمعها",       value: `SR ${totalCollected.toFixed(2)}`, color: "#4CAF50" },
+                { icon: "📦", label: "عمليات التوصيل", value: String(allDeliveries.length),       color: "#E8920C" },
+                { icon: "💵", label: "نقدي",             value: `SR ${cashCollected.toFixed(2)}`,  color: "#81C784" },
+                { icon: "🚗", label: "في الطريق",        value: String(activeAssignments.length),  color: "#82B1FF" },
+              ].map((s, i) => (
+                <View key={i} style={{ flex: 1, alignItems: "center", gap: 4, borderRightWidth: i < 3 ? 1 : 0, borderRightColor: colors.border }}>
+                  <Text style={{ fontSize: 20 }}>{s.icon}</Text>
+                  <Text style={{ color: s.color, fontFamily: F.extra, fontSize: 14 }}>{s.value}</Text>
+                  <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 10 }}>{s.label}</Text>
                 </View>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-      )}
+              ))}
+            </View>
+
+            <ScrollView contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+
+              {/* ── Active in-transit orders ── */}
+              {activeAssignments.length > 0 && (
+                <View style={{ padding: 14, gap: 8 }}>
+                  <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6 }}>
+                    <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: "#4CAF50" }} />
+                    <Text style={{ color: "#4CAF50", fontFamily: F.bold, fontSize: 13 }}>🚗 بانتظار التسليم ({activeAssignments.length})</Text>
+                    <View style={{ flex: 1 }} />
+                    <TouchableOpacity onPress={loadActiveAssignments} style={{ padding: 4 }}>
+                      <Feather name="refresh-cw" size={12} color="#4CAF50" />
+                    </TouchableOpacity>
+                  </View>
+                  {activeAssignments.map(a => (
+                    <View key={a.orderId} style={{ backgroundColor: "#0A1A0A", borderRadius: 14, borderWidth: 1, borderColor: "#4CAF5044", overflow: "hidden" }}>
+                      <View style={{ flexDirection: "row-reverse", alignItems: "center", padding: 12, gap: 10 }}>
+                        <View style={{ flex: 1, gap: 3 }}>
+                          <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6 }}>
+                            <View style={{ backgroundColor: "#E8920C22", paddingHorizontal: 7, paddingVertical: 2, borderRadius: 7 }}>
+                              <Text style={{ color: "#E8920C", fontFamily: F.extra, fontSize: 12 }}>#{a.dailyNumber ?? a.orderId}</Text>
+                            </View>
+                            <Text style={{ color: colors.foreground, fontFamily: F.semi, fontSize: 13 }}>{a.customerName}</Text>
+                          </View>
+                          <Text style={{ color: "#4CAF50", fontFamily: F.semi, fontSize: 12 }}>🛵 {a.driverName}</Text>
+                        </View>
+                        <View style={{ alignItems: "flex-end", gap: 3 }}>
+                          <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 15 }}>{a.totalPrice.toFixed(2)} ر.س</Text>
+                          <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 10 }}>{a.paymentMethod === "cash" ? "💵 نقدي" : "💳 إلكتروني"}</Text>
+                        </View>
+                      </View>
+                      <TouchableOpacity
+                        onPress={() => confirmDeliveryByCashier(a.orderId)}
+                        disabled={deliveringOrderId === a.orderId}
+                        style={{ backgroundColor: "#1A3A1A", borderTopWidth: 1, borderTopColor: "#4CAF5033", paddingVertical: 11, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 6 }}
+                        activeOpacity={0.75}
+                      >
+                        {deliveringOrderId === a.orderId
+                          ? <ActivityIndicator size="small" color="#4CAF50" />
+                          : <><Feather name="check-circle" size={14} color="#4CAF50" /><Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 13 }}>✅ تم التسليم للعميل</Text></>
+                        }
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </View>
+              )}
+
+              {/* ── Divider ── */}
+              <View style={{ height: 1, backgroundColor: colors.border, marginHorizontal: 16 }} />
+
+              {/* ── All deliveries list ── */}
+              <View style={{ padding: 14, gap: 0 }}>
+                <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                  <Text style={{ color: colors.foreground, fontFamily: F.extra, fontSize: 14 }}>
+                    {isToday(drvSelectedDate) ? "جميع توصيلات اليوم" : `توصيلات ${drvSelectedDate.toLocaleDateString("ar-SA", { day: "numeric", month: "long" })}`}
+                  </Text>
+                  <TouchableOpacity onPress={() => loadAllDeliveries(drvSelectedDate)} style={{ padding: 5 }}>
+                    <Feather name="refresh-cw" size={13} color={colors.mutedForeground} />
+                  </TouchableOpacity>
+                </View>
+
+                {allDeliveriesLoading && <ActivityIndicator color="#4CAF50" style={{ marginVertical: 20 }} />}
+
+                {!allDeliveriesLoading && allDeliveries.length === 0 && (
+                  <View style={{ alignItems: "center", paddingVertical: 40, gap: 8 }}>
+                    <Text style={{ fontSize: 36 }}>📋</Text>
+                    <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 13 }}>لا توجد توصيلات في هذا اليوم</Text>
+                  </View>
+                )}
+
+                {!allDeliveriesLoading && allDeliveries.map((row, idx) => {
+                  const expanded = drvExpandedId === row.orderId;
+                  const isCash   = row.paymentMethod === "cash";
+                  return (
+                    <TouchableOpacity
+                      key={`${row.orderId}-${idx}`}
+                      onPress={() => setDrvExpandedId(expanded ? null : row.orderId)}
+                      activeOpacity={0.8}
+                      style={{ borderBottomWidth: 1, borderBottomColor: colors.border, paddingVertical: 14, paddingHorizontal: 4 }}
+                    >
+                      <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 10 }}>
+                        {/* Payment icon */}
+                        <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: isCash ? "#0F1A14" : "#0A0F1A", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: isCash ? "#2E7D3244" : "#1565C044" }}>
+                          <Text style={{ fontSize: 16 }}>{isCash ? "💵" : "💳"}</Text>
+                        </View>
+                        {/* Order + customer */}
+                        <View style={{ flex: 1, gap: 2 }}>
+                          <Text style={{ color: colors.foreground, fontFamily: F.bold, fontSize: 14, textAlign: "right" }}>
+                            (#{row.dailyNumber ?? row.orderId}) {row.customerPhone || row.customerName}
+                          </Text>
+                          {row.deliveredAt && (
+                            <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11, textAlign: "right" }}>
+                              انتهى في {fmtTime(row.deliveredAt)}
+                            </Text>
+                          )}
+                        </View>
+                        {/* Expand arrow */}
+                        <Feather name={expanded ? "chevron-up" : "chevron-down"} size={16} color={colors.mutedForeground} />
+                      </View>
+
+                      {/* Expanded details */}
+                      {expanded && (
+                        <View style={{ marginTop: 10, backgroundColor: colors.card, borderRadius: 12, padding: 12, gap: 6, borderWidth: 1, borderColor: colors.border }}>
+                          <View style={{ flexDirection: "row-reverse", justifyContent: "space-between" }}>
+                            <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12 }}>اسم العميل</Text>
+                            <Text style={{ color: colors.foreground, fontFamily: F.semi, fontSize: 13 }}>{row.customerName}</Text>
+                          </View>
+                          <View style={{ flexDirection: "row-reverse", justifyContent: "space-between" }}>
+                            <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12 }}>المندوب</Text>
+                            <Text style={{ color: "#4CAF50", fontFamily: F.semi, fontSize: 13 }}>🛵 {row.driverName}</Text>
+                          </View>
+                          <View style={{ flexDirection: "row-reverse", justifyContent: "space-between" }}>
+                            <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12 }}>المبلغ</Text>
+                            <Text style={{ color: "#E8920C", fontFamily: F.extra, fontSize: 15 }}>{row.totalPrice.toFixed(2)} ر.س</Text>
+                          </View>
+                          <View style={{ flexDirection: "row-reverse", justifyContent: "space-between" }}>
+                            <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12 }}>طريقة الدفع</Text>
+                            <Text style={{ color: isCash ? "#81C784" : "#64B5F6", fontFamily: F.semi, fontSize: 12 }}>{isCash ? "💵 نقدي" : "💳 إلكتروني"}</Text>
+                          </View>
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </ScrollView>
+          </>
+        );
+      })()}
+
 
       {/* ── Pickup (branch) view ── */}
       {cashierView === "pickup" && (() => {

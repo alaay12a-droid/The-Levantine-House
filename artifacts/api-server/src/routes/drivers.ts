@@ -93,6 +93,38 @@ router.get("/drivers/active-assignments", async (_req, res) => {
   })));
 });
 
+// ── GET /drivers/all-deliveries?date=YYYY-MM-DD  (all drivers flat list) ──────
+router.get("/drivers/all-deliveries", async (req, res) => {
+  const dateStr = String(req.query.date ?? "");
+  const dayStart = dateStr ? new Date(dateStr) : new Date();
+  dayStart.setHours(0, 0, 0, 0);
+  const dayEnd = new Date(dayStart);
+  dayEnd.setDate(dayEnd.getDate() + 1);
+
+  const rows = await db
+    .select({ assignment: orderDriverAssignmentsTable, order: ordersTable, driver: deliveryDriversTable })
+    .from(orderDriverAssignmentsTable)
+    .leftJoin(ordersTable, eq(orderDriverAssignmentsTable.orderId, ordersTable.id))
+    .leftJoin(deliveryDriversTable, eq(orderDriverAssignmentsTable.driverId, deliveryDriversTable.id))
+    .where(and(
+      eq(orderDriverAssignmentsTable.status, "delivered"),
+      gte(orderDriverAssignmentsTable.deliveredAt, dayStart),
+      lt(orderDriverAssignmentsTable.deliveredAt, dayEnd),
+    ))
+    .orderBy(desc(orderDriverAssignmentsTable.deliveredAt));
+
+  res.json(rows.map(r => ({
+    orderId:       r.assignment.orderId,
+    dailyNumber:   r.order?.dailyNumber ?? null,
+    customerName:  r.order?.customerName ?? "",
+    customerPhone: r.order?.customerPhone ?? "",
+    totalPrice:    (r.order?.totalPrice ?? 0) / 100,
+    paymentMethod: r.order?.paymentMethod ?? "cash",
+    driverName:    r.driver?.name ?? "",
+    deliveredAt:   r.assignment.deliveredAt ? r.assignment.deliveredAt.toISOString() : null,
+  })));
+});
+
 // ── GET /drivers/daily-summaries  (all drivers — admin view) ─────────────────
 router.get("/drivers/daily-summaries", async (_req, res) => {
   const today = new Date(); today.setHours(0, 0, 0, 0);
