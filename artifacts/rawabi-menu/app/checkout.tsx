@@ -295,12 +295,18 @@ export default function CheckoutScreen() {
         customerName: user.name,
         customerPhone: user.phone,
         customerAddress: locationUrl || user.address || null,
-        items: items.map((ci) => ({
-          id: ci.item.id,
-          name: ci.item.name,
-          price: ci.item.price,
-          quantity: ci.quantity,
-        })),
+        items: items.map((ci) => {
+          const extra = ci.customization?.extraPrice ?? 0;
+          const parts: string[] = [];
+          if (ci.customization?.riceType) parts.push(ci.customization.riceType);
+          if (ci.customization?.addon) parts.push(ci.customization.addon);
+          return {
+            id: ci.item.id,
+            name: parts.length > 0 ? `${ci.item.name} (${parts.join(" | ")})` : ci.item.name,
+            price: ci.item.price + extra,
+            quantity: ci.quantity,
+          };
+        }),
         totalPrice: grandTotal,
         deliveryFee,
         paymentMethod,
@@ -334,7 +340,15 @@ export default function CheckoutScreen() {
         dailyNumber: order.dailyNumber,
         createdAt: new Date().toISOString(),
         total: grandTotal,
-        items: items.map((ci) => ({ name: ci.item.name, quantity: ci.quantity })),
+        items: items.map((ci) => {
+          const parts: string[] = [];
+          if (ci.customization?.riceType) parts.push(ci.customization.riceType);
+          if (ci.customization?.addon) parts.push(ci.customization.addon);
+          return {
+            name: parts.length > 0 ? `${ci.item.name} (${parts.join(" | ")})` : ci.item.name,
+            quantity: ci.quantity,
+          };
+        }),
         customerName: user.name,
       };
       try {

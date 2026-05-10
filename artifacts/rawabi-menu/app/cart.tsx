@@ -154,12 +154,15 @@ export default function CartScreen() {
             {/* ── Cart items ── */}
             <View style={[styles.itemsCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
               {items.map((cartItem, index) => {
-                const itemTotal = cartItem.item.price * cartItem.quantity;
+                const extra = cartItem.customization?.extraPrice ?? 0;
+                const unitPrice = cartItem.item.price + extra;
+                const itemTotal = unitPrice * cartItem.quantity;
                 const totalStr = itemTotal % 1 === 0 ? itemTotal.toString() : itemTotal.toFixed(1);
-                const unitStr = cartItem.item.price % 1 === 0
-                  ? cartItem.item.price.toString()
-                  : cartItem.item.price.toFixed(1);
+                const unitStr = unitPrice % 1 === 0 ? unitPrice.toString() : unitPrice.toFixed(1);
                 const itemName = isEn && cartItem.item.nameEn ? cartItem.item.nameEn : cartItem.item.name;
+                const customParts: string[] = [];
+                if (cartItem.customization?.riceType) customParts.push(cartItem.customization.riceType);
+                if (cartItem.customization?.addon) customParts.push(cartItem.customization.addon);
 
                 return (
                   <React.Fragment key={cartItem.item.id}>
@@ -171,6 +174,11 @@ export default function CartScreen() {
                         <Text style={[styles.itemName, { color: colors.foreground, fontFamily: F.bold }]} numberOfLines={2}>
                           {itemName}
                         </Text>
+                        {customParts.length > 0 && (
+                          <Text style={{ color: "#E8920C", fontFamily: "Cairo_400Regular", fontSize: 11, textAlign: "right", marginTop: 1 }}>
+                            {customParts.join(" · ")}
+                          </Text>
+                        )}
                         <Text style={[styles.unitPrice, { color: colors.mutedForeground, fontFamily: F.regular }]}>
                           {unitStr} {isEn ? "SAR" : "ر.س"} {isEn ? "each" : "للوحدة"}
                         </Text>

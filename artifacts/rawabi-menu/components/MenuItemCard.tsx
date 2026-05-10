@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -15,6 +15,7 @@ import { useLanguage } from "@/context/LanguageContext";
 import { useFavorites } from "@/hooks/useFavorites";
 import { MenuItem, FOOD_IMAGES } from "@/constants/menu";
 import { useAppTexts } from "@/hooks/useAppTexts";
+import { ProductDetailSheet } from "@/components/ProductDetailSheet";
 
 const F = {
   regular: "Cairo_400Regular",
@@ -34,6 +35,8 @@ export function MenuItemCard({ item }: Props) {
   const { isFavorite, toggleFavorite } = useFavorites();
   const isEn = language === "en";
   const info = useAppTexts();
+
+  const [showDetail, setShowDetail] = useState(false);
 
   const cartItem = items.find((c) => c.item.id === item.id);
   const quantity = cartItem?.quantity ?? 0;
@@ -184,18 +187,29 @@ export function MenuItemCard({ item }: Props) {
 
         {/* Right: food image + favorite */}
         <View>
-          {foodImage ? (
-            <View style={[styles.imageWrap, { backgroundColor: "#2A1508" }]}>
-              <Image source={foodImage} style={styles.foodImage} resizeMode="cover" />
-              {inCart && (
-                <View style={[styles.inCartDot, { backgroundColor: colors.gold }]} />
-              )}
-            </View>
-          ) : (
-            <View style={[styles.imageWrap, styles.noImage, { backgroundColor: "#2A1508", borderColor: colors.border }]}>
-              <Text style={styles.noImageIcon}>🍽️</Text>
-            </View>
-          )}
+          <TouchableOpacity
+            onPress={() => { if (!isUnavailable && !isDhabiha) setShowDetail(true); }}
+            activeOpacity={isUnavailable || isDhabiha ? 1 : 0.85}
+            disabled={isUnavailable || isDhabiha}
+          >
+            {foodImage ? (
+              <View style={[styles.imageWrap, { backgroundColor: "#2A1508" }]}>
+                <Image source={foodImage} style={styles.foodImage} resizeMode="cover" />
+                {inCart && (
+                  <View style={[styles.inCartDot, { backgroundColor: colors.gold }]} />
+                )}
+                {!isUnavailable && !isDhabiha && (
+                  <View style={styles.zoomHint}>
+                    <Feather name="zoom-in" size={11} color="#ffffffcc" />
+                  </View>
+                )}
+              </View>
+            ) : (
+              <View style={[styles.imageWrap, styles.noImage, { backgroundColor: "#2A1508", borderColor: colors.border }]}>
+                <Text style={styles.noImageIcon}>🍽️</Text>
+              </View>
+            )}
+          </TouchableOpacity>
           {/* Heart button */}
           <TouchableOpacity
             onPress={handleToggleFav}
@@ -206,6 +220,13 @@ export function MenuItemCard({ item }: Props) {
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Product Detail Sheet */}
+      <ProductDetailSheet
+        item={item}
+        visible={showDetail}
+        onClose={() => setShowDetail(false)}
+      />
     </View>
   );
 }
@@ -318,6 +339,17 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
+  },
+  zoomHint: {
+    position: "absolute",
+    bottom: 5,
+    left: 5,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: "#00000066",
+    alignItems: "center",
+    justifyContent: "center",
   },
   heartBtn: {
     position: "absolute",

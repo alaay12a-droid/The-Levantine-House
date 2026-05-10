@@ -1,14 +1,21 @@
 import React, { createContext, useContext, useState, useCallback } from "react";
 import { MenuItem } from "@/constants/menu";
 
+export interface CartCustomization {
+  riceType?: string;
+  addon?: string;
+  extraPrice?: number;
+}
+
 export interface CartItem {
   item: MenuItem;
   quantity: number;
+  customization?: CartCustomization;
 }
 
 interface CartContextType {
   items: CartItem[];
-  addItem: (item: MenuItem) => void;
+  addItem: (item: MenuItem, qty?: number, customization?: CartCustomization) => void;
   removeItem: (itemId: string) => void;
   updateQuantity: (itemId: string, quantity: number) => void;
   clearCart: () => void;
@@ -21,15 +28,15 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
 
-  const addItem = useCallback((item: MenuItem) => {
+  const addItem = useCallback((item: MenuItem, qty: number = 1, customization?: CartCustomization) => {
     setItems((prev) => {
       const existing = prev.find((c) => c.item.id === item.id);
       if (existing) {
         return prev.map((c) =>
-          c.item.id === item.id ? { ...c, quantity: c.quantity + 1 } : c
+          c.item.id === item.id ? { ...c, quantity: c.quantity + qty } : c
         );
       }
-      return [...prev, { item, quantity: 1 }];
+      return [...prev, { item, quantity: qty, customization }];
     });
   }, []);
 
@@ -50,7 +57,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const clearCart = useCallback(() => setItems([]), []);
 
   const totalItems = items.reduce((sum, c) => sum + c.quantity, 0);
-  const totalPrice = items.reduce((sum, c) => sum + c.item.price * c.quantity, 0);
+  const totalPrice = items.reduce((sum, c) => {
+    const extra = c.customization?.extraPrice ?? 0;
+    return sum + (c.item.price + extra) * c.quantity;
+  }, 0);
 
   return (
     <CartContext.Provider
