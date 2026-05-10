@@ -340,7 +340,7 @@ export default function MoreScreen() {
             <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12 }}>بواسطة</Text>
             <Image
               source={require("@/assets/images/alaa-logo-nobg.png")}
-              style={{ width: 48, height: 48 }}
+              style={{ width: 90, height: 90 }}
               resizeMode="contain"
             />
           </View>
