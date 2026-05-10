@@ -30,6 +30,13 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { apiGet, apiPost, apiPatch } from "@/constants/api";
 import { useChatUnreadAlert } from "@/hooks/useChatSound";
+import {
+  OCCASION_KEY,
+  OCCASION_THEMES,
+  OCCASION_LIST,
+  detectCurrentOccasion,
+  type OccasionId,
+} from "@/constants/occasions";
 
 const LOGO_BG_KEY = "rawabi_logo_bg";
 
@@ -94,6 +101,18 @@ export default function MoreScreen() {
   const changeLogoBg = useCallback(async (color: string) => {
     setLogoBg(color);
     await AsyncStorage.setItem(LOGO_BG_KEY, color);
+  }, []);
+
+  // ─── Seasonal occasion theme ─────────────────────────────
+  const [occasionSetting, setOccasionSetting] = useState<"auto" | OccasionId>("auto");
+  useEffect(() => {
+    AsyncStorage.getItem(OCCASION_KEY).then(v => {
+      setOccasionSetting((v as "auto" | OccasionId) ?? "auto");
+    });
+  }, []);
+  const changeOccasion = useCallback(async (val: "auto" | OccasionId) => {
+    setOccasionSetting(val);
+    await AsyncStorage.setItem(OCCASION_KEY, val);
   }, []);
 
   useChatUnreadAlert(unreadTotal);
@@ -280,6 +299,101 @@ export default function MoreScreen() {
               <Text style={[styles.langBtnText, { color: language === "en" ? colors.foreground : colors.mutedForeground, fontFamily: F.bold }]}>EN</Text>
             </TouchableOpacity>
           </View>
+        </View>
+
+        {/* ── Seasonal Occasions ── */}
+        <View style={[styles.langCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[styles.sectionLabel, { color: colors.mutedForeground, fontFamily: F.semi, marginBottom: 12 }]}>
+            🎉 المناسبات والأجواء
+          </Text>
+
+          {/* Auto option */}
+          <TouchableOpacity
+            onPress={() => changeOccasion("auto")}
+            style={{
+              flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between",
+              paddingHorizontal: 14, paddingVertical: 12, borderRadius: 12, marginBottom: 8,
+              borderWidth: 1.5,
+              backgroundColor: occasionSetting === "auto" ? "#1A2A0A" : colors.secondary,
+              borderColor: occasionSetting === "auto" ? "#4CAF50" : colors.border,
+            }}
+            activeOpacity={0.8}
+          >
+            <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
+              <Text style={{ fontSize: 20 }}>🗓️</Text>
+              <View style={{ alignItems: "flex-end" }}>
+                <Text style={{ color: occasionSetting === "auto" ? "#4CAF50" : colors.foreground, fontFamily: F.bold, fontSize: 14 }}>
+                  تلقائي (بحسب التاريخ)
+                </Text>
+                <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }}>
+                  {(() => {
+                    const auto = detectCurrentOccasion();
+                    return auto === "none"
+                      ? "لا توجد مناسبة حالياً"
+                      : `المكتشف: ${OCCASION_THEMES[auto].name}`;
+                  })()}
+                </Text>
+              </View>
+            </View>
+            {occasionSetting === "auto" && <Feather name="check-circle" size={18} color="#4CAF50" />}
+          </TouchableOpacity>
+
+          {/* None option */}
+          <TouchableOpacity
+            onPress={() => changeOccasion("none")}
+            style={{
+              flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between",
+              paddingHorizontal: 14, paddingVertical: 12, borderRadius: 12, marginBottom: 8,
+              borderWidth: 1.5,
+              backgroundColor: occasionSetting === "none" ? "#2A1A1A" : colors.secondary,
+              borderColor: occasionSetting === "none" ? "#E57373" : colors.border,
+            }}
+            activeOpacity={0.8}
+          >
+            <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
+              <Text style={{ fontSize: 20 }}>🚫</Text>
+              <Text style={{ color: occasionSetting === "none" ? "#E57373" : colors.foreground, fontFamily: F.bold, fontSize: 14 }}>
+                بدون مناسبة
+              </Text>
+            </View>
+            {occasionSetting === "none" && <Feather name="check-circle" size={18} color="#E57373" />}
+          </TouchableOpacity>
+
+          {/* Each occasion */}
+          {OCCASION_LIST.map(occ => {
+            const selected = occasionSetting === occ.id;
+            return (
+              <TouchableOpacity
+                key={occ.id}
+                onPress={() => changeOccasion(occ.id)}
+                style={{
+                  flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between",
+                  paddingHorizontal: 14, paddingVertical: 12, borderRadius: 12, marginBottom: 8,
+                  borderWidth: 1.5,
+                  backgroundColor: selected ? occ.bg + "EE" : colors.secondary,
+                  borderColor: selected ? occ.textColor + "88" : colors.border,
+                }}
+                activeOpacity={0.8}
+              >
+                <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8, flex: 1 }}>
+                  <Text style={{ fontSize: 22 }}>{occ.emoji}</Text>
+                  <View style={{ alignItems: "flex-end", flex: 1 }}>
+                    <Text style={{ color: selected ? occ.textColor : colors.foreground, fontFamily: F.bold, fontSize: 14 }}>
+                      {occ.name}
+                    </Text>
+                    <Text style={{ color: selected ? occ.subColor : colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }} numberOfLines={1}>
+                      {occ.greeting}
+                    </Text>
+                    {/* Decor preview */}
+                    {selected && (
+                      <Text style={{ fontSize: 13, marginTop: 4 }}>{occ.decorRow}</Text>
+                    )}
+                  </View>
+                </View>
+                {selected && <Feather name="check-circle" size={18} color={occ.textColor} />}
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
         {/* ── Logo Background Color ── */}

@@ -41,6 +41,12 @@ import { useLanguage } from "@/context/LanguageContext";
 import { useFavorites } from "@/hooks/useFavorites";
 import { apiGet } from "@/constants/api";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import {
+  OCCASION_KEY,
+  OCCASION_THEMES,
+  detectCurrentOccasion,
+  type OccasionId,
+} from "@/constants/occasions";
 
 const LOGO_BG_KEY = "rawabi_logo_bg";
 const logo = require("@/assets/images/logo.png");
@@ -75,8 +81,19 @@ export default function MenuScreen() {
 
   // ── Logo background color (from settings) ──────────────────────────
   const [logoBg, setLogoBg] = useState("#1F130A");
+
+  // ── Seasonal occasion theme ──────────────────────────────────────────
+  const [occasionId, setOccasionId] = useState<OccasionId>("none");
+
   useFocusEffect(useCallback(() => {
     AsyncStorage.getItem(LOGO_BG_KEY).then(v => { if (v) setLogoBg(v); });
+    AsyncStorage.getItem(OCCASION_KEY).then(v => {
+      if (v === "auto" || v === null) {
+        setOccasionId(detectCurrentOccasion());
+      } else {
+        setOccasionId((v as OccasionId) ?? "none");
+      }
+    });
   }, []));
 
   // ── Secret 3-tap to open staff picker ──────────────────────────────
@@ -390,8 +407,41 @@ export default function MenuScreen() {
           ListHeaderComponent={() => {
             const allItems = categories.flatMap((c) => c.items);
             const favItems = allItems.filter((it) => favorites.includes(it.id));
+            const occ = OCCASION_THEMES[occasionId];
             return (
             <View>
+              {/* ── OCCASION BANNER ── */}
+              {occasionId !== "none" && (
+                <View style={{ backgroundColor: occ.bg, overflow: "hidden" }}>
+                  {/* Top accent line */}
+                  <View style={{ height: 3, backgroundColor: occ.textColor + "55" }} />
+                  {/* Decor row */}
+                  <View style={{ paddingVertical: 10, paddingHorizontal: 8, backgroundColor: occ.secondBg + "AA" }}>
+                    <Text style={{ fontSize: 20, textAlign: "center", letterSpacing: 4 }}>
+                      {occ.decorRow}
+                    </Text>
+                  </View>
+                  {/* Main content */}
+                  <View style={{ paddingHorizontal: 20, paddingTop: 12, paddingBottom: 16, alignItems: "center", gap: 6 }}>
+                    <Text style={{ fontSize: 30 }}>{occ.emoji}</Text>
+                    <Text style={{ color: occ.textColor, fontFamily: F.extra, fontSize: 20, textAlign: "center" }}>
+                      {occ.name}
+                    </Text>
+                    <Text style={{ color: occ.subColor, fontFamily: F.semi, fontSize: 13, textAlign: "center" }}>
+                      {occ.greeting}
+                    </Text>
+                  </View>
+                  {/* Bottom decor row */}
+                  <View style={{ paddingVertical: 8, paddingHorizontal: 8, backgroundColor: occ.secondBg + "AA" }}>
+                    <Text style={{ fontSize: 18, textAlign: "center", letterSpacing: 6, opacity: 0.7 }}>
+                      {occ.decorRow}
+                    </Text>
+                  </View>
+                  {/* Bottom accent */}
+                  <View style={{ height: 3, backgroundColor: occ.textColor + "55" }} />
+                </View>
+              )}
+
               {/* ── BANNER inside scroll ── */}
               <BannerCarousel banners={banners} />
 
