@@ -173,19 +173,35 @@ export default function MenuScreen() {
     if (cat?.isDelivery || cat?.isDhabiha || cat?.isOccasions) return;
     if (!sectionListRef.current) return;
     isScrollingProgrammatically.current = true;
+
     const trackedY = sectionYs.current[catId];
-    if (trackedY !== undefined) {
-      // Use precise Y captured via onLayout
-      sectionListRef.current.scrollToOffset({ offset: trackedY, animated: true });
-    } else {
-      // Fallback to scrollToLocation
-      const sectionIndex = regularCats.findIndex((c) => c.id === catId);
-      if (sectionIndex !== -1) {
-        try {
-          sectionListRef.current.scrollToLocation({ sectionIndex, itemIndex: 0, viewPosition: 0, animated: true });
-        } catch {}
-      }
+    const sectionIndex = regularCats.findIndex((c) => c.id === catId);
+
+    const scrolled = (() => {
+      if (trackedY === undefined) return false;
+      try {
+        // Try inner VirtualizedList → ScrollView ref chain (works on native)
+        const inner = sectionListRef.current.getScrollRef?.()?.getScrollRef?.()
+          ?? sectionListRef.current.getScrollRef?.();
+        if (inner?.scrollTo) { inner.scrollTo({ y: trackedY, animated: true }); return true; }
+      } catch {}
+      try {
+        // Try scrollable DOM node (works on Expo web)
+        const node = sectionListRef.current.getScrollableNode?.();
+        if (node) {
+          if (typeof node.scrollTo === "function") { node.scrollTo({ top: trackedY, behavior: "smooth" }); return true; }
+          if (typeof node.scrollTop !== "undefined") { node.scrollTop = trackedY; return true; }
+        }
+      } catch {}
+      return false;
+    })();
+
+    if (!scrolled && sectionIndex !== -1) {
+      try {
+        sectionListRef.current.scrollToLocation({ sectionIndex, itemIndex: 0, viewPosition: 0, animated: true });
+      } catch {}
     }
+
     setTimeout(() => { isScrollingProgrammatically.current = false; }, 800);
   }, [categories, regularCats]);
 
