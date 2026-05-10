@@ -1203,6 +1203,15 @@ export default function CashierScreen() {
       {cashierView === "pickup" && (() => {
         const fromMins = parseInt(pickupFromHour) * 60 + parseInt(pickupFromMin);
         const toMins   = parseInt(pickupToHour)   * 60 + parseInt(pickupToMin);
+
+        // today's date boundaries for daily summary
+        const todayStart = new Date(); todayStart.setHours(0,0,0,0);
+        const todayPickup = pickupOrders.filter(o => new Date(o.createdAt) >= todayStart);
+        const todayDone   = todayPickup.filter(o => o.status === "done");
+        const todayTotal  = todayDone.reduce((s, o) => s + o.totalPrice, 0);
+        const todayCount  = todayDone.length;
+        const todayPending = todayPickup.filter(o => o.status !== "done" && o.status !== "cancelled").length;
+
         const filtered = pickupOrders.filter(o => {
           const d = new Date(o.createdAt);
           const m = d.getHours() * 60 + d.getMinutes();
@@ -1210,6 +1219,7 @@ export default function CashierScreen() {
         });
         const activeFiltered  = filtered.filter(o => o.status !== "done" && o.status !== "cancelled");
         const doneFiltered    = filtered.filter(o => o.status === "done");
+        const filteredTotal   = doneFiltered.reduce((s, o) => s + o.totalPrice, 0);
         return (
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 14, gap: 12, paddingBottom: 60 }}>
             {/* Header */}
@@ -1220,71 +1230,117 @@ export default function CashierScreen() {
                   {new Date().toLocaleDateString("ar-SA", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
                 </Text>
               </View>
-              <View style={{ backgroundColor: "#82B1FF22", borderRadius: 14, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1, borderColor: "#82B1FF44" }}>
-                <Text style={{ color: "#82B1FF", fontFamily: F.extra, fontSize: 18 }}>{activeFiltered.length}</Text>
-                <Text style={{ color: "#82B1FF", fontFamily: F.semi, fontSize: 10, textAlign: "center" }}>بانتظار</Text>
+              <View style={{ backgroundColor: "#82B1FF22", borderRadius: 14, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1, borderColor: "#82B1FF44", alignItems: "center" }}>
+                <Text style={{ color: "#82B1FF", fontFamily: F.extra, fontSize: 18 }}>{todayPending}</Text>
+                <Text style={{ color: "#82B1FF", fontFamily: F.semi, fontSize: 10 }}>بانتظار</Text>
               </View>
             </View>
 
-            {/* Time range filter */}
-            <View style={{ backgroundColor: colors.card, borderRadius: 16, padding: 14, borderWidth: 1, borderColor: "#82B1FF33", gap: 10 }}>
+            {/* ── Daily sales summary ── */}
+            <View style={{ backgroundColor: colors.card, borderRadius: 16, borderWidth: 1, borderColor: "#E8920C44", overflow: "hidden" }}>
+              <View style={{ backgroundColor: "#E8920C11", paddingHorizontal: 14, paddingVertical: 10, flexDirection: "row-reverse", alignItems: "center", gap: 6 }}>
+                <Feather name="bar-chart-2" size={15} color={colors.gold} />
+                <Text style={{ color: colors.gold, fontFamily: F.bold, fontSize: 14 }}>إجمالي المبيعات اليوم</Text>
+              </View>
+              <View style={{ flexDirection: "row-reverse", padding: 14, gap: 10 }}>
+                <View style={{ flex: 1, backgroundColor: "#4CAF5011", borderRadius: 14, padding: 14, alignItems: "center", gap: 4, borderWidth: 1, borderColor: "#4CAF5033" }}>
+                  <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 24 }}>{todayTotal.toFixed(2)}</Text>
+                  <Text style={{ color: "#4CAF50", fontFamily: F.semi, fontSize: 12 }}>ر.س إجمالي</Text>
+                </View>
+                <View style={{ flex: 1, backgroundColor: "#82B1FF11", borderRadius: 14, padding: 14, alignItems: "center", gap: 4, borderWidth: 1, borderColor: "#82B1FF33" }}>
+                  <Text style={{ color: "#82B1FF", fontFamily: F.extra, fontSize: 24 }}>{todayCount}</Text>
+                  <Text style={{ color: "#82B1FF", fontFamily: F.semi, fontSize: 12 }}>طلب مكتمل</Text>
+                </View>
+                <View style={{ flex: 1, backgroundColor: "#E8920C11", borderRadius: 14, padding: 14, alignItems: "center", gap: 4, borderWidth: 1, borderColor: "#E8920C33" }}>
+                  <Text style={{ color: colors.gold, fontFamily: F.extra, fontSize: 24 }}>{todayPending}</Text>
+                  <Text style={{ color: colors.gold, fontFamily: F.semi, fontSize: 12 }}>بانتظار</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* ── Time range filter (vertical) ── */}
+            <View style={{ backgroundColor: colors.card, borderRadius: 16, padding: 14, borderWidth: 1, borderColor: "#82B1FF33", gap: 12 }}>
               <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6 }}>
                 <Feather name="clock" size={15} color="#82B1FF" />
                 <Text style={{ color: "#82B1FF", fontFamily: F.bold, fontSize: 14 }}>تصفية بالوقت</Text>
               </View>
-              <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
-                {/* From */}
-                <View style={{ flex: 1, gap: 4 }}>
-                  <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 11, textAlign: "center" }}>من</Text>
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                    <TextInput
-                      value={pickupFromMin}
-                      onChangeText={v => setPickupFromMin(v.replace(/\D/g,"").slice(0,2))}
-                      keyboardType="numeric"
-                      maxLength={2}
-                      placeholder="00"
-                      placeholderTextColor={colors.mutedForeground}
-                      style={{ flex: 1, backgroundColor: colors.secondary, borderRadius: 10, borderWidth: 1, borderColor: colors.border, color: colors.foreground, fontFamily: F.bold, fontSize: 18, textAlign: "center", paddingVertical: 8 }}
-                    />
-                    <Text style={{ color: colors.mutedForeground, fontFamily: F.bold }}>:</Text>
-                    <TextInput
-                      value={pickupFromHour}
-                      onChangeText={v => setPickupFromHour(v.replace(/\D/g,"").slice(0,2))}
-                      keyboardType="numeric"
-                      maxLength={2}
-                      placeholder="00"
-                      placeholderTextColor={colors.mutedForeground}
-                      style={{ flex: 1, backgroundColor: colors.secondary, borderRadius: 10, borderWidth: 1, borderColor: colors.border, color: colors.foreground, fontFamily: F.bold, fontSize: 18, textAlign: "center", paddingVertical: 8 }}
-                    />
-                  </View>
-                </View>
-                <Feather name="arrow-left" size={18} color={colors.mutedForeground} />
-                {/* To */}
-                <View style={{ flex: 1, gap: 4 }}>
-                  <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 11, textAlign: "center" }}>إلى</Text>
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                    <TextInput
-                      value={pickupToMin}
-                      onChangeText={v => setPickupToMin(v.replace(/\D/g,"").slice(0,2))}
-                      keyboardType="numeric"
-                      maxLength={2}
-                      placeholder="59"
-                      placeholderTextColor={colors.mutedForeground}
-                      style={{ flex: 1, backgroundColor: colors.secondary, borderRadius: 10, borderWidth: 1, borderColor: colors.border, color: colors.foreground, fontFamily: F.bold, fontSize: 18, textAlign: "center", paddingVertical: 8 }}
-                    />
-                    <Text style={{ color: colors.mutedForeground, fontFamily: F.bold }}>:</Text>
-                    <TextInput
-                      value={pickupToHour}
-                      onChangeText={v => setPickupToHour(v.replace(/\D/g,"").slice(0,2))}
-                      keyboardType="numeric"
-                      maxLength={2}
-                      placeholder="23"
-                      placeholderTextColor={colors.mutedForeground}
-                      style={{ flex: 1, backgroundColor: colors.secondary, borderRadius: 10, borderWidth: 1, borderColor: colors.border, color: colors.foreground, fontFamily: F.bold, fontSize: 18, textAlign: "center", paddingVertical: 8 }}
-                    />
-                  </View>
+
+              {/* From row */}
+              <View style={{ gap: 6 }}>
+                <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 12, textAlign: "right" }}>من الساعة</Text>
+                <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
+                  <TextInput
+                    value={pickupFromHour}
+                    onChangeText={v => setPickupFromHour(v.replace(/\D/g,"").slice(0,2))}
+                    keyboardType="numeric"
+                    maxLength={2}
+                    placeholder="00"
+                    placeholderTextColor={colors.mutedForeground}
+                    style={{ flex: 1, backgroundColor: colors.secondary, borderRadius: 12, borderWidth: 1, borderColor: "#82B1FF44", color: "#82B1FF", fontFamily: F.extra, fontSize: 22, textAlign: "center", paddingVertical: 10 }}
+                  />
+                  <Text style={{ color: colors.mutedForeground, fontFamily: F.extra, fontSize: 20 }}>:</Text>
+                  <TextInput
+                    value={pickupFromMin}
+                    onChangeText={v => setPickupFromMin(v.replace(/\D/g,"").slice(0,2))}
+                    keyboardType="numeric"
+                    maxLength={2}
+                    placeholder="00"
+                    placeholderTextColor={colors.mutedForeground}
+                    style={{ flex: 1, backgroundColor: colors.secondary, borderRadius: 12, borderWidth: 1, borderColor: "#82B1FF44", color: "#82B1FF", fontFamily: F.extra, fontSize: 22, textAlign: "center", paddingVertical: 10 }}
+                  />
                 </View>
               </View>
+
+              {/* Arrow down */}
+              <View style={{ alignItems: "center" }}>
+                <Feather name="arrow-down" size={18} color={colors.mutedForeground} />
+              </View>
+
+              {/* To row */}
+              <View style={{ gap: 6 }}>
+                <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 12, textAlign: "right" }}>إلى الساعة</Text>
+                <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
+                  <TextInput
+                    value={pickupToHour}
+                    onChangeText={v => setPickupToHour(v.replace(/\D/g,"").slice(0,2))}
+                    keyboardType="numeric"
+                    maxLength={2}
+                    placeholder="23"
+                    placeholderTextColor={colors.mutedForeground}
+                    style={{ flex: 1, backgroundColor: colors.secondary, borderRadius: 12, borderWidth: 1, borderColor: "#82B1FF44", color: "#82B1FF", fontFamily: F.extra, fontSize: 22, textAlign: "center", paddingVertical: 10 }}
+                  />
+                  <Text style={{ color: colors.mutedForeground, fontFamily: F.extra, fontSize: 20 }}>:</Text>
+                  <TextInput
+                    value={pickupToMin}
+                    onChangeText={v => setPickupToMin(v.replace(/\D/g,"").slice(0,2))}
+                    keyboardType="numeric"
+                    maxLength={2}
+                    placeholder="59"
+                    placeholderTextColor={colors.mutedForeground}
+                    style={{ flex: 1, backgroundColor: colors.secondary, borderRadius: 12, borderWidth: 1, borderColor: "#82B1FF44", color: "#82B1FF", fontFamily: F.extra, fontSize: 22, textAlign: "center", paddingVertical: 10 }}
+                  />
+                </View>
+              </View>
+
+              {/* Filtered summary */}
+              {(doneFiltered.length > 0 || activeFiltered.length > 0) && (
+                <View style={{ backgroundColor: "#82B1FF0D", borderRadius: 12, padding: 10, flexDirection: "row-reverse", justifyContent: "space-around", borderWidth: 1, borderColor: "#82B1FF22" }}>
+                  <View style={{ alignItems: "center", gap: 2 }}>
+                    <Text style={{ color: "#82B1FF", fontFamily: F.extra, fontSize: 16 }}>{filteredTotal.toFixed(2)}</Text>
+                    <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 10 }}>ر.س في النطاق</Text>
+                  </View>
+                  <View style={{ width: 1, backgroundColor: colors.border }} />
+                  <View style={{ alignItems: "center", gap: 2 }}>
+                    <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 16 }}>{doneFiltered.length}</Text>
+                    <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 10 }}>مكتمل</Text>
+                  </View>
+                  <View style={{ width: 1, backgroundColor: colors.border }} />
+                  <View style={{ alignItems: "center", gap: 2 }}>
+                    <Text style={{ color: colors.gold, fontFamily: F.extra, fontSize: 16 }}>{activeFiltered.length}</Text>
+                    <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 10 }}>بانتظار</Text>
+                  </View>
+                </View>
+              )}
             </View>
 
             {/* Active pickup orders */}
