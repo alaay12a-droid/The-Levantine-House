@@ -333,6 +333,18 @@ export default function MoreScreen() {
         <Text style={[styles.version, { color: colors.mutedForeground, fontFamily: F.regular }]}>
           روابي المندي • نسخة 1.0
         </Text>
+
+        {/* ── بواسطة ── */}
+        <View style={{ alignItems: "center", marginTop: 12, marginBottom: 20, gap: 4 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12 }}>بواسطة</Text>
+            <Image
+              source={require("@/assets/images/alaa-logo-nobg.png")}
+              style={{ width: 48, height: 48 }}
+              resizeMode="contain"
+            />
+          </View>
+        </View>
       </ScrollView>
 
       {/* ── Support Chat Modal ── */}
