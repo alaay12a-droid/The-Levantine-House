@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from "react";
+import React, { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import {
   View,
   Text,
@@ -6,22 +6,21 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  FlatList,
   Linking,
-  Platform,
-  Image,
+  StatusBar,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useColors } from "@/hooks/useColors";
 import { useUser } from "@/context/UserContext";
 import { useFavorites } from "@/hooks/useFavorites";
 import { useMenu } from "@/hooks/useMenu";
+import { useBanners } from "@/hooks/useBanners";
 import { MenuItemCard } from "@/components/MenuItemCard";
+import { BannerCarousel } from "@/components/BannerCarousel";
 import { CartBar } from "@/components/CartBar";
-import { FOOD_IMAGES } from "@/constants/menu";
 
 const F = {
   regular: "Cairo_400Regular",
@@ -30,8 +29,10 @@ const F = {
   extra: "Cairo_800ExtraBold",
 };
 
-const RESTAURANT_LOCATION_URL =
-  "https://maps.google.com/?q=تبوك+حي+الروضة+روابي+المندي";
+const BRANCH_ADDRESS = "تبوك — حي الروضة";
+const BRANCH_MAPS_URL = "https://maps.google.com/?q=تبوك+حي+الروضة+روابي+المندي";
+
+type OrderMode = "delivery" | "pickup";
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
@@ -39,24 +40,28 @@ export default function HomeScreen() {
   const router = useRouter();
   const { user } = useUser();
   const { favorites } = useFavorites();
-  const { categories } = useMenu();
+  const { categories, refresh: refreshMenu } = useMenu();
+  const { banners, refresh: refreshBanners } = useBanners();
 
+  const [orderMode, setOrderMode] = useState<OrderMode>("delivery");
   const [search, setSearch] = useState("");
   const searchRef = useRef<TextInput>(null);
 
+  useFocusEffect(useCallback(() => { refreshMenu(); }, [refreshMenu]));
+  useEffect(() => { refreshBanners(); }, [refreshBanners]);
+
   const allItems = useMemo(
-    () => categories.flatMap((c) => c.items),
+    () => categories.flatMap((c) => c.items.filter((i) => !c.isDelivery && !c.isDhabiha && !c.isOccasions)),
     [categories]
   );
 
   const searchResults = useMemo(() => {
     const q = search.trim();
     if (!q) return [];
-    const lower = q.toLowerCase();
     return allItems.filter(
       (item) =>
         item.name.includes(q) ||
-        (item.nameEn ?? "").toLowerCase().includes(lower) ||
+        (item.nameEn ?? "").toLowerCase().includes(q.toLowerCase()) ||
         (item.description ?? "").includes(q)
     );
   }, [search, allItems]);
@@ -66,6 +71,11 @@ export default function HomeScreen() {
     [allItems, favorites]
   );
 
+  const regularCats = useMemo(
+    () => categories.filter((c) => !c.isDelivery && !c.isDhabiha && !c.isOccasions),
+    [categories]
+  );
+
   const greeting = useMemo(() => {
     const h = new Date().getHours();
     if (h >= 5 && h < 12) return "صباح الخير";
@@ -73,44 +83,108 @@ export default function HomeScreen() {
     return "أهلاً بك";
   }, []);
 
-  return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Header */}
-      <View
-        style={[
-          styles.header,
-          {
-            paddingTop: insets.top + 12,
-            backgroundColor: colors.background,
-            borderBottomColor: colors.border,
-          },
-        ]}
-      >
-        <View style={styles.headerRow}>
-          <TouchableOpacity
-            style={[styles.iconBtn, { backgroundColor: colors.card }]}
-            onPress={() => router.push("/onboarding")}
-          >
-            <Feather name="map-pin" size={18} color={colors.gold} />
-          </TouchableOpacity>
+  const locationText =
+    orderMode === "delivery"
+      ? user?.address ?? "حدد موقعك"
+      : BRANCH_ADDRESS;
 
+  const locationLabel =
+    orderMode === "delivery" ? "التوصيل" : "الاستلام";
+
+  const handleLocationPress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (orderMode === "delivery") {
+      router.push("/onboarding");
+    } else {
+      Linking.openURL(BRANCH_MAPS_URL);
+    }
+  };
+
+  return (
+    <View style={[styles.root, { backgroundColor: colors.background }]}>
+      <StatusBar barStyle="light-content" backgroundColor={colors.background} />
+
+      {/* ── STICKY HEADER ── */}
+      <View style={[styles.header, { paddingTop: insets.top + 8, backgroundColor: colors.background, borderBottomColor: colors.border }]}>
+        {/* Row 1: icons left, greeting right */}
+        <View style={styles.topRow}>
+          <View style={styles.iconsLeft}>
+            <TouchableOpacity
+              style={[styles.iconBtn, { backgroundColor: colors.card }]}
+              onPress={() => searchRef.current?.focus()}
+            >
+              <Feather name="search" size={17} color={colors.gold} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.iconBtn, { backgroundColor: colors.card }]}
+              onPress={() => {}}
+            >
+              <Feather name="heart" size={17} color={favorites.length > 0 ? "#C8171A" : colors.mutedForeground} />
+              {favorites.length > 0 && (
+                <View style={[styles.favBadge, { backgroundColor: "#C8171A" }]}>
+                  <Text style={styles.favBadgeText}>{favorites.length > 9 ? "9+" : favorites.length}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          </View>
           <View style={styles.greetBlock}>
             <Text style={[styles.greetName, { color: colors.foreground, fontFamily: F.extra }]}>
-              {user?.name ? user.name : "روابي المندي"}
+              {user?.name ? `مرحبا، ${user.name}` : "روابي المندي"}
             </Text>
-            <Text style={[styles.greetSub, { color: colors.mutedForeground, fontFamily: F.regular }]}>
-              {greeting}
+            <Text style={[styles.greetSub, { color: colors.gold, fontFamily: F.regular }]}>
+              {greeting} 👋
             </Text>
           </View>
         </View>
 
-        {/* Search Bar */}
+        {/* Row 2: Delivery / Pickup toggle */}
+        <View style={[styles.toggleWrap, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <TouchableOpacity
+            style={[styles.toggleBtn, orderMode === "pickup" && [styles.toggleActive, { backgroundColor: colors.primary }]]}
+            onPress={() => { setOrderMode("pickup"); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.toggleText, { fontFamily: F.bold, color: orderMode === "pickup" ? "#fff" : colors.mutedForeground }]}>
+              استلام من الفرع
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.toggleBtn, orderMode === "delivery" && [styles.toggleActive, { backgroundColor: colors.primary }]]}
+            onPress={() => { setOrderMode("delivery"); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.toggleText, { fontFamily: F.bold, color: orderMode === "delivery" ? "#fff" : colors.mutedForeground }]}>
+              توصيل
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Row 3: Location card */}
         <TouchableOpacity
-          activeOpacity={1}
-          onPress={() => searchRef.current?.focus()}
-          style={[styles.searchBar, { backgroundColor: colors.card, borderColor: colors.border }]}
+          style={[styles.locationCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+          onPress={handleLocationPress}
+          activeOpacity={0.8}
         >
-          <Feather name="search" size={18} color={colors.mutedForeground} style={{ marginLeft: 10 }} />
+          <Feather name="chevron-left" size={18} color={colors.mutedForeground} />
+          <View style={styles.locationTextBlock}>
+            <Text style={[styles.locationLabel, { color: colors.gold, fontFamily: F.bold }]}>
+              {locationLabel}
+            </Text>
+            <Text
+              style={[styles.locationValue, { color: colors.foreground, fontFamily: F.regular }]}
+              numberOfLines={1}
+            >
+              {locationText}
+            </Text>
+          </View>
+          <View style={[styles.locationDot, { backgroundColor: colors.primary }]}>
+            <Feather name="map-pin" size={15} color="#fff" />
+          </View>
+        </TouchableOpacity>
+
+        {/* Row 4: Search bar */}
+        <View style={[styles.searchBar, { backgroundColor: colors.card, borderColor: search ? colors.gold : colors.border }]}>
+          <Feather name="search" size={16} color={colors.mutedForeground} style={{ marginLeft: 10 }} />
           <TextInput
             ref={searchRef}
             value={search}
@@ -123,25 +197,21 @@ export default function HomeScreen() {
           />
           {search.length > 0 && (
             <TouchableOpacity onPress={() => setSearch("")} style={{ paddingHorizontal: 10 }}>
-              <Feather name="x" size={16} color={colors.mutedForeground} />
+              <Feather name="x" size={15} color={colors.mutedForeground} />
             </TouchableOpacity>
           )}
-        </TouchableOpacity>
+        </View>
       </View>
 
+      {/* ── SCROLLABLE CONTENT ── */}
       <ScrollView
-        contentContainerStyle={{
-          paddingBottom: insets.bottom + 90,
-          paddingHorizontal: 16,
-          paddingTop: 16,
-          gap: 24,
-        }}
-        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{ paddingBottom: insets.bottom + 90 }}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
-        {/* Search Results */}
-        {search.trim().length > 0 && (
-          <View style={{ gap: 8 }}>
+        {/* ── SEARCH RESULTS ── */}
+        {search.trim().length > 0 ? (
+          <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text style={[styles.sectionCount, { color: colors.mutedForeground, fontFamily: F.regular }]}>
                 {searchResults.length} نتيجة
@@ -152,114 +222,53 @@ export default function HomeScreen() {
             </View>
             {searchResults.length === 0 ? (
               <View style={[styles.emptyBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <Text style={{ fontSize: 36 }}>🔍</Text>
+                <Text style={{ fontSize: 40 }}>🔍</Text>
                 <Text style={[styles.emptyText, { color: colors.mutedForeground, fontFamily: F.regular }]}>
                   لا توجد نتائج لـ "{search}"
                 </Text>
               </View>
             ) : (
-              searchResults.map((item) => (
-                <MenuItemCard key={item.id} item={item} />
-              ))
+              searchResults.map((item) => <MenuItemCard key={item.id} item={item} />)
             )}
           </View>
-        )}
-
-        {/* Favorites Section */}
-        {search.trim().length === 0 && (
-          <View style={{ gap: 10 }}>
-            <View style={styles.sectionHeader}>
-              <Feather name="heart" size={14} color="#C8171A" />
-              <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: F.bold }]}>
-                المفضلة
-              </Text>
-            </View>
-
-            {favoriteItems.length === 0 ? (
-              <View style={[styles.emptyBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <Text style={{ fontSize: 36 }}>🤍</Text>
-                <Text style={[styles.emptyText, { color: colors.mutedForeground, fontFamily: F.regular }]}>
-                  لم تُضف أي صنف للمفضلة بعد
-                </Text>
-                <Text style={[styles.emptyHint, { color: colors.mutedForeground, fontFamily: F.regular }]}>
-                  اضغط على ♡ في أي صنف لحفظه هنا
-                </Text>
+        ) : (
+          <>
+            {/* ── BANNERS ── */}
+            {banners.filter((b) => b.active).length > 0 && (
+              <View style={{ paddingTop: 16, paddingHorizontal: 16 }}>
+                <BannerCarousel banners={banners} />
               </View>
-            ) : (
-              favoriteItems.map((item) => (
-                <MenuItemCard key={item.id} item={item} />
-              ))
             )}
-          </View>
-        )}
 
-        {/* Location Section */}
-        {search.trim().length === 0 && (
-          <View style={{ gap: 10 }}>
-            <View style={styles.sectionHeader}>
-              <Feather name="map-pin" size={14} color={colors.gold} />
-              <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: F.bold }]}>
-                الموقع
-              </Text>
-            </View>
-
-            {/* My Saved Address */}
-            {user?.address && (
-              <TouchableOpacity
-                onPress={() => router.push("/onboarding")}
-                style={[styles.locationCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-                activeOpacity={0.8}
-              >
-                <Feather name="chevron-left" size={18} color={colors.mutedForeground} />
-                <View style={styles.locationTextBlock}>
-                  <Text style={[styles.locationLabel, { color: colors.gold, fontFamily: F.bold }]}>
-                    عنواني
-                  </Text>
-                  <Text style={[styles.locationValue, { color: colors.foreground, fontFamily: F.regular }]} numberOfLines={2}>
-                    {user.address}
+            {/* ── FAVORITES ── */}
+            {favoriteItems.length > 0 && (
+              <View style={styles.section}>
+                <View style={styles.sectionHeader}>
+                  <Feather name="heart" size={14} color="#C8171A" />
+                  <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: F.bold }]}>
+                    المفضلة
                   </Text>
                 </View>
-                <View style={[styles.locationDot, { backgroundColor: colors.gold }]}>
-                  <Feather name="map-pin" size={14} color="#fff" />
-                </View>
-              </TouchableOpacity>
+                {favoriteItems.map((item) => <MenuItemCard key={item.id} item={item} />)}
+              </View>
             )}
 
-            {/* Restaurant Location */}
-            <TouchableOpacity
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                Linking.openURL(RESTAURANT_LOCATION_URL);
-              }}
-              style={[styles.locationCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-              activeOpacity={0.8}
-            >
-              <Feather name="chevron-left" size={18} color={colors.mutedForeground} />
-              <View style={styles.locationTextBlock}>
-                <Text style={[styles.locationLabel, { color: "#C8171A", fontFamily: F.bold }]}>
-                  موقع المطعم
-                </Text>
-                <Text style={[styles.locationValue, { color: colors.foreground, fontFamily: F.regular }]}>
-                  تبوك — حي الروضة
-                </Text>
+            {/* ── ALL CATEGORIES ── */}
+            {regularCats.map((cat) => (
+              <View key={cat.id} style={styles.section}>
+                <View style={styles.sectionHeader}>
+                  <Text style={{ fontSize: 18 }}>{cat.icon}</Text>
+                  <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: F.bold }]}>
+                    {cat.name}
+                  </Text>
+                  <Text style={[styles.sectionCount, { color: colors.mutedForeground, fontFamily: F.regular }]}>
+                    {cat.items.length} صنف
+                  </Text>
+                </View>
+                {cat.items.map((item) => <MenuItemCard key={item.id} item={item} />)}
               </View>
-              <View style={[styles.locationDot, { backgroundColor: "#C8171A" }]}>
-                <Feather name="map-pin" size={14} color="#fff" />
-              </View>
-            </TouchableOpacity>
-
-            {/* Change My Address */}
-            <TouchableOpacity
-              onPress={() => router.push("/onboarding")}
-              style={[styles.changeAddressBtn, { borderColor: colors.gold }]}
-              activeOpacity={0.8}
-            >
-              <Feather name="edit-2" size={14} color={colors.gold} />
-              <Text style={[styles.changeAddressText, { color: colors.gold, fontFamily: F.bold }]}>
-                {user?.address ? "تغيير عنواني" : "أضف عنوانك"}
-              </Text>
-            </TouchableOpacity>
-          </View>
+            ))}
+          </>
         )}
       </ScrollView>
 
@@ -269,118 +278,147 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  root: { flex: 1 },
   header: {
     paddingHorizontal: 16,
     paddingBottom: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    gap: 12,
+    gap: 10,
   },
-  headerRow: {
+  topRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
+  iconsLeft: {
+    flexDirection: "row",
+    gap: 8,
+  },
   iconBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     alignItems: "center",
     justifyContent: "center",
+  },
+  favBadge: {
+    position: "absolute",
+    top: -2,
+    right: -2,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  favBadgeText: {
+    color: "#fff",
+    fontSize: 9,
+    fontFamily: "Cairo_700Bold",
   },
   greetBlock: {
     alignItems: "flex-end",
     gap: 1,
   },
   greetName: {
-    fontSize: 18,
+    fontSize: 17,
   },
   greetSub: {
     fontSize: 13,
   },
-  searchBar: {
+  toggleWrap: {
     flexDirection: "row",
-    alignItems: "center",
-    borderRadius: 14,
+    borderRadius: 30,
     borderWidth: 1,
+    overflow: "hidden",
     height: 48,
   },
-  searchInput: {
+  toggleBtn: {
     flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 28,
+    margin: 3,
+  },
+  toggleActive: {
+    shadowColor: "#C8171A",
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+  toggleText: {
     fontSize: 15,
-    paddingVertical: 0,
-    paddingHorizontal: 8,
-    textAlignVertical: "center",
-  },
-  sectionHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "flex-end",
-    gap: 6,
-  },
-  sectionTitle: {
-    fontSize: 16,
-  },
-  sectionCount: {
-    fontSize: 12,
-    marginLeft: "auto",
-  },
-  emptyBox: {
-    borderRadius: 16,
-    borderWidth: 1,
-    alignItems: "center",
-    paddingVertical: 32,
-    gap: 8,
-  },
-  emptyText: {
-    fontSize: 14,
-    textAlign: "center",
-  },
-  emptyHint: {
-    fontSize: 12,
-    textAlign: "center",
-    opacity: 0.7,
   },
   locationCard: {
     flexDirection: "row",
     alignItems: "center",
     borderRadius: 16,
     borderWidth: 1,
-    padding: 16,
-    gap: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    gap: 10,
   },
   locationTextBlock: {
     flex: 1,
     alignItems: "flex-end",
-    gap: 3,
+    gap: 2,
   },
   locationLabel: {
-    fontSize: 13,
+    fontSize: 12,
   },
   locationValue: {
     fontSize: 14,
     textAlign: "right",
-    lineHeight: 22,
   },
   locationDot: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     alignItems: "center",
     justifyContent: "center",
   },
-  changeAddressBtn: {
+  searchBar: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 12,
-    borderWidth: 1.5,
-    paddingVertical: 12,
-    gap: 8,
+    borderRadius: 14,
+    borderWidth: 1,
+    height: 44,
   },
-  changeAddressText: {
+  searchInput: {
+    flex: 1,
     fontSize: 14,
+    paddingVertical: 0,
+    paddingHorizontal: 8,
+  },
+  section: {
+    paddingHorizontal: 16,
+    paddingTop: 18,
+    gap: 10,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: 6,
+    marginBottom: 2,
+  },
+  sectionTitle: {
+    fontSize: 16,
+  },
+  sectionCount: {
+    fontSize: 12,
+    marginRight: "auto",
+  },
+  emptyBox: {
+    borderRadius: 16,
+    borderWidth: 1,
+    alignItems: "center",
+    paddingVertical: 36,
+    gap: 10,
+  },
+  emptyText: {
+    fontSize: 14,
+    textAlign: "center",
   },
 });
