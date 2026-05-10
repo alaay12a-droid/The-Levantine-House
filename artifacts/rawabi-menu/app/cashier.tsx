@@ -1512,7 +1512,8 @@ export default function CashierScreen() {
         >
           {filtered.map((order) => {
             const nextStatus = STATUS_NEXT[order.status];
-            const isDelivery = driversEnabled && (!!order.customerAddress || order.notes?.includes("توصيل"));
+            const isPickup   = !!order.notes?.includes("استلام من الفرع");
+            const isDelivery = !isPickup && driversEnabled && (!!order.customerAddress || order.notes?.includes("توصيل"));
             const assignmentRow = assignments[order.id];
             const hasAssignedDriver = order.status === "ready" && assignmentRow?.status === "assigned";
             const driverPickedUp = assignmentRow?.status === "picked_up";
@@ -1617,6 +1618,18 @@ export default function CashierScreen() {
                     activeOpacity={0.8}
                   >
                     <Text style={[styles.actionBtnText, { fontFamily: F.bold }]}>{nextLabel}</Text>
+                  </TouchableOpacity>
+                )}
+
+                {/* ── زر تسليم مباشر للاستلام من الفرع ── */}
+                {order.status === "ready" && isPickup && (
+                  <TouchableOpacity
+                    onPress={() => handleUpdateStatus(order, "done")}
+                    style={[styles.actionBtn, { backgroundColor: "#0D1F35", borderWidth: 1.5, borderColor: "#82B1FF", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }]}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={{ fontSize: 18 }}>🏪</Text>
+                    <Text style={[styles.actionBtnText, { fontFamily: F.bold, color: "#82B1FF" }]}>✅ تم تسليم الطلب للعميل</Text>
                   </TouchableOpacity>
                 )}
 
