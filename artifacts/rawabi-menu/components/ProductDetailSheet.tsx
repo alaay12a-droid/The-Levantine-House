@@ -21,11 +21,6 @@ const F = {
   extra: "Cairo_800ExtraBold",
 };
 
-const SIZE_OPTIONS: { label: string; icon: string }[] = [
-  { label: "نصف", icon: "½" },
-  { label: "حبة كاملة", icon: "1" },
-];
-
 const RICE_OPTIONS: { label: string; extra: number }[] = [
   { label: "أرز بشاور أبيض", extra: 1 },
   { label: "أرز مندي", extra: 1 },
@@ -46,6 +41,28 @@ function itemNeedsCustomization(item: MenuItem): boolean {
   return true;
 }
 
+interface ChickenSizes {
+  halfPrice: number;
+  wholePrice: number;
+  defaultIdx: number;
+}
+
+function getChickenSizes(item: MenuItem): ChickenSizes | null {
+  if (item.category !== "chicken") return null;
+  if (item.name.startsWith("رز ")) return null;
+
+  const isHalf = item.name.includes("نص") || item.name.includes("نصف");
+  const isWhole = item.name.includes("كامل");
+
+  if (isHalf) {
+    return { halfPrice: item.price, wholePrice: item.price * 2, defaultIdx: 0 };
+  }
+  if (isWhole) {
+    return { halfPrice: item.price / 2, wholePrice: item.price, defaultIdx: 1 };
+  }
+  return null;
+}
+
 interface Props {
   item: (MenuItem & { available?: boolean; nameEn?: string; descriptionEn?: string }) | null;
   visible: boolean;
@@ -62,11 +79,12 @@ export function ProductDetailSheet({ item, visible, onClose }: Props) {
   const [addonIdx, setAddonIdx] = useState(0);
 
   useEffect(() => {
-    if (visible) {
+    if (visible && item) {
       setQty(1);
-      setSizeIdx(0);
       setRiceIdx(0);
       setAddonIdx(0);
+      const sizes = getChickenSizes(item);
+      setSizeIdx(sizes?.defaultIdx ?? 0);
     }
   }, [visible, item?.id]);
 
@@ -79,23 +97,44 @@ export function ProductDetailSheet({ item, visible, onClose }: Props) {
   const showCustomization = itemNeedsCustomization(item);
   const selectedRice = showCustomization ? RICE_OPTIONS[riceIdx] : null;
   const selectedAddon = showCustomization ? ADDON_OPTIONS[addonIdx] : null;
-  const extraPrice = (selectedRice?.extra ?? 0) + (selectedAddon?.extra ?? 0);
-  const unitPrice = item.price + extraPrice;
+
+  const sizes = getChickenSizes(item);
+  const showSizeSelector = sizes !== null;
+
+  const baseSizePrice = showSizeSelector
+    ? (sizeIdx === 0 ? sizes!.halfPrice : sizes!.wholePrice)
+    : item.price;
+
+  const riceExtra = selectedRice?.extra ?? 0;
+  const addonExtra = selectedAddon?.extra ?? 0;
+  const extraPrice = riceExtra + addonExtra;
+  const unitPrice = baseSizePrice + extraPrice;
   const totalPrice = unitPrice * qty;
   const priceStr = (v: number) => v % 1 === 0 ? v.toString() : v.toFixed(1);
 
-  const selectedSize = showCustomization ? SIZE_OPTIONS[sizeIdx] : null;
-
   const handleAdd = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    const customization: CartCustomization | undefined = showCustomization
-      ? {
-          size: selectedSize?.label,
-          riceType: selectedRice?.label,
-          addon: selectedAddon?.label,
-          extraPrice,
-        }
+
+    const sizeLabel = showSizeSelector
+      ? (sizeIdx === 0 ? "نصف" : "حبة كاملة")
       : undefined;
+
+    const sizeExtraPrice = showSizeSelector
+      ? baseSizePrice - item.price
+      : 0;
+
+    const totalExtra = sizeExtraPrice + extraPrice;
+
+    const customization: CartCustomization | undefined =
+      (showSizeSelector || showCustomization)
+        ? {
+            size: sizeLabel,
+            riceType: selectedRice?.label,
+            addon: selectedAddon?.label,
+            extraPrice: totalExtra,
+          }
+        : undefined;
+
     addItem(item, qty, customization);
     onClose();
   };
@@ -121,14 +160,13 @@ export function ProductDetailSheet({ item, visible, onClose }: Props) {
                 <Text style={{ fontSize: 56 }}>🍽️</Text>
               </View>
             )}
-            {/* Close button over image */}
             <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
               <Feather name="x" size={18} color="#fff" />
             </TouchableOpacity>
           </View>
 
           <ScrollView
-            contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 18, paddingBottom: 120, gap: 16 }}
+            contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 18, paddingBottom: 130, gap: 18 }}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
@@ -144,12 +182,15 @@ export function ProductDetailSheet({ item, visible, onClose }: Props) {
               ) : null}
             </View>
 
-            {/* ── Size ── */}
-            {showCustomization && (
+            {/* ── Size Selector (Chicken only, with price) ── */}
+            {showSizeSelector && (
               <View style={{ gap: 10 }}>
                 <Text style={[styles.sectionTitle, { color: colors.foreground }]}>الحجم</Text>
                 <View style={{ flexDirection: "row", gap: 10 }}>
-                  {SIZE_OPTIONS.map((opt, i) => {
+                  {([
+                    { label: "نصف", icon: "½", price: sizes!.halfPrice },
+                    { label: "حبة كاملة", icon: "1", price: sizes!.wholePrice },
+                  ] as const).map((opt, i) => {
                     const active = sizeIdx === i;
                     return (
                       <TouchableOpacity
@@ -165,11 +206,14 @@ export function ProductDetailSheet({ item, visible, onClose }: Props) {
                         ]}
                         activeOpacity={0.8}
                       >
-                        <Text style={{ color: active ? "#fff" : colors.mutedForeground, fontFamily: F.extra, fontSize: 20 }}>
+                        <Text style={{ color: active ? "#fff" : colors.mutedForeground, fontFamily: F.extra, fontSize: 22 }}>
                           {opt.icon}
                         </Text>
                         <Text style={{ color: active ? "#fff" : colors.foreground, fontFamily: active ? F.bold : F.regular, fontSize: 14 }}>
                           {opt.label}
+                        </Text>
+                        <Text style={{ color: active ? "#ffee99" : colors.gold, fontFamily: F.bold, fontSize: 13 }}>
+                          {priceStr(opt.price)} ر.س
                         </Text>
                       </TouchableOpacity>
                     );
@@ -189,7 +233,6 @@ export function ProductDetailSheet({ item, visible, onClose }: Props) {
                     style={styles.optionRow}
                     activeOpacity={0.7}
                   >
-                    {/* Radio circle */}
                     <View style={[
                       styles.radio,
                       { borderColor: riceIdx === i ? "#E8920C" : colors.border },
@@ -199,11 +242,9 @@ export function ProductDetailSheet({ item, visible, onClose }: Props) {
                         <View style={[styles.radioDot, { backgroundColor: "#E8920C" }]} />
                       )}
                     </View>
-                    {/* Label */}
                     <Text style={{ flex: 1, color: colors.foreground, fontFamily: riceIdx === i ? F.bold : F.regular, fontSize: 15, textAlign: "right" }}>
                       {opt.label}
                     </Text>
-                    {/* Extra price */}
                     <View style={styles.extraBadge}>
                       <Text style={{ color: "#E8920C", fontFamily: F.bold, fontSize: 12 }}>
                         {opt.extra === 0 ? "₩ 0" : `+ ${opt.extra} ₩`}
@@ -250,7 +291,6 @@ export function ProductDetailSheet({ item, visible, onClose }: Props) {
 
           {/* ── Fixed Footer: Qty + Add ── */}
           <View style={[styles.footer, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
-            {/* Quantity */}
             <View style={styles.qtyRow}>
               <TouchableOpacity
                 onPress={() => { if (qty < 99) { setQty(qty + 1); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); } }}
@@ -269,7 +309,6 @@ export function ProductDetailSheet({ item, visible, onClose }: Props) {
               </TouchableOpacity>
             </View>
 
-            {/* Add button */}
             <TouchableOpacity
               onPress={handleAdd}
               style={[styles.addBtn, { backgroundColor: "#C8171A" }]}
@@ -278,7 +317,7 @@ export function ProductDetailSheet({ item, visible, onClose }: Props) {
               <Text style={{ color: "#fff", fontFamily: F.extra, fontSize: 17 }}>
                 {priceStr(totalPrice)} ر.س
               </Text>
-              <Text style={{ color: "#fff99A", fontFamily: F.bold, fontSize: 14 }}>إضافة</Text>
+              <Text style={{ color: "#ffee99", fontFamily: F.bold, fontSize: 14 }}>إضافة للسلة</Text>
             </TouchableOpacity>
           </View>
         </View>
