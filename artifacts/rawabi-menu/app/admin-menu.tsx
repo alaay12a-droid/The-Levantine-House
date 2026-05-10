@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -33,6 +33,28 @@ import { useCombos, type ApiCombo, type ComboComponent } from "@/hooks/useCombos
 import { apiGet, apiPost, apiPut, apiDelete, API_BASE } from "@/constants/api";
 import { invalidateAppTextsCache, DEFAULT_TEXTS } from "@/hooks/useAppTexts";
 import { useMusic, PRESET_MUSIC } from "@/context/MusicContext";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import {
+  OCCASION_KEY,
+  OCCASION_THEMES,
+  OCCASION_LIST,
+  detectCurrentOccasion,
+  type OccasionId,
+} from "@/constants/occasions";
+import { SOUND_CHOICES, SOUND_KEYS, type SoundOption } from "@/constants/appSounds";
+import { useAppSound } from "@/hooks/useAppSound";
+
+const LOGO_BG_KEY = "rawabi_logo_bg";
+const LOGO_BG_COLORS = [
+  { label: "بني داكن",  value: "#1F130A" },
+  { label: "بني",       value: "#3D2010" },
+  { label: "كريمي",     value: "#F5EDD8" },
+  { label: "أبيض",      value: "#FFFFFF" },
+  { label: "أسود",      value: "#000000" },
+  { label: "أحمر",      value: "#C8171A" },
+  { label: "ذهبي",      value: "#E8920C" },
+  { label: "شفاف",      value: "transparent" },
+];
 
 const F = {
   regular: "Cairo_400Regular",
@@ -311,7 +333,52 @@ export default function AdminMenuScreen() {
   const { data: revenueData, loading: revenueLoading, refresh: refreshRevenue } = useRevenue();
   const [revenueView, setRevenueView] = useState<"daily" | "monthly" | "yearly" | "items">("daily");
   const [revenuePeriod, setRevenuePeriod] = useState<"today" | "week" | "month" | "year">("month");
-  const [settingsSection, setSettingsSection] = useState<"hours" | "payment" | "discounts" | "wallets" | "sms" | "security" | "appearance" | "ratings" | "drivers" | "texts" | "music">("hours");
+  const [settingsSection, setSettingsSection] = useState<"hours" | "payment" | "discounts" | "wallets" | "sms" | "security" | "appearance" | "ratings" | "drivers" | "texts" | "music" | "occasions" | "logobg" | "sounds">("hours");
+
+  // ─── Logo background ──────────────────────────────────────
+  const [logoBg, setLogoBg] = useState("#1F130A");
+  useEffect(() => {
+    AsyncStorage.getItem(LOGO_BG_KEY).then(v => { if (v) setLogoBg(v); });
+  }, []);
+  const changeLogoBg = useCallback(async (color: string) => {
+    setLogoBg(color);
+    await AsyncStorage.setItem(LOGO_BG_KEY, color);
+  }, []);
+
+  // ─── Occasions ────────────────────────────────────────────
+  const [occasionSetting, setOccasionSetting] = useState<"auto" | OccasionId>("auto");
+  useEffect(() => {
+    AsyncStorage.getItem(OCCASION_KEY).then(v => {
+      setOccasionSetting((v as "auto" | OccasionId) ?? "auto");
+    });
+  }, []);
+  const changeOccasion = useCallback(async (val: "auto" | OccasionId) => {
+    setOccasionSetting(val);
+    await AsyncStorage.setItem(OCCASION_KEY, val);
+  }, []);
+
+  // ─── Sound settings ───────────────────────────────────────
+  const { previewSound } = useAppSound();
+  const [soundMuted, setSoundMuted] = useState(false);
+  const [soundOrder, setSoundOrder] = useState<SoundOption>("default");
+  const [soundMessage, setSoundMessage] = useState<SoundOption>("default");
+  const [soundDelivery, setSoundDelivery] = useState<SoundOption>("default");
+  useEffect(() => {
+    Promise.all([
+      AsyncStorage.getItem(SOUND_KEYS.muted),
+      AsyncStorage.getItem(SOUND_KEYS.order),
+      AsyncStorage.getItem(SOUND_KEYS.message),
+      AsyncStorage.getItem(SOUND_KEYS.delivery),
+    ]).then(([m, o, msg, d]) => {
+      if (m) setSoundMuted(m === "true");
+      if (o) setSoundOrder(o as SoundOption);
+      if (msg) setSoundMessage(msg as SoundOption);
+      if (d) setSoundDelivery(d as SoundOption);
+    });
+  }, []);
+  const setSoundPref = useCallback(async (key: string, val: SoundOption | boolean) => {
+    await AsyncStorage.setItem(key, String(val));
+  }, []);
 
   // ─── Music ────────────────────────────────────────────────
   const {
@@ -1525,6 +1592,9 @@ export default function AdminMenuScreen() {
               { key: "sms",        icon: "message-square", label: "الرسائل" },
               { key: "security",   icon: "lock",        label: "الأمان"     },
               { key: "appearance", icon: "sliders",     label: "المظهر"     },
+              { key: "occasions",  icon: "calendar",    label: "المناسبات"  },
+              { key: "logobg",     icon: "image",       label: "الشعار"     },
+              { key: "sounds",     icon: "volume-2",    label: "الأصوات"    },
               { key: "texts",      icon: "edit-2",      label: "النصوص"     },
               { key: "music",      icon: "music",       label: "الموسيقى"   },
             ] as const).map(({ key, icon, label }) => {
@@ -3070,6 +3140,235 @@ export default function AdminMenuScreen() {
           >
             <Text style={{ color: colors.mutedForeground, fontFamily: F.bold, fontSize: 13 }}>🔄 استعادة المقاطع الافتراضية</Text>
           </TouchableOpacity>
+
+          </>)}
+
+          {/* ══════════════════ OCCASIONS ══════════════════ */}
+          {settingsSection === "occasions" && (<>
+
+          <Text style={{ color: colors.gold, fontFamily: F.extra, fontSize: 16, textAlign: "right" }}>
+            🎉 المناسبات والأجواء
+          </Text>
+
+          {/* Auto */}
+          <TouchableOpacity
+            onPress={() => changeOccasion("auto")}
+            style={{
+              flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between",
+              paddingHorizontal: 14, paddingVertical: 13, borderRadius: 12,
+              borderWidth: 1.5,
+              backgroundColor: occasionSetting === "auto" ? "#1A2A0A" : colors.card,
+              borderColor: occasionSetting === "auto" ? "#4CAF50" : colors.border,
+            }}
+            activeOpacity={0.8}
+          >
+            <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
+              <Text style={{ fontSize: 20 }}>🗓️</Text>
+              <View style={{ alignItems: "flex-end" }}>
+                <Text style={{ color: occasionSetting === "auto" ? "#4CAF50" : colors.foreground, fontFamily: F.bold, fontSize: 14 }}>
+                  تلقائي (بحسب التاريخ)
+                </Text>
+                <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }}>
+                  {(() => {
+                    const auto = detectCurrentOccasion();
+                    return auto === "none" ? "لا توجد مناسبة حالياً" : `المكتشف: ${OCCASION_THEMES[auto].name}`;
+                  })()}
+                </Text>
+              </View>
+            </View>
+            {occasionSetting === "auto" && <Feather name="check-circle" size={18} color="#4CAF50" />}
+          </TouchableOpacity>
+
+          {/* None */}
+          <TouchableOpacity
+            onPress={() => changeOccasion("none")}
+            style={{
+              flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between",
+              paddingHorizontal: 14, paddingVertical: 13, borderRadius: 12,
+              borderWidth: 1.5,
+              backgroundColor: occasionSetting === "none" ? "#2A1A1A" : colors.card,
+              borderColor: occasionSetting === "none" ? "#E57373" : colors.border,
+            }}
+            activeOpacity={0.8}
+          >
+            <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
+              <Text style={{ fontSize: 20 }}>🚫</Text>
+              <Text style={{ color: occasionSetting === "none" ? "#E57373" : colors.foreground, fontFamily: F.bold, fontSize: 14 }}>
+                بدون مناسبة
+              </Text>
+            </View>
+            {occasionSetting === "none" && <Feather name="check-circle" size={18} color="#E57373" />}
+          </TouchableOpacity>
+
+          {/* Occasion list */}
+          {OCCASION_LIST.map(occ => {
+            const selected = occasionSetting === occ.id;
+            return (
+              <TouchableOpacity
+                key={occ.id}
+                onPress={() => changeOccasion(occ.id)}
+                style={{
+                  flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between",
+                  paddingHorizontal: 14, paddingVertical: 13, borderRadius: 12,
+                  borderWidth: 1.5,
+                  backgroundColor: selected ? occ.bg + "EE" : colors.card,
+                  borderColor: selected ? occ.textColor + "88" : colors.border,
+                }}
+                activeOpacity={0.8}
+              >
+                <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8, flex: 1 }}>
+                  <Text style={{ fontSize: 22 }}>{occ.emoji}</Text>
+                  <View style={{ alignItems: "flex-end", flex: 1 }}>
+                    <Text style={{ color: selected ? occ.textColor : colors.foreground, fontFamily: F.bold, fontSize: 14 }}>
+                      {occ.name}
+                    </Text>
+                    <Text style={{ color: selected ? occ.subColor : colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }} numberOfLines={1}>
+                      {occ.greeting}
+                    </Text>
+                    {selected && <Text style={{ fontSize: 13, marginTop: 4 }}>{occ.decorRow}</Text>}
+                  </View>
+                </View>
+                {selected && <Feather name="check-circle" size={18} color={occ.textColor} />}
+              </TouchableOpacity>
+            );
+          })}
+
+          </>)}
+
+          {/* ══════════════════ LOGO BG ══════════════════ */}
+          {settingsSection === "logobg" && (<>
+
+          <Text style={{ color: colors.gold, fontFamily: F.extra, fontSize: 16, textAlign: "right" }}>
+            🎨 خلفية شعار المطعم
+          </Text>
+
+          {/* Live preview */}
+          <View style={{ backgroundColor: colors.card, borderRadius: 14, borderWidth: 1, borderColor: colors.border, padding: 16, alignItems: "center", gap: 10 }}>
+            <Text style={{ color: colors.mutedForeground, fontFamily: F.bold, fontSize: 13 }}>معاينة مباشرة</Text>
+            <Image
+              source={require("@/assets/images/logo.png")}
+              style={{ width: 90, height: 90, borderRadius: 45, backgroundColor: logoBg as any }}
+              resizeMode="contain"
+            />
+          </View>
+
+          {/* Color grid */}
+          <View style={{ flexDirection: "row-reverse", flexWrap: "wrap", gap: 14, justifyContent: "flex-start" }}>
+            {LOGO_BG_COLORS.map(c => {
+              const selected = logoBg === c.value;
+              return (
+                <TouchableOpacity
+                  key={c.value}
+                  onPress={() => changeLogoBg(c.value)}
+                  style={{ alignItems: "center", gap: 6 }}
+                  activeOpacity={0.8}
+                >
+                  <View style={{
+                    width: 54, height: 54, borderRadius: 27,
+                    backgroundColor: c.value === "transparent" ? undefined : c.value,
+                    borderWidth: selected ? 3.5 : 1.5,
+                    borderColor: selected ? colors.gold : colors.border,
+                    overflow: "hidden",
+                    alignItems: "center", justifyContent: "center",
+                  }}>
+                    {c.value === "transparent" && <Text style={{ fontSize: 22 }}>🚫</Text>}
+                    {selected && c.value !== "transparent" && (
+                      <Feather name="check" size={22} color={c.value === "#FFFFFF" || c.value === "#F5EDD8" ? "#000" : "#fff"} />
+                    )}
+                  </View>
+                  <Text style={{ color: selected ? colors.gold : colors.mutedForeground, fontFamily: selected ? F.bold : F.regular, fontSize: 12 }}>
+                    {c.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          </>)}
+
+          {/* ══════════════════ SOUNDS ══════════════════ */}
+          {settingsSection === "sounds" && (<>
+
+          <Text style={{ color: colors.gold, fontFamily: F.extra, fontSize: 16, textAlign: "right" }}>
+            🔊 إعدادات الأصوات والتنبيهات
+          </Text>
+
+          {/* Mute toggle */}
+          <View style={{ backgroundColor: colors.card, borderRadius: 14, borderWidth: 1, borderColor: colors.border, padding: 16, flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" }}>
+            <Text style={{ color: colors.foreground, fontFamily: F.bold, fontSize: 14 }}>حالة الصوت</Text>
+            <TouchableOpacity
+              onPress={async () => {
+                const next = !soundMuted;
+                setSoundMuted(next);
+                await AsyncStorage.setItem(SOUND_KEYS.muted, String(next));
+              }}
+              style={{
+                flexDirection: "row-reverse", alignItems: "center", gap: 6,
+                backgroundColor: soundMuted ? "#2A1A1A" : "#0A2A10",
+                borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8,
+                borderWidth: 1, borderColor: soundMuted ? "#E5737340" : "#4CAF5040",
+              }}
+              activeOpacity={0.8}
+            >
+              <Feather name={soundMuted ? "volume-x" : "volume-2"} size={16} color={soundMuted ? "#E57373" : "#4CAF50"} />
+              <Text style={{ color: soundMuted ? "#E57373" : "#4CAF50", fontFamily: F.bold, fontSize: 13 }}>
+                {soundMuted ? "مكتوم" : "مفعّل"}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {soundMuted && (
+            <View style={{ backgroundColor: "#2A1A1A", borderRadius: 12, padding: 12, borderWidth: 1, borderColor: "#E5737340" }}>
+              <Text style={{ color: "#E57373", fontFamily: F.regular, fontSize: 13, textAlign: "right" }}>
+                🔕 جميع أصوات التطبيق مكتومة حالياً
+              </Text>
+            </View>
+          )}
+
+          {(
+            [
+              { label: "🛎️ استلام طلب جديد",   key: SOUND_KEYS.order,    val: soundOrder,    set: setSoundOrder    },
+              { label: "💬 استلام رسالة",        key: SOUND_KEYS.message,  val: soundMessage,  set: setSoundMessage  },
+              { label: "🚗 تسليم الطلب",         key: SOUND_KEYS.delivery, val: soundDelivery, set: setSoundDelivery },
+            ] as { label: string; key: string; val: SoundOption; set: (v: SoundOption) => void }[]
+          ).map(row => (
+            <View key={row.key} style={{ backgroundColor: colors.card, borderRadius: 14, borderWidth: 1, borderColor: colors.border, padding: 16, gap: 10 }}>
+              <Text style={{ color: colors.foreground, fontFamily: F.bold, fontSize: 14, textAlign: "right" }}>
+                {row.label}
+              </Text>
+              <View style={{ flexDirection: "row-reverse", flexWrap: "wrap", gap: 8 }}>
+                {SOUND_CHOICES.map(choice => {
+                  const selected = row.val === choice.id;
+                  return (
+                    <TouchableOpacity
+                      key={choice.id}
+                      onPress={async () => {
+                        row.set(choice.id);
+                        await setSoundPref(row.key, choice.id);
+                        if (choice.id !== "silent") previewSound(choice.id);
+                      }}
+                      style={{
+                        flexDirection: "row-reverse", alignItems: "center", gap: 5,
+                        paddingHorizontal: 14, paddingVertical: 9, borderRadius: 20,
+                        borderWidth: 1.5,
+                        backgroundColor: selected ? colors.gold + "22" : colors.secondary,
+                        borderColor: selected ? colors.gold : colors.border,
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={{ fontSize: 15 }}>{choice.emoji}</Text>
+                      <Text style={{ color: selected ? colors.gold : colors.mutedForeground, fontFamily: selected ? F.bold : F.regular, fontSize: 13 }}>
+                        {choice.name}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+              <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11, textAlign: "right" }}>
+                اضغط على أي نغمة لمعاينتها
+              </Text>
+            </View>
+          ))}
 
           </>)}
 
