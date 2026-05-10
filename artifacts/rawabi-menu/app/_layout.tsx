@@ -63,7 +63,7 @@ function AuthGate() {
     if (!user && !onOnboarding) {
       router.replace("/onboarding");
     } else if (user && onOnboarding) {
-      router.replace("/(tabs)");
+      router.replace("/(tabs)/home");
     }
   }, [user, isLoading, segments]);
 
