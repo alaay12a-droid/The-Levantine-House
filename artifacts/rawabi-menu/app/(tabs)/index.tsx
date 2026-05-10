@@ -40,7 +40,9 @@ import { useBranchStatus } from "@/hooks/useBranchStatus";
 import { useLanguage } from "@/context/LanguageContext";
 import { useFavorites } from "@/hooks/useFavorites";
 import { apiGet } from "@/constants/api";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
+const LOGO_BG_KEY = "rawabi_logo_bg";
 const logo = require("@/assets/images/logo.png");
 const deliveryCar = require("@/assets/images/delivery_car.jpg");
 const dhabihaImg = require("@/assets/images/dhabiha.png");
@@ -70,6 +72,12 @@ export default function MenuScreen() {
   const { favorites } = useFavorites();
   const isEn = language === "en";
   const info = useAppTexts();
+
+  // ── Logo background color (from settings) ──────────────────────────
+  const [logoBg, setLogoBg] = useState("#1F130A");
+  useFocusEffect(useCallback(() => {
+    AsyncStorage.getItem(LOGO_BG_KEY).then(v => { if (v) setLogoBg(v); });
+  }, []));
 
   // ── Secret 3-tap to open staff picker ──────────────────────────────
   const logoTapCount = useRef(0);
@@ -203,7 +211,7 @@ export default function MenuScreen() {
             </Text>
           </View>
 
-          <Image source={logo} style={styles.logo} resizeMode="contain" />
+          <Image source={logo} style={[styles.logo, { backgroundColor: logoBg }]} resizeMode="contain" />
         </Animated.View>
 
         {/* ── CATEGORY TABS ── */}

@@ -27,8 +27,22 @@ import { useUser } from "@/context/UserContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { useTranslation } from "@/hooks/useTranslation";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+
 import { apiGet, apiPost, apiPatch } from "@/constants/api";
 import { useChatUnreadAlert } from "@/hooks/useChatSound";
+
+const LOGO_BG_KEY = "rawabi_logo_bg";
+
+const LOGO_BG_COLORS = [
+  { label: "بني داكن", value: "#1F130A" },
+  { label: "بني", value: "#3D2010" },
+  { label: "كريمي", value: "#F5EDD8" },
+  { label: "أبيض", value: "#FFFFFF" },
+  { label: "أسود", value: "#000000" },
+  { label: "أحمر", value: "#C8171A" },
+  { label: "ذهبي", value: "#E8920C" },
+  { label: "شفاف", value: "transparent" },
+];
 
 const F = {
   regular: "Cairo_400Regular",
@@ -71,6 +85,16 @@ export default function MoreScreen() {
   const [unreadTotal, setUnreadTotal]   = useState(0);
   const chatScrollRef                    = useRef<ScrollView>(null);
   const isEn = language === "en";
+
+  // ─── Logo background color ───────────────────────────────
+  const [logoBg, setLogoBg] = useState("#1F130A");
+  useEffect(() => {
+    AsyncStorage.getItem(LOGO_BG_KEY).then(v => { if (v) setLogoBg(v); });
+  }, []);
+  const changeLogoBg = useCallback(async (color: string) => {
+    setLogoBg(color);
+    await AsyncStorage.setItem(LOGO_BG_KEY, color);
+  }, []);
 
   useChatUnreadAlert(unreadTotal);
 
@@ -255,6 +279,56 @@ export default function MoreScreen() {
             >
               <Text style={[styles.langBtnText, { color: language === "en" ? colors.foreground : colors.mutedForeground, fontFamily: F.bold }]}>EN</Text>
             </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* ── Logo Background Color ── */}
+        <View style={[styles.langCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+            <Text style={[styles.sectionLabel, { color: colors.mutedForeground, fontFamily: F.semi }]}>
+              🎨 خلفية شعار المطعم
+            </Text>
+            {/* Live preview */}
+            <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
+              <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }}>معاينة</Text>
+              <Image
+                source={require("@/assets/images/logo.png")}
+                style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: logoBg }}
+                resizeMode="contain"
+              />
+            </View>
+          </View>
+          <View style={{ flexDirection: "row-reverse", flexWrap: "wrap", gap: 10 }}>
+            {LOGO_BG_COLORS.map(c => {
+              const selected = logoBg === c.value;
+              return (
+                <TouchableOpacity
+                  key={c.value}
+                  onPress={() => changeLogoBg(c.value)}
+                  style={{ alignItems: "center", gap: 4 }}
+                  activeOpacity={0.8}
+                >
+                  <View style={{
+                    width: 44, height: 44, borderRadius: 22,
+                    backgroundColor: c.value === "transparent" ? undefined : c.value,
+                    borderWidth: selected ? 3 : 1.5,
+                    borderColor: selected ? colors.gold : colors.border,
+                    overflow: "hidden",
+                    alignItems: "center", justifyContent: "center",
+                  }}>
+                    {c.value === "transparent" && (
+                      <Text style={{ fontSize: 20 }}>🚫</Text>
+                    )}
+                    {selected && c.value !== "transparent" && (
+                      <Feather name="check" size={18} color={c.value === "#FFFFFF" || c.value === "#F5EDD8" ? "#000" : "#fff"} />
+                    )}
+                  </View>
+                  <Text style={{ color: selected ? colors.gold : colors.mutedForeground, fontFamily: selected ? F.bold : F.regular, fontSize: 11 }}>
+                    {c.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </View>
 
