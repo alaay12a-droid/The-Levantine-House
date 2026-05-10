@@ -37,6 +37,8 @@ import {
   detectCurrentOccasion,
   type OccasionId,
 } from "@/constants/occasions";
+import { SOUND_CHOICES, SOUND_KEYS, type SoundOption } from "@/constants/appSounds";
+import { useAppSound } from "@/hooks/useAppSound";
 
 const LOGO_BG_KEY = "rawabi_logo_bg";
 
@@ -101,6 +103,32 @@ export default function MoreScreen() {
   const changeLogoBg = useCallback(async (color: string) => {
     setLogoBg(color);
     await AsyncStorage.setItem(LOGO_BG_KEY, color);
+  }, []);
+
+  // ─── Sound settings ──────────────────────────────────────
+  const { previewSound } = useAppSound();
+  const [soundMuted, setSoundMuted] = useState(false);
+  const [soundOrder, setSoundOrder] = useState<SoundOption>("default");
+  const [soundMessage, setSoundMessage] = useState<SoundOption>("default");
+  const [soundDelivery, setSoundDelivery] = useState<SoundOption>("default");
+
+  useEffect(() => {
+    Promise.all([
+      AsyncStorage.getItem(SOUND_KEYS.muted),
+      AsyncStorage.getItem(SOUND_KEYS.order),
+      AsyncStorage.getItem(SOUND_KEYS.message),
+      AsyncStorage.getItem(SOUND_KEYS.delivery),
+    ]).then(([m, o, msg, d]) => {
+      if (m) setSoundMuted(m === "true");
+      if (o) setSoundOrder(o as SoundOption);
+      if (msg) setSoundMessage(msg as SoundOption);
+      if (d) setSoundDelivery(d as SoundOption);
+    });
+  }, []);
+
+  const setSoundPref = useCallback(async (key: string, val: SoundOption | boolean) => {
+    const str = String(val);
+    await AsyncStorage.setItem(key, str);
   }, []);
 
   // ─── Seasonal occasion theme ─────────────────────────────
@@ -444,6 +472,89 @@ export default function MoreScreen() {
               );
             })}
           </View>
+        </View>
+
+        {/* ── Sound Settings ── */}
+        <View style={[styles.langCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          {/* Header + mute toggle */}
+          <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+            <Text style={[styles.sectionLabel, { color: colors.mutedForeground, fontFamily: F.semi }]}>
+              🔊 إعدادات الأصوات والتنبيهات
+            </Text>
+            <TouchableOpacity
+              onPress={async () => {
+                const next = !soundMuted;
+                setSoundMuted(next);
+                await AsyncStorage.setItem(SOUND_KEYS.muted, String(next));
+              }}
+              style={{
+                flexDirection: "row-reverse", alignItems: "center", gap: 6,
+                backgroundColor: soundMuted ? "#2A1A1A" : "#0A2A10",
+                borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6,
+                borderWidth: 1, borderColor: soundMuted ? "#E5737340" : "#4CAF5040",
+              }}
+              activeOpacity={0.8}
+            >
+              <Feather name={soundMuted ? "volume-x" : "volume-2"} size={16} color={soundMuted ? "#E57373" : "#4CAF50"} />
+              <Text style={{ color: soundMuted ? "#E57373" : "#4CAF50", fontFamily: F.bold, fontSize: 13 }}>
+                {soundMuted ? "مكتوم" : "مفعّل"}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {soundMuted && (
+            <View style={{ backgroundColor: "#2A1A1A", borderRadius: 10, padding: 12, marginBottom: 14, borderWidth: 1, borderColor: "#E5737340" }}>
+              <Text style={{ color: "#E57373", fontFamily: F.regular, fontSize: 13, textAlign: "right" }}>
+                🔕 جميع أصوات التطبيق مكتومة حالياً
+              </Text>
+            </View>
+          )}
+
+          {/* Sound selector row */}
+          {(
+            [
+              { label: "🛎️ استلام طلب جديد",   key: SOUND_KEYS.order,    val: soundOrder,    set: setSoundOrder    },
+              { label: "💬 استلام رسالة",        key: SOUND_KEYS.message,  val: soundMessage,  set: setSoundMessage  },
+              { label: "🚗 تسليم الطلب",         key: SOUND_KEYS.delivery, val: soundDelivery, set: setSoundDelivery },
+            ] as { label: string; key: string; val: SoundOption; set: (v: SoundOption) => void }[]
+          ).map(row => (
+            <View key={row.key} style={{ marginBottom: 16 }}>
+              <Text style={{ color: colors.foreground, fontFamily: F.bold, fontSize: 13, textAlign: "right", marginBottom: 8 }}>
+                {row.label}
+              </Text>
+              <View style={{ flexDirection: "row-reverse", flexWrap: "wrap", gap: 8 }}>
+                {SOUND_CHOICES.map(choice => {
+                  const selected = row.val === choice.id;
+                  return (
+                    <TouchableOpacity
+                      key={choice.id}
+                      onPress={async () => {
+                        row.set(choice.id);
+                        await setSoundPref(row.key, choice.id);
+                        if (choice.id !== "silent") previewSound(choice.id);
+                      }}
+                      style={{
+                        flexDirection: "row-reverse", alignItems: "center", gap: 5,
+                        paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20,
+                        borderWidth: 1.5,
+                        backgroundColor: selected ? colors.gold + "22" : colors.secondary,
+                        borderColor: selected ? colors.gold : colors.border,
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={{ fontSize: 15 }}>{choice.emoji}</Text>
+                      <Text style={{ color: selected ? colors.gold : colors.mutedForeground, fontFamily: selected ? F.bold : F.regular, fontSize: 12 }}>
+                        {choice.name}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+              <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11, textAlign: "right", marginTop: 4 }}>
+                اضغط على أي نغمة لمعاينتها
+              </Text>
+            </View>
+          ))}
         </View>
 
         {/* Wallet Card */}

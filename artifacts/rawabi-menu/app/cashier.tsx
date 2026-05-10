@@ -26,6 +26,7 @@ import { loadPins, isMasterCode } from "@/hooks/usePins";
 import { useNotifications } from "@/hooks/useNotifications";
 import { apiGet, apiPatch, apiPut, apiPost, apiDelete } from "@/constants/api";
 import { useChatUnreadAlert } from "@/hooks/useChatSound";
+import { useAppSound } from "@/hooks/useAppSound";
 import { type ApiMenuItem } from "@/hooks/useMenu";
 
 const F = {
@@ -551,34 +552,7 @@ export default function CashierScreen() {
   const [hasNewOrder, setHasNewOrder] = useState(false);
   const knownOrderIds = useRef<Set<number>>(new Set());
   const soundEnabled = useRef(false);
-
-  const playNotificationSound = useCallback(() => {
-    try {
-      if (Platform.OS !== "web") return;
-      if (typeof window === "undefined") return;
-      // Play the custom M4A sound file
-      const audio = new (window as any).Audio();
-      audio.src = "/assets/sounds/new_order.mp3";
-      audio.volume = 1.0;
-      audio.play().catch(() => {
-        // Fallback: synthesised chime if file fails
-        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-        if (!AudioCtx) return;
-        const ctx = new AudioCtx();
-        [880, 1108, 1320].forEach((freq, i) => {
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.connect(gain); gain.connect(ctx.destination);
-          osc.type = "sine"; osc.frequency.value = freq;
-          const start = ctx.currentTime + i * 0.18;
-          gain.gain.setValueAtTime(0, start);
-          gain.gain.linearRampToValueAtTime(0.35, start + 0.02);
-          gain.gain.exponentialRampToValueAtTime(0.001, start + 0.28);
-          osc.start(start); osc.stop(start + 0.3);
-        });
-      });
-    } catch { /* silent */ }
-  }, []);
+  const { playOrder: playNotificationSound } = useAppSound();
 
   const customerUrl = Platform.OS === "web"
     ? (typeof window !== "undefined" ? window.location.origin + "/" : "")
@@ -1013,34 +987,23 @@ export default function CashierScreen() {
             <Text style={{ color: "#4CAF50", fontFamily: "Cairo_700Bold", fontSize: 12 }}>مناديب</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            onPress={() => setShowMusicModal(true)}
-            style={[styles.headerActionBtn, {
-              backgroundColor: musicPlaying ? "#0D2A1A" : colors.secondary,
-              borderWidth: 1,
-              borderColor: musicPlaying ? "#4CAF50" : colors.border,
-            }]}
-          >
-            <Feather name={musicPlaying ? "volume-2" : "music"} size={14} color={musicPlaying ? "#81C784" : colors.mutedForeground} />
-            <Text style={{ color: musicPlaying ? "#81C784" : colors.mutedForeground, fontFamily: "Cairo_700Bold", fontSize: 12 }}>
-              {musicPlaying ? "♪ شغّال" : "موسيقى"}
-            </Text>
-          </TouchableOpacity>
         </View>
       </View>
 
       {/* ── Bottom Nav Bar ── */}
       <View style={{ flexDirection: "row-reverse", backgroundColor: "#1A1008", borderBottomWidth: 1, borderBottomColor: colors.border }}>
         {([
-          { key: "orders",  label: "استقبال الطلبات", icon: "clipboard"  as const, color: "#E8920C", badge: pendingCount },
-          { key: "pickup",  label: "تسليم الفرع",     icon: "package"    as const, color: "#82B1FF", badge: pickupPendingCount },
-          { key: "drivers", label: "المناديب",         icon: "truck"      as const, color: "#4CAF50", badge: activeAssignments.length },
-        ]).map(tab => {
+          { key: "orders",  label: "الطلبات",   icon: "clipboard"  as const, color: "#E8920C", badge: pendingCount },
+          { key: "pickup",  label: "الفرع",     icon: "package"    as const, color: "#82B1FF", badge: pickupPendingCount },
+          { key: "drivers", label: "المناديب",  icon: "truck"      as const, color: "#4CAF50", badge: activeAssignments.length },
+          { key: "music",   label: musicPlaying ? "♪ شغّال" : "موسيقى", icon: musicPlaying ? ("volume-2" as const) : ("music" as const), color: "#81C784", badge: 0 },
+        ] as { key: string; label: string; icon: any; color: string; badge: number }[]).map(tab => {
           const active = cashierView === tab.key;
           return (
             <TouchableOpacity
               key={tab.key}
               onPress={() => {
+                if (tab.key === "music") { setShowMusicModal(true); return; }
                 setCashierView(tab.key as "orders" | "drivers" | "pickup");
                 if (tab.key === "drivers") { loadActiveAssignments(); loadAllDeliveries(drvSelectedDate); }
               }}
