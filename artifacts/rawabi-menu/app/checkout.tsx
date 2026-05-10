@@ -312,9 +312,7 @@ export default function CheckoutScreen() {
         deliveryFee,
         paymentMethod,
         notes: [
-          paymentSettings.deliveryEnabled
-            ? (orderType === "delivery" ? "🚗 توصيل" : "🏪 استلام من الفرع")
-            : null,
+          orderType === "delivery" ? "🚗 توصيل" : "🏪 استلام من الفرع",
           paymentMethod === "wallet" ? "💰 محفظة" : null,
           appliedDiscount > 0 ? `🏷️ خصم ${appliedDiscount} ر.س (${appliedCodeLabel})` : null,
           forOtherExpanded && (otherName.trim() || otherPhone.trim())
@@ -447,6 +445,52 @@ export default function CheckoutScreen() {
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: bottomInset + 160 }}>
 
+        {/* ── Delivery / Pickup toggle — always visible ── */}
+        <View style={[styles.listCard, dyn.card, { backgroundColor: colors.card, borderColor: colors.border, padding: 6 }]}>
+          <View style={{ flexDirection: "row", gap: 6 }}>
+            <TouchableOpacity
+              onPress={() => { setOrderType("delivery"); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
+              activeOpacity={0.8}
+              style={[
+                styles.orderTypeBtn,
+                orderType === "delivery" && { backgroundColor: colors.primary, borderColor: colors.primary },
+                orderType !== "delivery" && { backgroundColor: colors.secondary, borderColor: colors.border },
+              ]}
+            >
+              <Text style={{ fontSize: 22 }}>🚗</Text>
+              <Text style={[styles.orderTypeBtnLabel, { color: orderType === "delivery" ? "#fff" : colors.foreground, fontFamily: F.bold }]}>
+                {isEn ? "Delivery" : "توصيل"}
+              </Text>
+              {paymentSettings.deliveryFee > 0 ? (
+                <Text style={{ color: orderType === "delivery" ? "#ffee99" : colors.mutedForeground, fontFamily: F.semi, fontSize: 12 }}>
+                  +{paymentSettings.deliveryFee} {isEn ? "SAR" : "ر.س"}
+                </Text>
+              ) : (
+                <Text style={{ color: orderType === "delivery" ? "#ccffcc" : "#4CAF50", fontFamily: F.semi, fontSize: 12 }}>
+                  {isEn ? "Free" : "مجاني"}
+                </Text>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => { setOrderType("pickup"); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
+              activeOpacity={0.8}
+              style={[
+                styles.orderTypeBtn,
+                orderType === "pickup" && { backgroundColor: "#1A4A1A", borderColor: "#4CAF50" },
+                orderType !== "pickup" && { backgroundColor: colors.secondary, borderColor: colors.border },
+              ]}
+            >
+              <Text style={{ fontSize: 22 }}>🏪</Text>
+              <Text style={[styles.orderTypeBtnLabel, { color: orderType === "pickup" ? "#4CAF50" : colors.foreground, fontFamily: F.bold }]}>
+                {isEn ? "Pickup" : "استلام"}
+              </Text>
+              <Text style={{ color: orderType === "pickup" ? "#90EE90" : "#4CAF50", fontFamily: F.semi, fontSize: 12 }}>
+                {isEn ? "No fee" : "بدون رسوم"}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
         {/* ── Customer info section ── */}
         <View style={[styles.listCard, dyn.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
           {/* Name row */}
@@ -495,70 +539,9 @@ export default function CheckoutScreen() {
           )}
         </View>
 
-        {/* ── Order type (delivery/pickup) ── */}
-        {paymentSettings.deliveryEnabled && (
-          <View style={[styles.listCard, dyn.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <View style={[styles.listRow, dyn.row]}>
-              <View style={styles.typeToggle}>
-                <TouchableOpacity
-                  onPress={() => setOrderType("pickup")}
-                  style={[
-                    styles.typeBtn,
-                    dyn.typ,
-                    {
-                      backgroundColor: orderType === "pickup" ? "#0A2A0A" : colors.secondary,
-                      borderColor: orderType === "pickup" ? "#4CAF50" : colors.border,
-                    },
-                  ]}
-                  activeOpacity={0.8}
-                >
-                  <Text style={{ fontSize: 20 }}>🏪</Text>
-                  <Text style={[styles.typeBtnLabel, { color: orderType === "pickup" ? "#4CAF50" : colors.foreground, fontFamily: F.bold }]}>
-                    {isEn ? "Pickup" : "استلام"}
-                  </Text>
-                  <Text style={[{ color: "#4CAF50", fontFamily: F.semi, fontSize: 11 }]}>
-                    {isEn ? "No fee" : "بدون رسوم"}
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => setOrderType("delivery")}
-                  style={[
-                    styles.typeBtn,
-                    dyn.typ,
-                    {
-                      backgroundColor: orderType === "delivery" ? "#2A1A05" : colors.secondary,
-                      borderColor: orderType === "delivery" ? GOLD : colors.border,
-                    },
-                  ]}
-                  activeOpacity={0.8}
-                >
-                  <Text style={{ fontSize: 20 }}>🚗</Text>
-                  <Text style={[styles.typeBtnLabel, { color: orderType === "delivery" ? GOLD : colors.foreground, fontFamily: F.bold }]}>
-                    {isEn ? "Delivery" : "توصيل"}
-                  </Text>
-                  {paymentSettings.deliveryFee > 0 ? (
-                    <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }}>
-                      +{paymentSettings.deliveryFee} {isEn ? "SAR" : "ر.س"}
-                    </Text>
-                  ) : (
-                    <Text style={{ color: "#4CAF50", fontFamily: F.semi, fontSize: 11 }}>
-                      {isEn ? "Free" : "مجاني"}
-                    </Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-              <View style={styles.rowLeft}>
-                <Feather name="truck" size={16} color={colors.mutedForeground} />
-                <Text style={[styles.rowLabel, dyn.lbl, { color: colors.mutedForeground, fontFamily: F.regular }]}>
-                  {isEn ? "Order Type" : "نوع الطلب"}
-                </Text>
-              </View>
-            </View>
-          </View>
-        )}
 
         {/* ── Location row ── */}
-        {(!paymentSettings.deliveryEnabled || orderType === "delivery") && (
+        {orderType === "delivery" && (
           <View style={[styles.listCard, dyn.card, { backgroundColor: colors.card, borderColor: locationUrl ? "#2A5A2A" : colors.border }]}>
             {locationUrl ? (
               <>
@@ -1174,6 +1157,16 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   typeBtnLabel: { fontSize: 13 },
+
+  orderTypeBtn: {
+    flex: 1,
+    borderRadius: 14,
+    borderWidth: 2,
+    paddingVertical: 14,
+    alignItems: "center",
+    gap: 4,
+  },
+  orderTypeBtnLabel: { fontSize: 15 },
 
   locConfirmed: {
     flexDirection: "row",
