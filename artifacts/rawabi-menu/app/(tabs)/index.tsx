@@ -177,25 +177,25 @@ export default function MenuScreen() {
       <StatusBar barStyle={colors.isLight ? "dark-content" : "light-content"} backgroundColor={colors.background} />
 
       {/* ── HEADER ── */}
-      <View style={[styles.header, { paddingTop: topInset }]}>
+      <View style={[styles.header, { paddingTop: topInset, backgroundColor: colors.card, borderBottomColor: colors.border }]}>
         <Animated.View style={[styles.headerRow, headerTopStyle]}>
           <View style={{ gap: 8 }}>
             <TouchableOpacity
               onPress={handleCall}
-              style={[styles.phoneBtn, { backgroundColor: "#2A1508" }]}
+              style={[styles.phoneBtn, { backgroundColor: colors.isLight ? "#F0E8D8" : "#2A1508" }]}
             >
               <Feather name="phone" size={18} color={colors.gold} />
             </TouchableOpacity>
             <TouchableOpacity
               onPress={handleLogoTap}
-              style={[styles.phoneBtn, { backgroundColor: "#2A1508" }]}
+              style={[styles.phoneBtn, { backgroundColor: colors.isLight ? "#F0E8D8" : "#2A1508" }]}
             >
               <Feather name="monitor" size={16} color={colors.gold} />
             </TouchableOpacity>
           </View>
 
           <View style={styles.titleBlock}>
-            <Text style={[styles.brandName, { fontFamily: F.extra }]}>
+            <Text style={[styles.brandName, { fontFamily: F.extra, color: colors.foreground }]}>
               {isEn ? info.nameEn : info.name}
             </Text>
             <Text style={[styles.tagline, { color: colors.gold, fontFamily: F.semi }]}>
@@ -225,7 +225,7 @@ export default function MenuScreen() {
                   styles.tab,
                   active
                     ? { backgroundColor: colors.primary, borderColor: colors.primary }
-                    : { backgroundColor: "#1A1008", borderColor: "#3A2410" },
+                    : { backgroundColor: colors.isLight ? "#EDE0CE" : "#1A1008", borderColor: colors.isLight ? "#D4C4A8" : "#3A2410" },
                 ]}
               >
                 <Text style={styles.tabIcon}>{cat.icon}</Text>
@@ -465,7 +465,7 @@ export default function MenuScreen() {
             );
           }}
           renderSectionHeader={({ section }) => (
-            <View style={[styles.sectionRow, { backgroundColor: colors.background, borderBottomColor: "#2A1A0A", borderTopColor: "#2A1A0A" }]}>
+            <View style={[styles.sectionRow, { backgroundColor: colors.background, borderBottomColor: colors.border, borderTopColor: colors.border }]}>
               <Text style={[styles.itemCount, { color: colors.mutedForeground, fontFamily: F.semi }]}>
                 {section.count} {isEn ? "items" : "أصناف"}
               </Text>
@@ -549,9 +549,7 @@ export default function MenuScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1 },
   header: {
-    backgroundColor: "#130B04",
     borderBottomWidth: 1,
-    borderBottomColor: "#2A1A0A",
   },
   headerRow: {
     flexDirection: "row",
@@ -572,7 +570,6 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
   },
   brandName: {
-    color: "#FFFFFF",
     fontSize: 24,
     fontWeight: "800",
     textAlign: "right",
@@ -618,7 +615,6 @@ const styles = StyleSheet.create({
     paddingVertical: 13,
     borderBottomWidth: 1,
     borderTopWidth: 1,
-    backgroundColor: "#0F0A05",
   },
   sectionTitle: {
     flexDirection: "row",
