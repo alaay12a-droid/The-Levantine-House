@@ -245,11 +245,13 @@ export function ProductDetailSheet({ item, visible, onClose }: Props) {
                     <Text style={{ flex: 1, color: colors.foreground, fontFamily: riceIdx === i ? F.bold : F.regular, fontSize: 15, textAlign: "right" }}>
                       {opt.label}
                     </Text>
-                    <View style={styles.extraBadge}>
-                      <Text style={{ color: "#E8920C", fontFamily: F.bold, fontSize: 12 }}>
-                        {opt.extra === 0 ? "₩ 0" : `+ ${opt.extra} ₩`}
-                      </Text>
-                    </View>
+                    {opt.extra > 0 && (
+                      <View style={styles.extraBadge}>
+                        <Text style={{ color: "#E8920C", fontFamily: F.bold, fontSize: 12 }}>
+                          + {opt.extra} ر.س
+                        </Text>
+                      </View>
+                    )}
                   </TouchableOpacity>
                 ))}
               </View>
@@ -278,11 +280,13 @@ export function ProductDetailSheet({ item, visible, onClose }: Props) {
                     <Text style={{ flex: 1, color: colors.foreground, fontFamily: addonIdx === i ? F.bold : F.regular, fontSize: 15, textAlign: "right" }}>
                       {opt.label}
                     </Text>
-                    <View style={styles.extraBadge}>
-                      <Text style={{ color: "#E8920C", fontFamily: F.bold, fontSize: 12 }}>
-                        {opt.extra === 0 ? "₩ 0" : `+ ${opt.extra} ₩`}
-                      </Text>
-                    </View>
+                    {opt.extra > 0 && (
+                      <View style={styles.extraBadge}>
+                        <Text style={{ color: "#E8920C", fontFamily: F.bold, fontSize: 12 }}>
+                          + {opt.extra} ر.س
+                        </Text>
+                      </View>
+                    )}
                   </TouchableOpacity>
                 ))}
               </View>
