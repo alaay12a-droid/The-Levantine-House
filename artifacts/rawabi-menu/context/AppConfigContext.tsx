@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { apiGet, apiPut } from "@/constants/api";
 
 const STORAGE_KEY = "@rawabi_app_config_v2";
 
@@ -166,21 +167,39 @@ export function AppConfigProvider({ children }: { children: React.ReactNode }) {
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    AsyncStorage.getItem(STORAGE_KEY)
-      .then((raw) => {
-        if (raw) {
-          const saved = JSON.parse(raw);
-          setConfig({ ...DEFAULT_CONFIG, ...saved });
-        }
-      })
-      .catch(() => {})
-      .finally(() => setLoaded(true));
+    const load = async () => {
+      // 1. Load local config (layout/size prefs stay local)
+      let local: Partial<AppConfig> = {};
+      try {
+        const raw = await AsyncStorage.getItem(STORAGE_KEY);
+        if (raw) local = JSON.parse(raw);
+      } catch {}
+
+      // 2. Load appearance (colors) from server — overrides local for these two keys
+      try {
+        const remote = await apiGet<{ bgTheme: string; accentColor: string }>("/settings/appearance");
+        if (remote.bgTheme)     local.bgTheme     = remote.bgTheme as BgThemeKey;
+        if (remote.accentColor) local.accentColor = remote.accentColor;
+      } catch {}
+
+      setConfig({ ...DEFAULT_CONFIG, ...local });
+      setLoaded(true);
+    };
+    load();
   }, []);
 
   const update = useCallback(async (partial: Partial<AppConfig>) => {
     setConfig((prev) => {
       const next = { ...prev, ...partial };
+      // Save full config locally
       AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next)).catch(() => {});
+      // If color/theme changed, also push to server so all users see it
+      if (partial.bgTheme !== undefined || partial.accentColor !== undefined) {
+        apiPut("/settings/appearance", {
+          bgTheme:     next.bgTheme,
+          accentColor: next.accentColor,
+        }).catch(() => {});
+      }
       return next;
     });
   }, []);
@@ -188,6 +207,10 @@ export function AppConfigProvider({ children }: { children: React.ReactNode }) {
   const reset = useCallback(async () => {
     setConfig(DEFAULT_CONFIG);
     await AsyncStorage.removeItem(STORAGE_KEY).catch(() => {});
+    await apiPut("/settings/appearance", {
+      bgTheme:     DEFAULT_CONFIG.bgTheme,
+      accentColor: DEFAULT_CONFIG.accentColor,
+    }).catch(() => {});
   }, []);
 
   return (

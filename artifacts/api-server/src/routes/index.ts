@@ -18,6 +18,7 @@ import ratingsRouter from "./ratings";
 import driversRouter from "./drivers";
 import textsRouter from "./texts";
 import discountsRouter from "./discounts";
+import appearanceRouter from "./appearance";
 
 const router: IRouter = Router();
 
@@ -40,5 +41,6 @@ router.use(ratingsRouter);
 router.use(driversRouter);
 router.use(textsRouter);
 router.use(discountsRouter);
+router.use(appearanceRouter);
 
 export default router;
