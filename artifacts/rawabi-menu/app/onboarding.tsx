@@ -23,6 +23,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useUser } from "@/context/UserContext";
 import { apiPost } from "@/constants/api";
+import { useColors } from "@/hooks/useColors";
 
 type Country = { dialCode: string; flag: string; name: string; localLength: number; hint: string; };
 const COUNTRIES: Country[] = [
@@ -35,17 +36,6 @@ const COUNTRIES: Country[] = [
   { dialCode: "964", flag: "🇮🇶", name: "العراق",    localLength: 11, hint: "07XXXXXXXXX" },
 ];
 
-const C = {
-  bg: "#0F0A05",
-  surface: "#1A1008",
-  card: "#231508",
-  primary: "#C8171A",
-  gold: "#E8920C",
-  fg: "#F5ECD7",
-  muted: "#8A7560",
-  border: "#2E1F0E",
-  green: "#1DBF47",
-};
 
 const F = {
   regular: "Cairo_400Regular",
@@ -82,6 +72,18 @@ export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { saveUser } = useUser();
+  const cl = useColors();
+  const C = {
+    bg:      cl.background,
+    surface: cl.surface,
+    card:    cl.card,
+    primary: cl.primary,
+    gold:    cl.gold,
+    fg:      cl.foreground,
+    muted:   cl.mutedForeground,
+    border:  cl.border,
+    green:   "#1DBF47",
+  };
 
   const [step, setStep] = useState<Step>("name");
   const [name, setName] = useState("");

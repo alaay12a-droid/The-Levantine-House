@@ -48,7 +48,6 @@ import {
   type OccasionId,
 } from "@/constants/occasions";
 
-const LOGO_BG_KEY = "rawabi_logo_bg";
 const logo = require("@/assets/images/logo.png");
 const deliveryCar = require("@/assets/images/delivery_car.jpg");
 const dhabihaImg = require("@/assets/images/dhabiha.png");
@@ -79,14 +78,10 @@ export default function MenuScreen() {
   const isEn = language === "en";
   const info = useAppTexts();
 
-  // ── Logo background color (from settings) ──────────────────────────
-  const [logoBg, setLogoBg] = useState("#1F130A");
-
   // ── Seasonal occasion theme ──────────────────────────────────────────
   const [occasionId, setOccasionId] = useState<OccasionId>("none");
 
   useFocusEffect(useCallback(() => {
-    AsyncStorage.getItem(LOGO_BG_KEY).then(v => { if (v) setLogoBg(v); });
     AsyncStorage.getItem(OCCASION_KEY).then(v => {
       if (v === "auto" || v === null) {
         setOccasionId(detectCurrentOccasion());
@@ -254,7 +249,7 @@ export default function MenuScreen() {
             </Text>
           </View>
 
-          <Image source={logo} style={[styles.logo, { backgroundColor: logoBg }]} resizeMode="contain" />
+          <Image source={logo} style={[styles.logo, { backgroundColor: colors.logoBg }]} resizeMode="contain" />
         </Animated.View>
 
         {/* ── CATEGORY TABS ── */}

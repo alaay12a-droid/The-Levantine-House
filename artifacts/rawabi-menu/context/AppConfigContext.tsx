@@ -125,6 +125,7 @@ export interface AppConfig {
 
   accentColor: string;
   bgTheme: BgThemeKey;
+  logoBg: string;
 }
 
 export const DEFAULT_CONFIG: AppConfig = {
@@ -146,6 +147,7 @@ export const DEFAULT_CONFIG: AppConfig = {
 
   accentColor: "#E8920C",
   bgTheme: "dark-brown",
+  logoBg: "#1F130A",
 };
 
 interface AppConfigContextValue {
@@ -175,11 +177,12 @@ export function AppConfigProvider({ children }: { children: React.ReactNode }) {
         if (raw) local = JSON.parse(raw);
       } catch {}
 
-      // 2. Load appearance (colors) from server — overrides local for these two keys
+      // 2. Load appearance (colors + logoBg) from server — overrides local for these keys
       try {
-        const remote = await apiGet<{ bgTheme: string; accentColor: string }>("/settings/appearance");
+        const remote = await apiGet<{ bgTheme: string; accentColor: string; logoBg: string }>("/settings/appearance");
         if (remote.bgTheme)     local.bgTheme     = remote.bgTheme as BgThemeKey;
         if (remote.accentColor) local.accentColor = remote.accentColor;
+        if (remote.logoBg)      local.logoBg      = remote.logoBg;
       } catch {}
 
       setConfig({ ...DEFAULT_CONFIG, ...local });
@@ -193,11 +196,16 @@ export function AppConfigProvider({ children }: { children: React.ReactNode }) {
       const next = { ...prev, ...partial };
       // Save full config locally
       AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next)).catch(() => {});
-      // If color/theme changed, also push to server so all users see it
-      if (partial.bgTheme !== undefined || partial.accentColor !== undefined) {
+      // If color/theme/logoBg changed, push to server so all users see it
+      if (
+        partial.bgTheme !== undefined ||
+        partial.accentColor !== undefined ||
+        partial.logoBg !== undefined
+      ) {
         apiPut("/settings/appearance", {
           bgTheme:     next.bgTheme,
           accentColor: next.accentColor,
+          logoBg:      next.logoBg,
         }).catch(() => {});
       }
       return next;
@@ -210,6 +218,7 @@ export function AppConfigProvider({ children }: { children: React.ReactNode }) {
     await apiPut("/settings/appearance", {
       bgTheme:     DEFAULT_CONFIG.bgTheme,
       accentColor: DEFAULT_CONFIG.accentColor,
+      logoBg:      DEFAULT_CONFIG.logoBg,
     }).catch(() => {});
   }, []);
 

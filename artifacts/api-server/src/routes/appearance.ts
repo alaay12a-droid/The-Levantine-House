@@ -8,6 +8,7 @@ const KEY_PREFIX = "appearance_";
 const DEFAULTS: Record<string, string> = {
   appearance_bgTheme:     "dark-brown",
   appearance_accentColor: "#E8920C",
+  appearance_logoBg:      "#1F130A",
 };
 
 // ── GET /settings/appearance ──────────────────────────────────────────────────
@@ -20,15 +21,21 @@ router.get("/settings/appearance", async (_req, res) => {
   res.json({
     bgTheme:     result.appearance_bgTheme,
     accentColor: result.appearance_accentColor,
+    logoBg:      result.appearance_logoBg,
   });
 });
 
 // ── PUT /settings/appearance ──────────────────────────────────────────────────
 router.put("/settings/appearance", async (req, res) => {
-  const { bgTheme, accentColor } = req.body as { bgTheme?: string; accentColor?: string };
+  const { bgTheme, accentColor, logoBg } = req.body as {
+    bgTheme?: string;
+    accentColor?: string;
+    logoBg?: string;
+  };
   const updates: Record<string, string> = {};
-  if (bgTheme)     updates.appearance_bgTheme     = bgTheme;
-  if (accentColor) updates.appearance_accentColor = accentColor;
+  if (bgTheme !== undefined)     updates.appearance_bgTheme     = bgTheme;
+  if (accentColor !== undefined) updates.appearance_accentColor = accentColor;
+  if (logoBg !== undefined)      updates.appearance_logoBg      = logoBg;
   for (const [key, value] of Object.entries(updates)) {
     await db
       .insert(appSettingsTable)

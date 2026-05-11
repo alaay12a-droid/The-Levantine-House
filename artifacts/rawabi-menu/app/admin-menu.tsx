@@ -20,6 +20,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { useColors } from "@/hooks/useColors";
+import { useAppConfig } from "@/context/AppConfigContext";
 import { useMenu, type ApiMenuItem } from "@/hooks/useMenu";
 import type { ApiOccasion } from "@/hooks/useOccasions";
 import { useTabConfig, type TabConfig } from "@/hooks/useTabConfig";
@@ -44,7 +45,6 @@ import {
 import { SOUND_CHOICES, SOUND_KEYS, type SoundOption } from "@/constants/appSounds";
 import { useAppSound } from "@/hooks/useAppSound";
 
-const LOGO_BG_KEY = "rawabi_logo_bg";
 const LOGO_BG_COLORS = [
   { label: "بني داكن",  value: "#1F130A" },
   { label: "بني",       value: "#3D2010" },
@@ -335,15 +335,12 @@ export default function AdminMenuScreen() {
   const [revenuePeriod, setRevenuePeriod] = useState<"today" | "week" | "month" | "year">("month");
   const [settingsSection, setSettingsSection] = useState<"hours" | "payment" | "discounts" | "wallets" | "sms" | "security" | "appearance" | "ratings" | "drivers" | "texts" | "music" | "occasions" | "logobg" | "sounds">("hours");
 
-  // ─── Logo background ──────────────────────────────────────
-  const [logoBg, setLogoBg] = useState("#1F130A");
-  useEffect(() => {
-    AsyncStorage.getItem(LOGO_BG_KEY).then(v => { if (v) setLogoBg(v); });
-  }, []);
+  // ─── Logo background (synced via API) ────────────────────
+  const { config: appConfig, update: updateAppConfig } = useAppConfig();
+  const logoBg = appConfig.logoBg;
   const changeLogoBg = useCallback(async (color: string) => {
-    setLogoBg(color);
-    await AsyncStorage.setItem(LOGO_BG_KEY, color);
-  }, []);
+    await updateAppConfig({ logoBg: color });
+  }, [updateAppConfig]);
 
   // ─── Occasions ────────────────────────────────────────────
   const [occasionSetting, setOccasionSetting] = useState<"auto" | OccasionId>("auto");
