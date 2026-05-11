@@ -12,6 +12,7 @@ import {
   StatusBar,
   Linking,
   Modal,
+  TextInput,
 } from "react-native";
 import Animated, {
   useSharedValue,
@@ -41,6 +42,7 @@ import { useLanguage } from "@/context/LanguageContext";
 import { useFavorites } from "@/hooks/useFavorites";
 import { apiGet } from "@/constants/api";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useUser } from "@/context/UserContext";
 import {
   OCCASION_KEY,
   OCCASION_THEMES,
@@ -61,12 +63,23 @@ const F = {
 };
 
 const AnimatedSectionList = Animated.createAnimatedComponent(SectionList<any, any>);
-const HEADER_TOP_H = 82;
+const HEADER_MAX_H = 300;
+
+const ORDER_TYPE_KEY = "rawabi_order_type";
+
+function getTimeGreeting() {
+  const h = new Date().getHours();
+  if (h >= 5  && h < 12) return "صباح الخير ☀️";
+  if (h >= 12 && h < 17) return "مساء الخير 🌤️";
+  if (h >= 17 && h < 21) return "مساء النور 🌙";
+  return "ليلة طيبة 🌟";
+}
 
 export default function MenuScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { user } = useUser();
   const { categories, refresh: refreshMenu } = useMenu();
   const { occasions } = useOccasions();
   const { banners, refresh: refreshBanners } = useBanners();
@@ -77,6 +90,22 @@ export default function MenuScreen() {
   const { favorites } = useFavorites();
   const isEn = language === "en";
   const info = useAppTexts();
+  const timeGreeting = getTimeGreeting();
+
+  // ── Order type & search ──────────────────────────────────────────────
+  const [orderType, setOrderType] = useState<"delivery" | "pickup">("delivery");
+  const [searchQuery, setSearchQuery] = useState("");
+
+  useEffect(() => {
+    AsyncStorage.getItem(ORDER_TYPE_KEY).then(v => {
+      if (v === "pickup" || v === "delivery") setOrderType(v);
+    });
+  }, []);
+
+  const handleOrderType = useCallback(async (t: "delivery" | "pickup") => {
+    setOrderType(t);
+    await AsyncStorage.setItem(ORDER_TYPE_KEY, t);
+  }, []);
 
   // ── Seasonal occasion theme ──────────────────────────────────────────
   const [occasionId, setOccasionId] = useState<OccasionId>("none");
@@ -144,8 +173,8 @@ export default function MenuScreen() {
   });
 
   const headerTopStyle = useAnimatedStyle(() => ({
-    height: interpolate(headerVisible.value, [0, 1], [0, HEADER_TOP_H], Extrapolation.CLAMP),
-    opacity: interpolate(headerVisible.value, [0, 0.6], [0, 1], Extrapolation.CLAMP),
+    maxHeight: interpolate(headerVisible.value, [0, 1], [0, HEADER_MAX_H], Extrapolation.CLAMP),
+    opacity: interpolate(headerVisible.value, [0, 0.5], [0, 1], Extrapolation.CLAMP),
     overflow: "hidden",
   }));
 
@@ -218,38 +247,116 @@ export default function MenuScreen() {
     Linking.openURL(`tel:${info.phone}`);
   };
 
+  // ── Search filtering ──────────────────────────────────────────────────
+  const searchResults = searchQuery.trim().length >= 1
+    ? categories.flatMap((c) => c.items).filter((item) =>
+        item.name.includes(searchQuery) ||
+        (item.nameEn ?? "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (item.description ?? "").includes(searchQuery)
+      )
+    : [];
+
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
       <StatusBar barStyle={colors.isLight ? "dark-content" : "light-content"} backgroundColor={colors.background} />
 
       {/* ── HEADER ── */}
       <View style={[styles.header, { paddingTop: topInset, backgroundColor: colors.card, borderBottomColor: colors.border }]}>
-        <Animated.View style={[styles.headerRow, headerTopStyle]}>
-          <View style={{ gap: 8 }}>
+        <Animated.View style={headerTopStyle}>
+
+          {/* Row 1: Greeting + icons */}
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingTop: 14 }}>
+            {/* Left: action icons */}
+            <View style={{ flexDirection: "row", gap: 8 }}>
+              <TouchableOpacity
+                onPress={handleLogoTap}
+                style={[styles.iconBtn, { backgroundColor: colors.isLight ? "#EDE0CE" : "#2A1508" }]}
+              >
+                <Feather name="monitor" size={18} color={colors.gold} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.iconBtn, { backgroundColor: colors.isLight ? "#EDE0CE" : "#2A1508" }]}
+                onPress={() => setSearchQuery("")}
+              >
+                <Feather name="heart" size={18} color={colors.gold} />
+              </TouchableOpacity>
+            </View>
+            {/* Right: greeting */}
+            <View style={{ alignItems: "flex-end" }}>
+              <Text style={{ fontFamily: F.extra, fontSize: 17, color: colors.foreground }}>
+                مرحباً، {user?.name ? user.name.split(" ")[0] : "زائر"} 👋
+              </Text>
+              <Text style={{ fontFamily: F.semi, fontSize: 12, color: colors.mutedForeground, marginTop: 2 }}>
+                {timeGreeting}
+              </Text>
+            </View>
+          </View>
+
+          {/* Row 2: Delivery / Pickup toggle */}
+          <View style={{ flexDirection: "row-reverse", marginHorizontal: 16, marginTop: 14, backgroundColor: colors.isLight ? "#EDE0CE" : colors.secondary, borderRadius: 14, padding: 4, gap: 4 }}>
             <TouchableOpacity
-              onPress={handleCall}
-              style={[styles.phoneBtn, { backgroundColor: colors.isLight ? "#F0E8D8" : "#2A1508" }]}
+              onPress={() => handleOrderType("delivery")}
+              activeOpacity={0.85}
+              style={{
+                flex: 1, paddingVertical: 11, borderRadius: 11, alignItems: "center",
+                backgroundColor: orderType === "delivery" ? colors.primary : "transparent",
+              }}
             >
-              <Feather name="phone" size={18} color={colors.gold} />
+              <Text style={{ fontFamily: F.bold, fontSize: 14, color: orderType === "delivery" ? "#fff" : colors.mutedForeground }}>
+                توصيل
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              onPress={handleLogoTap}
-              style={[styles.phoneBtn, { backgroundColor: colors.isLight ? "#F0E8D8" : "#2A1508" }]}
+              onPress={() => handleOrderType("pickup")}
+              activeOpacity={0.85}
+              style={{
+                flex: 1, paddingVertical: 11, borderRadius: 11, alignItems: "center",
+                backgroundColor: orderType === "pickup" ? colors.card : "transparent",
+              }}
             >
-              <Feather name="monitor" size={16} color={colors.gold} />
+              <Text style={{ fontFamily: F.bold, fontSize: 14, color: orderType === "pickup" ? colors.foreground : colors.mutedForeground }}>
+                استلام من الفرع
+              </Text>
             </TouchableOpacity>
           </View>
 
-          <View style={styles.titleBlock}>
-            <Text style={[styles.brandName, { fontFamily: F.extra, color: colors.foreground }]}>
-              {isEn ? info.nameEn : info.name}
-            </Text>
-            <Text style={[styles.tagline, { color: colors.gold, fontFamily: F.semi }]}>
-              {isEn ? info.taglineEn : info.tagline}
-            </Text>
-          </View>
+          {/* Row 3: Location bar */}
+          <TouchableOpacity
+            activeOpacity={0.7}
+            style={{ flexDirection: "row", alignItems: "center", marginHorizontal: 16, marginTop: 10, backgroundColor: colors.background, borderRadius: 12, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 14, paddingVertical: 11 }}
+          >
+            <Feather name="chevron-left" size={17} color={colors.mutedForeground} />
+            <View style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 10, justifyContent: "flex-end" }}>
+              <View style={{ alignItems: "flex-end" }}>
+                <Text style={{ fontFamily: F.semi, fontSize: 11, color: colors.mutedForeground }}>
+                  {orderType === "delivery" ? "التوصيل" : "الاستلام من الفرع"}
+                </Text>
+                <Text style={{ fontFamily: F.bold, fontSize: 13, color: colors.foreground }} numberOfLines={1}>
+                  {user?.address ? user.address : info.location}
+                </Text>
+              </View>
+              <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" }}>
+                <Feather name="map-pin" size={15} color="#fff" />
+              </View>
+            </View>
+          </TouchableOpacity>
 
-          <Image source={logo} style={[styles.logo, { backgroundColor: colors.logoBg }]} resizeMode="contain" />
+          {/* Row 4: Search bar */}
+          <View style={{ flexDirection: "row", alignItems: "center", marginHorizontal: 16, marginTop: 10, marginBottom: 12, backgroundColor: colors.background, borderRadius: 12, borderWidth: 1, borderColor: searchQuery ? colors.primary : colors.border, paddingHorizontal: 14, paddingVertical: 10 }}>
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery("")} style={{ marginLeft: 4 }}>
+                <Feather name="x" size={16} color={colors.mutedForeground} />
+              </TouchableOpacity>
+            )}
+            <TextInput
+              style={{ flex: 1, fontFamily: F.regular, fontSize: 14, color: colors.foreground, textAlign: "right", marginRight: 8, paddingVertical: 0 }}
+              placeholder="ابحث عن صنف..."
+              placeholderTextColor={colors.mutedForeground}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+            <Feather name="search" size={16} color={searchQuery ? colors.primary : colors.mutedForeground} />
+          </View>
         </Animated.View>
 
         {/* ── CATEGORY TABS ── */}
@@ -285,7 +392,32 @@ export default function MenuScreen() {
       </View>
 
       {/* ── CONTENT ── */}
-      {specialCat?.isDelivery ? (
+      {searchResults.length > 0 || (searchQuery.trim().length >= 1 && searchResults.length === 0) ? (
+        /* ── SEARCH RESULTS ── */
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingHorizontal: 12, paddingTop: 12, paddingBottom: 130, gap: 8 }}
+          keyboardShouldPersistTaps="handled"
+        >
+          {searchResults.length === 0 ? (
+            <View style={{ alignItems: "center", paddingTop: 60, gap: 12 }}>
+              <Text style={{ fontSize: 40 }}>🔍</Text>
+              <Text style={{ fontFamily: F.bold, fontSize: 16, color: colors.mutedForeground, textAlign: "center" }}>
+                لا توجد نتائج لـ "{searchQuery}"
+              </Text>
+            </View>
+          ) : (
+            <>
+              <Text style={{ fontFamily: F.semi, fontSize: 13, color: colors.mutedForeground, textAlign: "right", marginBottom: 4 }}>
+                {searchResults.length} نتيجة
+              </Text>
+              {searchResults.map((item) => (
+                <MenuItemCard key={item.id} item={item} />
+              ))}
+            </>
+          )}
+        </ScrollView>
+      ) : specialCat?.isDelivery ? (
         /* ── DELIVERY SECTION ── */
         <Animated.ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.list} onScroll={scrollHandler} scrollEventThrottle={16}>
           <BannerCarousel banners={banners} />
@@ -633,38 +765,7 @@ const styles = StyleSheet.create({
   header: {
     borderBottomWidth: 1,
   },
-  headerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    paddingTop: 10,
-    gap: 12,
-  },
-  logo: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: "#1F130A",
-  },
-  titleBlock: {
-    flex: 1,
-    alignItems: "flex-end",
-  },
-  brandName: {
-    fontSize: 24,
-    fontWeight: "800",
-    textAlign: "right",
-    letterSpacing: 0.3,
-  },
-  tagline: {
-    fontSize: 13,
-    fontWeight: "600",
-    textAlign: "right",
-    marginTop: 3,
-    letterSpacing: 0.5,
-  },
-  phoneBtn: {
+  iconBtn: {
     width: 40,
     height: 40,
     borderRadius: 20,
