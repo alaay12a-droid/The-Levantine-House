@@ -153,10 +153,8 @@ export default function MenuScreen() {
   const sectionYs = useRef<Record<string, number>>({});
   const sectionHeaderRefs = useRef<Record<string, any>>({});
 
-  // ── Collapsing header animation ──
+  // ── Scroll tracking (for scroll-to-section calc) ──
   const lastY = useSharedValue(0);
-  const headerVisible = useSharedValue(1); // 1=expanded 0=collapsed
-  const collapsibleH = useSharedValue(-1); // -1 = not yet measured
 
   // ── Banner: only visible at absolute top ─────────────────────────────
   const bannerH = useSharedValue(0);
@@ -166,32 +164,10 @@ export default function MenuScreen() {
     onScroll: (event) => {
       "worklet";
       const y = event.contentOffset.y;
-      const diff = y - lastY.value;
       lastY.value = y;
-
       // Banner collapses as soon as user scrolls; only restores at absolute top
       bannerAnim.value = y <= 8 ? withTiming(1, { duration: 280 }) : withTiming(0, { duration: 200 });
-
-      // Collapsing header (direction-based)
-      if (y <= 10) {
-        headerVisible.value = withTiming(1, { duration: 200 });
-      } else if (diff > 5) {
-        headerVisible.value = withTiming(0, { duration: 250 });
-      } else if (diff < -5) {
-        headerVisible.value = withTiming(1, { duration: 250 });
-      }
     },
-  });
-
-  const headerTopStyle = useAnimatedStyle(() => {
-    if (collapsibleH.value <= 0) {
-      return { overflow: "hidden" };
-    }
-    return {
-      height: interpolate(headerVisible.value, [0, 1], [0, collapsibleH.value], Extrapolation.CLAMP),
-      opacity: interpolate(headerVisible.value, [0, 0.5], [0, 1], Extrapolation.CLAMP),
-      overflow: "hidden",
-    };
   });
 
   const bannerStyle = useAnimatedStyle(() => {
@@ -305,16 +281,9 @@ export default function MenuScreen() {
     <View style={[styles.root, { backgroundColor: colors.background }]}>
       <StatusBar barStyle={colors.isLight ? "dark-content" : "light-content"} backgroundColor={colors.background} />
 
-      {/* ── HEADER ── */}
+      {/* ── HEADER (always sticky) ── */}
       <View style={[styles.header, { paddingTop: topInset, backgroundColor: colors.card, borderBottomColor: colors.border }]}>
-        <Animated.View style={headerTopStyle}>
-          {/* Inner view measures natural height; onLayout fires freely since this view has no height constraint */}
-          <View
-            onLayout={(e) => {
-              const h = e.nativeEvent.layout.height;
-              if (h > 10) collapsibleH.value = h;
-            }}
-          >
+        <View>
 
           {/* Row 1: Greeting + icons */}
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingTop: 14 }}>
@@ -409,8 +378,7 @@ export default function MenuScreen() {
             />
             <Feather name="search" size={16} color={searchQuery ? colors.primary : colors.mutedForeground} />
           </View>
-          </View>{/* end measure wrapper */}
-        </Animated.View>
+        </View>
 
         {/* ── CATEGORY TABS ── */}
         <ScrollView
