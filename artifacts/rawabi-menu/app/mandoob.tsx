@@ -1062,14 +1062,40 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
                     </TouchableOpacity>
                   )}
 
-                  {/* اتصال بالعميل */}
-                  <TouchableOpacity
-                    onPress={() => { const p = order.customerPhone; if (Platform.OS === "web") window.open(`tel:${p}`); else import("react-native").then(({ Linking }) => Linking.openURL(`tel:${p}`)); }}
-                    style={{ backgroundColor: colors.secondary, borderRadius: 12, paddingVertical: 11, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 8, borderWidth: 1, borderColor: colors.border }}
-                  >
-                    <Feather name="phone" size={15} color="#4CAF50" />
-                    <Text style={{ color: "#4CAF50", fontFamily: F.bold, fontSize: 14 }}>اتصال بالعميل</Text>
-                  </TouchableOpacity>
+                  {/* زر الشات + اتصال */}
+                  <View style={{ flexDirection: "row", gap: 8 }}>
+                    {/* محادثة مع العميل */}
+                    <TouchableOpacity
+                      onPress={() => openDriverChat(assignment.orderId)}
+                      style={{ flex: 1, backgroundColor: "#0A1F2A", borderRadius: 12, paddingVertical: 11, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 8, borderWidth: 1.5, borderColor: "#29B6F6" }}
+                    >
+                      {(() => {
+                        const unread = driverConvos.find(c => c.orderId === assignment.orderId)?.unread ?? 0;
+                        return (
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                            <View style={{ position: "relative" }}>
+                              <Feather name="message-circle" size={15} color="#29B6F6" />
+                              {unread > 0 && (
+                                <View style={{ position: "absolute", top: -5, right: -5, backgroundColor: "#E53935", borderRadius: 7, minWidth: 14, height: 14, alignItems: "center", justifyContent: "center", paddingHorizontal: 2 }}>
+                                  <Text style={{ color: "#fff", fontSize: 9, fontFamily: F.bold }}>{unread}</Text>
+                                </View>
+                              )}
+                            </View>
+                            <Text style={{ color: "#29B6F6", fontFamily: F.bold, fontSize: 13 }}>محادثة</Text>
+                          </View>
+                        );
+                      })()}
+                    </TouchableOpacity>
+
+                    {/* اتصال بالعميل */}
+                    <TouchableOpacity
+                      onPress={() => { const p = order.customerPhone; if (Platform.OS === "web") window.open(`tel:${p}`); else import("react-native").then(({ Linking }) => Linking.openURL(`tel:${p}`)); }}
+                      style={{ flex: 1, backgroundColor: colors.secondary, borderRadius: 12, paddingVertical: 11, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 8, borderWidth: 1, borderColor: colors.border }}
+                    >
+                      <Feather name="phone" size={15} color="#4CAF50" />
+                      <Text style={{ color: "#4CAF50", fontFamily: F.bold, fontSize: 13 }}>اتصال</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               </View>
             </View>
