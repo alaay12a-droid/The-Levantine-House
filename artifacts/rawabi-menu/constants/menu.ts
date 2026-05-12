@@ -232,14 +232,6 @@ export const MENU_CATEGORIES: MenuCategory[] = [
       { id: "oc5", name: "عروض المناسبات الخاصة",    nameEn: "Special Event Offers",  price: 0, category: "occasions", description: "أعراس • مآتم • تجمعات",            descriptionEn: "Weddings • Gatherings • Events",          imageKey: "occasions"    },
     ],
   },
-  {
-    id: "delivery",
-    name: "التوصيل",
-    nameEn: "Delivery",
-    icon: "🚗",
-    isDelivery: true,
-    items: [],
-  },
 ];
 
 export const ALL_ITEMS: MenuItem[] = MENU_CATEGORIES.flatMap((cat) => cat.items);
