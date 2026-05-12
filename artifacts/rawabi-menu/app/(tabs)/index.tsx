@@ -63,7 +63,6 @@ const F = {
 };
 
 const AnimatedSectionList = Animated.createAnimatedComponent(SectionList<any, any>);
-const HEADER_MAX_H = 300;
 
 const ORDER_TYPE_KEY = "rawabi_order_type";
 
@@ -156,27 +155,35 @@ export default function MenuScreen() {
   // ── Collapsing header animation ──
   const lastY = useSharedValue(0);
   const headerVisible = useSharedValue(1); // 1=expanded 0=collapsed
+  const collapsibleH = useSharedValue(-1); // -1 = not yet measured
 
   const scrollHandler = useAnimatedScrollHandler({
     onScroll: (event) => {
+      "worklet";
       const y = event.contentOffset.y;
       const diff = y - lastY.value;
       lastY.value = y;
       if (y <= 10) {
         headerVisible.value = withTiming(1, { duration: 200 });
-      } else if (diff > 4) {
-        headerVisible.value = withTiming(0, { duration: 220 });
-      } else if (diff < -4) {
-        headerVisible.value = withTiming(1, { duration: 220 });
+      } else if (diff > 5) {
+        headerVisible.value = withTiming(0, { duration: 250 });
+      } else if (diff < -5) {
+        headerVisible.value = withTiming(1, { duration: 250 });
       }
     },
   });
 
-  const headerTopStyle = useAnimatedStyle(() => ({
-    maxHeight: interpolate(headerVisible.value, [0, 1], [0, HEADER_MAX_H], Extrapolation.CLAMP),
-    opacity: interpolate(headerVisible.value, [0, 0.5], [0, 1], Extrapolation.CLAMP),
-    overflow: "hidden",
-  }));
+  const headerTopStyle = useAnimatedStyle(() => {
+    // Before first measurement: render naturally (no height constraint)
+    if (collapsibleH.value <= 0) {
+      return { overflow: "hidden" };
+    }
+    return {
+      height: interpolate(headerVisible.value, [0, 1], [0, collapsibleH.value], Extrapolation.CLAMP),
+      opacity: interpolate(headerVisible.value, [0, 0.5], [0, 1], Extrapolation.CLAMP),
+      overflow: "hidden",
+    };
+  });
 
   const regularCats = categories.filter((c) => !c.isDelivery && !c.isDhabiha && !c.isOccasions);
   const specialCat = categories.find((c) => c.id === activeCategory && (c.isDelivery || c.isDhabiha || c.isOccasions));
@@ -263,6 +270,13 @@ export default function MenuScreen() {
       {/* ── HEADER ── */}
       <View style={[styles.header, { paddingTop: topInset, backgroundColor: colors.card, borderBottomColor: colors.border }]}>
         <Animated.View style={headerTopStyle}>
+          {/* Inner view measures natural height; onLayout fires freely since this view has no height constraint */}
+          <View
+            onLayout={(e) => {
+              const h = e.nativeEvent.layout.height;
+              if (h > 10) collapsibleH.value = h;
+            }}
+          >
 
           {/* Row 1: Greeting + icons */}
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingTop: 14 }}>
@@ -357,6 +371,7 @@ export default function MenuScreen() {
             />
             <Feather name="search" size={16} color={searchQuery ? colors.primary : colors.mutedForeground} />
           </View>
+          </View>{/* end measure wrapper */}
         </Animated.View>
 
         {/* ── CATEGORY TABS ── */}
