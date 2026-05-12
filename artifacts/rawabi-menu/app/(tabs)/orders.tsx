@@ -21,7 +21,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import * as Notifications from "expo-notifications";
+
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import { apiGet, apiPatch, apiPost } from "@/constants/api";
@@ -209,17 +209,6 @@ export default function OrdersScreen() {
         const order = ordersRef.current.find((o) => o.id === id);
         if (order) {
           showCancelBanner(order.dailyNumber, order.customerName);
-          // Also fire a local system notification (works on native even in background)
-          if (Platform.OS !== "web") {
-            Notifications.scheduleNotificationAsync({
-              content: {
-                title: "❌ تم إلغاء طلبك",
-                body: `نأسف، تم إلغاء طلبك رقم #${order.dailyNumber} من قِبل المطعم.`,
-                sound: "default",
-              },
-              trigger: null,
-            }).catch(() => {});
-          }
         }
       }
     }
