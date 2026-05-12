@@ -158,12 +158,21 @@ export default function MenuScreen() {
   const headerVisible = useSharedValue(1); // 1=expanded 0=collapsed
   const collapsibleH = useSharedValue(-1); // -1 = not yet measured
 
+  // ── Banner: only visible at absolute top ─────────────────────────────
+  const bannerH = useSharedValue(0);
+  const bannerAnim = useSharedValue(1); // 1=visible 0=hidden
+
   const scrollHandler = useAnimatedScrollHandler({
     onScroll: (event) => {
       "worklet";
       const y = event.contentOffset.y;
       const diff = y - lastY.value;
       lastY.value = y;
+
+      // Banner collapses as soon as user scrolls; only restores at absolute top
+      bannerAnim.value = y <= 8 ? withTiming(1, { duration: 280 }) : withTiming(0, { duration: 200 });
+
+      // Collapsing header (direction-based)
       if (y <= 10) {
         headerVisible.value = withTiming(1, { duration: 200 });
       } else if (diff > 5) {
@@ -175,13 +184,21 @@ export default function MenuScreen() {
   });
 
   const headerTopStyle = useAnimatedStyle(() => {
-    // Before first measurement: render naturally (no height constraint)
     if (collapsibleH.value <= 0) {
       return { overflow: "hidden" };
     }
     return {
       height: interpolate(headerVisible.value, [0, 1], [0, collapsibleH.value], Extrapolation.CLAMP),
       opacity: interpolate(headerVisible.value, [0, 0.5], [0, 1], Extrapolation.CLAMP),
+      overflow: "hidden",
+    };
+  });
+
+  const bannerStyle = useAnimatedStyle(() => {
+    if (bannerH.value <= 0) return {};
+    return {
+      height: interpolate(bannerAnim.value, [0, 1], [0, bannerH.value], Extrapolation.CLAMP),
+      opacity: interpolate(bannerAnim.value, [0, 0.5], [0, 1], Extrapolation.CLAMP),
       overflow: "hidden",
     };
   });
@@ -621,8 +638,16 @@ export default function MenuScreen() {
                 </View>
               )}
 
-              {/* ── BANNER inside scroll ── */}
-              <BannerCarousel banners={banners} />
+              {/* ── BANNER inside scroll — collapses on scroll, only restores at top ── */}
+              <Animated.View
+                style={bannerStyle}
+                onLayout={(e) => {
+                  const h = e.nativeEvent.layout.height;
+                  if (h > 10 && bannerH.value === 0) bannerH.value = h;
+                }}
+              >
+                <BannerCarousel banners={banners} />
+              </Animated.View>
 
               {/* ── FAVORITES ── */}
               {favItems.length > 0 && (
@@ -719,11 +744,11 @@ export default function MenuScreen() {
             </View>
           )}
           renderItem={({ item }) => (
-            <View style={{ paddingHorizontal: 12, paddingTop: 8 }}>
+            <View style={{ paddingHorizontal: 14, paddingTop: 6 }}>
               <MenuItemCard item={item} />
             </View>
           )}
-          SectionSeparatorComponent={() => <View style={{ height: 8 }} />}
+          SectionSeparatorComponent={() => <View style={{ height: 6 }} />}
         />
 
       )}
@@ -822,18 +847,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 18,
-    paddingVertical: 13,
-    borderBottomWidth: 1,
-    borderTopWidth: 1,
+    paddingTop: 18,
+    paddingBottom: 10,
+    borderBottomWidth: 0,
   },
   sectionTitle: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
   },
-  sectionName: { fontSize: 18 },
-  sectionIcon: { fontSize: 20, fontFamily: Platform.OS === "web" ? "'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',sans-serif" : undefined },
-  itemCount: { fontSize: 13 },
+  sectionName: { fontSize: 20 },
+  sectionIcon: { fontSize: 22, fontFamily: Platform.OS === "web" ? "'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',sans-serif" : undefined },
+  itemCount: { fontSize: 12 },
   list: { padding: 14 },
 
   /* Delivery */
