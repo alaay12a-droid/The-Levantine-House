@@ -314,7 +314,7 @@ export default function MenuScreen() {
           >
 
           {/* Row 1: Greeting + icons */}
-          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingTop: 14 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingTop: 8 }}>
             {/* Left: action icons */}
             <View style={{ flexDirection: "row", gap: 8 }}>
               <TouchableOpacity
@@ -342,7 +342,7 @@ export default function MenuScreen() {
           </View>
 
           {/* Row 2: Search bar */}
-          <View style={{ flexDirection: "row", alignItems: "center", marginHorizontal: 16, marginTop: 10, marginBottom: 12, backgroundColor: colors.background, borderRadius: 12, borderWidth: 1, borderColor: searchQuery ? colors.primary : colors.border, paddingHorizontal: 14, paddingVertical: 10 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", marginHorizontal: 16, marginTop: 8, marginBottom: 8, backgroundColor: colors.background, borderRadius: 12, borderWidth: 1, borderColor: searchQuery ? colors.primary : colors.border, paddingHorizontal: 14, paddingVertical: 10 }}>
             {searchQuery.length > 0 && (
               <TouchableOpacity onPress={() => setSearchQuery("")} style={{ marginLeft: 4 }}>
                 <Feather name="x" size={16} color={colors.mutedForeground} />
