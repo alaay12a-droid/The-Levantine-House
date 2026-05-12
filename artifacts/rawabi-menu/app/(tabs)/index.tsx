@@ -152,6 +152,10 @@ export default function MenuScreen() {
   const isScrollingProgrammatically = useRef(false);
   const sectionYs = useRef<Record<string, number>>({});
   const sectionHeaderRefs = useRef<Record<string, any>>({});
+  // ── Tab positions (x offset) for auto-scrolling the tabs bar ──────
+  const tabPositions = useRef<Record<string, number>>({});
+  // ── Pending section index for scrollToIndexFailed retry ───────────
+  const pendingScrollIdx = useRef(-1);
 
   // ── Scroll tracking ──
   const lastY = useSharedValue(0);
@@ -215,23 +219,58 @@ export default function MenuScreen() {
     data: cat.items,
   })), [regularCats, isEn]);
 
+  // ── Core scroll-to-section (primary path: scrollToLocation) ────────
+  const scrollToSection = useCallback((sectionIdx: number, animated = true) => {
+    if (!sectionListRef.current || sectionIdx < 0) return;
+    pendingScrollIdx.current = sectionIdx;
+    try {
+      sectionListRef.current.scrollToLocation({
+        sectionIndex: sectionIdx,
+        itemIndex: 0,
+        viewPosition: 0,
+        animated,
+      });
+    } catch {}
+  }, []);
+
+  // ── Retry when items aren't yet rendered (virtualised) ──────────────
+  const handleScrollToIndexFailed = useCallback(() => {
+    const idx = pendingScrollIdx.current;
+    if (idx < 0) return;
+    setTimeout(() => scrollToSection(idx, true), 150);
+  }, [scrollToSection]);
+
+  // ── Stable viewability config (never recreated) ─────────────────────
+  const viewabilityConfig = useRef({
+    itemVisiblePercentThreshold: 10,
+    waitForInteraction: false,
+  }).current;
+
+  // ── Tab press: update active + scroll ───────────────────────────────
   const handleTabPress = useCallback((catId: string) => {
-    setActiveCategory(catId);
     const cat = categories.find((c) => c.id === catId);
-    if (cat?.isDelivery || cat?.isDhabiha || cat?.isOccasions) return;
-    if (!sectionListRef.current) return;
+    if (cat?.isDelivery || cat?.isDhabiha || cat?.isOccasions) {
+      setActiveCategory(catId);
+      return;
+    }
+
+    const sectionIdx = sections.findIndex((s) => s.id === catId);
+    if (!sectionListRef.current || sectionIdx === -1) {
+      setActiveCategory(catId);
+      return;
+    }
+
+    // Update tab highlight immediately (sections are memoized → no scroll reset)
+    setActiveCategory(catId);
     isScrollingProgrammatically.current = true;
-    setTimeout(() => { isScrollingProgrammatically.current = false; }, 1000);
+    setTimeout(() => { isScrollingProgrammatically.current = false; }, 1500);
 
-    const sectionIndex = regularCats.findIndex((c) => c.id === catId);
-
-    const headerRef = sectionHeaderRefs.current[catId];
-
-    if (headerRef) {
-      if (Platform.OS === "web") {
-        // Web: use getBoundingClientRect for accurate Y
-        try {
-          const scrollNode = sectionListRef.current?.getScrollableNode?.();
+    // Web: getBoundingClientRect is most accurate
+    if (Platform.OS === "web") {
+      try {
+        const headerRef = sectionHeaderRefs.current[catId];
+        const scrollNode = sectionListRef.current?.getScrollableNode?.();
+        if (headerRef && scrollNode) {
           const rect = (headerRef as any).getBoundingClientRect?.();
           const scrollRect = (scrollNode as any).getBoundingClientRect?.();
           if (rect && scrollRect) {
@@ -239,39 +278,23 @@ export default function MenuScreen() {
             (scrollNode as any).scrollTo({ top: y, behavior: "smooth" });
             return;
           }
-        } catch {}
-      } else {
-        // Native: use ref.measure (absolute page coords) + current scroll offset
-        // This avoids measureLayout's unreliable relative-to-node measurement
-        const inner: any = sectionListRef.current?.getScrollRef?.()?.getScrollRef?.()
-          ?? sectionListRef.current?.getScrollRef?.();
-
-        if (inner && typeof headerRef.measure === "function") {
-          headerRef.measure((_x: number, _y: number, _w: number, _h: number, _px: number, headerPageY: number) => {
-            if (typeof inner.measure === "function") {
-              inner.measure((_sx: number, _sy: number, _sw: number, _sh: number, _spx: number, containerPageY: number) => {
-                const currentScrollY = lastY.value; // safe to read shared value from JS thread
-                const targetY = Math.max(0, currentScrollY + (headerPageY - containerPageY));
-                inner.scrollTo({ y: targetY, animated: true });
-              });
-            } else {
-              // inner has no .measure — fall through to scrollToLocation
-              if (sectionIndex !== -1) {
-                try { sectionListRef.current.scrollToLocation({ sectionIndex, itemIndex: 0, viewPosition: 0, animated: true }); } catch {}
-              }
-            }
-          });
-          return;
         }
-      }
+      } catch {}
     }
 
-    // Fallback: scrollToLocation
-    if (sectionIndex !== -1) {
-      try { sectionListRef.current.scrollToLocation({ sectionIndex, itemIndex: 0, viewPosition: 0, animated: true }); } catch {}
-    }
-  }, [categories, regularCats, lastY]);
+    // Native: scrollToLocation (reliable with memoised sections)
+    scrollToSection(sectionIdx);
+  }, [categories, sections, scrollToSection]);
 
+  // ── Auto-scroll tabs bar to keep active tab in view ─────────────────
+  useEffect(() => {
+    const x = tabPositions.current[activeCategory];
+    if (x !== undefined) {
+      tabsScrollRef.current?.scrollTo({ x: Math.max(0, x - 40), animated: true });
+    }
+  }, [activeCategory]);
+
+  // ── Update active tab while user scrolls manually ───────────────────
   const onViewableItemsChanged = useCallback(({ viewableItems }: any) => {
     if (isScrollingProgrammatically.current) return;
     for (const vi of viewableItems) {
@@ -374,6 +397,7 @@ export default function MenuScreen() {
               <TouchableOpacity
                 key={cat.id}
                 onPress={() => handleTabPress(cat.id)}
+                onLayout={(e) => { tabPositions.current[cat.id] = e.nativeEvent.layout.x; }}
                 activeOpacity={0.75}
                 style={[
                   styles.tab,
@@ -554,7 +578,8 @@ export default function MenuScreen() {
           showsVerticalScrollIndicator={false}
           stickySectionHeadersEnabled={true}
           onViewableItemsChanged={onViewableItemsChanged}
-          viewabilityConfig={{ itemVisiblePercentThreshold: 10 }}
+          viewabilityConfig={viewabilityConfig}
+          onScrollToIndexFailed={handleScrollToIndexFailed}
           contentContainerStyle={{ paddingBottom: Platform.OS === "web" ? 130 : 110 }}
           onScroll={scrollHandler}
           scrollEventThrottle={16}
