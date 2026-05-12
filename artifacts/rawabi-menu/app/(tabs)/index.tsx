@@ -209,40 +209,39 @@ export default function MenuScreen() {
 
     const sectionIndex = regularCats.findIndex((c) => c.id === catId);
 
-    // Primary: measureLayout against the scroll container for accurate Y position
     const headerRef = sectionHeaderRefs.current[catId];
     const scrollNode = sectionListRef.current?.getScrollableNode?.();
-    if (headerRef && scrollNode && typeof headerRef.measureLayout === "function") {
-      headerRef.measureLayout(
-        scrollNode,
-        (_x: number, y: number) => {
-          if (typeof scrollNode.scrollTo === "function") {
-            scrollNode.scrollTo({ top: y, behavior: "smooth" });
-          } else {
-            scrollNode.scrollTop = y;
+
+    if (headerRef && scrollNode) {
+      if (Platform.OS === "web") {
+        // On web refs are DOM nodes — use getBoundingClientRect for accurate Y
+        try {
+          const rect = (headerRef as any).getBoundingClientRect?.();
+          const scrollRect = (scrollNode as any).getBoundingClientRect?.();
+          if (rect && scrollRect) {
+            const y = rect.top - scrollRect.top + (scrollNode as any).scrollTop;
+            (scrollNode as any).scrollTo({ top: y, behavior: "smooth" });
+            return;
           }
-        },
-        () => {
-          // measureLayout failed — fall back to scrollToLocation
-          if (sectionIndex !== -1) {
-            try { sectionListRef.current.scrollToLocation({ sectionIndex, itemIndex: 0, viewPosition: 0, animated: true }); } catch {}
-          }
-        }
-      );
-      return;
+        } catch {}
+      } else if (typeof headerRef.measureLayout === "function") {
+        // On native use measureLayout for accurate Y relative to scroll container
+        headerRef.measureLayout(
+          scrollNode,
+          (_x: number, y: number) => {
+            try {
+              const inner = sectionListRef.current?.getScrollRef?.()?.getScrollRef?.()
+                ?? sectionListRef.current?.getScrollRef?.();
+              if (inner?.scrollTo) { inner.scrollTo({ y, animated: true }); return; }
+            } catch {}
+          },
+          () => {}
+        );
+        return;
+      }
     }
 
-    // Fallback A: native scrollTo via inner ref chain
-    const trackedY = sectionYs.current[catId];
-    if (trackedY !== undefined) {
-      try {
-        const inner = sectionListRef.current.getScrollRef?.()?.getScrollRef?.()
-          ?? sectionListRef.current.getScrollRef?.();
-        if (inner?.scrollTo) { inner.scrollTo({ y: trackedY, animated: true }); return; }
-      } catch {}
-    }
-
-    // Fallback B: scrollToLocation
+    // Fallback: scrollToLocation
     if (sectionIndex !== -1) {
       try { sectionListRef.current.scrollToLocation({ sectionIndex, itemIndex: 0, viewPosition: 0, animated: true }); } catch {}
     }
