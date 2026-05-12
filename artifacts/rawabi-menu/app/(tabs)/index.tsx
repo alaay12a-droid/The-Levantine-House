@@ -341,56 +341,7 @@ export default function MenuScreen() {
             </View>
           </View>
 
-          {/* Row 2: Delivery / Pickup toggle */}
-          <View style={{ flexDirection: "row-reverse", marginHorizontal: 16, marginTop: 14, backgroundColor: colors.isLight ? "#EDE0CE" : colors.secondary, borderRadius: 14, padding: 4, gap: 4 }}>
-            <TouchableOpacity
-              onPress={() => handleOrderType("delivery")}
-              activeOpacity={0.85}
-              style={{
-                flex: 1, paddingVertical: 11, borderRadius: 11, alignItems: "center",
-                backgroundColor: orderType === "delivery" ? colors.primary : "transparent",
-              }}
-            >
-              <Text style={{ fontFamily: F.bold, fontSize: 14, color: orderType === "delivery" ? "#fff" : colors.mutedForeground }}>
-                توصيل
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => handleOrderType("pickup")}
-              activeOpacity={0.85}
-              style={{
-                flex: 1, paddingVertical: 11, borderRadius: 11, alignItems: "center",
-                backgroundColor: orderType === "pickup" ? colors.card : "transparent",
-              }}
-            >
-              <Text style={{ fontFamily: F.bold, fontSize: 14, color: orderType === "pickup" ? colors.foreground : colors.mutedForeground }}>
-                استلام من الفرع
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Row 3: Location bar */}
-          <TouchableOpacity
-            activeOpacity={0.7}
-            style={{ flexDirection: "row", alignItems: "center", marginHorizontal: 16, marginTop: 10, backgroundColor: colors.background, borderRadius: 12, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 14, paddingVertical: 11 }}
-          >
-            <Feather name="chevron-left" size={17} color={colors.mutedForeground} />
-            <View style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 10, justifyContent: "flex-end" }}>
-              <View style={{ alignItems: "flex-end" }}>
-                <Text style={{ fontFamily: F.semi, fontSize: 11, color: colors.mutedForeground }}>
-                  {orderType === "delivery" ? "التوصيل" : "الاستلام من الفرع"}
-                </Text>
-                <Text style={{ fontFamily: F.bold, fontSize: 13, color: colors.foreground }} numberOfLines={1}>
-                  {user?.address ? user.address : info.location}
-                </Text>
-              </View>
-              <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" }}>
-                <Feather name="map-pin" size={15} color="#fff" />
-              </View>
-            </View>
-          </TouchableOpacity>
-
-          {/* Row 4: Search bar */}
+          {/* Row 2: Search bar */}
           <View style={{ flexDirection: "row", alignItems: "center", marginHorizontal: 16, marginTop: 10, marginBottom: 12, backgroundColor: colors.background, borderRadius: 12, borderWidth: 1, borderColor: searchQuery ? colors.primary : colors.border, paddingHorizontal: 14, paddingVertical: 10 }}>
             {searchQuery.length > 0 && (
               <TouchableOpacity onPress={() => setSearchQuery("")} style={{ marginLeft: 4 }}>
