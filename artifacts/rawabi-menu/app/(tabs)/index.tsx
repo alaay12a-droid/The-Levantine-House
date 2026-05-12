@@ -154,8 +154,9 @@ export default function MenuScreen() {
   const sectionHeaderRefs = useRef<Record<string, any>>({});
   // ── Tab positions (x offset) for auto-scrolling the tabs bar ──────
   const tabPositions = useRef<Record<string, number>>({});
-  // ── Pending section index for scrollToIndexFailed retry ───────────
+  // ── Pending scroll info for onScrollToIndexFailed retry ───────────
   const pendingScrollIdx = useRef(-1);
+  const pendingScrollCatId = useRef("");
 
   // ── Scroll tracking ──
   const lastY = useSharedValue(0);
@@ -219,25 +220,77 @@ export default function MenuScreen() {
     data: cat.items,
   })), [regularCats, isEn]);
 
-  // ── Core scroll-to-section (primary path: scrollToLocation) ────────
-  const scrollToSection = useCallback((sectionIdx: number, animated = true) => {
+  // ── Get inner ScrollView from AnimatedSectionList ref ───────────────
+  const getInnerScroll = useCallback(() => {
+    const list = sectionListRef.current as any;
+    if (!list) return null;
+    // Reanimated 3: ref is forwarded directly to the SectionList instance
+    // Try multiple access patterns for maximum compatibility
+    try { const r = list.getScrollRef?.()?.getScrollRef?.(); if (r?.scrollTo) return r; } catch {}
+    try { const r = list.getScrollRef?.(); if (r?.scrollTo) return r; } catch {}
+    try { const r = list.getNode?.()?.getScrollRef?.(); if (r?.scrollTo) return r; } catch {}
+    try { const r = list.getNode?.(); if (r?.scrollTo) return r; } catch {}
+    return null;
+  }, []);
+
+  // ── Core scroll-to-section ───────────────────────────────────────────
+  // Primary: use stored onLayout Y (set when section renders) → getScrollRef().scrollTo()
+  // Fallback: scrollToLocation (for edge cases)
+  const scrollToSection = useCallback((sectionIdx: number, catId: string, animated = true) => {
     if (!sectionListRef.current || sectionIdx < 0) return;
     pendingScrollIdx.current = sectionIdx;
+    pendingScrollCatId.current = catId;
+
+    const storedY = sectionYs.current[catId];
+
+    if (Platform.OS === "web") {
+      // Web: getBoundingClientRect is the most accurate approach
+      try {
+        const headerRef = sectionHeaderRefs.current[catId];
+        const scrollNode = (sectionListRef.current as any)?.getScrollableNode?.();
+        if (headerRef && scrollNode) {
+          const rect = (headerRef as any).getBoundingClientRect?.();
+          const scrollRect = (scrollNode as any).getBoundingClientRect?.();
+          if (rect && scrollRect) {
+            const y = rect.top - scrollRect.top + (scrollNode as any).scrollTop;
+            (scrollNode as any).scrollTo({ top: y, behavior: "smooth" });
+            return;
+          }
+        }
+        // Web fallback: use stored Y on scroll node
+        if (storedY !== undefined && scrollNode) {
+          (scrollNode as any).scrollTo?.({ top: storedY, behavior: "smooth" });
+          return;
+        }
+      } catch {}
+    } else {
+      // Native primary: scroll to stored onLayout Y position
+      if (storedY !== undefined) {
+        const inner = getInnerScroll();
+        if (inner) {
+          inner.scrollTo({ y: storedY, animated });
+          return;
+        }
+      }
+    }
+
+    // Last resort: scrollToLocation (works when items are rendered)
     try {
-      sectionListRef.current.scrollToLocation({
+      (sectionListRef.current as any).scrollToLocation?.({
         sectionIndex: sectionIdx,
         itemIndex: 0,
         viewPosition: 0,
         animated,
       });
     } catch {}
-  }, []);
+  }, [getInnerScroll]);
 
-  // ── Retry when items aren't yet rendered (virtualised) ──────────────
+  // ── Retry on failed scroll (virtualised items not yet rendered) ──────
   const handleScrollToIndexFailed = useCallback(() => {
     const idx = pendingScrollIdx.current;
+    const catId = pendingScrollCatId.current;
     if (idx < 0) return;
-    setTimeout(() => scrollToSection(idx, true), 150);
+    setTimeout(() => scrollToSection(idx, catId, true), 150);
   }, [scrollToSection]);
 
   // ── Stable viewability config (never recreated) ─────────────────────
@@ -282,8 +335,8 @@ export default function MenuScreen() {
       } catch {}
     }
 
-    // Native: scrollToLocation (reliable with memoised sections)
-    scrollToSection(sectionIdx);
+    // Native: primary = stored Y position → getScrollRef().scrollTo()
+    scrollToSection(sectionIdx, catId);
   }, [categories, sections, scrollToSection]);
 
   // ── Auto-scroll tabs bar to keep active tab in view ─────────────────
@@ -580,6 +633,9 @@ export default function MenuScreen() {
           onViewableItemsChanged={onViewableItemsChanged}
           viewabilityConfig={viewabilityConfig}
           onScrollToIndexFailed={handleScrollToIndexFailed}
+          initialNumToRender={100}
+          maxToRenderPerBatch={30}
+          windowSize={15}
           contentContainerStyle={{ paddingBottom: Platform.OS === "web" ? 130 : 110 }}
           onScroll={scrollHandler}
           scrollEventThrottle={16}
