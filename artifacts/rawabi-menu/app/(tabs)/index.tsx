@@ -220,69 +220,100 @@ export default function MenuScreen() {
     data: cat.items,
   })), [regularCats, isEn]);
 
-  // ── Get inner ScrollView from AnimatedSectionList ref ───────────────
+  // ── Attempt to get the underlying ScrollView instance ───────────────
   const getInnerScroll = useCallback(() => {
     const list = sectionListRef.current as any;
     if (!list) return null;
-    // Reanimated 3: ref is forwarded directly to the SectionList instance
-    // Try multiple access patterns for maximum compatibility
-    try { const r = list.getScrollRef?.()?.getScrollRef?.(); if (r?.scrollTo) return r; } catch {}
+    // Reanimated 3 forwards the ref to the SectionList class instance.
+    // SectionList exposes getScrollRef() → ScrollView instance → has scrollTo().
     try { const r = list.getScrollRef?.(); if (r?.scrollTo) return r; } catch {}
+    try { const r = list.getScrollRef?.()?.getScrollRef?.(); if (r?.scrollTo) return r; } catch {}
     try { const r = list.getNode?.()?.getScrollRef?.(); if (r?.scrollTo) return r; } catch {}
-    try { const r = list.getNode?.(); if (r?.scrollTo) return r; } catch {}
     return null;
   }, []);
 
   // ── Core scroll-to-section ───────────────────────────────────────────
-  // Primary: use stored onLayout Y (set when section renders) → getScrollRef().scrollTo()
-  // Fallback: scrollToLocation (for edge cases)
   const scrollToSection = useCallback((sectionIdx: number, catId: string, animated = true) => {
-    if (!sectionListRef.current || sectionIdx < 0) return;
+    if (sectionIdx < 0) return;
     pendingScrollIdx.current = sectionIdx;
     pendingScrollCatId.current = catId;
 
-    const storedY = sectionYs.current[catId];
+    const list = sectionListRef.current as any;
 
+    // ── WEB: items are absolutely positioned inside a content div;
+    //   the scroll container is the nearest overflow:scroll ancestor.
+    //   sectionYs[catId] = layout.y from onLayout = offset within content div
+    //   → set scrollContainer.scrollTop = storedY ──────────────────────────
     if (Platform.OS === "web") {
-      // Web: getBoundingClientRect is the most accurate approach
-      try {
-        const headerRef = sectionHeaderRefs.current[catId];
-        const scrollNode = (sectionListRef.current as any)?.getScrollableNode?.();
-        if (headerRef && scrollNode) {
-          const rect = (headerRef as any).getBoundingClientRect?.();
-          const scrollRect = (scrollNode as any).getBoundingClientRect?.();
-          if (rect && scrollRect) {
-            const y = rect.top - scrollRect.top + (scrollNode as any).scrollTop;
-            (scrollNode as any).scrollTo({ top: y, behavior: "smooth" });
-            return;
+      const storedY = sectionYs.current[catId];
+      const el = sectionHeaderRefs.current[catId] as any;
+
+      // Walk up DOM to find the scrollable container
+      const findScrollContainer = (node: Element | null): Element | null => {
+        if (!node) return null;
+        try {
+          const style = window.getComputedStyle(node);
+          const ov = style.overflow + style.overflowY;
+          if ((ov.includes("auto") || ov.includes("scroll")) && node.scrollHeight > (node as HTMLElement).offsetHeight) {
+            return node;
           }
+        } catch {}
+        return findScrollContainer(node.parentElement);
+      };
+
+      if (storedY !== undefined && el) {
+        const container = findScrollContainer(el.parentElement);
+        if (container) {
+          try {
+            container.scrollTo({ top: storedY, behavior: "smooth" });
+            return;
+          } catch {}
+          try { (container as HTMLElement).scrollTop = storedY; return; } catch {}
         }
-        // Web fallback: use stored Y on scroll node
-        if (storedY !== undefined && scrollNode) {
-          (scrollNode as any).scrollTo?.({ top: storedY, behavior: "smooth" });
+      }
+
+      // Last web fallback: scrollIntoView (may scroll wrong container but better than nothing)
+      try { el?.scrollIntoView?.({ behavior: "smooth", block: "start" }); } catch {}
+      return;
+    }
+
+    // ── NATIVE: measureLayout → getScrollRef().scrollTo() ──────────────
+    if (!list) return;
+
+    const doScroll = (y: number) => {
+      const inner = getInnerScroll();
+      if (inner?.scrollTo) { inner.scrollTo({ y, animated }); return true; }
+      // Last resort: scrollToLocation
+      try { list.scrollToLocation?.({ sectionIndex: sectionIdx, itemIndex: 0, viewPosition: 0, animated }); } catch {}
+      return false;
+    };
+
+    const headerRef = sectionHeaderRefs.current[catId];
+    if (headerRef) {
+      // measureLayout gives exact Y relative to the scroll content container
+      const scrollNode = list.getScrollableNode?.() ?? list.getNode?.()?.getScrollableNode?.();
+      if (scrollNode) {
+        try {
+          headerRef.measureLayout(
+            scrollNode,
+            (_x: number, y: number) => { doScroll(y); },
+            () => {
+              const stored = sectionYs.current[catId];
+              if (stored !== undefined) doScroll(stored);
+              else try { list.scrollToLocation?.({ sectionIndex: sectionIdx, itemIndex: 0, viewPosition: 0, animated }); } catch {}
+            }
+          );
           return;
-        }
-      } catch {}
-    } else {
-      // Native primary: scroll to stored onLayout Y position
-      if (storedY !== undefined) {
-        const inner = getInnerScroll();
-        if (inner) {
-          inner.scrollTo({ y: storedY, animated });
-          return;
-        }
+        } catch {}
       }
     }
 
-    // Last resort: scrollToLocation (works when items are rendered)
-    try {
-      (sectionListRef.current as any).scrollToLocation?.({
-        sectionIndex: sectionIdx,
-        itemIndex: 0,
-        viewPosition: 0,
-        animated,
-      });
-    } catch {}
+    // Stored onLayout Y fallback
+    const stored = sectionYs.current[catId];
+    if (stored !== undefined) { doScroll(stored); return; }
+
+    // Absolute last resort
+    try { list.scrollToLocation?.({ sectionIndex: sectionIdx, itemIndex: 0, viewPosition: 0, animated }); } catch {}
   }, [getInnerScroll]);
 
   // ── Retry on failed scroll (virtualised items not yet rendered) ──────
@@ -308,7 +339,12 @@ export default function MenuScreen() {
     }
 
     const sectionIdx = sections.findIndex((s) => s.id === catId);
-    if (!sectionListRef.current || sectionIdx === -1) {
+    if (sectionIdx === -1) {
+      setActiveCategory(catId);
+      return;
+    }
+    // On web we scroll via sectionHeaderRefs (scrollIntoView) — no need for sectionListRef
+    if (Platform.OS !== "web" && !sectionListRef.current) {
       setActiveCategory(catId);
       return;
     }
@@ -318,24 +354,6 @@ export default function MenuScreen() {
     isScrollingProgrammatically.current = true;
     setTimeout(() => { isScrollingProgrammatically.current = false; }, 1500);
 
-    // Web: getBoundingClientRect is most accurate
-    if (Platform.OS === "web") {
-      try {
-        const headerRef = sectionHeaderRefs.current[catId];
-        const scrollNode = sectionListRef.current?.getScrollableNode?.();
-        if (headerRef && scrollNode) {
-          const rect = (headerRef as any).getBoundingClientRect?.();
-          const scrollRect = (scrollNode as any).getBoundingClientRect?.();
-          if (rect && scrollRect) {
-            const y = rect.top - scrollRect.top + (scrollNode as any).scrollTop;
-            (scrollNode as any).scrollTo({ top: y, behavior: "smooth" });
-            return;
-          }
-        }
-      } catch {}
-    }
-
-    // Native: primary = stored Y position → getScrollRef().scrollTo()
     scrollToSection(sectionIdx, catId);
   }, [categories, sections, scrollToSection]);
 
