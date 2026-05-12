@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect } from "react";
+import React, { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { useFocusEffect } from "expo-router";
 import {
   View,
@@ -208,13 +208,14 @@ export default function MenuScreen() {
   const activeCat = categories.find((c) => c.id === activeCategory) ?? categories[0];
   const topInset = Platform.OS === "web" ? 60 : insets.top;
 
-  const sections = regularCats.map((cat) => ({
+  // ── Memoize sections so SectionList never sees a new array reference on tab press ──
+  const sections = useMemo(() => regularCats.map((cat) => ({
     id: cat.id,
     icon: cat.icon,
     name: isEn ? (cat.nameEn ?? cat.name) : cat.name,
     count: cat.items.length,
     data: cat.items,
-  }));
+  })), [regularCats, isEn]);
 
   const handleTabPress = useCallback((catId: string) => {
     setActiveCategory(catId);
@@ -227,12 +228,12 @@ export default function MenuScreen() {
     const sectionIndex = regularCats.findIndex((c) => c.id === catId);
 
     const headerRef = sectionHeaderRefs.current[catId];
-    const scrollNode = sectionListRef.current?.getScrollableNode?.();
 
-    if (headerRef && scrollNode) {
+    if (headerRef) {
       if (Platform.OS === "web") {
-        // On web refs are DOM nodes — use getBoundingClientRect for accurate Y
+        // Web: use getBoundingClientRect for accurate Y
         try {
+          const scrollNode = sectionListRef.current?.getScrollableNode?.();
           const rect = (headerRef as any).getBoundingClientRect?.();
           const scrollRect = (scrollNode as any).getBoundingClientRect?.();
           if (rect && scrollRect) {
@@ -241,20 +242,29 @@ export default function MenuScreen() {
             return;
           }
         } catch {}
-      } else if (typeof headerRef.measureLayout === "function") {
-        // On native use measureLayout for accurate Y relative to scroll container
-        headerRef.measureLayout(
-          scrollNode,
-          (_x: number, y: number) => {
-            try {
-              const inner = sectionListRef.current?.getScrollRef?.()?.getScrollRef?.()
-                ?? sectionListRef.current?.getScrollRef?.();
-              if (inner?.scrollTo) { inner.scrollTo({ y, animated: true }); return; }
-            } catch {}
-          },
-          () => {}
-        );
-        return;
+      } else {
+        // Native: use ref.measure (absolute page coords) + current scroll offset
+        // This avoids measureLayout's unreliable relative-to-node measurement
+        const inner: any = sectionListRef.current?.getScrollRef?.()?.getScrollRef?.()
+          ?? sectionListRef.current?.getScrollRef?.();
+
+        if (inner && typeof headerRef.measure === "function") {
+          headerRef.measure((_x: number, _y: number, _w: number, _h: number, _px: number, headerPageY: number) => {
+            if (typeof inner.measure === "function") {
+              inner.measure((_sx: number, _sy: number, _sw: number, _sh: number, _spx: number, containerPageY: number) => {
+                const currentScrollY = lastY.value; // safe to read shared value from JS thread
+                const targetY = Math.max(0, currentScrollY + (headerPageY - containerPageY));
+                inner.scrollTo({ y: targetY, animated: true });
+              });
+            } else {
+              // inner has no .measure — fall through to scrollToLocation
+              if (sectionIndex !== -1) {
+                try { sectionListRef.current.scrollToLocation({ sectionIndex, itemIndex: 0, viewPosition: 0, animated: true }); } catch {}
+              }
+            }
+          });
+          return;
+        }
       }
     }
 
@@ -262,7 +272,7 @@ export default function MenuScreen() {
     if (sectionIndex !== -1) {
       try { sectionListRef.current.scrollToLocation({ sectionIndex, itemIndex: 0, viewPosition: 0, animated: true }); } catch {}
     }
-  }, [categories, regularCats]);
+  }, [categories, regularCats, lastY]);
 
   const onViewableItemsChanged = useCallback(({ viewableItems }: any) => {
     if (isScrollingProgrammatically.current) return;
