@@ -481,6 +481,56 @@ export default function AppSettingsScreen() {
           <SliderRow label="حجم خط التبويب" value={config.tabFontSize} min={9} max={16} step={1} unit="pt" onValueChange={(v) => update({ tabFontSize: v })} />
         </SectionCard>
 
+        {/* ── Minimum Order ── */}
+        <View style={{ gap: 8, marginHorizontal: 16 }}>
+          <SectionHeader title="إعدادات الطلبات" icon="🛒" />
+        </View>
+        <SectionCard>
+          <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" }}>
+            <Text style={{ color: colors.foreground, fontFamily: F.semi, fontSize: 14, textAlign: "right" }}>
+              الحد الأدنى للطلب
+            </Text>
+            <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12 }}>
+              {config.minOrderAmount === 0 ? "لا يوجد حد أدنى" : `${config.minOrderAmount} ر.س`}
+            </Text>
+          </View>
+          <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 12, marginTop: 12 }}>
+            <TouchableOpacity
+              onPress={() => update({ minOrderAmount: Math.max(0, (config.minOrderAmount ?? 0) - 5) })}
+              style={{ width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center", backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }}
+            >
+              <Text style={{ color: colors.foreground, fontFamily: F.bold, fontSize: 20 }}>−</Text>
+            </TouchableOpacity>
+
+            <View style={{ flex: 1, alignItems: "center", backgroundColor: colors.surface, borderRadius: 12, borderWidth: 1, borderColor: colors.border, paddingVertical: 10 }}>
+              <Text style={{ color: colors.gold, fontFamily: F.extra, fontSize: 22 }}>
+                {config.minOrderAmount ?? 0}
+              </Text>
+              <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }}>ريال سعودي</Text>
+            </View>
+
+            <TouchableOpacity
+              onPress={() => update({ minOrderAmount: (config.minOrderAmount ?? 0) + 5 })}
+              style={{ width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center", backgroundColor: colors.primary, borderWidth: 1, borderColor: colors.primary }}
+            >
+              <Text style={{ color: "#fff", fontFamily: F.bold, fontSize: 20 }}>+</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={{ flexDirection: "row-reverse", justifyContent: "center", gap: 8, marginTop: 8 }}>
+            {[0, 10, 15, 20, 25, 30].map((v) => (
+              <TouchableOpacity
+                key={v}
+                onPress={() => update({ minOrderAmount: v })}
+                style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, borderWidth: 1, borderColor: config.minOrderAmount === v ? colors.primary : colors.border, backgroundColor: config.minOrderAmount === v ? colors.primary : colors.surface }}
+              >
+                <Text style={{ color: config.minOrderAmount === v ? "#fff" : colors.mutedForeground, fontFamily: F.semi, fontSize: 12 }}>
+                  {v === 0 ? "بدون" : `${v}`}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </SectionCard>
+
         {/* Reset */}
         <TouchableOpacity
           onPress={confirmReset}

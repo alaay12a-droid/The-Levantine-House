@@ -126,6 +126,7 @@ export interface AppConfig {
   accentColor: string;
   bgTheme: BgThemeKey;
   logoBg: string;
+  minOrderAmount: number;
 }
 
 export const DEFAULT_CONFIG: AppConfig = {
@@ -148,6 +149,7 @@ export const DEFAULT_CONFIG: AppConfig = {
   accentColor: "#E8920C",
   bgTheme: "dark-brown",
   logoBg: "#1F130A",
+  minOrderAmount: 0,
 };
 
 interface AppConfigContextValue {
@@ -179,10 +181,11 @@ export function AppConfigProvider({ children }: { children: React.ReactNode }) {
 
       // 2. Load appearance (colors + logoBg) from server — overrides local for these keys
       try {
-        const remote = await apiGet<{ bgTheme: string; accentColor: string; logoBg: string }>("/settings/appearance");
-        if (remote.bgTheme)     local.bgTheme     = remote.bgTheme as BgThemeKey;
-        if (remote.accentColor) local.accentColor = remote.accentColor;
-        if (remote.logoBg)      local.logoBg      = remote.logoBg;
+        const remote = await apiGet<{ bgTheme: string; accentColor: string; logoBg: string; minOrderAmount: number }>("/settings/appearance");
+        if (remote.bgTheme)                    local.bgTheme        = remote.bgTheme as BgThemeKey;
+        if (remote.accentColor)                local.accentColor    = remote.accentColor;
+        if (remote.logoBg)                     local.logoBg         = remote.logoBg;
+        if (remote.minOrderAmount !== undefined) local.minOrderAmount = remote.minOrderAmount;
       } catch {}
 
       setConfig({ ...DEFAULT_CONFIG, ...local });
@@ -200,12 +203,14 @@ export function AppConfigProvider({ children }: { children: React.ReactNode }) {
       if (
         partial.bgTheme !== undefined ||
         partial.accentColor !== undefined ||
-        partial.logoBg !== undefined
+        partial.logoBg !== undefined ||
+        partial.minOrderAmount !== undefined
       ) {
         apiPut("/settings/appearance", {
-          bgTheme:     next.bgTheme,
-          accentColor: next.accentColor,
-          logoBg:      next.logoBg,
+          bgTheme:        next.bgTheme,
+          accentColor:    next.accentColor,
+          logoBg:         next.logoBg,
+          minOrderAmount: next.minOrderAmount,
         }).catch(() => {});
       }
       return next;

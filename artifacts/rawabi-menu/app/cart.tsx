@@ -18,6 +18,7 @@ import { useColors } from "@/hooks/useColors";
 import { useCart } from "@/context/CartContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { useMenu } from "@/hooks/useMenu";
+import { useAppConfig } from "@/context/AppConfigContext";
 import { FOOD_IMAGES } from "@/constants/menu";
 
 const F = {
@@ -37,7 +38,12 @@ export default function CartScreen() {
   const { items, updateQuantity, removeItem, clearCart, addItem, totalItems, totalPrice } = useCart();
   const { language } = useLanguage();
   const { categories } = useMenu();
+  const { config } = useAppConfig();
   const isEn = language === "en";
+
+  const minOrder = config.minOrderAmount ?? 0;
+  const belowMinOrder = minOrder > 0 && totalPrice < minOrder;
+  const remaining = minOrder > 0 ? Math.max(0, minOrder - totalPrice) : 0;
 
   const topInset = Platform.OS === "web" ? 67 : insets.top;
   const bottomInset = Platform.OS === "web" ? 34 : insets.bottom;
@@ -314,19 +320,34 @@ export default function CartScreen() {
               },
             ]}
           >
+            {/* Minimum order warning */}
+            {belowMinOrder && (
+              <View style={[styles.minOrderBanner, { backgroundColor: colors.surface, borderColor: colors.primary }]}>
+                <Text style={[styles.minOrderText, { color: colors.primary, fontFamily: F.bold }]}>
+                  {isEn
+                    ? `Minimum order is ${minOrder} SAR — add ${remaining % 1 === 0 ? remaining : remaining.toFixed(1)} SAR more`
+                    : `الحد الأدنى للطلب ${minOrder} ر.س — أضف ${remaining % 1 === 0 ? remaining : remaining.toFixed(1)} ر.س`}
+                </Text>
+              </View>
+            )}
             <TouchableOpacity
-              onPress={() => router.push("/checkout")}
-              style={[styles.checkoutBtn, { backgroundColor: colors.gold }]}
-              activeOpacity={0.85}
+              onPress={() => !belowMinOrder && router.push("/checkout")}
+              style={[
+                styles.checkoutBtn,
+                { backgroundColor: belowMinOrder ? colors.border : colors.gold },
+              ]}
+              activeOpacity={belowMinOrder ? 1 : 0.85}
             >
               <View style={styles.checkoutBtnInner}>
-                <Text style={[styles.checkoutTotal, { fontFamily: F.extra }]}>
+                <Text style={[styles.checkoutTotal, { fontFamily: F.extra, color: belowMinOrder ? colors.mutedForeground : "#FFF" }]}>
                   {totalPrice % 1 === 0 ? totalPrice : totalPrice.toFixed(1)} {isEn ? "SAR" : "ر.س"}
                 </Text>
-                <Text style={[styles.checkoutText, { fontFamily: F.bold }]}>
-                  {isEn ? "Proceed to Checkout" : "إتمام الطلب"}
+                <Text style={[styles.checkoutText, { fontFamily: F.bold, color: belowMinOrder ? colors.mutedForeground : "#FFF" }]}>
+                  {belowMinOrder
+                    ? (isEn ? `Min. order: ${minOrder} SAR` : `الحد الأدنى: ${minOrder} ر.س`)
+                    : (isEn ? "Proceed to Checkout" : "إتمام الطلب")}
                 </Text>
-                <Feather name="arrow-left" size={20} color="#FFFFFF" />
+                <Feather name="arrow-left" size={20} color={belowMinOrder ? colors.mutedForeground : "#FFFFFF"} />
               </View>
             </TouchableOpacity>
           </View>
@@ -497,6 +518,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 12,
     borderTopWidth: 1,
+    gap: 10,
+  },
+  minOrderBanner: {
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    alignItems: "center",
+  },
+  minOrderText: {
+    fontSize: 13,
+    textAlign: "center",
+    lineHeight: 20,
   },
   checkoutBtn: {
     borderRadius: 16,
