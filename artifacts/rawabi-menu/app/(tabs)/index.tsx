@@ -151,6 +151,7 @@ export default function MenuScreen() {
   const tabsScrollRef = useRef<ScrollView>(null);
   const isScrollingProgrammatically = useRef(false);
   const sectionYs = useRef<Record<string, number>>({});
+  const sectionHeaderRefs = useRef<Record<string, any>>({});
 
   // ── Collapsing header animation ──
   const lastY = useSharedValue(0);
@@ -204,36 +205,47 @@ export default function MenuScreen() {
     if (cat?.isDelivery || cat?.isDhabiha || cat?.isOccasions) return;
     if (!sectionListRef.current) return;
     isScrollingProgrammatically.current = true;
+    setTimeout(() => { isScrollingProgrammatically.current = false; }, 1000);
 
-    const trackedY = sectionYs.current[catId];
     const sectionIndex = regularCats.findIndex((c) => c.id === catId);
 
-    const scrolled = (() => {
-      if (trackedY === undefined) return false;
+    // Primary: measureLayout against the scroll container for accurate Y position
+    const headerRef = sectionHeaderRefs.current[catId];
+    const scrollNode = sectionListRef.current?.getScrollableNode?.();
+    if (headerRef && scrollNode && typeof headerRef.measureLayout === "function") {
+      headerRef.measureLayout(
+        scrollNode,
+        (_x: number, y: number) => {
+          if (typeof scrollNode.scrollTo === "function") {
+            scrollNode.scrollTo({ top: y, behavior: "smooth" });
+          } else {
+            scrollNode.scrollTop = y;
+          }
+        },
+        () => {
+          // measureLayout failed — fall back to scrollToLocation
+          if (sectionIndex !== -1) {
+            try { sectionListRef.current.scrollToLocation({ sectionIndex, itemIndex: 0, viewPosition: 0, animated: true }); } catch {}
+          }
+        }
+      );
+      return;
+    }
+
+    // Fallback A: native scrollTo via inner ref chain
+    const trackedY = sectionYs.current[catId];
+    if (trackedY !== undefined) {
       try {
-        // Try inner VirtualizedList → ScrollView ref chain (works on native)
         const inner = sectionListRef.current.getScrollRef?.()?.getScrollRef?.()
           ?? sectionListRef.current.getScrollRef?.();
-        if (inner?.scrollTo) { inner.scrollTo({ y: trackedY, animated: true }); return true; }
-      } catch {}
-      try {
-        // Try scrollable DOM node (works on Expo web)
-        const node = sectionListRef.current.getScrollableNode?.();
-        if (node) {
-          if (typeof node.scrollTo === "function") { node.scrollTo({ top: trackedY, behavior: "smooth" }); return true; }
-          if (typeof node.scrollTop !== "undefined") { node.scrollTop = trackedY; return true; }
-        }
-      } catch {}
-      return false;
-    })();
-
-    if (!scrolled && sectionIndex !== -1) {
-      try {
-        sectionListRef.current.scrollToLocation({ sectionIndex, itemIndex: 0, viewPosition: 0, animated: true });
+        if (inner?.scrollTo) { inner.scrollTo({ y: trackedY, animated: true }); return; }
       } catch {}
     }
 
-    setTimeout(() => { isScrollingProgrammatically.current = false; }, 800);
+    // Fallback B: scrollToLocation
+    if (sectionIndex !== -1) {
+      try { sectionListRef.current.scrollToLocation({ sectionIndex, itemIndex: 0, viewPosition: 0, animated: true }); } catch {}
+    }
   }, [categories, regularCats]);
 
   const onViewableItemsChanged = useCallback(({ viewableItems }: any) => {
@@ -692,6 +704,7 @@ export default function MenuScreen() {
           }}
           renderSectionHeader={({ section }) => (
             <View
+              ref={(r) => { if (r) sectionHeaderRefs.current[section.id] = r; }}
               onLayout={(e) => { sectionYs.current[section.id] = e.nativeEvent.layout.y; }}
               style={[styles.sectionRow, { backgroundColor: colors.background, borderBottomColor: colors.border, borderTopColor: colors.border }]}
             >
