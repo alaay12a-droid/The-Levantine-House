@@ -224,10 +224,12 @@ export default function MenuScreen() {
   const getInnerScroll = useCallback(() => {
     const list = sectionListRef.current as any;
     if (!list) return null;
-    // Reanimated 3 forwards the ref to the SectionList class instance.
-    // SectionList exposes getScrollRef() → ScrollView instance → has scrollTo().
-    try { const r = list.getScrollRef?.(); if (r?.scrollTo) return r; } catch {}
-    try { const r = list.getScrollRef?.()?.getScrollRef?.(); if (r?.scrollTo) return r; } catch {}
+    // In Reanimated v2 the inner component is stored as _component.
+    // In Reanimated v3 the ref IS the SectionList instance.
+    // SectionList.getScrollRef() → ScrollView instance with scrollTo().
+    const actual = list._component ?? list;
+    try { const r = actual.getScrollRef?.(); if (r?.scrollTo) return r; } catch {}
+    try { const r = actual.getScrollRef?.()?.getScrollRef?.(); if (r?.scrollTo) return r; } catch {}
     try { const r = list.getNode?.()?.getScrollRef?.(); if (r?.scrollTo) return r; } catch {}
     return null;
   }, []);
@@ -277,42 +279,35 @@ export default function MenuScreen() {
       return;
     }
 
-    // ── NATIVE: measureLayout → getScrollRef().scrollTo() ──────────────
+    // ── NATIVE ──────────────────────────────────────────────────────────
     if (!list) return;
 
-    const doScroll = (y: number) => {
-      const inner = getInnerScroll();
-      if (inner?.scrollTo) { inner.scrollTo({ y, animated }); return true; }
-      // Last resort: scrollToLocation
-      try { list.scrollToLocation?.({ sectionIndex: sectionIdx, itemIndex: 0, viewPosition: 0, animated }); } catch {}
-      return false;
-    };
+    // In Reanimated v2: inner SectionList stored as _component.
+    // In Reanimated v3: ref IS the SectionList instance directly.
+    const actual = (list as any)._component ?? list;
 
-    const headerRef = sectionHeaderRefs.current[catId];
-    if (headerRef) {
-      // measureLayout gives exact Y relative to the scroll content container
-      const scrollNode = list.getScrollableNode?.() ?? list.getNode?.()?.getScrollableNode?.();
-      if (scrollNode) {
-        try {
-          headerRef.measureLayout(
-            scrollNode,
-            (_x: number, y: number) => { doScroll(y); },
-            () => {
-              const stored = sectionYs.current[catId];
-              if (stored !== undefined) doScroll(stored);
-              else try { list.scrollToLocation?.({ sectionIndex: sectionIdx, itemIndex: 0, viewPosition: 0, animated }); } catch {}
-            }
-          );
-          return;
-        } catch {}
-      }
+    // Method 1: scrollToLocation (built-in SectionList API — no virtualisation issues
+    //           with initialNumToRender=100 since all items are already rendered)
+    if (typeof actual.scrollToLocation === "function") {
+      try {
+        actual.scrollToLocation({
+          sectionIndex: sectionIdx,
+          itemIndex: 0,
+          viewPosition: 0,
+          animated,
+        });
+        return;
+      } catch {}
     }
 
-    // Stored onLayout Y fallback
+    // Method 2: getScrollRef().scrollTo() with stored Y from onLayout
     const stored = sectionYs.current[catId];
-    if (stored !== undefined) { doScroll(stored); return; }
+    if (stored !== undefined) {
+      const inner = getInnerScroll();
+      if (inner?.scrollTo) { inner.scrollTo({ y: stored, animated }); return; }
+    }
 
-    // Absolute last resort
+    // Method 3: scrollToLocation on the raw list ref (Reanimated v3 path)
     try { list.scrollToLocation?.({ sectionIndex: sectionIdx, itemIndex: 0, viewPosition: 0, animated }); } catch {}
   }, [getInnerScroll]);
 
