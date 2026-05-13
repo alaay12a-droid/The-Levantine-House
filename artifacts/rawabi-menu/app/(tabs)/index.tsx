@@ -242,17 +242,14 @@ export default function MenuScreen() {
 
     const list = sectionListRef.current as any;
 
-    // ── WEB: items are absolutely positioned inside a content div;
-    //   the scroll container is the nearest overflow:scroll ancestor.
-    //   sectionYs[catId] = layout.y from onLayout = offset within content div
-    //   → set scrollContainer.scrollTop = storedY ──────────────────────────
+    // ── WEB: use getBoundingClientRect for accurate scroll targeting ─────
     if (Platform.OS === "web") {
-      const storedY = sectionYs.current[catId];
       const el = sectionHeaderRefs.current[catId] as any;
+      if (!el) return;
 
       // Walk up DOM to find the scrollable container
       const findScrollContainer = (node: Element | null): Element | null => {
-        if (!node) return null;
+        if (!node || node === document.body) return null;
         try {
           const style = window.getComputedStyle(node);
           const ov = style.overflow + style.overflowY;
@@ -263,19 +260,23 @@ export default function MenuScreen() {
         return findScrollContainer(node.parentElement);
       };
 
-      if (storedY !== undefined && el) {
-        const container = findScrollContainer(el.parentElement);
-        if (container) {
-          try {
-            container.scrollTo({ top: storedY, behavior: "smooth" });
-            return;
-          } catch {}
-          try { (container as HTMLElement).scrollTop = storedY; return; } catch {}
-        }
+      const container = findScrollContainer(el.parentElement);
+      if (container) {
+        // getBoundingClientRect gives position relative to viewport →
+        // compute exact target scrollTop regardless of prior scroll offset
+        const elRect = (el as HTMLElement).getBoundingClientRect();
+        const containerRect = (container as HTMLElement).getBoundingClientRect();
+        const targetScrollTop = container.scrollTop + elRect.top - containerRect.top;
+        try {
+          container.scrollTo({ top: targetScrollTop, behavior: animated ? "smooth" : "instant" as any });
+          return;
+        } catch {}
+        (container as HTMLElement).scrollTop = targetScrollTop;
+        return;
       }
 
-      // Last web fallback: scrollIntoView (may scroll wrong container but better than nothing)
-      try { el?.scrollIntoView?.({ behavior: "smooth", block: "start" }); } catch {}
+      // Fallback: scrollIntoView
+      try { (el as HTMLElement).scrollIntoView?.({ behavior: "smooth", block: "start" }); } catch {}
       return;
     }
 
