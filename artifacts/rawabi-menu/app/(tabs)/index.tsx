@@ -17,10 +17,12 @@ import Animated, {
   useSharedValue,
   useAnimatedScrollHandler,
   useAnimatedStyle,
+  useAnimatedRef,
+  scrollTo,
+  runOnJS,
   withTiming,
   interpolate,
   Extrapolation,
-  runOnJS,
 } from "react-native-reanimated";
 
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -146,11 +148,10 @@ export default function MenuScreen() {
   useFocusEffect(useCallback(() => { refreshMenu(); }, [refreshMenu]));
 
   useEffect(() => { refreshBanners(); }, [refreshBanners]);
-  const menuScrollRef = useRef<any>(null);
+  const menuScrollRef = useAnimatedRef<Animated.ScrollView>();
   const tabsScrollRef = useRef<ScrollView>(null);
   const isScrollingProgrammatically = useRef(false);
   const sectionYs = useRef<Record<string, number>>({});
-  const sectionHeaderRefs = useRef<Record<string, any>>({});
   // ── Tab positions (x offset) for auto-scrolling the tabs bar ──────
   const tabPositions = useRef<Record<string, number>>({});
 
@@ -162,40 +163,6 @@ export default function MenuScreen() {
   // ── Banner: only visible at absolute top ─────────────────────────────
   const bannerH = useSharedValue(0);
   const bannerAnim = useSharedValue(1); // 1=visible 0=hidden
-
-  // ── Update active category while user scrolls (JS thread via runOnJS) ──
-  const updateActiveCategoryFromScroll = useCallback((y: number) => {
-    if (isScrollingProgrammatically.current) return;
-    const ys = sectionYs.current;
-    const entries = Object.entries(ys).sort((a, b) => a[1] - b[1]);
-    if (entries.length === 0) return;
-    let activeId = entries[0][0];
-    for (const [id, sY] of entries) {
-      if (y + 80 >= sY) activeId = id;
-    }
-    setActiveCategory(activeId);
-  }, []);
-
-  const scrollHandler = useAnimatedScrollHandler({
-    onScroll: (event) => {
-      "worklet";
-      const y = event.contentOffset.y;
-      const diff = y - lastY.value;
-      lastY.value = y;
-      // Banner collapses as soon as user scrolls; only restores at absolute top
-      bannerAnim.value = y <= 8 ? withTiming(1, { duration: 280 }) : withTiming(0, { duration: 200 });
-      // Collapsing header (direction-based)
-      if (y <= 10) {
-        headerVisible.value = withTiming(1, { duration: 200 });
-      } else if (diff > 5) {
-        headerVisible.value = withTiming(0, { duration: 250 });
-      } else if (diff < -5) {
-        headerVisible.value = withTiming(1, { duration: 250 });
-      }
-      // Track active category on JS thread
-      runOnJS(updateActiveCategoryFromScroll)(y);
-    },
-  });
 
   const headerTopStyle = useAnimatedStyle(() => {
     if (collapsibleH.value <= 0) {
@@ -222,7 +189,7 @@ export default function MenuScreen() {
   const activeCat = categories.find((c) => c.id === activeCategory) ?? categories[0];
   const topInset = Platform.OS === "web" ? 60 : insets.top;
 
-  // ── Memoize sections so SectionList never sees a new array reference on tab press ──
+  // ── Sections data ────────────────────────────────────────────────────
   const sections = useMemo(() => regularCats.map((cat) => ({
     id: cat.id,
     icon: cat.icon,
@@ -231,13 +198,42 @@ export default function MenuScreen() {
     data: cat.items,
   })), [regularCats, isEn]);
 
-  // ── Core scroll-to-section: uses direct menuScrollRef ───────────────
-  const scrollToSection = useCallback((sectionIdx: number, catId: string, animated = true) => {
-    if (sectionIdx < 0) return;
+  // ── Active category update from manual scroll (JS thread) ────────────
+  const updateActiveCategoryFromScroll = useCallback((y: number) => {
+    if (isScrollingProgrammatically.current) return;
+    let found = "";
+    for (const sec of sections) {
+      const secY = sectionYs.current[sec.id];
+      if (secY !== undefined && secY <= y + 80) found = sec.id;
+    }
+    if (found) setActiveCategory(found);
+  }, [sections]);
+
+  // ── Scroll handler: header collapse + banner + active tracking ───────
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      "worklet";
+      const y = event.contentOffset.y;
+      const diff = y - lastY.value;
+      lastY.value = y;
+      bannerAnim.value = y <= 8 ? withTiming(1, { duration: 280 }) : withTiming(0, { duration: 200 });
+      if (y <= 10) {
+        headerVisible.value = withTiming(1, { duration: 200 });
+      } else if (diff > 5) {
+        headerVisible.value = withTiming(0, { duration: 250 });
+      } else if (diff < -5) {
+        headerVisible.value = withTiming(1, { duration: 250 });
+      }
+      runOnJS(updateActiveCategoryFromScroll)(y);
+    },
+  });
+
+  // ── Scroll to section: Reanimated scrollTo works on web & native ─────
+  const scrollToSection = useCallback((_sectionIdx: number, catId: string, animated = true) => {
     const y = sectionYs.current[catId];
     if (y === undefined) return;
-    menuScrollRef.current?.scrollTo({ y, animated });
-  }, []);
+    scrollTo(menuScrollRef, 0, y, animated);
+  }, [menuScrollRef]);
 
   // ── Tab press: update active + scroll ───────────────────────────────
   const handleTabPress = useCallback((catId: string) => {
@@ -252,11 +248,10 @@ export default function MenuScreen() {
       setActiveCategory(catId);
       return;
     }
-    // Update tab highlight immediately
+
     setActiveCategory(catId);
     isScrollingProgrammatically.current = true;
     setTimeout(() => { isScrollingProgrammatically.current = false; }, 1500);
-
     scrollToSection(sectionIdx, catId);
   }, [categories, sections, scrollToSection]);
 
@@ -267,7 +262,6 @@ export default function MenuScreen() {
       tabsScrollRef.current?.scrollTo({ x: Math.max(0, x - 40), animated: true });
     }
   }, [activeCategory]);
-
 
   const handleWhatsApp = (msg: string) => {
     Linking.openURL(`https://wa.me/${info.whatsapp}?text=${encodeURIComponent(msg)}`);
@@ -534,119 +528,116 @@ export default function MenuScreen() {
           ))}
         </Animated.ScrollView>
       ) : (
-        /* ── REGULAR MENU — Animated.ScrollView with direct ref for reliable programmatic scroll ── */
-        <Animated.ScrollView
-          ref={menuScrollRef}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: Platform.OS === "web" ? 130 : 110 }}
-          onScroll={scrollHandler}
-          scrollEventThrottle={16}
-        >
-          {/* ── LIST HEADER ── */}
-          {(() => {
-            const allItems = categories.flatMap((c) => c.items);
-            const favItems = allItems.filter((it) => favorites.includes(it.id));
-            const occ = OCCASION_THEMES[occasionId];
-            return (
-              <View>
-                {/* ── OCCASION BANNER ── */}
-                {occasionId !== "none" && (
-                  <View style={{ backgroundColor: occ.bg, overflow: "hidden" }}>
-                    <View style={{ height: 3, backgroundColor: occ.textColor + "55" }} />
-                    <View style={{ paddingVertical: 10, paddingHorizontal: 8, backgroundColor: occ.secondBg + "AA" }}>
-                      <Text style={{ fontSize: 20, textAlign: "center", letterSpacing: 4 }}>{occ.decorRow}</Text>
-                    </View>
-                    <View style={{ paddingHorizontal: 20, paddingTop: 12, paddingBottom: 16, alignItems: "center", gap: 6 }}>
-                      <Text style={{ fontSize: 30 }}>{occ.emoji}</Text>
-                      <Text style={{ color: occ.textColor, fontFamily: F.extra, fontSize: 20, textAlign: "center" }}>{occ.name}</Text>
-                      <Text style={{ color: occ.subColor, fontFamily: F.semi, fontSize: 13, textAlign: "center" }}>{occ.greeting}</Text>
-                    </View>
-                    <View style={{ paddingVertical: 8, paddingHorizontal: 8, backgroundColor: occ.secondBg + "AA" }}>
-                      <Text style={{ fontSize: 18, textAlign: "center", letterSpacing: 6, opacity: 0.7 }}>{occ.decorRow}</Text>
-                    </View>
-                    <View style={{ height: 3, backgroundColor: occ.textColor + "55" }} />
-                  </View>
-                )}
-                {/* ── BANNER ── */}
-                <Animated.View style={bannerStyle} onLayout={(e) => { const h = e.nativeEvent.layout.height; if (h > 10 && bannerH.value === 0) bannerH.value = h; }}>
-                  <BannerCarousel banners={banners} />
-                </Animated.View>
-                {/* ── FAVORITES ── */}
-                {favItems.length > 0 && (
-                  <View style={{ paddingBottom: 4 }}>
-                    <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8, paddingHorizontal: 16, paddingTop: 14, paddingBottom: 8 }}>
-                      <Text style={{ color: "#E8920C", fontFamily: F.extra, fontSize: 16 }}>❤️ {isEn ? "Favourites" : "المفضلة"}</Text>
-                      <Text style={{ color: "#9A7A5A", fontFamily: F.semi, fontSize: 12 }}>({favItems.length})</Text>
-                    </View>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 12, gap: 10, flexDirection: "row-reverse" }}>
-                      {favItems.map((item) => (
-                        <View key={item.id} style={{ width: 130, backgroundColor: "#1A0D05", borderRadius: 14, overflow: "hidden", borderWidth: 1, borderColor: "#C8171A33" }}>
-                          {item.imageUrl ? (
-                            <Image source={{ uri: item.imageUrl }} style={{ width: "100%", height: 80 }} resizeMode="cover" />
-                          ) : (
-                            <View style={{ width: "100%", height: 80, alignItems: "center", justifyContent: "center", backgroundColor: "#2A1508" }}>
-                              <Text style={{ fontSize: 32 }}>🍽️</Text>
-                            </View>
-                          )}
-                          <View style={{ padding: 8, gap: 4 }}>
-                            <Text style={{ color: "#fff", fontFamily: F.bold, fontSize: 12, textAlign: "right" }} numberOfLines={2}>{isEn && item.nameEn ? item.nameEn : item.name}</Text>
-                            <Text style={{ color: "#E8920C", fontFamily: F.extra, fontSize: 14, textAlign: "right" }}>
-                              {item.price} <Text style={{ fontSize: 10, fontFamily: F.regular, color: "#9A7A5A" }}>{isEn ? "SAR" : "ر.س"}</Text>
-                            </Text>
-                          </View>
-                        </View>
-                      ))}
-                    </ScrollView>
-                  </View>
-                )}
-                {/* ── COMBOS ── */}
-                {availableCombos.length > 0 && (
-                  <View style={{ paddingBottom: 8 }}>
-                    <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8, paddingHorizontal: 16, paddingTop: 14, paddingBottom: 8 }}>
-                      <Text style={{ color: "#82B1FF", fontFamily: F.extra, fontSize: 16 }}>🎁 {isEn ? "Meal Combos" : "الوجبات المجمعة"}</Text>
-                    </View>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 12, gap: 10, flexDirection: "row-reverse" }}>
-                      {availableCombos.map((combo) => (
-                        <View key={combo.comboId} style={{ width: 200, backgroundColor: "#0F1A2A", borderRadius: 16, padding: 12, gap: 8, borderWidth: 1, borderColor: "#82B1FF33" }}>
-                          {combo.imageUrl ? (
-                            <Image source={{ uri: combo.imageUrl }} style={{ width: "100%", height: 100, borderRadius: 10 }} resizeMode="cover" />
-                          ) : (
-                            <View style={{ width: "100%", height: 80, borderRadius: 10, backgroundColor: "#1A2A3A", alignItems: "center", justifyContent: "center" }}>
-                              <Text style={{ fontSize: 36 }}>🎁</Text>
-                            </View>
-                          )}
-                          <Text style={{ color: "#fff", fontFamily: F.bold, fontSize: 14, textAlign: "right" }} numberOfLines={2}>{combo.name}</Text>
-                          <View style={{ gap: 3 }}>
-                            {combo.components.map((comp, i) => (
-                              <Text key={i} style={{ color: "#82B1FF99", fontFamily: F.regular, fontSize: 11, textAlign: "right" }}>{"×" + comp.quantity + " " + comp.name}</Text>
-                            ))}
-                          </View>
-                          <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", marginTop: 4 }}>
-                            <Text style={{ color: "#FFD700", fontFamily: F.bold, fontSize: 15 }}>{combo.price.toFixed(2)} ر.س</Text>
-                            <TouchableOpacity
-                              onPress={() => addItem({ id: `combo-${combo.comboId}`, name: combo.name, price: combo.price, category: "combo", description: combo.components.map(c => `×${c.quantity} ${c.name}`).join(" | "), imageUrl: combo.imageUrl ?? undefined })}
-                              style={{ backgroundColor: "#82B1FF22", borderWidth: 1, borderColor: "#82B1FF", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, flexDirection: "row-reverse", alignItems: "center", gap: 4 }}
-                            >
-                              <Feather name="plus" size={14} color="#82B1FF" />
-                              <Text style={{ color: "#82B1FF", fontFamily: F.bold, fontSize: 12 }}>{isEn ? "Add" : "أضف"}</Text>
-                            </TouchableOpacity>
-                          </View>
-                        </View>
-                      ))}
-                    </ScrollView>
-                  </View>
-                )}
-              </View>
-            );
-          })()}
+        /* ── REGULAR MENU — flat ScrollView with sticky section headers ── */
+        (() => {
+          const allItems = categories.flatMap((c) => c.items);
+          const favItems = allItems.filter((it) => favorites.includes(it.id));
+          const occ = OCCASION_THEMES[occasionId];
+          const flatChildren: React.ReactNode[] = [];
+          const stickyHeaderIndices: number[] = [];
 
-          {/* ── SECTIONS ── */}
-          {sections.map((section) => (
-            <View key={section.id}>
-              <View style={{ height: 6 }} />
-              {/* Section header — onLayout.y is relative to ScrollView content = exact scrollTo target */}
+          // ── List header (index 0) ─────────────────────────────────────
+          flatChildren.push(
+            <View key="__header">
+              {/* Occasion banner */}
+              {occasionId !== "none" && (
+                <View style={{ backgroundColor: occ.bg, overflow: "hidden" }}>
+                  <View style={{ height: 3, backgroundColor: occ.textColor + "55" }} />
+                  <View style={{ paddingVertical: 10, paddingHorizontal: 8, backgroundColor: occ.secondBg + "AA" }}>
+                    <Text style={{ fontSize: 20, textAlign: "center", letterSpacing: 4 }}>{occ.decorRow}</Text>
+                  </View>
+                  <View style={{ paddingHorizontal: 20, paddingTop: 12, paddingBottom: 16, alignItems: "center", gap: 6 }}>
+                    <Text style={{ fontSize: 30 }}>{occ.emoji}</Text>
+                    <Text style={{ color: occ.textColor, fontFamily: F.extra, fontSize: 20, textAlign: "center" }}>{occ.name}</Text>
+                    <Text style={{ color: occ.subColor, fontFamily: F.semi, fontSize: 13, textAlign: "center" }}>{occ.greeting}</Text>
+                  </View>
+                  <View style={{ paddingVertical: 8, paddingHorizontal: 8, backgroundColor: occ.secondBg + "AA" }}>
+                    <Text style={{ fontSize: 18, textAlign: "center", letterSpacing: 6, opacity: 0.7 }}>{occ.decorRow}</Text>
+                  </View>
+                  <View style={{ height: 3, backgroundColor: occ.textColor + "55" }} />
+                </View>
+              )}
+              {/* Banner */}
+              <Animated.View style={bannerStyle} onLayout={(e) => { const h = e.nativeEvent.layout.height; if (h > 10 && bannerH.value === 0) bannerH.value = h; }}>
+                <BannerCarousel banners={banners} />
+              </Animated.View>
+              {/* Favorites */}
+              {favItems.length > 0 && (
+                <View style={{ paddingBottom: 4 }}>
+                  <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8, paddingHorizontal: 16, paddingTop: 14, paddingBottom: 8 }}>
+                    <Text style={{ color: "#E8920C", fontFamily: F.extra, fontSize: 16 }}>❤️ {isEn ? "Favourites" : "المفضلة"}</Text>
+                    <Text style={{ color: "#9A7A5A", fontFamily: F.semi, fontSize: 12 }}>({favItems.length})</Text>
+                  </View>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 12, gap: 10, flexDirection: "row-reverse" }}>
+                    {favItems.map((item) => (
+                      <View key={item.id} style={{ width: 130, backgroundColor: "#1A0D05", borderRadius: 14, overflow: "hidden", borderWidth: 1, borderColor: "#C8171A33" }}>
+                        {item.imageUrl ? (
+                          <Image source={{ uri: item.imageUrl }} style={{ width: "100%", height: 80 }} resizeMode="cover" />
+                        ) : (
+                          <View style={{ width: "100%", height: 80, alignItems: "center", justifyContent: "center", backgroundColor: "#2A1508" }}>
+                            <Text style={{ fontSize: 32 }}>🍽️</Text>
+                          </View>
+                        )}
+                        <View style={{ padding: 8, gap: 4 }}>
+                          <Text style={{ color: "#fff", fontFamily: F.bold, fontSize: 12, textAlign: "right" }} numberOfLines={2}>{isEn && item.nameEn ? item.nameEn : item.name}</Text>
+                          <Text style={{ color: "#E8920C", fontFamily: F.extra, fontSize: 14, textAlign: "right" }}>
+                            {item.price} <Text style={{ fontSize: 10, fontFamily: F.regular, color: "#9A7A5A" }}>{isEn ? "SAR" : "ر.س"}</Text>
+                          </Text>
+                        </View>
+                      </View>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+              {/* Combos */}
+              {availableCombos.length > 0 && (
+                <View style={{ paddingBottom: 8 }}>
+                  <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8, paddingHorizontal: 16, paddingTop: 14, paddingBottom: 8 }}>
+                    <Text style={{ color: "#82B1FF", fontFamily: F.extra, fontSize: 16 }}>🎁 {isEn ? "Meal Combos" : "الوجبات المجمعة"}</Text>
+                  </View>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 12, gap: 10, flexDirection: "row-reverse" }}>
+                    {availableCombos.map((combo) => (
+                      <View key={combo.comboId} style={{ width: 200, backgroundColor: "#0F1A2A", borderRadius: 16, padding: 12, gap: 8, borderWidth: 1, borderColor: "#82B1FF33" }}>
+                        {combo.imageUrl ? (
+                          <Image source={{ uri: combo.imageUrl }} style={{ width: "100%", height: 100, borderRadius: 10 }} resizeMode="cover" />
+                        ) : (
+                          <View style={{ width: "100%", height: 80, borderRadius: 10, backgroundColor: "#1A2A3A", alignItems: "center", justifyContent: "center" }}>
+                            <Text style={{ fontSize: 36 }}>🎁</Text>
+                          </View>
+                        )}
+                        <Text style={{ color: "#fff", fontFamily: F.bold, fontSize: 14, textAlign: "right" }} numberOfLines={2}>{combo.name}</Text>
+                        <View style={{ gap: 3 }}>
+                          {combo.components.map((comp, i) => (
+                            <Text key={i} style={{ color: "#82B1FF99", fontFamily: F.regular, fontSize: 11, textAlign: "right" }}>{"×" + comp.quantity + " " + comp.name}</Text>
+                          ))}
+                        </View>
+                        <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", marginTop: 4 }}>
+                          <Text style={{ color: "#FFD700", fontFamily: F.bold, fontSize: 15 }}>{combo.price.toFixed(2)} ر.س</Text>
+                          <TouchableOpacity
+                            onPress={() => addItem({ id: `combo-${combo.comboId}`, name: combo.name, price: combo.price, category: "combo", description: combo.components.map(c => `×${c.quantity} ${c.name}`).join(" | "), imageUrl: combo.imageUrl ?? undefined })}
+                            style={{ backgroundColor: "#82B1FF22", borderWidth: 1, borderColor: "#82B1FF", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, flexDirection: "row-reverse", alignItems: "center", gap: 4 }}
+                          >
+                            <Feather name="plus" size={14} color="#82B1FF" />
+                            <Text style={{ color: "#82B1FF", fontFamily: F.bold, fontSize: 12 }}>{isEn ? "Add" : "أضف"}</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+            </View>
+          );
+
+          // ── Sections (separator → sticky header → items) ──────────────
+          for (const section of sections) {
+            // Separator between sections
+            flatChildren.push(<View key={`sep-${section.id}`} style={{ height: 6 }} />);
+            // Section header — direct child → sticky works
+            stickyHeaderIndices.push(flatChildren.length);
+            flatChildren.push(
               <View
-                ref={(r) => { if (r) sectionHeaderRefs.current[section.id] = r; }}
+                key={`h-${section.id}`}
                 onLayout={(e) => { sectionYs.current[section.id] = e.nativeEvent.layout.y; }}
                 style={[styles.sectionRow, { backgroundColor: colors.background, borderBottomColor: colors.border, borderTopColor: colors.border }]}
               >
@@ -658,15 +649,32 @@ export default function MenuScreen() {
                   <Text style={styles.sectionIcon}>{section.icon}</Text>
                 </View>
               </View>
-              {/* Items */}
-              {section.data.map((item: any) => (
+            );
+            // Items
+            for (const item of section.data) {
+              flatChildren.push(
                 <View key={item.id} style={{ paddingHorizontal: 14, paddingTop: 6 }}>
                   <MenuItemCard item={item} />
                 </View>
-              ))}
-            </View>
-          ))}
-        </Animated.ScrollView>
+              );
+            }
+          }
+
+          // ── Padding at bottom ─────────────────────────────────────────
+          flatChildren.push(<View key="__bottom" style={{ height: Platform.OS === "web" ? 130 : 110 }} />);
+
+          return (
+            <Animated.ScrollView
+              ref={menuScrollRef}
+              stickyHeaderIndices={stickyHeaderIndices}
+              showsVerticalScrollIndicator={false}
+              onScroll={scrollHandler}
+              scrollEventThrottle={16}
+            >
+              {flatChildren}
+            </Animated.ScrollView>
+          );
+        })()
 
       )}
 
