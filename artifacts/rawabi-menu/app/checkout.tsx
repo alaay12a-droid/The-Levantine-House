@@ -799,7 +799,7 @@ export default function CheckoutScreen() {
           {items.map((ci) => {
             const lineTotal = ci.item.price * ci.quantity;
             const lineTotalStr = lineTotal % 1 === 0 ? lineTotal.toString() : lineTotal.toFixed(1);
-            const name = isEn && ci.item.nameEn ? ci.item.nameEn : ci.item.name;
+            const name = isEn && ci.item.nameEn ? ci.item.nameEn : resolveCartItemName(ci.item.name, ci.customization);
             return (
               <React.Fragment key={ci.item.id}>
                 <View style={[styles.rowDivider, { backgroundColor: colors.border }]} />
