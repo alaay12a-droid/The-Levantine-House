@@ -24,7 +24,8 @@ import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import { loadPins, isMasterCode } from "@/hooks/usePins";
 import { useNotifications } from "@/hooks/useNotifications";
-import { apiGet, apiPatch, apiPut, apiPost, apiDelete } from "@/constants/api";
+import { apiGet, apiPatch, apiPut, apiPost, apiDelete, API_BASE } from "@/constants/api";
+import { MapWebView } from "@/components/MapWebView";
 import { useChatUnreadAlert } from "@/hooks/useChatSound";
 import { useAppSound } from "@/hooks/useAppSound";
 import { type ApiMenuItem } from "@/hooks/useMenu";
@@ -239,6 +240,7 @@ export default function CashierScreen() {
   const [activeAssignments, setActiveAssignments] = useState<ActiveAssignment[]>([]);
   const [activeAssignmentsLoading, setActiveAssignmentsLoading] = useState(false);
   const [deliveringOrderId, setDeliveringOrderId] = useState<number | null>(null);
+  const [trackingOrderId, setTrackingOrderId] = useState<number | null>(null);
 
   // ─── All-deliveries calendar view ──────────────────────────
   interface AllDeliveryRow { orderId: number; dailyNumber: number | null; customerName: string; customerPhone: string; totalPrice: number; paymentMethod: string; driverName: string; deliveredAt: string | null; }
@@ -1114,17 +1116,28 @@ export default function CashierScreen() {
                           <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 10 }}>{a.paymentMethod === "cash" ? "💵 نقدي" : "💳 إلكتروني"}</Text>
                         </View>
                       </View>
-                      <TouchableOpacity
-                        onPress={() => confirmDeliveryByCashier(a.orderId)}
-                        disabled={deliveringOrderId === a.orderId}
-                        style={{ backgroundColor: "#1A3A1A", borderTopWidth: 1, borderTopColor: "#4CAF5033", paddingVertical: 11, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 6 }}
-                        activeOpacity={0.75}
-                      >
-                        {deliveringOrderId === a.orderId
-                          ? <ActivityIndicator size="small" color="#4CAF50" />
-                          : <><Feather name="check-circle" size={14} color="#4CAF50" /><Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 13 }}>✅ تم التسليم للعميل</Text></>
-                        }
-                      </TouchableOpacity>
+                      {/* action row: track + confirm */}
+                      <View style={{ flexDirection: "row", borderTopWidth: 1, borderTopColor: "#4CAF5033" }}>
+                        <TouchableOpacity
+                          onPress={() => setTrackingOrderId(a.orderId)}
+                          style={{ flex: 1, backgroundColor: "#0A1A2A", paddingVertical: 11, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 5, borderRightWidth: 1, borderRightColor: "#4CAF5022" }}
+                          activeOpacity={0.75}
+                        >
+                          <Feather name="map-pin" size={14} color="#29B6F6" />
+                          <Text style={{ color: "#29B6F6", fontFamily: F.extra, fontSize: 12 }}>تتبع مباشر</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={() => confirmDeliveryByCashier(a.orderId)}
+                          disabled={deliveringOrderId === a.orderId}
+                          style={{ flex: 2, backgroundColor: "#1A3A1A", paddingVertical: 11, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 6 }}
+                          activeOpacity={0.75}
+                        >
+                          {deliveringOrderId === a.orderId
+                            ? <ActivityIndicator size="small" color="#4CAF50" />
+                            : <><Feather name="check-circle" size={14} color="#4CAF50" /><Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 13 }}>✅ تم التسليم للعميل</Text></>
+                          }
+                        </TouchableOpacity>
+                      </View>
                     </View>
                   ))}
                 </View>
@@ -2820,6 +2833,37 @@ export default function CashierScreen() {
               ))}
             </ScrollView>
           </View>
+        </View>
+      </Modal>
+
+      {/* ── Live Driver Tracking Modal ── */}
+      <Modal
+        visible={trackingOrderId !== null}
+        animationType="slide"
+        onRequestClose={() => setTrackingOrderId(null)}
+      >
+        <View style={{ flex: 1, backgroundColor: "#0D1117" }}>
+          {/* header */}
+          <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingTop: Platform.OS === "web" ? 16 : 52, paddingBottom: 12, backgroundColor: "#0A0502", borderBottomWidth: 1, borderBottomColor: "#C8171A44" }}>
+            <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
+              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: "#4CAF50" }} />
+              <Text style={{ color: "#E8920C", fontFamily: F.extra, fontSize: 16 }}>تتبع مباشر</Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => setTrackingOrderId(null)}
+              style={{ backgroundColor: "#1A0A00", borderWidth: 1, borderColor: "#C8171A44", borderRadius: 10, paddingHorizontal: 14, paddingVertical: 7 }}
+              activeOpacity={0.75}
+            >
+              <Text style={{ color: "#E57373", fontFamily: F.bold, fontSize: 13 }}>✕ إغلاق</Text>
+            </TouchableOpacity>
+          </View>
+          {/* map */}
+          {trackingOrderId !== null && (
+            <MapWebView
+              uri={`${API_BASE}/api/map/${trackingOrderId}`}
+              style={{ flex: 1 }}
+            />
+          )}
         </View>
       </Modal>
 

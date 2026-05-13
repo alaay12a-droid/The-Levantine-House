@@ -475,6 +475,51 @@ router.get("/map/:orderId", async (req, res) => {
   const orderId = parseInt(req.params.orderId);
   if (isNaN(orderId)) { res.status(400).send("معرّف غير صحيح"); return; }
 
+  // Restaurant location — روابي المندي، تبوك حي الروضة
+  const RESTAURANT_LAT = 28.3998;
+  const RESTAURANT_LNG = 36.5650;
+
+  // Fetch order info for customer address + names
+  let customerLat: number | null = null;
+  let customerLng: number | null = null;
+  let customerName = "";
+  let driverName   = "";
+  let dailyNumber: number | null = null;
+
+  try {
+    const rows = await db
+      .select({
+        customerAddress: ordersTable.customerAddress,
+        customerName:    ordersTable.customerName,
+        dailyNumber:     ordersTable.dailyNumber,
+        driverName:      deliveryDriversTable.name,
+        driverLat:       orderDriverAssignmentsTable.driverLat,
+        driverLng:       orderDriverAssignmentsTable.driverLng,
+      })
+      .from(ordersTable)
+      .leftJoin(orderDriverAssignmentsTable, eq(orderDriverAssignmentsTable.orderId, ordersTable.id))
+      .leftJoin(deliveryDriversTable, eq(deliveryDriversTable.id, orderDriverAssignmentsTable.driverId))
+      .where(eq(ordersTable.id, orderId))
+      .limit(1);
+
+    if (rows.length > 0) {
+      const row = rows[0];
+      customerName = row.customerName ?? "";
+      driverName   = row.driverName   ?? "المندوب";
+      dailyNumber  = row.dailyNumber  ?? null;
+      // Parse Google Maps URL: https://maps.google.com/?q=LAT,LNG
+      const addr = row.customerAddress ?? "";
+      const match = addr.match(/[?&]q=(-?\d+\.?\d*),(-?\d+\.?\d*)/);
+      if (match) {
+        customerLat = parseFloat(match[1]);
+        customerLng = parseFloat(match[2]);
+      }
+    }
+  } catch (_) { /* serve the page even if DB query fails */ }
+
+  const customerLatJs = customerLat !== null ? customerLat.toString() : "null";
+  const customerLngJs = customerLng !== null ? customerLng.toString() : "null";
+
   const html = `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -483,64 +528,153 @@ router.get("/map/:orderId", async (req, res) => {
   <title>تتبع المندوب</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@600;700&display=swap" rel="stylesheet"/>
   <style>
     *{margin:0;padding:0;box-sizing:border-box}
     html,body{width:100%;height:100%;background:#0D1117;font-family:Cairo,sans-serif;overflow:hidden}
     #map{width:100%;height:100vh}
-    #status{
-      position:fixed;top:12px;left:50%;transform:translateX(-50%);
-      background:rgba(13,32,48,0.92);color:#29B6F6;
-      font-size:13px;font-weight:700;padding:7px 18px;border-radius:20px;
-      border:1px solid #29B6F644;z-index:1000;white-space:nowrap;
-      display:flex;align-items:center;gap:8px;
+
+    /* ── top info bar ── */
+    #infoBar{
+      position:fixed;top:0;left:0;right:0;z-index:1000;
+      background:linear-gradient(135deg,rgba(10,5,2,.97) 0%,rgba(20,10,5,.97) 100%);
+      border-bottom:1px solid #C8171A44;
+      padding:10px 16px 8px;
+      display:flex;flex-direction:column;gap:4px;
     }
-    .dot{width:8px;height:8px;border-radius:50%;background:#4CAF50;animation:blink 1.2s infinite}
+    #infoTitle{color:#E8920C;font-size:14px;font-weight:700;text-align:center}
+    #infoSub{color:#aaa;font-size:11px;font-weight:600;text-align:center}
+    #statusRow{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:2px}
+    .dot{width:7px;height:7px;border-radius:50%;background:#4CAF50;animation:blink 1.2s infinite;flex-shrink:0}
+    #statusText{color:#4CAF50;font-size:11px;font-weight:700}
     @keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+
+    /* ── legend ── */
+    #legend{
+      position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:1000;
+      background:rgba(10,5,2,.92);border:1px solid #333;border-radius:14px;
+      padding:8px 16px;display:flex;gap:16px;align-items:center;
+    }
+    .leg-item{display:flex;align-items:center;gap:5px;font-size:11px;color:#ccc;font-weight:600}
+
+    /* ── marker styles ── */
     .pulse-ring{
       width:50px;height:50px;border-radius:50%;
       background:rgba(41,182,246,.18);border:2px solid #29B6F6;
       display:flex;align-items:center;justify-content:center;
-      animation:pulse 1.8s ease-in-out infinite;
+      animation:pulseBlue 1.8s ease-in-out infinite;
     }
-    @keyframes pulse{
+    @keyframes pulseBlue{
       0%{box-shadow:0 0 0 0 rgba(41,182,246,.5)}
-      70%{box-shadow:0 0 0 16px rgba(41,182,246,0)}
+      70%{box-shadow:0 0 0 18px rgba(41,182,246,0)}
       100%{box-shadow:0 0 0 0 rgba(41,182,246,0)}
     }
-    .scooter{font-size:28px;line-height:1}
+    .scooter{font-size:26px;line-height:1}
+
+    .home-marker{
+      width:42px;height:42px;border-radius:50%;
+      background:rgba(232,146,12,.18);border:2px solid #E8920C;
+      display:flex;align-items:center;justify-content:center;
+      font-size:22px;line-height:1;
+    }
+    .restaurant-marker{
+      width:42px;height:42px;border-radius:50%;
+      background:rgba(200,23,26,.18);border:2px solid #C8171A;
+      display:flex;align-items:center;justify-content:center;
+      font-size:22px;line-height:1;
+    }
+
+    /* ── no location ── */
     .no-loc{
       position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
       text-align:center;color:#aaa;display:none;
     }
     .no-loc span{font-size:48px;display:block;margin-bottom:12px}
-    .leaflet-tile{filter:brightness(.82) saturate(.9)}
+    .leaflet-tile{filter:brightness(.78) saturate(.85)}
+    .leaflet-control-zoom{border:1px solid #333!important;background:#111!important}
+    .leaflet-control-zoom a{color:#E8920C!important;background:#111!important;border-color:#333!important}
   </style>
 </head>
 <body>
 <div id="map"></div>
-<div id="status"><div class="dot"></div><span id="statusText">جاري تحديد موقع المندوب...</span></div>
+
+<div id="infoBar">
+  <div id="infoTitle">
+    ${dailyNumber ? `طلب #${dailyNumber}` : `طلب #${orderId}`}
+    ${customerName ? ` — ${customerName}` : ""}
+  </div>
+  <div id="infoSub">🛵 ${driverName}</div>
+  <div id="statusRow"><div class="dot"></div><span id="statusText">جاري تحديد موقع المندوب...</span></div>
+</div>
+
+<div id="legend">
+  <div class="leg-item">🛵 <span>المندوب</span></div>
+  <div class="leg-item" style="color:#E8920C">🏠 <span>العميل</span></div>
+  <div class="leg-item" style="color:#C8171A">🏪 <span>المطعم</span></div>
+</div>
+
 <div class="no-loc" id="noLoc"><span>📍</span>لم يشارك المندوب موقعه بعد</div>
+
 <script>
-  var ORDER_ID = ${orderId};
-  var POLL_MS  = 10000;
+  var ORDER_ID      = ${orderId};
+  var POLL_MS       = 10000;
+  var CUSTOMER_LAT  = ${customerLatJs};
+  var CUSTOMER_LNG  = ${customerLngJs};
+  var REST_LAT      = ${RESTAURANT_LAT};
+  var REST_LNG      = ${RESTAURANT_LNG};
+
   var map = null, driverMarker = null;
   var curLat = null, curLng = null, animReq = null;
+  var staticMarkersAdded = false;
 
+  /* ── icon factories ── */
   var driverIcon = L.divIcon({
     html: '<div class="pulse-ring"><div class="scooter">🛵</div></div>',
     iconSize:[50,50], iconAnchor:[25,25], className:''
   });
+  var homeIcon = L.divIcon({
+    html: '<div class="home-marker">🏠</div>',
+    iconSize:[42,42], iconAnchor:[21,21], className:''
+  });
+  var restaurantIcon = L.divIcon({
+    html: '<div class="restaurant-marker">🏪</div>',
+    iconSize:[42,42], iconAnchor:[21,21], className:''
+  });
 
+  /* ── init map with driver position, then add static markers ── */
   function initMap(lat, lng) {
     map = L.map('map',{zoomControl:true,attributionControl:false});
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
     curLat = lat; curLng = lng;
     driverMarker = L.marker([lat,lng],{icon:driverIcon}).addTo(map);
-    map.setView([lat,lng],15);
-    document.getElementById('statusText').textContent = 'موقع مباشر • يُحدَّث كل 10 ثوانٍ';
+    addStaticMarkers();
+    fitAll(lat, lng);
+    document.getElementById('statusText').textContent = 'موقع مباشر ● يُحدَّث كل 10 ثوانٍ';
     document.getElementById('noLoc').style.display = 'none';
   }
 
+  function addStaticMarkers() {
+    if (staticMarkersAdded) return;
+    staticMarkersAdded = true;
+    /* restaurant always shown */
+    var restMarker = L.marker([REST_LAT, REST_LNG],{icon:restaurantIcon}).addTo(map);
+    restMarker.bindPopup('<div style="font-family:Cairo,sans-serif;font-weight:700;color:#C8171A;text-align:center;direction:rtl">🏪 روابي المندي</div>');
+    /* customer home — only if coords available */
+    if (CUSTOMER_LAT !== null && CUSTOMER_LNG !== null) {
+      var homeMarker = L.marker([CUSTOMER_LAT, CUSTOMER_LNG],{icon:homeIcon}).addTo(map);
+      homeMarker.bindPopup('<div style="font-family:Cairo,sans-serif;font-weight:700;color:#E8920C;text-align:center;direction:rtl">🏠 موقع العميل</div>');
+    }
+  }
+
+  /* ── fit bounds to show driver + customer + restaurant ── */
+  function fitAll(dLat, dLng) {
+    var points = [[dLat, dLng], [REST_LAT, REST_LNG]];
+    if (CUSTOMER_LAT !== null && CUSTOMER_LNG !== null) points.push([CUSTOMER_LAT, CUSTOMER_LNG]);
+    var bounds = L.latLngBounds(points);
+    map.fitBounds(bounds, {padding:[60,60], maxZoom:15, animate:true});
+  }
+
+  /* ── smooth driver animation ── */
   function animateTo(tLat, tLng) {
     var STEPS = 40;
     var sLat = curLat, sLng = curLng;
@@ -556,11 +690,9 @@ router.get("/map/:orderId", async (req, res) => {
       else { curLat=tLat; curLng=tLng; }
     }
     frame();
-    if (!map.getBounds().contains([tLat,tLng])) {
-      map.panTo([tLat,tLng],{animate:true,duration:1});
-    }
   }
 
+  /* ── poll for driver location ── */
   async function poll() {
     try {
       var r = await fetch('/api/orders/'+ORDER_ID+'/assignment');
@@ -578,6 +710,22 @@ router.get("/map/:orderId", async (req, res) => {
       else { animateTo(lat, lng); }
     } catch(e){}
   }
+
+  /* ── if no driver location yet, show static map with restaurant + customer ── */
+  window.addEventListener('load', function() {
+    setTimeout(function() {
+      if (!map && (CUSTOMER_LAT !== null || true)) {
+        map = L.map('map',{zoomControl:true,attributionControl:false});
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
+        addStaticMarkers();
+        var pts = [[REST_LAT, REST_LNG]];
+        if (CUSTOMER_LAT !== null && CUSTOMER_LNG !== null) pts.push([CUSTOMER_LAT, CUSTOMER_LNG]);
+        map.fitBounds(L.latLngBounds(pts),{padding:[60,60],maxZoom:15});
+        document.getElementById('statusText').textContent = 'في انتظار مشاركة موقع المندوب...';
+        document.getElementById('statusText').style.color = '#aaa';
+      }
+    }, 3000);
+  });
 
   poll();
   setInterval(poll, POLL_MS);
