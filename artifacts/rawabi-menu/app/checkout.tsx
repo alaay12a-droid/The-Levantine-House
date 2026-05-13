@@ -1,4 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from "react";
+import { resolveCartItemName, resolveCustomizationParts } from "@/utils/cartItemName";
 import {
   View,
   Text,
@@ -297,13 +298,11 @@ export default function CheckoutScreen() {
         customerAddress: locationUrl || user.address || null,
         items: items.map((ci) => {
           const extra = ci.customization?.extraPrice ?? 0;
-          const parts: string[] = [];
-          if (ci.customization?.size) parts.push(ci.customization.size);
-          if (ci.customization?.riceType) parts.push(ci.customization.riceType);
-          if (ci.customization?.addon) parts.push(ci.customization.addon);
+          const displayName = resolveCartItemName(ci.item.name, ci.customization);
+          const parts = resolveCustomizationParts(ci.customization);
           return {
             id: ci.item.id,
-            name: parts.length > 0 ? `${ci.item.name} (${parts.join(" | ")})` : ci.item.name,
+            name: parts.length > 0 ? `${displayName} (${parts.join(" | ")})` : displayName,
             price: ci.item.price + extra,
             quantity: ci.quantity,
           };
@@ -340,12 +339,10 @@ export default function CheckoutScreen() {
         createdAt: new Date().toISOString(),
         total: grandTotal,
         items: items.map((ci) => {
-          const parts: string[] = [];
-          if (ci.customization?.size) parts.push(ci.customization.size);
-          if (ci.customization?.riceType) parts.push(ci.customization.riceType);
-          if (ci.customization?.addon) parts.push(ci.customization.addon);
+          const displayName = resolveCartItemName(ci.item.name, ci.customization);
+          const parts = resolveCustomizationParts(ci.customization);
           return {
-            name: parts.length > 0 ? `${ci.item.name} (${parts.join(" | ")})` : ci.item.name,
+            name: parts.length > 0 ? `${displayName} (${parts.join(" | ")})` : displayName,
             quantity: ci.quantity,
           };
         }),

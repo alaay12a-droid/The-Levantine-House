@@ -11,6 +11,7 @@ import {
   Image,
 } from "react-native";
 import { useRouter } from "expo-router";
+import { resolveCartItemName, resolveCustomizationParts } from "@/utils/cartItemName";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -165,11 +166,9 @@ export default function CartScreen() {
                 const itemTotal = unitPrice * cartItem.quantity;
                 const totalStr = itemTotal % 1 === 0 ? itemTotal.toString() : itemTotal.toFixed(1);
                 const unitStr = unitPrice % 1 === 0 ? unitPrice.toString() : unitPrice.toFixed(1);
-                const itemName = isEn && cartItem.item.nameEn ? cartItem.item.nameEn : cartItem.item.name;
-                const customParts: string[] = [];
-                if (cartItem.customization?.size) customParts.push(cartItem.customization.size);
-                if (cartItem.customization?.riceType) customParts.push(cartItem.customization.riceType);
-                if (cartItem.customization?.addon) customParts.push(cartItem.customization.addon);
+                const baseArabicName = resolveCartItemName(cartItem.item.name, cartItem.customization);
+                const itemName = isEn && cartItem.item.nameEn ? cartItem.item.nameEn : baseArabicName;
+                const customParts = resolveCustomizationParts(cartItem.customization);
 
                 return (
                   <React.Fragment key={cartItem.item.id}>
