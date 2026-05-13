@@ -476,8 +476,8 @@ router.get("/map/:orderId", async (req, res) => {
   if (isNaN(orderId)) { res.status(400).send("معرّف غير صحيح"); return; }
 
   // Restaurant location — روابي المندي، تبوك حي الروضة
-  const RESTAURANT_LAT = 28.3998;
-  const RESTAURANT_LNG = 36.5650;
+  const RESTAURANT_LAT = 28.410769;
+  const RESTAURANT_LNG = 36.532353;
 
   // Fetch order info for customer address + names
   let customerLat: number | null = null;
