@@ -10,6 +10,8 @@ const DEFAULTS: Record<string, string> = {
   appearance_accentColor:    "#E8920C",
   appearance_logoBg:         "#1F130A",
   appearance_minOrderAmount: "0",
+  appearance_deliveryEnabled: "false",
+  appearance_deliveryFee:     "0",
 };
 
 // ── GET /settings/appearance ──────────────────────────────────────────────────
@@ -20,26 +22,32 @@ router.get("/settings/appearance", async (_req, res) => {
     result[row.key] = row.value;
   }
   res.json({
-    bgTheme:        result.appearance_bgTheme,
-    accentColor:    result.appearance_accentColor,
-    logoBg:         result.appearance_logoBg,
-    minOrderAmount: parseFloat(result.appearance_minOrderAmount) || 0,
+    bgTheme:         result.appearance_bgTheme,
+    accentColor:     result.appearance_accentColor,
+    logoBg:          result.appearance_logoBg,
+    minOrderAmount:  parseFloat(result.appearance_minOrderAmount) || 0,
+    deliveryEnabled: result.appearance_deliveryEnabled === "true",
+    deliveryFee:     parseFloat(result.appearance_deliveryFee) || 0,
   });
 });
 
 // ── PUT /settings/appearance ──────────────────────────────────────────────────
 router.put("/settings/appearance", async (req, res) => {
-  const { bgTheme, accentColor, logoBg, minOrderAmount } = req.body as {
+  const { bgTheme, accentColor, logoBg, minOrderAmount, deliveryEnabled, deliveryFee } = req.body as {
     bgTheme?: string;
     accentColor?: string;
     logoBg?: string;
     minOrderAmount?: number;
+    deliveryEnabled?: boolean;
+    deliveryFee?: number;
   };
   const updates: Record<string, string> = {};
-  if (bgTheme !== undefined)        updates.appearance_bgTheme        = bgTheme;
-  if (accentColor !== undefined)    updates.appearance_accentColor    = accentColor;
-  if (logoBg !== undefined)         updates.appearance_logoBg         = logoBg;
-  if (minOrderAmount !== undefined) updates.appearance_minOrderAmount = String(minOrderAmount);
+  if (bgTheme !== undefined)         updates.appearance_bgTheme         = bgTheme;
+  if (accentColor !== undefined)     updates.appearance_accentColor     = accentColor;
+  if (logoBg !== undefined)          updates.appearance_logoBg          = logoBg;
+  if (minOrderAmount !== undefined)  updates.appearance_minOrderAmount  = String(minOrderAmount);
+  if (deliveryEnabled !== undefined) updates.appearance_deliveryEnabled = String(deliveryEnabled);
+  if (deliveryFee !== undefined)     updates.appearance_deliveryFee     = String(deliveryFee);
   for (const [key, value] of Object.entries(updates)) {
     await db
       .insert(appSettingsTable)

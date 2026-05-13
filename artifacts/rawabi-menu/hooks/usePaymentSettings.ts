@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useAppConfig } from "@/context/AppConfigContext";
 
-const STORAGE_KEY = "@rawabi_payment_settings";
+const LOCAL_KEY = "@rawabi_payment_local";
 
 export interface PaymentSettings {
   applePayEnabled: boolean;
@@ -11,33 +12,39 @@ export interface PaymentSettings {
   deliveryEnabled: boolean;
 }
 
-const DEFAULT_SETTINGS: PaymentSettings = {
+const LOCAL_DEFAULTS = {
   applePayEnabled: false,
   moyasarPublishableKey: "",
   moyasarApplePayIdentifier: "",
-  deliveryFee: 0,
-  deliveryEnabled: false,
 };
 
 export function usePaymentSettings() {
-  const [settings, setSettings] = useState<PaymentSettings>(DEFAULT_SETTINGS);
-  const [loaded, setLoaded] = useState(false);
+  const { config, loaded: configLoaded } = useAppConfig();
+  const [local, setLocal] = useState(LOCAL_DEFAULTS);
 
   useEffect(() => {
-    AsyncStorage.getItem(STORAGE_KEY).then((raw) => {
+    AsyncStorage.getItem(LOCAL_KEY).then((raw) => {
       if (raw) {
-        try {
-          setSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(raw) });
-        } catch {}
+        try { setLocal({ ...LOCAL_DEFAULTS, ...JSON.parse(raw) }); } catch {}
       }
-      setLoaded(true);
     });
   }, []);
 
+  const settings: PaymentSettings = {
+    ...local,
+    deliveryFee: config.deliveryFee,
+    deliveryEnabled: config.deliveryEnabled,
+  };
+
   const saveSettings = useCallback(async (updated: PaymentSettings) => {
-    setSettings(updated);
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    const localPart = {
+      applePayEnabled: updated.applePayEnabled,
+      moyasarPublishableKey: updated.moyasarPublishableKey,
+      moyasarApplePayIdentifier: updated.moyasarApplePayIdentifier,
+    };
+    setLocal(localPart);
+    await AsyncStorage.setItem(LOCAL_KEY, JSON.stringify(localPart));
   }, []);
 
-  return { settings, saveSettings, loaded };
+  return { settings, saveSettings, loaded: configLoaded };
 }

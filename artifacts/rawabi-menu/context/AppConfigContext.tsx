@@ -127,6 +127,8 @@ export interface AppConfig {
   bgTheme: BgThemeKey;
   logoBg: string;
   minOrderAmount: number;
+  deliveryEnabled: boolean;
+  deliveryFee: number;
 }
 
 export const DEFAULT_CONFIG: AppConfig = {
@@ -150,6 +152,8 @@ export const DEFAULT_CONFIG: AppConfig = {
   bgTheme: "dark-brown",
   logoBg: "#1F130A",
   minOrderAmount: 0,
+  deliveryEnabled: false,
+  deliveryFee: 0,
 };
 
 interface AppConfigContextValue {
@@ -181,11 +185,13 @@ export function AppConfigProvider({ children }: { children: React.ReactNode }) {
 
       // 2. Load appearance (colors + logoBg) from server — overrides local for these keys
       try {
-        const remote = await apiGet<{ bgTheme: string; accentColor: string; logoBg: string; minOrderAmount: number }>("/settings/appearance");
-        if (remote.bgTheme)                    local.bgTheme        = remote.bgTheme as BgThemeKey;
-        if (remote.accentColor)                local.accentColor    = remote.accentColor;
-        if (remote.logoBg)                     local.logoBg         = remote.logoBg;
-        if (remote.minOrderAmount !== undefined) local.minOrderAmount = remote.minOrderAmount;
+        const remote = await apiGet<{ bgTheme: string; accentColor: string; logoBg: string; minOrderAmount: number; deliveryEnabled: boolean; deliveryFee: number }>("/settings/appearance");
+        if (remote.bgTheme)                      local.bgTheme        = remote.bgTheme as BgThemeKey;
+        if (remote.accentColor)                  local.accentColor    = remote.accentColor;
+        if (remote.logoBg)                       local.logoBg         = remote.logoBg;
+        if (remote.minOrderAmount !== undefined)  local.minOrderAmount  = remote.minOrderAmount;
+        if (remote.deliveryEnabled !== undefined) local.deliveryEnabled = remote.deliveryEnabled;
+        if (remote.deliveryFee !== undefined)     local.deliveryFee     = remote.deliveryFee;
       } catch {}
 
       setConfig({ ...DEFAULT_CONFIG, ...local });
@@ -204,13 +210,17 @@ export function AppConfigProvider({ children }: { children: React.ReactNode }) {
         partial.bgTheme !== undefined ||
         partial.accentColor !== undefined ||
         partial.logoBg !== undefined ||
-        partial.minOrderAmount !== undefined
+        partial.minOrderAmount !== undefined ||
+        partial.deliveryEnabled !== undefined ||
+        partial.deliveryFee !== undefined
       ) {
         apiPut("/settings/appearance", {
-          bgTheme:        next.bgTheme,
-          accentColor:    next.accentColor,
-          logoBg:         next.logoBg,
-          minOrderAmount: next.minOrderAmount,
+          bgTheme:         next.bgTheme,
+          accentColor:     next.accentColor,
+          logoBg:          next.logoBg,
+          minOrderAmount:  next.minOrderAmount,
+          deliveryEnabled: next.deliveryEnabled,
+          deliveryFee:     next.deliveryFee,
         }).catch(() => {});
       }
       return next;

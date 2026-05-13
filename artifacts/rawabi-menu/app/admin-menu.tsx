@@ -1955,7 +1955,7 @@ export default function AdminMenuScreen() {
               </View>
               <Switch
                 value={paymentSettings.deliveryEnabled}
-                onValueChange={(val) => savePaymentSettings({ ...paymentSettings, deliveryEnabled: val })}
+                onValueChange={(val) => updateAppConfig({ deliveryEnabled: val })}
                 trackColor={{ false: colors.border, true: "#8B6914" }}
                 thumbColor={paymentSettings.deliveryEnabled ? colors.gold : colors.mutedForeground}
               />
@@ -1976,7 +1976,7 @@ export default function AdminMenuScreen() {
                         value={paymentSettings.deliveryFee === 0 ? "" : String(paymentSettings.deliveryFee)}
                         onChangeText={(v) => {
                           const num = parseFloat(v) || 0;
-                          savePaymentSettings({ ...paymentSettings, deliveryFee: num });
+                          updateAppConfig({ deliveryFee: num });
                         }}
                         placeholder="0"
                         placeholderTextColor={colors.mutedForeground}
