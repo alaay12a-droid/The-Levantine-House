@@ -57,8 +57,31 @@ function getChickenSizes(item: MenuItem): ChickenSizes | null {
   if (isHalf) {
     return { halfPrice: item.price, wholePrice: item.price * 2, defaultIdx: 0 };
   }
-  // whole or unlabelled chicken → treat item price as whole price
   return { halfPrice: item.price / 2, wholePrice: item.price, defaultIdx: 1 };
+}
+
+interface MeatSizes {
+  quarterPrice: number;
+  halfPrice: number;
+  wholePrice: number;
+  defaultIdx: number; // 0=ربع 1=نصف 2=كامل
+}
+
+function getMeatSizes(item: MenuItem): MeatSizes | null {
+  if (item.category !== "meat") return null;
+  if (item.name.includes("نفر")) return null; // per-person serving, no size split
+
+  const isQuarter = item.name.includes("ربع");
+  const isHalf    = item.name.includes("نص") || item.name.includes("نصف");
+
+  if (isQuarter) {
+    return { quarterPrice: item.price, halfPrice: item.price * 2, wholePrice: item.price * 4, defaultIdx: 0 };
+  }
+  if (isHalf) {
+    return { quarterPrice: item.price / 2, halfPrice: item.price, wholePrice: item.price * 2, defaultIdx: 1 };
+  }
+  // whole or unlabelled → treat as whole
+  return { quarterPrice: item.price / 4, halfPrice: item.price / 2, wholePrice: item.price, defaultIdx: 2 };
 }
 
 interface Props {
@@ -73,6 +96,7 @@ export function ProductDetailSheet({ item, visible, onClose }: Props) {
 
   const [qty, setQty] = useState(1);
   const [sizeIdx, setSizeIdx] = useState(0);
+  const [meatSizeIdx, setMeatSizeIdx] = useState(2);
   const [riceIdx, setRiceIdx] = useState(0);
   const [addonIdx, setAddonIdx] = useState(0);
 
@@ -83,6 +107,8 @@ export function ProductDetailSheet({ item, visible, onClose }: Props) {
       setAddonIdx(0);
       const sizes = getChickenSizes(item);
       setSizeIdx(sizes?.defaultIdx ?? 0);
+      const meatSizes = getMeatSizes(item);
+      setMeatSizeIdx(meatSizes?.defaultIdx ?? 2);
     }
   }, [visible, item?.id]);
 
@@ -99,9 +125,18 @@ export function ProductDetailSheet({ item, visible, onClose }: Props) {
   const sizes = getChickenSizes(item);
   const showSizeSelector = sizes !== null;
 
+  const meatSizes = getMeatSizes(item);
+  const showMeatSizeSelector = meatSizes !== null;
+
+  const meatSizePrices = meatSizes
+    ? [meatSizes.quarterPrice, meatSizes.halfPrice, meatSizes.wholePrice]
+    : [];
+
   const baseSizePrice = showSizeSelector
     ? (sizeIdx === 0 ? sizes!.halfPrice : sizes!.wholePrice)
-    : item.price;
+    : showMeatSizeSelector
+      ? meatSizePrices[meatSizeIdx]
+      : item.price;
 
   const riceExtra = selectedRice?.extra ?? 0;
   const addonExtra = selectedAddon?.extra ?? 0;
@@ -115,16 +150,18 @@ export function ProductDetailSheet({ item, visible, onClose }: Props) {
 
     const sizeLabel = showSizeSelector
       ? (sizeIdx === 0 ? "نصف" : "حبة كاملة")
-      : undefined;
+      : showMeatSizeSelector
+        ? (["ربع", "نصف", "كامل"][meatSizeIdx])
+        : undefined;
 
-    const sizeExtraPrice = showSizeSelector
+    const sizeExtraPrice = (showSizeSelector || showMeatSizeSelector)
       ? baseSizePrice - item.price
       : 0;
 
     const totalExtra = sizeExtraPrice + extraPrice;
 
     const customization: CartCustomization | undefined =
-      (showSizeSelector || showCustomization)
+      (showSizeSelector || showMeatSizeSelector || showCustomization)
         ? {
             size: sizeLabel,
             riceType: selectedRice?.label,
@@ -180,7 +217,7 @@ export function ProductDetailSheet({ item, visible, onClose }: Props) {
               ) : null}
             </View>
 
-            {/* ── Size Selector (Chicken only, with price) ── */}
+            {/* ── Size Selector (Chicken: نصف / كامل) ── */}
             {showSizeSelector && (
               <View style={{ gap: 10 }}>
                 <Text style={[styles.sectionTitle, { color: colors.foreground }]}>الحجم</Text>
@@ -194,6 +231,47 @@ export function ProductDetailSheet({ item, visible, onClose }: Props) {
                       <TouchableOpacity
                         key={i}
                         onPress={() => { setSizeIdx(i); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
+                        style={[
+                          styles.sizeBtn,
+                          {
+                            flex: 1,
+                            backgroundColor: active ? "#C8171A" : colors.secondary,
+                            borderColor: active ? "#C8171A" : colors.border,
+                          },
+                        ]}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={{ color: active ? "#fff" : colors.mutedForeground, fontFamily: F.extra, fontSize: 22 }}>
+                          {opt.icon}
+                        </Text>
+                        <Text style={{ color: active ? "#fff" : colors.foreground, fontFamily: active ? F.bold : F.regular, fontSize: 14 }}>
+                          {opt.label}
+                        </Text>
+                        <Text style={{ color: active ? "#ffee99" : colors.gold, fontFamily: F.bold, fontSize: 13 }}>
+                          {priceStr(opt.price)} ر.س
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+            )}
+
+            {/* ── Size Selector (Meat: ربع / نصف / كامل) ── */}
+            {showMeatSizeSelector && (
+              <View style={{ gap: 10 }}>
+                <Text style={[styles.sectionTitle, { color: colors.foreground }]}>الحجم</Text>
+                <View style={{ flexDirection: "row", gap: 8 }}>
+                  {([
+                    { label: "ربع",   icon: "¼", price: meatSizes!.quarterPrice },
+                    { label: "نصف",   icon: "½", price: meatSizes!.halfPrice    },
+                    { label: "كامل",  icon: "1", price: meatSizes!.wholePrice   },
+                  ] as const).map((opt, i) => {
+                    const active = meatSizeIdx === i;
+                    return (
+                      <TouchableOpacity
+                        key={i}
+                        onPress={() => { setMeatSizeIdx(i); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
                         style={[
                           styles.sizeBtn,
                           {
