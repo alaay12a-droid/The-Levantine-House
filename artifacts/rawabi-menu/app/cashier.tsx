@@ -711,6 +711,69 @@ export default function CashierScreen() {
     }
   };
 
+  // ── Print filtered orders list ────────────────────────────────────────
+  const handlePrintOrdersList = (ordersArr: Order[], title: string) => {
+    if (Platform.OS !== "web" || typeof window === "undefined") return;
+    const fmt = (n: number) => n % 1 === 0 ? String(n) : n.toFixed(2);
+    const now = new Date().toLocaleString("ar-SA", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" });
+    const totalDone  = ordersArr.filter(o => o.status !== "cancelled").reduce((s, o) => s + o.totalPrice / 100, 0);
+    const totalCash  = ordersArr.filter(o => o.status !== "cancelled" && o.paymentMethod === "cash").reduce((s, o) => s + o.totalPrice / 100, 0);
+    const totalEle   = ordersArr.filter(o => o.status !== "cancelled" && o.paymentMethod !== "cash").reduce((s, o) => s + o.totalPrice / 100, 0);
+    const cancelled  = ordersArr.filter(o => o.status === "cancelled").length;
+
+    const rows = ordersArr.map(o => {
+      const statusAr = STATUS_LABELS[o.status] ?? o.status;
+      const payAr = o.paymentMethod === "cash" ? "نقدي" : "إلكتروني";
+      const price = o.status === "cancelled" ? "ملغى" : `${fmt(o.totalPrice / 100)} ر.س`;
+      const items = o.items.map(i => `${i.name} ×${i.quantity}`).join("، ");
+      const t = new Date(o.createdAt).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" });
+      return `<tr style="border-bottom:1px solid #eee;${o.status === "cancelled" ? "color:#999;" : ""}">
+        <td style="padding:5px 8px;text-align:center;">#${o.dailyNumber ?? o.id}</td>
+        <td style="padding:5px 8px;text-align:right;">${o.customerName}</td>
+        <td style="padding:5px 8px;text-align:right;font-size:11px;color:#555;">${items}</td>
+        <td style="padding:5px 8px;text-align:center;">${payAr}</td>
+        <td style="padding:5px 8px;text-align:center;">${statusAr}</td>
+        <td style="padding:5px 8px;text-align:left;font-weight:700;">${price}</td>
+        <td style="padding:5px 8px;text-align:center;color:#888;">${t}</td>
+      </tr>`;
+    }).join("");
+
+    const html = `<!DOCTYPE html><html dir="rtl" lang="ar"><head>
+<meta charset="UTF-8"/>
+<title>${title}</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Cairo',sans-serif;background:#fff;color:#111;direction:rtl;padding:15mm 10mm;}
+  h1{text-align:center;font-size:18px;font-weight:800;color:#8B4513;margin-bottom:4px;}
+  .sub{text-align:center;font-size:11px;color:#888;margin-bottom:12px;}
+  .summary{display:flex;gap:16px;justify-content:center;margin-bottom:12px;flex-wrap:wrap;}
+  .card{background:#f7f7f7;border-radius:8px;padding:8px 16px;text-align:center;}
+  .card .val{font-size:17px;font-weight:800;}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  thead th{background:#8B4513;color:#fff;padding:7px 8px;text-align:center;}
+  tbody tr:nth-child(even){background:#fafafa;}
+  @media print{body{padding:5mm 5mm;}button{display:none!important;}}
+</style></head><body>
+<h1>روابي المندي — ${title}</h1>
+<div class="sub">طُبع في ${now}</div>
+<div class="summary">
+  <div class="card"><div class="val" style="color:#2e7d32;">${fmt(totalDone)} ر.س</div><div style="font-size:11px;">إجمالي الإيرادات</div></div>
+  <div class="card"><div class="val" style="color:#1565C0;">${fmt(totalCash)} ر.س</div><div style="font-size:11px;">نقدي</div></div>
+  <div class="card"><div class="val" style="color:#6A1B9A;">${fmt(totalEle)} ر.س</div><div style="font-size:11px;">إلكتروني</div></div>
+  <div class="card"><div class="val">${ordersArr.length}</div><div style="font-size:11px;">إجمالي الطلبات</div></div>
+  ${cancelled > 0 ? `<div class="card"><div class="val" style="color:#C8171A;">${cancelled}</div><div style="font-size:11px;">ملغاة</div></div>` : ""}
+</div>
+<table><thead><tr>
+  <th>رقم</th><th>العميل</th><th>الأصناف</th><th>الدفع</th><th>الحالة</th><th>المبلغ</th><th>الوقت</th>
+</tr></thead><tbody>${rows}</tbody></table>
+<script>window.onload=function(){window.print();}</script>
+</body></html>`;
+
+    const win = window.open("", "_blank", "width=900,height=700");
+    if (win) { win.document.write(html); win.document.close(); }
+  };
+
   const handleUpdateStatus = async (order: Order, newStatus: OrderStatus) => {
     try {
       const updated = await apiPatch<Order>(`/orders/${order.id}/status`, { status: newStatus });
@@ -915,6 +978,16 @@ export default function CashierScreen() {
             <Feather name="users" size={14} color="#4CAF50" />
             <Text style={{ color: "#4CAF50", fontFamily: "Cairo_700Bold", fontSize: 12 }}>مناديب</Text>
           </TouchableOpacity>
+
+          {Platform.OS === "web" && (
+            <TouchableOpacity
+              onPress={() => handlePrintOrdersList(orders, "تقرير الحسابات")}
+              style={[styles.headerActionBtn, { backgroundColor: "#2A1A0A", borderWidth: 1, borderColor: "#E8920C44" }]}
+            >
+              <Feather name="printer" size={14} color="#E8920C" />
+              <Text style={{ color: "#E8920C", fontFamily: "Cairo_700Bold", fontSize: 12 }}>الحسابات</Text>
+            </TouchableOpacity>
+          )}
 
         </View>
       </View>
@@ -1514,6 +1587,23 @@ export default function CashierScreen() {
           </TouchableOpacity>
         ))}
       </ScrollView>
+
+      {/* Print orders list button */}
+      {Platform.OS === "web" && !loading && filtered.length > 0 && (
+        <TouchableOpacity
+          onPress={() => {
+            const filterLabels: Record<string, string> = { all: "كل الطلبات", pending: "طلبات جديدة", preparing: "قيد التحضير", ready: "جاهزة للتسليم", done: "مكتملة", cancelled: "ملغاة" };
+            handlePrintOrdersList(filtered, filterLabels[filter] ?? "الطلبات");
+          }}
+          style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, marginHorizontal: 14, marginTop: 8, marginBottom: 2, paddingVertical: 10, borderRadius: 12, backgroundColor: "#1A2A3A", borderWidth: 1, borderColor: "#64B5F633" }}
+          activeOpacity={0.8}
+        >
+          <Feather name="printer" size={15} color="#64B5F6" />
+          <Text style={{ color: "#64B5F6", fontFamily: F.bold, fontSize: 13 }}>
+            طباعة قائمة الطلبات ({filtered.length})
+          </Text>
+        </TouchableOpacity>
+      )}
 
       {loading ? (
         <View style={styles.loadingContainer}>

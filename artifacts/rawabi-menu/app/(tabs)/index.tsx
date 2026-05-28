@@ -198,16 +198,20 @@ export default function MenuScreen() {
     data: cat.items,
   })), [regularCats, isEn]);
 
-  // ── Active category update from manual scroll (JS thread) ────────────
+  // ── Keep a stable ref to sections so the worklet never sees stale data ─
+  const sectionsRef = useRef(sections);
+  useEffect(() => { sectionsRef.current = sections; }, [sections]);
+
+  // ── Active category update from manual scroll (JS thread, stable ref) ─
   const updateActiveCategoryFromScroll = useCallback((y: number) => {
     if (isScrollingProgrammatically.current) return;
     let found = "";
-    for (const sec of sections) {
+    for (const sec of sectionsRef.current) {
       const secY = sectionYs.current[sec.id];
       if (secY !== undefined && secY <= y + 80) found = sec.id;
     }
     if (found) setActiveCategory(found);
-  }, [sections]);
+  }, []); // stable — uses refs, never stale
 
   // ── Scroll handler: header collapse + banner + active tracking ───────
   const scrollHandler = useAnimatedScrollHandler({
@@ -228,11 +232,17 @@ export default function MenuScreen() {
     },
   });
 
-  // ── Scroll to section: Reanimated scrollTo works on web & native ─────
+  // ── Scroll to section — retry until onLayout has populated sectionYs ─
   const scrollToSection = useCallback((_sectionIdx: number, catId: string, animated = true) => {
-    const y = sectionYs.current[catId];
-    if (y === undefined) return;
-    scrollTo(menuScrollRef, 0, y, animated);
+    const attempt = () => {
+      const y = sectionYs.current[catId];
+      if (y !== undefined) { scrollTo(menuScrollRef, 0, y, animated); return true; }
+      return false;
+    };
+    if (!attempt()) {
+      setTimeout(attempt, 120);
+      setTimeout(attempt, 350);
+    }
   }, [menuScrollRef]);
 
   // ── Tab press: update active + scroll ───────────────────────────────
