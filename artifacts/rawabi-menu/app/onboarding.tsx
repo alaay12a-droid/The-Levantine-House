@@ -407,6 +407,11 @@ export default function OnboardingScreen() {
                   ما وصل الرمز؟ <Text style={{ color: C.gold }}>إعادة الإرسال</Text>
                 </Text>
               </TouchableOpacity>
+              <TouchableOpacity onPress={goToLocation} style={{ alignItems: "center", paddingVertical: 4 }}>
+                <Text style={{ fontFamily: F.regular, color: C.muted, fontSize: 12 }}>
+                  تخطي التحقق ←
+                </Text>
+              </TouchableOpacity>
             </>
           )}
 
