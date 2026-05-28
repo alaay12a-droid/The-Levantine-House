@@ -711,6 +711,156 @@ export default function CashierScreen() {
     }
   };
 
+  // ── Print all-drivers report (by date) ──────────────────────────────
+  const handlePrintAllDriversReport = (rows: AllDeliveryRow[], date: Date) => {
+    if (Platform.OS !== "web" || typeof window === "undefined") return;
+    const dateLabel = date.toLocaleDateString("ar-SA", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+    const now = new Date().toLocaleString("ar-SA", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" });
+    const f = (n: number) => n.toFixed(2);
+    const fmtT = (iso: string | null) => iso ? new Date(iso).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" }) : "--:--";
+
+    // Group by driver
+    const driverMap = new Map<string, AllDeliveryRow[]>();
+    for (const r of rows) {
+      const key = r.driverName || "غير محدد";
+      if (!driverMap.has(key)) driverMap.set(key, []);
+      driverMap.get(key)!.push(r);
+    }
+
+    const driverSections = Array.from(driverMap.entries()).map(([name, drvRows]) => {
+      const total   = drvRows.reduce((s, r) => s + r.totalPrice, 0);
+      const cash    = drvRows.filter(r => r.paymentMethod === "cash").reduce((s, r) => s + r.totalPrice, 0);
+      const online  = total - cash;
+      const rowsHtml = drvRows.map((r, i) => `
+        <tr style="border-bottom:1px solid #f0f0f0;">
+          <td style="padding:6px 8px;text-align:center;color:#888;font-size:12px;">${i + 1}</td>
+          <td style="padding:6px 8px;text-align:right;"><b>${r.customerName}</b><br><span style="color:#888;font-size:11px;">${r.customerPhone ?? ""}</span></td>
+          <td style="padding:6px 8px;text-align:center;">${r.paymentMethod === "cash" ? "💵 نقدي" : "💳 إلكتروني"}</td>
+          <td style="padding:6px 8px;text-align:left;font-weight:800;color:#2e7d32;">${f(r.totalPrice)} ر.س</td>
+          <td style="padding:6px 8px;text-align:center;color:#888;font-size:11px;">${fmtT(r.deliveredAt)}</td>
+        </tr>`).join("");
+      return `
+      <div class="driver-block">
+        <div class="driver-header">
+          <span class="driver-name">🛵 ${name}</span>
+          <span class="driver-stats">${drvRows.length} طلب | نقدي: ${f(cash)} | إلكتروني: ${f(online)} | الإجمالي: ${f(total)} ر.س</span>
+        </div>
+        <table>
+          <thead><tr><th>#</th><th>العميل</th><th>الدفع</th><th>المبلغ</th><th>الوقت</th></tr></thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>
+      </div>`;
+    }).join("");
+
+    const totalAll   = rows.reduce((s, r) => s + r.totalPrice, 0);
+    const cashAll    = rows.filter(r => r.paymentMethod === "cash").reduce((s, r) => s + r.totalPrice, 0);
+
+    const html = `<!DOCTYPE html><html dir="rtl" lang="ar"><head>
+<meta charset="UTF-8"/><title>تقرير المناديب — ${dateLabel}</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Cairo',sans-serif;background:#fff;color:#111;direction:rtl;padding:10mm 8mm;}
+  h1{text-align:center;font-size:18px;font-weight:800;color:#8B4513;margin-bottom:3px;}
+  .sub{text-align:center;font-size:11px;color:#888;margin-bottom:14px;}
+  .summary{display:flex;gap:12px;justify-content:center;margin-bottom:16px;flex-wrap:wrap;}
+  .card{background:#f7f7f7;border-radius:8px;padding:8px 14px;text-align:center;border:1px solid #eee;}
+  .card .v{font-size:16px;font-weight:800;}
+  .driver-block{margin-bottom:18px;border:1px solid #ddd;border-radius:10px;overflow:hidden;}
+  .driver-header{background:#F5F0E8;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px;}
+  .driver-name{font-size:14px;font-weight:800;color:#5D3A1A;}
+  .driver-stats{font-size:11px;color:#777;}
+  table{width:100%;border-collapse:collapse;font-size:12px;}
+  thead th{background:#8B4513;color:#fff;padding:7px 8px;text-align:center;font-size:12px;}
+  tbody tr:nth-child(even){background:#fafafa;}
+  @media print{body{padding:4mm;}.driver-block{page-break-inside:avoid;}}
+</style></head><body>
+<h1>روابي المندي — تقرير مناديب التوصيل</h1>
+<div class="sub">📅 ${dateLabel} | طُبع في ${now}</div>
+<div class="summary">
+  <div class="card"><div class="v" style="color:#E8920C;">${rows.length}</div><div style="font-size:10px;">إجمالي الطلبات</div></div>
+  <div class="card"><div class="v" style="color:#2e7d32;">${f(cashAll)} ر.س</div><div style="font-size:10px;">نقدي</div></div>
+  <div class="card"><div class="v" style="color:#1565C0;">${f(totalAll - cashAll)} ر.س</div><div style="font-size:10px;">إلكتروني</div></div>
+  <div class="card"><div class="v">${f(totalAll)} ر.س</div><div style="font-size:10px;">الإجمالي</div></div>
+  <div class="card"><div class="v" style="color:#9C27B0;">${driverMap.size}</div><div style="font-size:10px;">مناديب</div></div>
+</div>
+${driverSections}
+<script>window.onload=function(){window.print();}</script>
+</body></html>`;
+    const win = window.open("", "_blank", "width=900,height=700");
+    if (win) { win.document.write(html); win.document.close(); }
+  };
+
+  // ── Print single driver statement ────────────────────────────────────
+  const handlePrintSingleDriverReport = (
+    driverName: string, driverPhone: string,
+    filteredDays: Array<{ date: string; ordersCount: number; totalCollected: number; cashCollected: number; electronicCollected: number; orders: Array<{ orderId: number; dailyNumber: number | null; customerName: string; totalPrice: number; paymentMethod: string; deliveredAt: string | null; cancelled: boolean }> }>,
+    tabLabel: string,
+    totals: { ordersCount: number; totalCollected: number; cashCollected: number; electronicCollected: number; cancelledCount: number } | undefined,
+  ) => {
+    if (Platform.OS !== "web" || typeof window === "undefined") return;
+    const now = new Date().toLocaleString("ar-SA", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" });
+    const f = (n: number) => n.toFixed(2);
+    const fmtT = (iso: string | null) => iso ? new Date(iso).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" }) : "--:--";
+    const fmtD = (s: string) => new Date(s).toLocaleDateString("ar-SA", { weekday: "short", day: "numeric", month: "long", year: "numeric" });
+
+    const daySections = filteredDays.map(day => {
+      const rowsHtml = day.orders.map((o, i) => `
+        <tr style="border-bottom:1px solid #f0f0f0;${o.cancelled ? "color:#aaa;" : ""}">
+          <td style="padding:6px 8px;text-align:center;color:#888;font-size:12px;">${i + 1}</td>
+          <td style="padding:6px 8px;text-align:right;">${o.customerName}${o.cancelled ? " <span style='color:#E53935;font-size:10px;'>(ملغى)</span>" : ""}</td>
+          <td style="padding:6px 8px;text-align:center;">${o.paymentMethod === "cash" ? "💵 نقدي" : "💳 إلكتروني"}</td>
+          <td style="padding:6px 8px;text-align:left;font-weight:${o.cancelled ? "400" : "800"};color:${o.cancelled ? "#aaa" : "#2e7d32"};">${o.cancelled ? "ملغى" : f(o.totalPrice) + " ر.س"}</td>
+          <td style="padding:6px 8px;text-align:center;color:#888;font-size:11px;">${o.cancelled ? "--:--" : fmtT(o.deliveredAt)}</td>
+        </tr>`).join("");
+      return `
+      <div class="day-block">
+        <div class="day-header">
+          <span>${fmtD(day.date)}</span>
+          <span style="font-size:11px;">${day.ordersCount} طلب | ${f(day.cashCollected)} نقدي | ${f(day.electronicCollected)} إلكتروني | المجموع: ${f(day.totalCollected)} ر.س</span>
+        </div>
+        <table>
+          <thead><tr><th>#</th><th>العميل</th><th>الدفع</th><th>المبلغ</th><th>الوقت</th></tr></thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>
+      </div>`;
+    }).join("");
+
+    const html = `<!DOCTYPE html><html dir="rtl" lang="ar"><head>
+<meta charset="UTF-8"/><title>تقرير المندوب — ${driverName}</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Cairo',sans-serif;background:#fff;color:#111;direction:rtl;padding:10mm 8mm;}
+  h1{text-align:center;font-size:18px;font-weight:800;color:#8B4513;margin-bottom:3px;}
+  .sub{text-align:center;font-size:11px;color:#888;margin-bottom:14px;}
+  .summary{display:flex;gap:12px;justify-content:center;margin-bottom:16px;flex-wrap:wrap;}
+  .card{background:#f7f7f7;border-radius:8px;padding:8px 14px;text-align:center;border:1px solid #eee;}
+  .card .v{font-size:16px;font-weight:800;}
+  .day-block{margin-bottom:16px;border:1px solid #ddd;border-radius:10px;overflow:hidden;}
+  .day-header{background:#EEF5EE;padding:9px 14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px;font-size:13px;font-weight:700;color:#2e5a1e;}
+  table{width:100%;border-collapse:collapse;font-size:12px;}
+  thead th{background:#2e7d32;color:#fff;padding:7px 8px;text-align:center;font-size:12px;}
+  tbody tr:nth-child(even){background:#fafafa;}
+  @media print{body{padding:4mm;}.day-block{page-break-inside:avoid;}}
+</style></head><body>
+<h1>روابي المندي — تقرير المندوب: ${driverName}</h1>
+<div class="sub">📱 ${driverPhone} | الفترة: ${tabLabel} | طُبع في ${now}</div>
+${totals ? `
+<div class="summary">
+  <div class="card"><div class="v" style="color:#E8920C;">${totals.ordersCount}</div><div style="font-size:10px;">طلبات مُسلَّمة</div></div>
+  <div class="card"><div class="v" style="color:#2e7d32;">${f(totals.cashCollected)} ر.س</div><div style="font-size:10px;">نقدي</div></div>
+  <div class="card"><div class="v" style="color:#1565C0;">${f(totals.electronicCollected)} ر.س</div><div style="font-size:10px;">إلكتروني</div></div>
+  <div class="card"><div class="v">${f(totals.totalCollected)} ر.س</div><div style="font-size:10px;">الإجمالي</div></div>
+  ${totals.cancelledCount > 0 ? `<div class="card"><div class="v" style="color:#E53935;">${totals.cancelledCount}</div><div style="font-size:10px;">ملغاة</div></div>` : ""}
+</div>` : ""}
+${daySections}
+<script>window.onload=function(){window.print();}</script>
+</body></html>`;
+    const win = window.open("", "_blank", "width=900,height=700");
+    if (win) { win.document.write(html); win.document.close(); }
+  };
+
   // ── Print filtered orders list ────────────────────────────────────────
   const handlePrintOrdersList = (ordersArr: Order[], title: string) => {
     if (Platform.OS !== "web" || typeof window === "undefined") return;
@@ -1225,9 +1375,20 @@ export default function CashierScreen() {
                   <Text style={{ color: colors.foreground, fontFamily: F.extra, fontSize: 14 }}>
                     {isToday(drvSelectedDate) ? "جميع توصيلات اليوم" : `توصيلات ${drvSelectedDate.toLocaleDateString("ar-SA", { day: "numeric", month: "long" })}`}
                   </Text>
-                  <TouchableOpacity onPress={() => loadAllDeliveries(drvSelectedDate)} style={{ padding: 5 }}>
-                    <Feather name="refresh-cw" size={13} color={colors.mutedForeground} />
-                  </TouchableOpacity>
+                  <View style={{ flexDirection: "row-reverse", gap: 8, alignItems: "center" }}>
+                    {allDeliveries.length > 0 && (
+                      <TouchableOpacity
+                        onPress={() => handlePrintAllDriversReport(allDeliveries, drvSelectedDate)}
+                        style={{ flexDirection: "row-reverse", alignItems: "center", gap: 5, backgroundColor: "#0A1A2A", borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: "#64B5F644" }}
+                      >
+                        <Feather name="printer" size={13} color="#64B5F6" />
+                        <Text style={{ color: "#64B5F6", fontFamily: F.bold, fontSize: 11 }}>طباعة الكل</Text>
+                      </TouchableOpacity>
+                    )}
+                    <TouchableOpacity onPress={() => loadAllDeliveries(drvSelectedDate)} style={{ padding: 5 }}>
+                      <Feather name="refresh-cw" size={13} color={colors.mutedForeground} />
+                    </TouchableOpacity>
+                  </View>
                 </View>
 
                 {allDeliveriesLoading && <ActivityIndicator color="#4CAF50" style={{ marginVertical: 20 }} />}
@@ -2109,9 +2270,25 @@ export default function CashierScreen() {
                       <Text style={{ color: colors.foreground, fontFamily: F.extra, fontSize: 17 }}>{d.name}</Text>
                       <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12 }}>📱 {d.phone}</Text>
                     </View>
-                    <TouchableOpacity onPress={() => { setDrvDetailRow(null); setDrvStatement(null); }} style={{ padding: 8 }}>
-                      <Feather name="x" size={20} color={colors.mutedForeground} />
-                    </TouchableOpacity>
+                    <View style={{ flexDirection: "row-reverse", gap: 8, alignItems: "center" }}>
+                      {!drvStatLoading && filteredDays.length > 0 && (
+                        <TouchableOpacity
+                          onPress={() => handlePrintSingleDriverReport(
+                            d.name, d.phone,
+                            filteredDays,
+                            drvStatTab === "today" ? "اليوم" : drvStatTab === "month" ? "هذا الشهر" : "كل الوقت",
+                            tabPeriod,
+                          )}
+                          style={{ flexDirection: "row-reverse", alignItems: "center", gap: 5, backgroundColor: "#0A1A2A", borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: "#64B5F644" }}
+                        >
+                          <Feather name="printer" size={13} color="#64B5F6" />
+                          <Text style={{ color: "#64B5F6", fontFamily: F.bold, fontSize: 11 }}>طباعة</Text>
+                        </TouchableOpacity>
+                      )}
+                      <TouchableOpacity onPress={() => { setDrvDetailRow(null); setDrvStatement(null); }} style={{ padding: 8 }}>
+                        <Feather name="x" size={20} color={colors.mutedForeground} />
+                      </TouchableOpacity>
+                    </View>
                   </View>
 
                   {/* Period tabs */}
