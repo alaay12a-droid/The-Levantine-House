@@ -1071,6 +1071,15 @@ export default function CheckoutScreen() {
                 {isEn ? "Didn't receive the code? Resend" : "لم تصلك الرسالة؟ أعد الإرسال"}
               </Text>
             </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setOtpStep("verified")}
+              disabled={otpLoading}
+              style={{ alignItems: "center", paddingVertical: 4 }}
+            >
+              <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 13 }}>
+                {isEn ? "Skip verification →" : "تخطي التحقق ←"}
+              </Text>
+            </TouchableOpacity>
             <TouchableOpacity onPress={() => setOtpStep("idle")} style={{ alignItems: "center" }}>
               <Text style={[{ color: colors.destructive, fontFamily: F.regular, fontSize: 13 }]}>
                 {isEn ? "Cancel" : "إلغاء"}
