@@ -117,7 +117,7 @@ async function verifyViaAuthentica(apiKey: string, phone: string, otp: string) {
   });
   const text = await res.text();
   let verified = false;
-  try { const j = JSON.parse(text); verified = j.verified === true; } catch {}
+  try { const j = JSON.parse(text); verified = j.verified === true || j.status === true; } catch {}
   return { success: res.ok, verified, response: text };
 }
 
