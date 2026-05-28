@@ -1,18 +1,31 @@
 import { CartCustomization } from "@/context/CartContext";
 
+const MEAT_SIZES = ["ربع", "نصف", "كامل"];
+
 /**
  * Returns a display-friendly name for a cart item.
- * When the customer picks "نصف" size on a whole-chicken item,
- * replaces "حبة كاملة" in the base name with "نصف" so the
- * receipt/invoice clearly reads "نصف" instead of "حبة كاملة".
+ * - Chicken: replaces "حبة كاملة" with "نصف" when half is chosen.
+ * - Meat: replaces the suffix after the last " - " with the chosen size label
+ *   (e.g. "حنيذ بلدي - كامل" + size "نصف" → "حنيذ بلدي - نصف").
  */
 export function resolveCartItemName(
   baseName: string,
   customization?: CartCustomization
 ): string {
-  if (customization?.size === "نصف" && baseName.includes("حبة كاملة")) {
+  const size = customization?.size;
+  if (!size) return baseName;
+
+  if (size === "نصف" && baseName.includes("حبة كاملة")) {
     return baseName.replace("حبة كاملة", "نصف");
   }
+
+  if (MEAT_SIZES.includes(size)) {
+    const dashIdx = baseName.lastIndexOf(" - ");
+    if (dashIdx !== -1) {
+      return baseName.slice(0, dashIdx) + " - " + size;
+    }
+  }
+
   return baseName;
 }
 
@@ -24,9 +37,14 @@ export function resolveCustomizationParts(
   customization?: CartCustomization
 ): string[] {
   const parts: string[] = [];
+  const size = customization?.size;
+
   const sizeInName =
-    customization?.size === "نصف" || customization?.size === "حبة كاملة";
-  if (customization?.size && !sizeInName) parts.push(customization.size);
+    size === "نصف" ||
+    size === "حبة كاملة" ||
+    (size !== undefined && MEAT_SIZES.includes(size));
+
+  if (size && !sizeInName) parts.push(size);
   if (customization?.riceType) parts.push(customization.riceType);
   if (customization?.addon) parts.push(customization.addon);
   return parts;
