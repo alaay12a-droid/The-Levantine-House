@@ -91,21 +91,29 @@ async function sendViaTwilio(apiKey: string, _sender: string, phone: string, msg
 }
 
 // ── Authentica: THEY manage OTP generation & verification ────────────────────
+// Authentica requires E.164 format (+9665XXXXXXXX)
+function toE164(phone: string): string {
+  const clean = phone.replace(/\s/g, "");
+  return clean.startsWith("+") ? clean : `+${clean}`;
+}
+
 async function sendViaAuthentica(apiKey: string, phone: string, method: string) {
+  const e164 = toE164(phone);
   const res = await fetch("https://api.authentica.sa/api/v2/send-otp", {
     method: "POST",
     headers: { "Content-Type": "application/json", "Accept": "application/json", "X-Authorization": apiKey },
-    body: JSON.stringify({ method: method === "whatsapp" ? "whatsapp" : "sms", phone }),
+    body: JSON.stringify({ method: method === "whatsapp" ? "whatsapp" : "sms", phone: e164 }),
   });
   const text = await res.text();
   return { success: res.ok, response: text };
 }
 
 async function verifyViaAuthentica(apiKey: string, phone: string, otp: string) {
+  const e164 = toE164(phone);
   const res = await fetch("https://api.authentica.sa/api/v2/verify-otp", {
     method: "POST",
     headers: { "Content-Type": "application/json", "Accept": "application/json", "X-Authorization": apiKey },
-    body: JSON.stringify({ phone, otp }),
+    body: JSON.stringify({ phone: e164, otp }),
   });
   const text = await res.text();
   let verified = false;
