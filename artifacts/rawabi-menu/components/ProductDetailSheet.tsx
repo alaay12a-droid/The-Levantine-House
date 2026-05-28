@@ -119,7 +119,8 @@ export function ProductDetailSheet({ item, visible, onClose }: Props) {
     : item.imageKey ? FOOD_IMAGES[item.imageKey] : null;
 
   const showCustomization = itemNeedsCustomization(item);
-  const selectedRice = showCustomization ? RICE_OPTIONS[riceIdx] : null;
+  const showRiceOptions = showCustomization && !item.name.includes("مضغوط");
+  const selectedRice = showRiceOptions ? RICE_OPTIONS[riceIdx] : null;
   const selectedAddon = showCustomization ? ADDON_OPTIONS[addonIdx] : null;
 
   const sizes = getChickenSizes(item);
@@ -299,7 +300,7 @@ export function ProductDetailSheet({ item, visible, onClose }: Props) {
             )}
 
             {/* ── Rice Type ── */}
-            {showCustomization && (
+            {showRiceOptions && (
               <View style={{ gap: 10 }}>
                 <Text style={[styles.sectionTitle, { color: colors.foreground }]}>أنواع الأرز</Text>
                 {RICE_OPTIONS.map((opt, i) => (
