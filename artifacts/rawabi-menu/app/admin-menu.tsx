@@ -459,6 +459,9 @@ export default function AdminMenuScreen() {
   const [smsApiKey, setSmsApiKey] = useState("");
   const [smsSender, setSmsSender] = useState("روابي المندي");
   const [smsLoading, setSmsLoading] = useState(false);
+  const [smsTestPhone, setSmsTestPhone] = useState("");
+  const [smsTestLoading, setSmsTestLoading] = useState(false);
+  const [smsTestResult, setSmsTestResult] = useState<string | null>(null);
   const [allowCustomerCancel, setAllowCustomerCancel] = useState(false);
 
   // Branch hours
@@ -2911,53 +2914,48 @@ export default function AdminMenuScreen() {
             </TouchableOpacity>
 
             {/* Test SMS */}
-            {smsHasKey && (() => {
-              const [testPhone, setTestPhone] = React.useState("");
-              const [testLoading, setTestLoading] = React.useState(false);
-              const [testResult, setTestResult] = React.useState<string | null>(null);
-              return (
-                <View style={{ gap: 8, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 12 }}>
-                  <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 13, textAlign: "right" }}>
-                    🔬 اختبر الإرسال — أدخل رقم جوالك
-                  </Text>
-                  <TextInput
-                    value={testPhone}
-                    onChangeText={setTestPhone}
-                    placeholder="966501234567"
-                    placeholderTextColor={colors.mutedForeground}
-                    keyboardType="phone-pad"
-                    style={{ backgroundColor: colors.secondary, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, color: colors.foreground, fontFamily: F.regular, textAlign: "left", borderWidth: 1, borderColor: colors.border }}
-                  />
-                  <TouchableOpacity
-                    onPress={async () => {
-                      if (!testPhone.trim()) return;
-                      setTestLoading(true);
-                      setTestResult(null);
-                      try {
-                        const r = await apiPost<{ ok: boolean; msegatResponse: string }>("/sms/test", { phone: testPhone.trim() });
-                        setTestResult(r.ok ? `✅ تم الإرسال بنجاح` : `❌ فشل: ${r.msegatResponse}`);
-                      } catch (e: unknown) {
-                        setTestResult(`❌ خطأ: ${e instanceof Error ? e.message : String(e)}`);
-                      } finally {
-                        setTestLoading(false);
-                      }
-                    }}
-                    style={{ paddingVertical: 10, borderRadius: 12, alignItems: "center", backgroundColor: "#1A2A3A", borderWidth: 1, borderColor: "#64B5F633" }}
-                    disabled={testLoading}
-                  >
-                    {testLoading
-                      ? <ActivityIndicator color="#64B5F6" />
-                      : <Text style={{ color: "#64B5F6", fontFamily: F.bold, fontSize: 13 }}>إرسال رسالة اختبار</Text>
+            {smsHasKey && (
+              <View style={{ gap: 8, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 12 }}>
+                <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 13, textAlign: "right" }}>
+                  🔬 اختبر الإرسال — أدخل رقم جوالك
+                </Text>
+                <TextInput
+                  value={smsTestPhone}
+                  onChangeText={setSmsTestPhone}
+                  placeholder="966501234567"
+                  placeholderTextColor={colors.mutedForeground}
+                  keyboardType="phone-pad"
+                  style={{ backgroundColor: colors.secondary, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, color: colors.foreground, fontFamily: F.regular, textAlign: "left", borderWidth: 1, borderColor: colors.border }}
+                />
+                <TouchableOpacity
+                  onPress={async () => {
+                    if (!smsTestPhone.trim()) return;
+                    setSmsTestLoading(true);
+                    setSmsTestResult(null);
+                    try {
+                      const r = await apiPost<{ ok: boolean; authenticaResponse?: string }>("/sms/test", { phone: smsTestPhone.trim() });
+                      setSmsTestResult(r.ok ? `✅ تم الإرسال بنجاح` : `❌ فشل: ${r.authenticaResponse}`);
+                    } catch (e: unknown) {
+                      setSmsTestResult(`❌ خطأ: ${e instanceof Error ? e.message : String(e)}`);
+                    } finally {
+                      setSmsTestLoading(false);
                     }
-                  </TouchableOpacity>
-                  {testResult && (
-                    <Text style={{ color: testResult.startsWith("✅") ? "#4CAF50" : "#E57373", fontFamily: F.semi, fontSize: 13, textAlign: "right" }}>
-                      {testResult}
-                    </Text>
-                  )}
-                </View>
-              );
-            })()}
+                  }}
+                  style={{ paddingVertical: 10, borderRadius: 12, alignItems: "center", backgroundColor: "#1A2A3A", borderWidth: 1, borderColor: "#64B5F633" }}
+                  disabled={smsTestLoading}
+                >
+                  {smsTestLoading
+                    ? <ActivityIndicator color="#64B5F6" />
+                    : <Text style={{ color: "#64B5F6", fontFamily: F.bold, fontSize: 13 }}>إرسال رسالة اختبار</Text>
+                  }
+                </TouchableOpacity>
+                {smsTestResult && (
+                  <Text style={{ color: smsTestResult.startsWith("✅") ? "#4CAF50" : "#E57373", fontFamily: F.semi, fontSize: 13, textAlign: "right" }}>
+                    {smsTestResult}
+                  </Text>
+                )}
+              </View>
+            )}
 
           </View>
           </>)}
