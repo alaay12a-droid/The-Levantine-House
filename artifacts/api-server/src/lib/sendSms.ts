@@ -18,7 +18,7 @@ export async function sendSms(phone: string, message: string): Promise<void> {
     if (enabled !== "true" || !apiKey) return;
 
     const senderName = sender ?? "روابي المندي";
-    const cleanPhone  = phone.replace(/\s/g, "");
+    const cleanPhone  = phone.replace(/[\s+]/g, ""); // strip spaces and leading +
 
     await fetch("https://www.msegat.com/gw/sendsms.php", {
       method: "POST",

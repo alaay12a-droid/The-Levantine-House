@@ -2898,6 +2898,56 @@ export default function AdminMenuScreen() {
                 : <Text style={{ color: "#1A0A00", fontFamily: F.bold, fontSize: 14 }}>حفظ إعدادات الرسائل</Text>
               }
             </TouchableOpacity>
+
+            {/* Test SMS */}
+            {smsHasKey && (() => {
+              const [testPhone, setTestPhone] = React.useState("");
+              const [testLoading, setTestLoading] = React.useState(false);
+              const [testResult, setTestResult] = React.useState<string | null>(null);
+              return (
+                <View style={{ gap: 8, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 12 }}>
+                  <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 13, textAlign: "right" }}>
+                    🔬 اختبر الإرسال — أدخل رقم جوالك
+                  </Text>
+                  <TextInput
+                    value={testPhone}
+                    onChangeText={setTestPhone}
+                    placeholder="966501234567"
+                    placeholderTextColor={colors.mutedForeground}
+                    keyboardType="phone-pad"
+                    style={{ backgroundColor: colors.secondary, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, color: colors.foreground, fontFamily: F.regular, textAlign: "left", borderWidth: 1, borderColor: colors.border }}
+                  />
+                  <TouchableOpacity
+                    onPress={async () => {
+                      if (!testPhone.trim()) return;
+                      setTestLoading(true);
+                      setTestResult(null);
+                      try {
+                        const r = await apiPost<{ ok: boolean; msegatResponse: string }>("/sms/test", { phone: testPhone.trim() });
+                        setTestResult(r.ok ? `✅ تم الإرسال بنجاح` : `❌ فشل: ${r.msegatResponse}`);
+                      } catch (e: unknown) {
+                        setTestResult(`❌ خطأ: ${e instanceof Error ? e.message : String(e)}`);
+                      } finally {
+                        setTestLoading(false);
+                      }
+                    }}
+                    style={{ paddingVertical: 10, borderRadius: 12, alignItems: "center", backgroundColor: "#1A2A3A", borderWidth: 1, borderColor: "#64B5F633" }}
+                    disabled={testLoading}
+                  >
+                    {testLoading
+                      ? <ActivityIndicator color="#64B5F6" />
+                      : <Text style={{ color: "#64B5F6", fontFamily: F.bold, fontSize: 13 }}>إرسال رسالة اختبار</Text>
+                    }
+                  </TouchableOpacity>
+                  {testResult && (
+                    <Text style={{ color: testResult.startsWith("✅") ? "#4CAF50" : "#E57373", fontFamily: F.semi, fontSize: 13, textAlign: "right" }}>
+                      {testResult}
+                    </Text>
+                  )}
+                </View>
+              );
+            })()}
+
           </View>
           </>)}
 

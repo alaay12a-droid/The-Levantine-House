@@ -67,7 +67,8 @@ router.post("/sms/send-otp", async (req, res) => {
   const sender = await getSetting(SETTING_SENDER) ?? "روابي المندي";
 
   const code = String(Math.floor(1000 + Math.random() * 9000));
-  const phone = parsed.data.phone.replace(/\s/g, "");
+  // Strip spaces AND leading + — Msegat requires numbers without +
+  const phone = parsed.data.phone.replace(/[\s+]/g, "");
 
   // store with 5-minute expiry
   otpStore.set(phone, { code, expiresAt: Date.now() + 5 * 60 * 1000 });
@@ -79,33 +80,75 @@ router.post("/sms/send-otp", async (req, res) => {
     return;
   }
 
-  const message = encodeURIComponent(`${code} هو رمز التحقق الخاص بطلبك في روابي المندي. صالح لمدة 5 دقائق.`);
-  const url = `https://www.msegat.com/gw/sendsms.php?userName=${encodeURIComponent(apiKey)}&apiKey=${encodeURIComponent(apiKey)}&numbers=${encodeURIComponent(phone)}&userSender=${encodeURIComponent(sender)}&msg=${message}&lang=3`;
+  const userName = apiKey.split(":")[0]!;
+  const apiKeyPart = apiKey.split(":")[1] ?? apiKey;
+  const msg = `${code} هو رمز التحقق الخاص بطلبك في روابي المندي. صالح لمدة 5 دقائق.`;
 
-  // Msegat: userName = the username (not API key), apiKey = the API key
-  // We store them as a combined "user:key" or just apiKey. 
-  // Let's use the simpler JSON API instead:
+  req.log.info({ phone, userName, sender }, "Sending OTP via Msegat");
+
   const msegatRes = await fetch("https://www.msegat.com/gw/sendsms.php", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      userName: apiKey.split(":")[0] ?? apiKey,
-      apiKey:   apiKey.split(":")[1] ?? apiKey,
-      numbers:  phone,
+      userName,
+      apiKey:     apiKeyPart,
+      numbers:    phone,
       userSender: sender,
-      msg: `${code} هو رمز التحقق الخاص بطلبك في روابي المندي. صالح لمدة 5 دقائق.`,
+      msg,
       lang: "3",
     }),
   });
 
   const text = await msegatRes.text();
+  req.log.info({ phone, msegatResponse: text }, "Msegat OTP response");
+
   // Msegat returns "1" on success
   if (text.trim() === "1" || text.includes('"type":"1"')) {
     res.json({ ok: true });
   } else {
-    // still return ok so we don't break orders if SMS fails — code is in memory
+    // still return ok so we don't break orders — OTP code is in memory
+    req.log.warn({ phone, msegatResponse: text }, "Msegat OTP send failed");
     res.json({ ok: true, warning: text });
   }
+});
+
+// ── POST /sms/test — admin sends a test SMS to any phone
+router.post("/sms/test", async (req, res) => {
+  const parsed = z.object({ phone: z.string().min(9) }).safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "رقم غير صحيح" }); return; }
+
+  const [apiKey, sender] = await Promise.all([
+    getSetting(SETTING_API_KEY),
+    getSetting(SETTING_SENDER),
+  ]);
+
+  if (!apiKey) { res.status(400).json({ error: "لم يتم إعداد API Key بعد" }); return; }
+
+  const phone = parsed.data.phone.replace(/[\s+]/g, "");
+  const senderName = sender ?? "روابي المندي";
+  const userName = apiKey.split(":")[0]!;
+  const apiKeyPart = apiKey.split(":")[1] ?? apiKey;
+
+  req.log.info({ phone, userName, senderName }, "Test SMS via Msegat");
+
+  const msegatRes = await fetch("https://www.msegat.com/gw/sendsms.php", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      userName,
+      apiKey:     apiKeyPart,
+      numbers:    phone,
+      userSender: senderName,
+      msg:        "اختبار — روابي المندي. نظام الرسائل يعمل بشكل صحيح ✅",
+      lang:       "3",
+    }),
+  });
+
+  const text = await msegatRes.text();
+  req.log.info({ phone, msegatResponse: text }, "Msegat test SMS response");
+
+  const success = text.trim() === "1" || text.includes('"type":"1"');
+  res.json({ ok: success, msegatResponse: text });
 });
 
 // ── POST /sms/verify-otp
