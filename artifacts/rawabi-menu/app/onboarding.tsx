@@ -27,7 +27,7 @@ import { useColors } from "@/hooks/useColors";
 
 type Country = { dialCode: string; flag: string; name: string; localLength: number; hint: string; };
 const COUNTRIES: Country[] = [
-  { dialCode: "966", flag: "🇸🇦", name: "السعودية",  localLength: 10, hint: "05XXXXXXXX" },
+  { dialCode: "966", flag: "🇸🇦", name: "السعودية",  localLength: 9,  hint: "5XXXXXXXX" },
   { dialCode: "967", flag: "🇾🇪", name: "اليمن",     localLength: 9,  hint: "7XXXXXXXX" },
   { dialCode: "974", flag: "🇶🇦", name: "قطر",       localLength: 8,  hint: "3XXXXXXX" },
   { dialCode: "965", flag: "🇰🇼", name: "الكويت",    localLength: 8,  hint: "5XXXXXXX" },
@@ -87,7 +87,7 @@ export default function OnboardingScreen() {
 
   const [step, setStep] = useState<Step>("name");
   const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
+  const [phone, setPhone] = useState("5");
   const [address, setAddress] = useState("");
   const [lat, setLat] = useState<number | undefined>();
   const [lng, setLng] = useState<number | undefined>();
@@ -513,6 +513,12 @@ export default function OnboardingScreen() {
           </TouchableOpacity>
         </View>
 
+        {step === "phone" && otpStep === "idle" && (
+          <TouchableOpacity onPress={goToLocation} style={{ alignItems: "center", paddingVertical: 4 }}>
+            <Text style={[styles.skipText, { color: C.muted }]}>تخطي التحقق</Text>
+          </TouchableOpacity>
+        )}
+
         {step === "location" && (
           <TouchableOpacity
             onPress={() => {
@@ -553,7 +559,7 @@ export default function OnboardingScreen() {
               <TouchableOpacity
                 onPress={() => {
                   setCountry(item);
-                  setPhone("");
+                  setPhone(item.dialCode === "966" ? "5" : "");
                   setShowCountryPicker(false);
                   setTimeout(() => phoneRef.current?.focus(), 200);
                 }}
