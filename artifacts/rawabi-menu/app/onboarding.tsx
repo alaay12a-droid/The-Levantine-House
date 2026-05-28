@@ -96,6 +96,7 @@ export default function OnboardingScreen() {
   const [otpStep, setOtpStep] = useState<"idle" | "sent">("idle");
   const [otpCode, setOtpCode] = useState("");
   const [otpLoading, setOtpLoading] = useState(false);
+  const [otpLength, setOtpLength] = useState(4);
   const [country, setCountry] = useState<Country>(COUNTRIES[0]);
   const [showCountryPicker, setShowCountryPicker] = useState(false);
 
@@ -137,10 +138,11 @@ export default function OnboardingScreen() {
     setOtpLoading(true);
     try {
       const intlPhone = buildIntlPhone();
-      const r = await apiPost<{ ok: boolean; skipped?: boolean; devCode?: string }>("/sms/send-otp", { phone: intlPhone });
+      const r = await apiPost<{ ok: boolean; skipped?: boolean; devCode?: string; otpLength?: number }>("/sms/send-otp", { phone: intlPhone });
       if (r.skipped) { goToLocation(); return; }
       setOtpStep("sent");
       setOtpCode("");
+      setOtpLength(r.otpLength ?? 4);
       // Dev mode: no API key configured → code returned directly
       if (r.devCode) {
         setDevCode(r.devCode);
@@ -157,7 +159,7 @@ export default function OnboardingScreen() {
   };
 
   const handleVerifyOtp = async () => {
-    if (otpCode.length !== 4) return;
+    if (otpCode.length < otpLength) return;
     setOtpLoading(true);
     try {
       const intlPhone = buildIntlPhone();
@@ -370,34 +372,34 @@ export default function OnboardingScreen() {
                 </View>
               ) : (
                 <Text style={{ fontFamily: F.regular, color: C.muted, fontSize: 13, textAlign: "right", lineHeight: 20 }}>
-                  أُرسل رمز مكوّن من 4 أرقام إلى هاتفك
+                  {`أُرسل رمز مكوّن من ${otpLength} أرقام إلى هاتفك`}
                 </Text>
               )}
 
               {/* OTP boxes */}
-              <View style={{ flexDirection: "row", justifyContent: "center", gap: 12 }}>
-                {[0,1,2,3].map(i => (
+              <View style={{ flexDirection: "row", justifyContent: "center", gap: otpLength === 6 ? 8 : 12 }}>
+                {Array.from({ length: otpLength }, (_, i) => (
                   <View key={i} style={{
-                    width: 54, height: 60, borderRadius: 12, borderWidth: 2,
+                    width: otpLength === 6 ? 44 : 54, height: 60, borderRadius: 12, borderWidth: 2,
                     borderColor: otpCode[i] ? C.gold : C.border,
                     backgroundColor: C.surface,
                     alignItems: "center", justifyContent: "center",
                   }}>
-                    <Text style={{ fontFamily: F.bold, fontSize: 24, color: C.gold }}>
+                    <Text style={{ fontFamily: F.bold, fontSize: otpLength === 6 ? 20 : 24, color: C.gold }}>
                       {otpCode[i] ?? ""}
                     </Text>
                   </View>
                 ))}
-                {/* hidden input capturing all 4 digits */}
+                {/* hidden input capturing digits */}
                 <TextInput
                   ref={otpRef}
                   value={otpCode}
                   onChangeText={(t) => {
                     const d = t.replace(/\D/g, "");
-                    if (d.length <= 4) setOtpCode(d);
+                    if (d.length <= otpLength) setOtpCode(d);
                   }}
                   keyboardType="number-pad"
-                  maxLength={4}
+                  maxLength={otpLength}
                   style={{ position: "absolute", opacity: 0, width: "100%", height: "100%" }}
                   onSubmitEditing={handleVerifyOtp}
                 />
@@ -489,13 +491,13 @@ export default function OnboardingScreen() {
           <TouchableOpacity
             style={[styles.nextBtn, {
               backgroundColor:
-                otpStep === "sent" && otpCode.length !== 4 ? C.border :
+                otpStep === "sent" && otpCode.length < otpLength ? C.border :
                 C.primary,
               opacity: otpLoading ? 0.6 : 1,
             }]}
             onPress={handleNext}
             activeOpacity={0.85}
-            disabled={otpLoading || (otpStep === "sent" && otpCode.length !== 4)}
+            disabled={otpLoading || (otpStep === "sent" && otpCode.length < otpLength)}
           >
             {otpLoading
               ? <ActivityIndicator color="#FFF" size="small" />

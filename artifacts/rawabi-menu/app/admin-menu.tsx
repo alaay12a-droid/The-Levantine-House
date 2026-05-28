@@ -465,7 +465,8 @@ export default function AdminMenuScreen() {
   const [smsApiKey, setSmsApiKey] = useState("");
   const [smsSender, setSmsSender] = useState("روابي المندي");
   const [smsLoading, setSmsLoading] = useState(false);
-  const [smsProvider, setSmsProvider] = useState<"msegat"|"taqnyat"|"4jawaly"|"unifonic"|"twilio">("msegat");
+  const [smsProvider, setSmsProvider] = useState<"msegat"|"taqnyat"|"4jawaly"|"unifonic"|"twilio"|"authentica">("msegat");
+  const [smsMethod, setSmsMethod] = useState<"sms"|"whatsapp">("sms");
   const [smsTestPhone, setSmsTestPhone] = useState("");
   const [smsTestLoading, setSmsTestLoading] = useState(false);
   const [smsTestResult, setSmsTestResult] = useState<string | null>(null);
@@ -617,11 +618,12 @@ ${kpiBlock}${payBlock}${sumBlock}
 
   const loadSmsSettings = useCallback(async () => {
     try {
-      const r = await apiGet<{ enabled: boolean; hasApiKey: boolean; sender: string; provider: "msegat"|"taqnyat"|"4jawaly"|"unifonic"|"twilio" }>("/sms-settings");
+      const r = await apiGet<{ enabled: boolean; hasApiKey: boolean; sender: string; provider: "msegat"|"taqnyat"|"4jawaly"|"unifonic"|"twilio"|"authentica"; method: "sms"|"whatsapp" }>("/sms-settings");
       setSmsEnabled(r.enabled);
       setSmsHasKey(r.hasApiKey);
       setSmsSender(r.sender ?? "روابي المندي");
       setSmsProvider(r.provider ?? "msegat");
+      setSmsMethod(r.method ?? "sms");
     } catch {}
   }, []);
   const loadCancelSetting = useCallback(async () => {
@@ -2947,12 +2949,13 @@ ${kpiBlock}${payBlock}${sumBlock}
 
           {/* Provider picker */}
           {(() => {
-            const providers: { id: "msegat"|"taqnyat"|"4jawaly"|"unifonic"|"twilio"; label: string; url: string; hint: string }[] = [
-              { id: "msegat",   label: "مسجات",    url: "msegat.com",      hint: "اسم_المستخدم:مفتاح_API" },
-              { id: "taqnyat",  label: "تقنيات",   url: "taqnyat.sa",      hint: "التوكن (Bearer Token)" },
-              { id: "4jawaly",  label: "فور جوالي", url: "4jawaly.com",     hint: "api_key:api_secret" },
-              { id: "unifonic", label: "يونيفونك",  url: "unifonic.com",    hint: "AppSid فقط" },
-              { id: "twilio",   label: "Twilio",    url: "twilio.com",      hint: "AccountSid:AuthToken:+fromNumber" },
+            const providers: { id: "msegat"|"taqnyat"|"4jawaly"|"unifonic"|"twilio"|"authentica"; label: string; url: string; hint: string; badge?: string }[] = [
+              { id: "authentica", label: "أوثنتيكا",  url: "authentica.sa",  hint: "API Key فقط", badge: "SMS+واتساب" },
+              { id: "msegat",     label: "مسجات",    url: "msegat.com",     hint: "اسم_المستخدم:مفتاح_API" },
+              { id: "taqnyat",    label: "تقنيات",   url: "taqnyat.sa",     hint: "Bearer Token" },
+              { id: "4jawaly",    label: "فور جوالي", url: "4jawaly.com",    hint: "api_key:api_secret" },
+              { id: "unifonic",   label: "يونيفونك",  url: "unifonic.com",   hint: "AppSid فقط" },
+              { id: "twilio",     label: "Twilio",    url: "twilio.com",     hint: "AccountSid:AuthToken:+fromNumber" },
             ];
             const active = providers.find(p => p.id === smsProvider) ?? providers[0];
             return (
@@ -2969,12 +2972,29 @@ ${kpiBlock}${payBlock}${sumBlock}
                           borderColor: smsProvider === p.id ? "#4CAF50" : colors.border }}
                       >
                         <Text style={{ color: smsProvider === p.id ? "#4CAF50" : colors.mutedForeground, fontFamily: F.bold, fontSize: 12 }}>{p.label}</Text>
+                        {p.badge && <Text style={{ color: "#E8920C", fontFamily: F.regular, fontSize: 9, textAlign: "center" }}>{p.badge}</Text>}
                       </TouchableOpacity>
                     ))}
                   </View>
                   <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11, textAlign: "right" }}>
                     🔗 {active.url} — صيغة المفتاح: {active.hint}
                   </Text>
+                  {/* WhatsApp/SMS method picker — Authentica only */}
+                  {smsProvider === "authentica" && (
+                    <View style={{ flexDirection: "row-reverse", gap: 8, marginTop: 4 }}>
+                      {([["sms","📱 SMS"],["whatsapp","💬 واتساب"]] as const).map(([key, label]) => (
+                        <TouchableOpacity
+                          key={key}
+                          onPress={() => setSmsMethod(key)}
+                          style={{ flex: 1, paddingVertical: 7, borderRadius: 10, alignItems: "center", borderWidth: 1,
+                            backgroundColor: smsMethod === key ? "#1A2A3A" : colors.secondary,
+                            borderColor: smsMethod === key ? "#64B5F6" : colors.border }}
+                        >
+                          <Text style={{ color: smsMethod === key ? "#64B5F6" : colors.mutedForeground, fontFamily: F.bold, fontSize: 13 }}>{label}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
                 </View>
               </>
             );
@@ -3041,7 +3061,7 @@ ${kpiBlock}${payBlock}${sumBlock}
               onPress={async () => {
                 setSmsLoading(true);
                 try {
-                  const body: Record<string, unknown> = { sender: smsSender, provider: smsProvider };
+                  const body: Record<string, unknown> = { sender: smsSender, provider: smsProvider, method: smsMethod };
                   if (smsApiKey.trim()) body.apiKey = smsApiKey.trim();
                   await apiPut("/sms-settings", body);
                   setSmsApiKey("");
