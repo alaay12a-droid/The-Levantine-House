@@ -423,7 +423,7 @@ export default function CashierScreen() {
       setBroadcastRemaining(res.remaining);
       setBroadcastTitle("");
       setBroadcastBody("");
-      Alert.alert("تم الإرسال ✓", `تم إرسال الإشعار لجميع المستخدمين\nالمتبقي هذا الأسبوع: ${res.remaining}`);
+      Alert.alert("تم الإرسال ✓", "تم إرسال الإشعار لجميع المستخدمين");
       setShowBroadcastModal(false);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "تعذّر الإرسال";
@@ -2821,9 +2821,9 @@ ${daySections}
               <Text style={{ color: colors.foreground, fontFamily: F.extra, fontSize: 19, textAlign: "center" }}>
                 إشعار جماعي للعملاء
               </Text>
-              <View style={{ backgroundColor: broadcastRemaining === 0 ? "#3A1A1A" : "#1A2A1A", borderRadius: 20, paddingHorizontal: 14, paddingVertical: 4 }}>
-                <Text style={{ color: broadcastRemaining === 0 ? "#EF9A9A" : "#81C784", fontFamily: F.bold, fontSize: 13 }}>
-                  {broadcastRemaining === null ? "جارٍ التحقق..." : broadcastRemaining === 0 ? "انتهت إشعارات هذا الأسبوع" : `المتبقي هذا الأسبوع: ${broadcastRemaining} من 4`}
+              <View style={{ backgroundColor: "#1A2A1A", borderRadius: 20, paddingHorizontal: 14, paddingVertical: 4 }}>
+                <Text style={{ color: "#81C784", fontFamily: F.bold, fontSize: 13 }}>
+                  {"بلا حدود ∞"}
                 </Text>
               </View>
             </View>
@@ -2867,8 +2867,8 @@ ${daySections}
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={sendBroadcast}
-                disabled={broadcastSending || broadcastRemaining === 0 || !broadcastTitle.trim() || !broadcastBody.trim()}
-                style={{ flex: 2, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 14, borderRadius: 14, backgroundColor: (broadcastRemaining === 0 || !broadcastTitle.trim() || !broadcastBody.trim()) ? colors.secondary : "#2E7D32", opacity: broadcastSending ? 0.7 : 1 }}
+                disabled={broadcastSending || !broadcastTitle.trim() || !broadcastBody.trim()}
+                style={{ flex: 2, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 14, borderRadius: 14, backgroundColor: (!broadcastTitle.trim() || !broadcastBody.trim()) ? colors.secondary : "#2E7D32", opacity: broadcastSending ? 0.7 : 1 }}
                 activeOpacity={0.8}
               >
                 {broadcastSending
