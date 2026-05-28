@@ -465,6 +465,7 @@ export default function AdminMenuScreen() {
   const [smsApiKey, setSmsApiKey] = useState("");
   const [smsSender, setSmsSender] = useState("روابي المندي");
   const [smsLoading, setSmsLoading] = useState(false);
+  const [smsProvider, setSmsProvider] = useState<"msegat"|"taqnyat"|"4jawaly"|"unifonic"|"twilio">("msegat");
   const [smsTestPhone, setSmsTestPhone] = useState("");
   const [smsTestLoading, setSmsTestLoading] = useState(false);
   const [smsTestResult, setSmsTestResult] = useState<string | null>(null);
@@ -616,10 +617,11 @@ ${kpiBlock}${payBlock}${sumBlock}
 
   const loadSmsSettings = useCallback(async () => {
     try {
-      const r = await apiGet<{ enabled: boolean; hasApiKey: boolean; sender: string }>("/sms-settings");
+      const r = await apiGet<{ enabled: boolean; hasApiKey: boolean; sender: string; provider: "msegat"|"taqnyat"|"4jawaly"|"unifonic"|"twilio" }>("/sms-settings");
       setSmsEnabled(r.enabled);
       setSmsHasKey(r.hasApiKey);
       setSmsSender(r.sender ?? "روابي المندي");
+      setSmsProvider(r.provider ?? "msegat");
     } catch {}
   }, []);
   const loadCancelSetting = useCallback(async () => {
@@ -2940,17 +2942,43 @@ ${kpiBlock}${payBlock}${sumBlock}
           {settingsSection === "sms" && (<>
           {/* SMS OTP Settings */}
           <Text style={{ color: colors.gold, fontFamily: F.extra, fontSize: 16, textAlign: "right", marginTop: 8 }}>
-            📱 التحقق برسالة SMS — مسجات
+            📱 التحقق برسالة SMS
           </Text>
 
-          <View style={{ backgroundColor: "#0A1A1A", borderRadius: 12, padding: 12, borderWidth: 1, borderColor: "#4CAF5033", marginBottom: 4 }}>
-            <Text style={{ color: "#81C784", fontFamily: F.semi, fontSize: 12, textAlign: "right" }}>
-              🔗 المنصة: مسجات — msegat.com
-            </Text>
-            <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11, textAlign: "right", marginTop: 4 }}>
-              سجّل دخول في msegat.com ← الإعدادات ← API واحصل على اسم المستخدم ومفتاح API.
-            </Text>
-          </View>
+          {/* Provider picker */}
+          {(() => {
+            const providers: { id: "msegat"|"taqnyat"|"4jawaly"|"unifonic"|"twilio"; label: string; url: string; hint: string }[] = [
+              { id: "msegat",   label: "مسجات",    url: "msegat.com",      hint: "اسم_المستخدم:مفتاح_API" },
+              { id: "taqnyat",  label: "تقنيات",   url: "taqnyat.sa",      hint: "التوكن (Bearer Token)" },
+              { id: "4jawaly",  label: "فور جوالي", url: "4jawaly.com",     hint: "api_key:api_secret" },
+              { id: "unifonic", label: "يونيفونك",  url: "unifonic.com",    hint: "AppSid فقط" },
+              { id: "twilio",   label: "Twilio",    url: "twilio.com",      hint: "AccountSid:AuthToken:+fromNumber" },
+            ];
+            const active = providers.find(p => p.id === smsProvider) ?? providers[0];
+            return (
+              <>
+                <View style={{ backgroundColor: "#0A1A1A", borderRadius: 12, padding: 10, borderWidth: 1, borderColor: "#4CAF5033", marginBottom: 4, gap: 6 }}>
+                  <Text style={{ color: "#81C784", fontFamily: F.semi, fontSize: 12, textAlign: "right" }}>اختر شركة SMS:</Text>
+                  <View style={{ flexDirection: "row-reverse", flexWrap: "wrap", gap: 6 }}>
+                    {providers.map(p => (
+                      <TouchableOpacity
+                        key={p.id}
+                        onPress={() => setSmsProvider(p.id)}
+                        style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10, borderWidth: 1,
+                          backgroundColor: smsProvider === p.id ? "#1A3A2A" : colors.secondary,
+                          borderColor: smsProvider === p.id ? "#4CAF50" : colors.border }}
+                      >
+                        <Text style={{ color: smsProvider === p.id ? "#4CAF50" : colors.mutedForeground, fontFamily: F.bold, fontSize: 12 }}>{p.label}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                  <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11, textAlign: "right" }}>
+                    🔗 {active.url} — صيغة المفتاح: {active.hint}
+                  </Text>
+                </View>
+              </>
+            );
+          })()}
 
           <View style={{ backgroundColor: colors.card, borderRadius: 14, padding: 16, gap: 14, borderWidth: 1, borderColor: colors.border }}>
             {/* Enable toggle */}
@@ -2979,7 +3007,7 @@ ${kpiBlock}${payBlock}${sumBlock}
 
             {/* Sender name */}
             <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 13, textAlign: "right" }}>
-              اسم المرسل (Sender Name) — كما هو مسجّل في Authentica
+              اسم المرسل (Sender Name)
             </Text>
             <TextInput
               value={smsSender}
@@ -2991,25 +3019,29 @@ ${kpiBlock}${payBlock}${sumBlock}
 
             {/* API Key */}
             <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 13, textAlign: "right" }}>
-              مفتاح Msegat{smsHasKey ? " ✅ محفوظ" : " — لم يُضَف بعد"}
+              مفتاح الشركة{smsHasKey ? " ✅ محفوظ" : " — لم يُضَف بعد"}
             </Text>
             <TextInput
               value={smsApiKey}
               onChangeText={setSmsApiKey}
-              placeholder={smsHasKey ? "اتركه فارغاً إذا ما تريد تغييره" : "اسم_المستخدم:مفتاح_API"}
+              placeholder={smsHasKey ? "اتركه فارغاً إذا ما تريد تغييره" : (() => {
+                switch (smsProvider) {
+                  case "taqnyat":  return "Bearer Token";
+                  case "unifonic": return "AppSid";
+                  case "twilio":   return "AccountSid:AuthToken:+fromNumber";
+                  default:         return "اسم_المستخدم:مفتاح_API";
+                }
+              })()}
               placeholderTextColor={colors.mutedForeground}
               secureTextEntry
               style={{ backgroundColor: colors.secondary, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, color: colors.foreground, fontFamily: F.regular, textAlign: "right", borderWidth: 1, borderColor: colors.border }}
             />
-            <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11, textAlign: "right" }}>
-              💡 الصيغة: اسم_المستخدم:مفتاح_API — مثال: rawabi:abc123xyz
-            </Text>
 
             <TouchableOpacity
               onPress={async () => {
                 setSmsLoading(true);
                 try {
-                  const body: Record<string, unknown> = { sender: smsSender };
+                  const body: Record<string, unknown> = { sender: smsSender, provider: smsProvider };
                   if (smsApiKey.trim()) body.apiKey = smsApiKey.trim();
                   await apiPut("/sms-settings", body);
                   setSmsApiKey("");
