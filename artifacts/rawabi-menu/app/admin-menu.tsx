@@ -44,6 +44,7 @@ import {
 } from "@/constants/occasions";
 import { SOUND_CHOICES, SOUND_KEYS, type SoundOption } from "@/constants/appSounds";
 import { useAppSound } from "@/hooks/useAppSound";
+import { ZoneDrawerModal, type LatLng } from "@/components/ZoneDrawerModal";
 
 const LOGO_BG_COLORS = [
   { label: "بني داكن",  value: "#1F130A" },
@@ -324,7 +325,66 @@ export default function AdminMenuScreen() {
     loadPins().then((p) => { setPins(p); setPinsLoaded(true); });
   }, []);
 
-  const [activeTab, setActiveTab] = useState<"menu" | "occasions" | "stock" | "settings" | "banners" | "revenue" | "combos">("menu");
+  const [activeTab, setActiveTab] = useState<"menu" | "occasions" | "stock" | "settings" | "banners" | "revenue" | "combos" | "zones">("menu");
+
+  // ─── Delivery Zones ───────────────────────────────────────
+  type DeliveryZone = { id: number; name: string; polygon: LatLng[]; deliveryFee: number; minOrder: number; enabled: boolean; sortOrder: number };
+  const [deliveryZones, setDeliveryZones] = useState<DeliveryZone[]>([]);
+  const [zonesLoading, setZonesLoading] = useState(false);
+  const [zoneFormModal, setZoneFormModal] = useState(false);
+  const [editingZone, setEditingZone] = useState<DeliveryZone | null>(null);
+  const [zoneFormName, setZoneFormName] = useState("");
+  const [zoneFormFee, setZoneFormFee] = useState("");
+  const [zoneFormMinOrder, setZoneFormMinOrder] = useState("");
+  const [zonePolygon, setZonePolygon] = useState<LatLng[]>([]);
+  const [zoneMapDrawVisible, setZoneMapDrawVisible] = useState(false);
+  const [zoneSaving, setZoneSaving] = useState(false);
+
+  const loadZones = useCallback(async () => {
+    setZonesLoading(true);
+    try { setDeliveryZones(await apiGet<DeliveryZone[]>("/delivery-zones")); } catch {} finally { setZonesLoading(false); }
+  }, []);
+
+  useEffect(() => { if (activeTab === "zones") loadZones(); }, [activeTab, loadZones]);
+
+  const openAddZone = () => { setEditingZone(null); setZoneFormName(""); setZoneFormFee(""); setZoneFormMinOrder(""); setZonePolygon([]); setZoneFormModal(true); };
+  const openEditZone = (z: DeliveryZone) => { setEditingZone(z); setZoneFormName(z.name); setZoneFormFee(String(z.deliveryFee)); setZoneFormMinOrder(String(z.minOrder)); setZonePolygon(z.polygon); setZoneFormModal(true); };
+
+  const saveZone = async () => {
+    const name = zoneFormName.trim();
+    if (!name) { Alert.alert("خطأ", "أدخل اسم المنطقة"); return; }
+    if (zonePolygon.length < 3) { Alert.alert("خطأ", "ارسم المنطقة على الخريطة (3 نقاط على الأقل)"); return; }
+    const deliveryFee = Math.round(parseFloat(zoneFormFee || "0") * 100);
+    const minOrder   = Math.round(parseFloat(zoneFormMinOrder || "0") * 100);
+    setZoneSaving(true);
+    try {
+      if (editingZone) {
+        const updated = await apiPut<DeliveryZone>(`/delivery-zones/${editingZone.id}`, { name, polygon: zonePolygon, deliveryFee, minOrder });
+        setDeliveryZones(prev => prev.map(z => z.id === editingZone.id ? updated : z));
+      } else {
+        const created = await apiPost<DeliveryZone>("/delivery-zones", { name, polygon: zonePolygon, deliveryFee, minOrder });
+        setDeliveryZones(prev => [...prev, created]);
+      }
+      setZoneFormModal(false);
+    } catch (e: any) {
+      Alert.alert("خطأ", e?.message ?? "فشل الحفظ");
+    } finally { setZoneSaving(false); }
+  };
+
+  const deleteZone = (z: DeliveryZone) => {
+    Alert.alert("حذف المنطقة", `هل تريد حذف "${z.name}"؟`, [
+      { text: "إلغاء", style: "cancel" },
+      { text: "حذف", style: "destructive", onPress: async () => {
+        await apiDelete(`/delivery-zones/${z.id}`);
+        setDeliveryZones(prev => prev.filter(x => x.id !== z.id));
+      }},
+    ]);
+  };
+
+  const toggleZone = async (z: DeliveryZone, enabled: boolean) => {
+    await apiPut(`/delivery-zones/${z.id}`, { enabled });
+    setDeliveryZones(prev => prev.map(x => x.id === z.id ? { ...x, enabled } : x));
+  };
   const { config: tabConfig, update: updateTabConfig } = useTabConfig();
   const { density: uiDensity, saveDensity: saveUIDensity } = useUIDensity();
   const { settings: paymentSettings, saveSettings: savePaymentSettings } = usePaymentSettings();
@@ -1284,12 +1344,19 @@ ${kpiBlock}${payBlock}${sumBlock}
           >
             <Text style={[styles.tabBtnText, { color: activeTab === "combos" ? "#82B1FF" : colors.mutedForeground, fontFamily: F.bold }]}>🎁 الوجبات</Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setActiveTab("zones")}
+            style={[styles.tabBtn, { backgroundColor: activeTab === "zones" ? "#0A2A2A" : colors.secondary, borderWidth: 1, borderColor: activeTab === "zones" ? "#26C6DA" : "transparent" }]}
+          >
+            <Text style={[styles.tabBtnText, { color: activeTab === "zones" ? "#26C6DA" : colors.mutedForeground, fontFamily: F.bold }]}>🗺️ التوصيل</Text>
+          </TouchableOpacity>
         </ScrollView>
         <TouchableOpacity
           onPress={
             activeTab === "menu" ? openAdd
             : activeTab === "occasions" ? () => { setOccName(""); setOccDesc(""); setOccImageUrl(""); setShowAddOccasionModal(true); }
             : activeTab === "combos" ? () => { setComboName(""); setComboDesc(""); setComboPrice(""); setComboImageUrl(""); setComboComponents([{ name: "", quantity: 1 }]); setEditCombo(null); setShowAddComboModal(true); }
+            : activeTab === "zones" ? openAddZone
             : undefined
           }
           style={[styles.iconBtn, { backgroundColor: (activeTab === "stock" || activeTab === "settings" || activeTab === "banners" || activeTab === "revenue") ? colors.secondary : colors.gold, opacity: (activeTab === "stock" || activeTab === "settings" || activeTab === "banners" || activeTab === "revenue") ? 0.3 : 1 }]}
@@ -4239,6 +4306,168 @@ ${kpiBlock}${payBlock}${sumBlock}
           ))}
         </ScrollView>
       )}
+
+      {/* ══ Delivery Zones Tab ══ */}
+      {activeTab === "zones" && (
+        <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }}>
+          {/* Info banner */}
+          <View style={{ backgroundColor: "#0A2A2A", borderRadius: 14, padding: 14, borderWidth: 1, borderColor: "#26C6DA33" }}>
+            <Text style={{ color: "#26C6DA", fontFamily: F.bold, fontSize: 13, textAlign: "right", marginBottom: 4 }}>
+              🗺️ مناطق التوصيل
+            </Text>
+            <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12, textAlign: "right", lineHeight: 18 }}>
+              ارسم مناطق التوصيل على الخريطة. عند تفعيل منطقة واحدة على الأقل، يتحقق التطبيق من موقع العميل تلقائياً ويمنع الطلب إذا كان خارج النطاق.
+            </Text>
+          </View>
+
+          {zonesLoading && <ActivityIndicator color="#26C6DA" style={{ marginTop: 24 }} />}
+
+          {!zonesLoading && deliveryZones.length === 0 && (
+            <View style={{ alignItems: "center", marginTop: 48, gap: 12 }}>
+              <Text style={{ fontSize: 40 }}>🗺️</Text>
+              <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, textAlign: "center" }}>
+                لا توجد مناطق توصيل بعد{"\n"}اضغط + لإضافة أول منطقة
+              </Text>
+            </View>
+          )}
+
+          {deliveryZones.map((z) => (
+            <View key={z.id} style={{
+              backgroundColor: colors.card, borderRadius: 16, padding: 14,
+              gap: 10, borderWidth: 1,
+              borderColor: z.enabled ? "#26C6DA44" : colors.border,
+            }}>
+              {/* Header row */}
+              <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 10 }}>
+                <Switch
+                  value={z.enabled}
+                  onValueChange={(v) => toggleZone(z, v)}
+                  trackColor={{ false: "#3A1A1A", true: "#0A3A3A" }}
+                  thumbColor={z.enabled ? "#26C6DA" : "#E57373"}
+                />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: z.enabled ? colors.foreground : colors.mutedForeground, fontFamily: F.bold, fontSize: 15, textAlign: "right" }}>
+                    {z.name}
+                  </Text>
+                  <View style={{ flexDirection: "row-reverse", gap: 10, marginTop: 2 }}>
+                    <Text style={{ color: colors.gold, fontFamily: F.semi, fontSize: 12 }}>
+                      رسوم: {(z.deliveryFee / 100).toFixed(2)} ر.س
+                    </Text>
+                    {z.minOrder > 0 && (
+                      <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12 }}>
+                        حد أدنى: {(z.minOrder / 100).toFixed(0)} ر.س
+                      </Text>
+                    )}
+                  </View>
+                </View>
+                <TouchableOpacity onPress={() => openEditZone(z)} style={[styles.iconBtn, { backgroundColor: "#0A2A2A" }]}>
+                  <Feather name="edit-2" size={15} color="#26C6DA" />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => deleteZone(z)} style={[styles.iconBtn, { backgroundColor: "#3A1010" }]}>
+                  <Feather name="trash-2" size={15} color="#E57373" />
+                </TouchableOpacity>
+              </View>
+
+              {/* Polygon stats */}
+              <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
+                <Feather name="map" size={13} color={z.polygon.length >= 3 ? "#26C6DA" : "#E57373"} />
+                <Text style={{ color: z.polygon.length >= 3 ? "#26C6DA" : "#E57373", fontFamily: F.regular, fontSize: 12 }}>
+                  {z.polygon.length >= 3 ? `${z.polygon.length} نقطة — المنطقة مرسومة` : "⚠️ لا توجد منطقة مرسومة"}
+                </Text>
+                <Text style={{ color: z.enabled ? "#4CAF50" : colors.mutedForeground, fontFamily: F.semi, fontSize: 11, marginRight: "auto" }}>
+                  {z.enabled ? "✅ مفعّلة" : "⏸ معطّلة"}
+                </Text>
+              </View>
+            </View>
+          ))}
+        </ScrollView>
+      )}
+
+      {/* Zone Form Modal */}
+      <Modal visible={zoneFormModal} animationType="slide" transparent>
+        <View style={{ flex: 1, backgroundColor: "#000000AA", justifyContent: "flex-end" }}>
+          <KeyboardAvoidingView behavior="padding">
+            <View style={{ backgroundColor: colors.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, gap: 14 }}>
+              <Text style={{ color: "#26C6DA", fontFamily: F.extra, fontSize: 18, textAlign: "center" }}>
+                {editingZone ? "✏️ تعديل المنطقة" : "🗺️ إضافة منطقة توصيل"}
+              </Text>
+
+              <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>اسم المنطقة *</Text>
+              <TextInput
+                value={zoneFormName} onChangeText={setZoneFormName}
+                placeholder="مثال: حي الروضة، وسط المدينة..."
+                placeholderTextColor={colors.mutedForeground}
+                style={[styles.input, { backgroundColor: colors.secondary, color: colors.foreground, borderColor: colors.border, fontFamily: F.regular }]}
+              />
+
+              <View style={{ flexDirection: "row-reverse", gap: 10 }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.fieldLabel, { color: colors.mutedForeground, marginBottom: 6 }]}>رسوم التوصيل (ر.س)</Text>
+                  <TextInput
+                    value={zoneFormFee} onChangeText={setZoneFormFee}
+                    placeholder="0"
+                    placeholderTextColor={colors.mutedForeground}
+                    keyboardType="numeric"
+                    style={[styles.input, { backgroundColor: colors.secondary, color: colors.foreground, borderColor: colors.border, fontFamily: F.regular }]}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.fieldLabel, { color: colors.mutedForeground, marginBottom: 6 }]}>الحد الأدنى (ر.س)</Text>
+                  <TextInput
+                    value={zoneFormMinOrder} onChangeText={setZoneFormMinOrder}
+                    placeholder="0"
+                    placeholderTextColor={colors.mutedForeground}
+                    keyboardType="numeric"
+                    style={[styles.input, { backgroundColor: colors.secondary, color: colors.foreground, borderColor: colors.border, fontFamily: F.regular }]}
+                  />
+                </View>
+              </View>
+
+              {/* Draw polygon button */}
+              <TouchableOpacity
+                onPress={() => setZoneMapDrawVisible(true)}
+                style={{
+                  backgroundColor: zonePolygon.length >= 3 ? "#0A3A2A" : "#1A1A0A",
+                  borderRadius: 12, paddingVertical: 14,
+                  borderWidth: 1, borderColor: zonePolygon.length >= 3 ? "#4CAF50" : "#26C6DA",
+                  alignItems: "center", gap: 6,
+                }}
+              >
+                <Text style={{ color: zonePolygon.length >= 3 ? "#4CAF50" : "#26C6DA", fontFamily: F.bold, fontSize: 15 }}>
+                  {zonePolygon.length >= 3
+                    ? `✅ المنطقة مرسومة (${zonePolygon.length} نقطة) — اضغط للتعديل`
+                    : "🗺️ ارسم المنطقة على الخريطة *"}
+                </Text>
+              </TouchableOpacity>
+
+              <View style={styles.modalBtns}>
+                <TouchableOpacity onPress={() => setZoneFormModal(false)} style={[styles.modalBtn, { backgroundColor: colors.secondary, borderColor: colors.border }]}>
+                  <Text style={[styles.modalBtnText, { color: colors.mutedForeground, fontFamily: F.regular }]}>إلغاء</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={saveZone}
+                  disabled={zoneSaving}
+                  style={[styles.modalBtn, { backgroundColor: "#26C6DA22", borderColor: "#26C6DA" }]}
+                >
+                  {zoneSaving
+                    ? <ActivityIndicator color="#26C6DA" />
+                    : <Text style={[styles.modalBtnText, { color: "#26C6DA", fontFamily: F.bold }]}>حفظ المنطقة</Text>
+                  }
+                </TouchableOpacity>
+              </View>
+            </View>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
+
+      {/* Zone Map Drawer */}
+      <ZoneDrawerModal
+        visible={zoneMapDrawVisible}
+        initialPolygon={zonePolygon}
+        zoneName={zoneFormName}
+        onConfirm={(poly) => { setZonePolygon(poly); setZoneMapDrawVisible(false); }}
+        onClose={() => setZoneMapDrawVisible(false)}
+      />
 
       {/* Add / Edit Combo Modal */}
       <Modal visible={showAddComboModal} animationType="slide" transparent>

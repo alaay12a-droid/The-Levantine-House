@@ -19,6 +19,7 @@ import driversRouter from "./drivers";
 import textsRouter from "./texts";
 import discountsRouter from "./discounts";
 import appearanceRouter from "./appearance";
+import deliveryZonesRouter from "./delivery-zones";
 
 const router: IRouter = Router();
 
@@ -42,5 +43,6 @@ router.use(driversRouter);
 router.use(textsRouter);
 router.use(discountsRouter);
 router.use(appearanceRouter);
+router.use(deliveryZonesRouter);
 
 export default router;

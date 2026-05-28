@@ -84,6 +84,11 @@ export default function CheckoutScreen() {
   const [manualLng, setManualLng] = useState<number | undefined>();
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
 
+  // ─── Delivery Zone check ────────────────────────────────────────────────────
+  type ZoneCheckResult = { found: boolean; zone: { id: number; name: string; deliveryFee: number; minOrder: number } | null; hasZones: boolean };
+  const [zoneCheckResult, setZoneCheckResult] = useState<ZoneCheckResult | null>(null);
+  const [zoneChecking, setZoneChecking] = useState(false);
+
   const [otpStep, setOtpStep] = useState<"idle" | "sent" | "verified">("idle");
   const [otpCode, setOtpCode] = useState("");
   const [otpLoading, setOtpLoading] = useState(false);
@@ -210,8 +215,30 @@ export default function CheckoutScreen() {
   const topInset = Platform.OS === "web" ? 67 : insets.top;
   const bottomInset = Platform.OS === "web" ? 34 : insets.bottom;
 
+  // ─── Check delivery zone whenever lat/lng or orderType changes ───────────────
+  const effectiveLat = manualLat ?? user?.lat;
+  const effectiveLng = manualLng ?? user?.lng;
+
+  useEffect(() => {
+    if (orderType !== "delivery" || !effectiveLat || !effectiveLng) {
+      setZoneCheckResult(null);
+      return;
+    }
+    let cancelled = false;
+    setZoneChecking(true);
+    apiGet<ZoneCheckResult>(`/delivery-zones/check?lat=${effectiveLat}&lng=${effectiveLng}`)
+      .then((r) => { if (!cancelled) setZoneCheckResult(r); })
+      .catch(() => { if (!cancelled) setZoneCheckResult(null); })
+      .finally(() => { if (!cancelled) setZoneChecking(false); });
+    return () => { cancelled = true; };
+  }, [orderType, effectiveLat, effectiveLng]);
+
+  // ─── Delivery fee: use zone fee if zones are configured ───────────────────
+  const zoneFee = zoneCheckResult?.found && zoneCheckResult.zone
+    ? zoneCheckResult.zone.deliveryFee / 100
+    : null;
   const deliveryFee = (paymentSettings.deliveryEnabled && orderType === "delivery")
-    ? (paymentSettings.deliveryFee ?? 0)
+    ? (zoneFee !== null ? zoneFee : (paymentSettings.deliveryFee ?? 0))
     : 0;
   const grandTotal = Math.max(0, totalPrice + deliveryFee - appliedDiscount);
   const grandTotalStr = grandTotal % 1 === 0 ? grandTotal.toString() : grandTotal.toFixed(2);
@@ -418,6 +445,42 @@ export default function CheckoutScreen() {
       return;
     }
 
+    // ── تحقق من منطقة التوصيل ──────────────────────────────────────────────
+    if (orderType === "delivery" && effectiveLat && effectiveLng) {
+      let check = zoneCheckResult;
+      if (!check) {
+        try {
+          check = await apiGet<ZoneCheckResult>(`/delivery-zones/check?lat=${effectiveLat}&lng=${effectiveLng}`);
+          setZoneCheckResult(check);
+        } catch {}
+      }
+      if (check && check.hasZones && !check.found) {
+        Alert.alert(
+          isEn ? "Outside Delivery Zone" : "خارج نطاق التوصيل",
+          isEn
+            ? "Sorry, your location is outside our delivery zones. Please choose a different address or pick up from the branch."
+            : "عذراً، موقعك خارج نطاق مناطق التوصيل المتاحة. يرجى اختيار موقع آخر أو الاستلام من الفرع.",
+          [{ text: isEn ? "OK" : "حسناً" }],
+        );
+        try { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error); } catch {}
+        return;
+      }
+      // Minimum order check per zone
+      if (check?.found && check.zone && check.zone.minOrder > 0) {
+        const minOrderSAR = check.zone.minOrder / 100;
+        if (totalPrice < minOrderSAR) {
+          Alert.alert(
+            isEn ? "Minimum Order" : "الحد الأدنى للطلب",
+            isEn
+              ? `Minimum order for ${check.zone.name} is ${minOrderSAR.toFixed(0)} SAR.`
+              : `الحد الأدنى للطلب في منطقة "${check.zone.name}" هو ${minOrderSAR.toFixed(0)} ر.س.`,
+            [{ text: isEn ? "OK" : "حسناً" }],
+          );
+          return;
+        }
+      }
+    }
+
     try {
       const branchStatus = await apiGet<{ isOpen: boolean; message: string | null }>("/branch-status");
       if (!branchStatus.isOpen) {
@@ -515,6 +578,42 @@ export default function CheckoutScreen() {
             </TouchableOpacity>
           </View>
         </View>
+
+        {/* ── Zone check badge ── */}
+        {orderType === "delivery" && effectiveLat && effectiveLng && (
+          <View style={[styles.listCard, dyn.card, { backgroundColor: colors.card, borderColor: colors.border, padding: 12 }]}>
+            {zoneChecking ? (
+              <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
+                <ActivityIndicator size="small" color={colors.gold} />
+                <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 13 }}>جارٍ التحقق من منطقة التوصيل…</Text>
+              </View>
+            ) : zoneCheckResult && zoneCheckResult.hasZones ? (
+              zoneCheckResult.found && zoneCheckResult.zone ? (
+                <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
+                  <Text style={{ fontSize: 18 }}>✅</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: "#4CAF50", fontFamily: F.bold, fontSize: 13, textAlign: "right" }}>
+                      {zoneCheckResult.zone.name}
+                    </Text>
+                    <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12, textAlign: "right" }}>
+                      {zoneCheckResult.zone.deliveryFee > 0
+                        ? `رسوم التوصيل: ${(zoneCheckResult.zone.deliveryFee / 100).toFixed(2)} ر.س`
+                        : "توصيل مجاني لهذه المنطقة"}
+                      {zoneCheckResult.zone.minOrder > 0 && ` • حد أدنى: ${(zoneCheckResult.zone.minOrder / 100).toFixed(0)} ر.س`}
+                    </Text>
+                  </View>
+                </View>
+              ) : (
+                <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
+                  <Text style={{ fontSize: 18 }}>⚠️</Text>
+                  <Text style={{ color: "#E57373", fontFamily: F.bold, fontSize: 13, flex: 1, textAlign: "right" }}>
+                    موقعك خارج نطاق التوصيل — جرّب موقعاً آخر أو اختر استلام من الفرع
+                  </Text>
+                </View>
+              )
+            ) : null}
+          </View>
+        )}
 
         {/* ── Customer info section ── */}
         <View style={[styles.listCard, dyn.card, { backgroundColor: colors.card, borderColor: colors.border }]}>

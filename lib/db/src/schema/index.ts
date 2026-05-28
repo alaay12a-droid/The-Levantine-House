@@ -213,3 +213,16 @@ export const discountCodeUsagesTable = pgTable("discount_code_usages", {
   orderId: integer("order_id"),
   usedAt: timestamp("used_at").defaultNow().notNull(),
 });
+
+export const deliveryZonesTable = pgTable("delivery_zones", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  polygon: jsonb("polygon").notNull().default([]),
+  deliveryFee: integer("delivery_fee").notNull().default(0),
+  minOrder: integer("min_order").notNull().default(0),
+  enabled: boolean("enabled").notNull().default(true),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type DeliveryZone = typeof deliveryZonesTable.$inferSelect;
