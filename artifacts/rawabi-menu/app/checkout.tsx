@@ -56,7 +56,7 @@ export default function CheckoutScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { items, totalPrice, totalItems, clearCart, updateQuantity } = useCart();
-  const { user } = useUser();
+  const { user, saveUser } = useUser();
 
   const customerPushToken = useCustomerPushToken();
   const { incrementBadge } = useOrderBadge();
@@ -93,6 +93,26 @@ export default function CheckoutScreen() {
   const [forOtherExpanded, setForOtherExpanded] = useState(false);
   const [otherName, setOtherName] = useState("");
   const [otherPhone, setOtherPhone] = useState("");
+
+  // ── Phone confirmation modal ───────────────────────────────────────────────
+  const [phoneModalVisible, setPhoneModalVisible] = useState(false);
+  const [phoneInput, setPhoneInput] = useState("");
+  const [phoneSaving, setPhoneSaving] = useState(false);
+
+  const isPhoneValid = (phone: string) => /^[0-9]{9,}$/.test(phone.replace(/\s|-/g, ""));
+
+  const handleConfirmPhone = async () => {
+    const cleaned = phoneInput.replace(/\s|-/g, "");
+    if (!isPhoneValid(cleaned)) return;
+    if (!user) return;
+    setPhoneSaving(true);
+    try {
+      await saveUser({ ...user, phone: cleaned });
+      setPhoneModalVisible(false);
+    } finally {
+      setPhoneSaving(false);
+    }
+  };
 
   // ── Cooldown: check AsyncStorage on mount, countdown every second ─────────
   useEffect(() => {
@@ -390,6 +410,14 @@ export default function CheckoutScreen() {
   const handlePlaceOrder = async () => {
     if (!user) return;
     if (items.length === 0) return;
+
+    // ── تحقق من صحة رقم الجوال قبل المتابعة ─────────────────────────────────
+    if (!isPhoneValid(user.phone)) {
+      setPhoneInput("");
+      setPhoneModalVisible(true);
+      return;
+    }
+
     try {
       const branchStatus = await apiGet<{ isOpen: boolean; message: string | null }>("/branch-status");
       if (!branchStatus.isOpen) {
@@ -1032,6 +1060,67 @@ export default function CheckoutScreen() {
           </View>
         </View>
       </Animated.View>
+
+      {/* ── Phone Confirmation Modal ── */}
+      {phoneModalVisible && (
+        <View style={styles.otpOverlay}>
+          <View style={[styles.otpSheet, { backgroundColor: colors.card }]}>
+            <Text style={[styles.otpTitle, { color: GOLD, fontFamily: F.extra }]}>
+              📱 {isEn ? "Confirm Your Number" : "تأكيد رقم الجوال"}
+            </Text>
+            <Text style={[styles.otpSubtitle, { color: colors.mutedForeground, fontFamily: F.regular }]}>
+              {isEn
+                ? "Your phone number needs to be updated before placing an order."
+                : "رقم جوالك يحتاج تحديث قبل إتمام الطلب"}
+            </Text>
+            <TextInput
+              value={phoneInput}
+              onChangeText={(t) => setPhoneInput(t.replace(/[^0-9]/g, "").slice(0, 13))}
+              placeholder={isEn ? "05XXXXXXXX" : "05XXXXXXXX"}
+              placeholderTextColor={colors.border}
+              keyboardType="phone-pad"
+              autoFocus
+              style={[
+                styles.otpInput,
+                {
+                  backgroundColor: colors.secondary,
+                  color: colors.foreground,
+                  borderColor: isPhoneValid(phoneInput) ? GOLD : colors.border,
+                  fontSize: 22,
+                  letterSpacing: 4,
+                  fontFamily: F.bold,
+                },
+              ]}
+            />
+            <TouchableOpacity
+              onPress={handleConfirmPhone}
+              disabled={!isPhoneValid(phoneInput) || phoneSaving}
+              style={[
+                styles.otpVerifyBtn,
+                {
+                  backgroundColor: isPhoneValid(phoneInput) ? GOLD : colors.secondary,
+                  opacity: isPhoneValid(phoneInput) ? 1 : 0.5,
+                },
+              ]}
+            >
+              {phoneSaving
+                ? <ActivityIndicator color={colors.background} />
+                : <Text style={{ color: colors.background, fontFamily: F.bold, fontSize: 16 }}>
+                    ✅ {isEn ? "Save & Continue" : "حفظ ومتابعة"}
+                  </Text>
+              }
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setPhoneModalVisible(false)}
+              style={{ alignItems: "center" }}
+            >
+              <Text style={{ color: colors.destructive, fontFamily: F.regular, fontSize: 13 }}>
+                {isEn ? "Cancel" : "إلغاء"}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
 
       {/* OTP Overlay */}
       {otpStep === "sent" && (
