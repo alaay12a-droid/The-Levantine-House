@@ -496,6 +496,105 @@ export default function AdminMenuScreen() {
 
   useEffect(() => { refreshBanners(); }, [refreshBanners]);
   useEffect(() => { if (activeTab === "revenue") { refreshRevenue(); loadCommissionRate(); } }, [activeTab, refreshRevenue]);
+
+  const handlePrintRevenue = () => {
+    if (Platform.OS !== "web" || typeof window === "undefined" || !revenueData) return;
+    const periodLabels: Record<string, string> = { today: "اليوم", week: "الأسبوع", month: "الشهر", year: "السنة" };
+    const label = periodLabels[revenuePeriod] ?? revenuePeriod;
+    const pd = revenuePeriod === "today" ? revenueData.today
+             : revenuePeriod === "week"  ? revenueData.week
+             : revenuePeriod === "month" ? revenueData.month
+             : revenueData.year;
+    const now = new Date().toLocaleString("ar-SA", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" });
+    const f = (n: number) => n.toFixed(2);
+    const totalPay = pd.cashRevenue + pd.onlineRevenue || 1;
+    const cashPct  = Math.round((pd.cashRevenue / totalPay) * 100);
+    const html = `<!DOCTYPE html><html dir="rtl" lang="ar"><head>
+<meta charset="UTF-8"/>
+<title>التقرير المالي — ${label}</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Cairo',sans-serif;background:#fff;color:#111;direction:rtl;padding:12mm 10mm;}
+  h1{text-align:center;font-size:20px;font-weight:800;color:#8B4513;margin-bottom:3px;}
+  .sub{text-align:center;font-size:11px;color:#888;margin-bottom:16px;}
+  .kpi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;}
+  .kpi{border-radius:10px;padding:12px;text-align:center;border:1px solid #eee;}
+  .kpi .val{font-size:18px;font-weight:800;margin-bottom:3px;}
+  .kpi .lbl{font-size:11px;color:#888;}
+  .section{background:#f9f9f9;border-radius:10px;padding:14px;margin-bottom:14px;border:1px solid #eee;}
+  .section h2{font-size:13px;font-weight:700;color:#555;margin-bottom:10px;border-bottom:1px solid #ddd;padding-bottom:6px;}
+  .row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f0f0f0;}
+  .row:last-child{border-bottom:none;}
+  .row .lbl{color:#666;font-size:12px;}
+  .row .val{font-weight:700;font-size:12px;}
+  .bar-wrap{background:#eee;border-radius:6px;height:10px;overflow:hidden;margin:6px 0;}
+  .bar-cash{background:#4CAF50;height:100%;float:right;}
+  .pay-row{display:flex;justify-content:space-between;margin-top:6px;}
+  .pay-item{text-align:center;}
+  .pay-item .v{font-size:15px;font-weight:800;}
+  .pay-item .l{font-size:10px;color:#888;}
+  @media print{body{padding:5mm;}}
+</style></head><body>
+<h1>روابي المندي — التقرير المالي</h1>
+<div class="sub">الفترة: ${label} | طُبع في ${now}</div>
+
+<div class="kpi-grid">
+  <div class="kpi" style="background:#FFF8EE;border-color:#E8920C44;">
+    <div class="val" style="color:#E8920C;">${f(pd.totalRevenue)} ر.س</div>
+    <div class="lbl">الإيرادات الإجمالية</div>
+  </div>
+  <div class="kpi" style="background:#F0FFF0;border-color:#4CAF5044;">
+    <div class="val" style="color:#2e7d32;">${f(pd.netRevenue)} ر.س</div>
+    <div class="lbl">الصافي بعد الضريبة</div>
+  </div>
+  <div class="kpi" style="background:#F0F4FF;border-color:#82B1FF44;">
+    <div class="val" style="color:#1565C0;">${f(pd.taxAmount)} ر.س</div>
+    <div class="lbl">ضريبة القيمة المضافة 15%</div>
+  </div>
+  <div class="kpi" style="background:#F9F0FF;border-color:#CE93D844;">
+    <div class="val" style="color:#6A1B9A;">${f(pd.deliveryRevenue)} ر.س</div>
+    <div class="lbl">إيراد التوصيل</div>
+  </div>
+  <div class="kpi" style="background:#F5F5F5;border-color:#ccc;">
+    <div class="val" style="color:#333;">${pd.orderCount}</div>
+    <div class="lbl">الطلبات المكتملة</div>
+  </div>
+  <div class="kpi" style="background:#FFF0F0;border-color:#EF444444;">
+    <div class="val" style="color:#C62828;">${pd.cancelledCount}</div>
+    <div class="lbl">الطلبات الملغاة${pd.cancelledValue > 0 ? `<br><small style="font-weight:400">${f(pd.cancelledValue)} ر.س</small>` : ""}</div>
+  </div>
+</div>
+
+<div class="section">
+  <h2>💳 طريقة الدفع</h2>
+  <div class="bar-wrap"><div class="bar-cash" style="width:${cashPct}%;"></div></div>
+  <div class="pay-row">
+    <div class="pay-item">
+      <div class="v" style="color:#4CAF50;">${f(pd.cashRevenue)} ر.س</div>
+      <div class="l">نقدي — ${pd.cashCount} طلب (${cashPct}%)</div>
+    </div>
+    <div class="pay-item">
+      <div class="v" style="color:#82B1FF;">${f(pd.onlineRevenue)} ر.س</div>
+      <div class="l">إلكتروني — ${pd.onlineCount} طلب (${100 - cashPct}%)</div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h2>📋 الملخص المالي</h2>
+  <div class="row"><span class="lbl">إجمالي الإيرادات</span><span class="val" style="color:#E8920C;">${f(pd.totalRevenue)} ر.س</span></div>
+  <div class="row"><span class="lbl">إيراد الأصناف</span><span class="val">${f(pd.itemsRevenue)} ر.س</span></div>
+  <div class="row"><span class="lbl">إيراد التوصيل</span><span class="val" style="color:#9C27B0;">${f(pd.deliveryRevenue)} ر.س</span></div>
+  <div class="row"><span class="lbl">ضريبة القيمة المضافة 15%</span><span class="val" style="color:#1565C0;">${f(pd.taxAmount)} ر.س</span></div>
+  <div class="row"><span class="lbl">الصافي بعد الضريبة</span><span class="val" style="color:#2e7d32;">${f(pd.netRevenue)} ر.س</span></div>
+  ${pd.cancelledValue > 0 ? `<div class="row"><span class="lbl">قيمة الطلبات الملغاة</span><span class="val" style="color:#C62828;">${f(pd.cancelledValue)} ر.س</span></div>` : ""}
+</div>
+<script>window.onload=function(){window.print();}</script>
+</body></html>`;
+    const win = window.open("", "_blank", "width=900,height=700");
+    if (win) { win.document.write(html); win.document.close(); }
+  };
   useEffect(() => { if (activeTab === "stock") refresh(); }, [activeTab, refresh]);
 
   const loadSmsSettings = useCallback(async () => {
@@ -3524,16 +3623,26 @@ export default function AdminMenuScreen() {
       {activeTab === "revenue" && (
         <ScrollView contentContainerStyle={{ padding: 16, gap: 14 }}>
 
-          {/* ── Header: period + refresh ── */}
+          {/* ── Header: period + refresh + print ── */}
           <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" }}>
             <Text style={{ color: colors.foreground, fontFamily: F.extra, fontSize: 16 }}>📊 التقرير المالي</Text>
-            <TouchableOpacity
-              onPress={refreshRevenue}
-              style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6, backgroundColor: colors.secondary, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 10 }}
-            >
-              <Feather name="refresh-cw" size={14} color={colors.gold} />
-              <Text style={{ color: colors.gold, fontFamily: F.bold, fontSize: 12 }}>تحديث</Text>
-            </TouchableOpacity>
+            <View style={{ flexDirection: "row-reverse", gap: 8 }}>
+              <TouchableOpacity
+                onPress={handlePrintRevenue}
+                disabled={!revenueData}
+                style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6, backgroundColor: "#1A2A1A", paddingHorizontal: 12, paddingVertical: 7, borderRadius: 10, borderWidth: 1, borderColor: "#4CAF5044", opacity: revenueData ? 1 : 0.4 }}
+              >
+                <Feather name="printer" size={14} color="#4CAF50" />
+                <Text style={{ color: "#4CAF50", fontFamily: F.bold, fontSize: 12 }}>طباعة</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={refreshRevenue}
+                style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6, backgroundColor: colors.secondary, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 10 }}
+              >
+                <Feather name="refresh-cw" size={14} color={colors.gold} />
+                <Text style={{ color: colors.gold, fontFamily: F.bold, fontSize: 12 }}>تحديث</Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* ── Period selector ── */}
