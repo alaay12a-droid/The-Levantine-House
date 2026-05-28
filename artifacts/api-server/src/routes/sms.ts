@@ -93,8 +93,11 @@ async function sendViaTwilio(apiKey: string, _sender: string, phone: string, msg
 // ── Authentica: THEY manage OTP generation & verification ────────────────────
 // Authentica requires E.164 format (+9665XXXXXXXX)
 function toE164(phone: string): string {
-  const clean = phone.replace(/\s/g, "");
-  return clean.startsWith("+") ? clean : `+${clean}`;
+  const clean = phone.replace(/[\s-]/g, "");
+  if (clean.startsWith("+")) return clean;           // already E.164
+  if (clean.startsWith("966")) return `+${clean}`;  // 9665XXXXXXXX → +9665XXXXXXXX
+  if (clean.startsWith("0"))   return `+966${clean.slice(1)}`; // 05XXXXXXXX → +9665XXXXXXXX
+  return `+966${clean}`;                             // 5XXXXXXXX → +9665XXXXXXXX
 }
 
 async function sendViaAuthentica(apiKey: string, phone: string, method: string) {
