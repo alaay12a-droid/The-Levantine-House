@@ -234,7 +234,9 @@ router.post("/sms/verify-otp", async (req, res) => {
   // Authentica verifies on their side
   if (provider === "authentica") {
     if (!apiKey) { res.status(400).json({ error: "لم يتم إعداد API Key" }); return; }
+    req.log.info({ phone, code: parsed.data.code }, "Calling Authentica verify-otp");
     const { verified, response } = await verifyViaAuthentica(apiKey, phone, parsed.data.code);
+    req.log.info({ phone, verified, response }, "Authentica verify-otp result");
     if (!verified) { res.status(400).json({ error: "الرمز غير صحيح أو منتهي الصلاحية", detail: response }); return; }
     res.json({ ok: true });
     return;
