@@ -194,8 +194,7 @@ router.post("/sms/send-otp", async (req, res) => {
     req.log.info({ phone, method }, "Sending OTP via Authentica");
     const { success, response } = await sendViaAuthentica(apiKey, phone, method);
     req.log.info({ phone, success, response }, "Authentica send-otp result");
-    // Authentica uses 6-digit OTP
-    res.json({ ok: true, otpLength: 6, ...(success ? {} : { warning: response }) });
+    res.json({ ok: true, otpLength: 4, ...(success ? {} : { warning: response }) });
     return;
   }
 
