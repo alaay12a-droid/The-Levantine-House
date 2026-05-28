@@ -2821,8 +2821,17 @@ export default function AdminMenuScreen() {
           {settingsSection === "sms" && (<>
           {/* SMS OTP Settings */}
           <Text style={{ color: colors.gold, fontFamily: F.extra, fontSize: 16, textAlign: "right", marginTop: 8 }}>
-            📱 التحقق برسالة SMS
+            📱 التحقق برسالة SMS — Authentica
           </Text>
+
+          <View style={{ backgroundColor: "#0A1A0A", borderRadius: 12, padding: 12, borderWidth: 1, borderColor: "#4CAF5033", marginBottom: 4 }}>
+            <Text style={{ color: "#81C784", fontFamily: F.semi, fontSize: 12, textAlign: "right" }}>
+              🔗 المنصة: Authentica السعودية — api.authentica.sa
+            </Text>
+            <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11, textAlign: "right", marginTop: 4 }}>
+              احصل على API Key من لوحة تحكم Authentica، ثم أدخله أدناه.
+            </Text>
+          </View>
 
           <View style={{ backgroundColor: colors.card, borderRadius: 14, padding: 16, gap: 14, borderWidth: 1, borderColor: colors.border }}>
             {/* Enable toggle */}
@@ -2843,36 +2852,38 @@ export default function AdminMenuScreen() {
 
             <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12, textAlign: "right" }}>
               {smsEnabled
-                ? "✅ مفعّل — العميل سيستقبل رمز تحقق عند الطلب"
-                : "❌ موقوف — الطلبات تكمل بدون تحقق"}
+                ? "✅ مفعّل — العميل يستقبل رمز تحقق SMS عند إدخال رقمه"
+                : "❌ موقوف — الطلبات تكتمل بدون تحقق"}
             </Text>
 
             <View style={{ height: 1, backgroundColor: colors.border }} />
 
             {/* Sender name */}
-            <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 13, textAlign: "right" }}>اسم المرسل (Sender ID)</Text>
+            <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 13, textAlign: "right" }}>
+              اسم المرسل (Sender Name) — كما هو مسجّل في Authentica
+            </Text>
             <TextInput
               value={smsSender}
               onChangeText={setSmsSender}
-              placeholder="روابي المندي"
+              placeholder="روابي"
               placeholderTextColor={colors.mutedForeground}
               style={{ backgroundColor: colors.secondary, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, color: colors.foreground, fontFamily: F.regular, textAlign: "right", borderWidth: 1, borderColor: colors.border }}
             />
 
             {/* API Key */}
             <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 13, textAlign: "right" }}>
-              API Key من مسجات{smsHasKey ? " ✅ (محفوظ)" : " (لم يُضَف بعد)"}
+              Authentica API Key (Bearer Token){smsHasKey ? " ✅ محفوظ" : " — لم يُضَف بعد"}
             </Text>
             <TextInput
               value={smsApiKey}
               onChangeText={setSmsApiKey}
-              placeholder={smsHasKey ? "اتركه فارغاً إذا ما تريد تغييره" : "أدخل: اسم_المستخدم:مفتاح_API"}
+              placeholder={smsHasKey ? "اتركه فارغاً إذا ما تريد تغييره" : "eyJ...الـ Bearer token من Authentica"}
               placeholderTextColor={colors.mutedForeground}
               secureTextEntry
               style={{ backgroundColor: colors.secondary, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, color: colors.foreground, fontFamily: F.regular, textAlign: "right", borderWidth: 1, borderColor: colors.border }}
             />
             <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11, textAlign: "right" }}>
-              💡 أدخل بالصيغة: username:apiKey (مثال: rawabi:abc123xyz)
+              💡 انسخ الـ API Key مباشرة من لوحة Authentica — لا تضيف Bearer يدوياً
             </Text>
 
             <TouchableOpacity
