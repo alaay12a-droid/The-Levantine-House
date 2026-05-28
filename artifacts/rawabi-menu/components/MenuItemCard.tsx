@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useCallback } from "react";
 import {
   View,
   Text,
@@ -10,12 +10,12 @@ import {
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useColors } from "@/hooks/useColors";
-import { useCart } from "@/context/CartContext";
+import { useCartActions } from "@/context/CartContext";
+import { useDetailSheet } from "@/context/DetailSheetContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { useFavorites } from "@/hooks/useFavorites";
 import { MenuItem, FOOD_IMAGES } from "@/constants/menu";
 import { useAppTexts } from "@/hooks/useAppTexts";
-import { ProductDetailSheet } from "@/components/ProductDetailSheet";
 
 const F = {
   regular: "Cairo_400Regular",
@@ -26,20 +26,18 @@ const F = {
 
 interface Props {
   item: MenuItem & { available?: boolean; nameEn?: string; descriptionEn?: string };
+  quantity: number;
 }
 
-export function MenuItemCard({ item }: Props) {
+function MenuItemCardInner({ item, quantity }: Props) {
   const colors = useColors();
-  const { items, addItem, updateQuantity } = useCart();
+  const { addItem, updateQuantity } = useCartActions();
+  const { openDetail } = useDetailSheet();
   const { language } = useLanguage();
   const { isFavorite, toggleFavorite } = useFavorites();
   const isEn = language === "en";
   const info = useAppTexts();
 
-  const [showDetail, setShowDetail] = useState(false);
-
-  const cartItem = items.find((c) => c.item.id === item.id);
-  const quantity = cartItem?.quantity ?? 0;
   const inCart = quantity > 0;
   const foodImage = item.imageUrl
     ? { uri: item.imageUrl }
@@ -55,7 +53,7 @@ export function MenuItemCard({ item }: Props) {
   const displayName = isEn && item.nameEn ? item.nameEn : item.name;
   const displayDesc = isEn && item.descriptionEn ? item.descriptionEn : item.description;
 
-  const handleAdd = () => {
+  const handleAdd = useCallback(() => {
     if (isUnavailable || atStockLimit) return;
     if (isDhabiha) {
       const msg = isEn
@@ -66,17 +64,21 @@ export function MenuItemCard({ item }: Props) {
     }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     addItem(item);
-  };
+  }, [isUnavailable, atStockLimit, isDhabiha, isEn, displayName, item, info.whatsapp, addItem]);
 
-  const handleDecrease = () => {
+  const handleDecrease = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     updateQuantity(item.id, quantity - 1);
-  };
+  }, [updateQuantity, item.id, quantity]);
 
-  const handleToggleFav = () => {
+  const handleToggleFav = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     toggleFavorite(item.id);
-  };
+  }, [toggleFavorite, item.id]);
+
+  const handleOpenDetail = useCallback(() => {
+    if (!isUnavailable && !isDhabiha) openDetail(item);
+  }, [isUnavailable, isDhabiha, openDetail, item]);
 
   const priceStr = item.price % 1 === 0 ? item.price.toString() : item.price.toFixed(1);
 
@@ -110,7 +112,7 @@ export function MenuItemCard({ item }: Props) {
       <View style={styles.inner}>
         {/* Right: food image */}
         <TouchableOpacity
-          onPress={() => { if (!isUnavailable && !isDhabiha) setShowDetail(true); }}
+          onPress={handleOpenDetail}
           activeOpacity={isUnavailable || isDhabiha ? 1 : 0.85}
           disabled={isUnavailable || isDhabiha}
           style={styles.imageContainer}
@@ -226,15 +228,11 @@ export function MenuItemCard({ item }: Props) {
           </View>
         </View>
       </View>
-
-      <ProductDetailSheet
-        item={item}
-        visible={showDetail}
-        onClose={() => setShowDetail(false)}
-      />
     </View>
   );
 }
+
+export const MenuItemCard = React.memo(MenuItemCardInner);
 
 const styles = StyleSheet.create({
   card: {

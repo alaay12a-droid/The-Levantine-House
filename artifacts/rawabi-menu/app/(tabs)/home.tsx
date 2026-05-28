@@ -21,6 +21,7 @@ import { useBanners } from "@/hooks/useBanners";
 import { MenuItemCard } from "@/components/MenuItemCard";
 import { BannerCarousel } from "@/components/BannerCarousel";
 import { CartBar } from "@/components/CartBar";
+import { useCartState } from "@/context/CartContext";
 
 const F = {
   regular: "Cairo_400Regular",
@@ -42,6 +43,12 @@ export default function HomeScreen() {
   const { favorites } = useFavorites();
   const { categories, refresh: refreshMenu } = useMenu();
   const { banners, refresh: refreshBanners } = useBanners();
+  const { items: cartItems } = useCartState();
+  const qtyMap = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const ci of cartItems) m.set(ci.item.id, ci.quantity);
+    return m;
+  }, [cartItems]);
 
   const [orderMode, setOrderMode] = useState<OrderMode>("delivery");
   const [search, setSearch] = useState("");
@@ -228,7 +235,7 @@ export default function HomeScreen() {
                 </Text>
               </View>
             ) : (
-              searchResults.map((item) => <MenuItemCard key={item.id} item={item} />)
+              searchResults.map((item) => <MenuItemCard key={item.id} item={item} quantity={qtyMap.get(item.id) ?? 0} />)
             )}
           </View>
         ) : (
@@ -249,7 +256,7 @@ export default function HomeScreen() {
                     المفضلة
                   </Text>
                 </View>
-                {favoriteItems.map((item) => <MenuItemCard key={item.id} item={item} />)}
+                {favoriteItems.map((item) => <MenuItemCard key={item.id} item={item} quantity={qtyMap.get(item.id) ?? 0} />)}
               </View>
             )}
 
@@ -265,7 +272,7 @@ export default function HomeScreen() {
                     {cat.items.length} صنف
                   </Text>
                 </View>
-                {cat.items.map((item) => <MenuItemCard key={item.id} item={item} />)}
+                {cat.items.map((item) => <MenuItemCard key={item.id} item={item} quantity={qtyMap.get(item.id) ?? 0} />)}
               </View>
             ))}
           </>

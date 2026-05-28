@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback } from "react";
+import React, { createContext, useContext, useState, useCallback, useMemo } from "react";
 import { MenuItem } from "@/constants/menu";
 
 export interface CartCustomization {
@@ -14,17 +14,21 @@ export interface CartItem {
   customization?: CartCustomization;
 }
 
-interface CartContextType {
-  items: CartItem[];
+interface CartActions {
   addItem: (item: MenuItem, qty?: number, customization?: CartCustomization) => void;
   removeItem: (itemId: string) => void;
   updateQuantity: (itemId: string, quantity: number) => void;
   clearCart: () => void;
+}
+
+interface CartState {
+  items: CartItem[];
   totalItems: number;
   totalPrice: number;
 }
 
-const CartContext = createContext<CartContextType | undefined>(undefined);
+const CartActionsContext = createContext<CartActions | undefined>(undefined);
+const CartStateContext = createContext<CartState | undefined>(undefined);
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
@@ -57,23 +61,43 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const clearCart = useCallback(() => setItems([]), []);
 
-  const totalItems = items.reduce((sum, c) => sum + c.quantity, 0);
-  const totalPrice = items.reduce((sum, c) => {
-    const extra = c.customization?.extraPrice ?? 0;
-    return sum + (c.item.price + extra) * c.quantity;
-  }, 0);
+  const actions = useMemo<CartActions>(
+    () => ({ addItem, removeItem, updateQuantity, clearCart }),
+    [addItem, removeItem, updateQuantity, clearCart]
+  );
+
+  const totalItems = useMemo(() => items.reduce((s, c) => s + c.quantity, 0), [items]);
+  const totalPrice = useMemo(
+    () => items.reduce((s, c) => s + (c.item.price + (c.customization?.extraPrice ?? 0)) * c.quantity, 0),
+    [items]
+  );
+
+  const state = useMemo<CartState>(
+    () => ({ items, totalItems, totalPrice }),
+    [items, totalItems, totalPrice]
+  );
 
   return (
-    <CartContext.Provider
-      value={{ items, addItem, removeItem, updateQuantity, clearCart, totalItems, totalPrice }}
-    >
-      {children}
-    </CartContext.Provider>
+    <CartActionsContext.Provider value={actions}>
+      <CartStateContext.Provider value={state}>
+        {children}
+      </CartStateContext.Provider>
+    </CartActionsContext.Provider>
   );
 }
 
-export function useCart() {
-  const ctx = useContext(CartContext);
-  if (!ctx) throw new Error("useCart must be used within CartProvider");
+export function useCartActions(): CartActions {
+  const ctx = useContext(CartActionsContext);
+  if (!ctx) throw new Error("useCartActions must be used within CartProvider");
   return ctx;
+}
+
+export function useCartState(): CartState {
+  const ctx = useContext(CartStateContext);
+  if (!ctx) throw new Error("useCartState must be used within CartProvider");
+  return ctx;
+}
+
+export function useCart(): CartActions & CartState {
+  return { ...useCartActions(), ...useCartState() };
 }

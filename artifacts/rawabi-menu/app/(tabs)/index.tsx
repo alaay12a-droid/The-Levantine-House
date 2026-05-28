@@ -38,7 +38,7 @@ import { useOccasions } from "@/hooks/useOccasions";
 import { useBanners } from "@/hooks/useBanners";
 import { BannerCarousel } from "@/components/BannerCarousel";
 import { useCombos, type ApiCombo } from "@/hooks/useCombos";
-import { useCart } from "@/context/CartContext";
+import { useCartActions, useCartState } from "@/context/CartContext";
 import { useBranchStatus } from "@/hooks/useBranchStatus";
 import { useLanguage } from "@/context/LanguageContext";
 import { useFavorites } from "@/hooks/useFavorites";
@@ -84,7 +84,13 @@ export default function MenuScreen() {
   const { occasions } = useOccasions();
   const { banners, refresh: refreshBanners } = useBanners();
   const { combos } = useCombos();
-  const { addItem } = useCart();
+  const { addItem } = useCartActions();
+  const { items: cartItems } = useCartState();
+  const qtyMap = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const ci of cartItems) m.set(ci.item.id, ci.quantity);
+    return m;
+  }, [cartItems]);
   const { isOpen, message: closedMessage } = useBranchStatus();
   const { language } = useLanguage();
   const { favorites } = useFavorites();
@@ -405,7 +411,7 @@ export default function MenuScreen() {
                 {searchResults.length} نتيجة
               </Text>
               {searchResults.map((item) => (
-                <MenuItemCard key={item.id} item={item} />
+                <MenuItemCard key={item.id} item={item} quantity={qtyMap.get(item.id) ?? 0} />
               ))}
             </>
           )}
@@ -458,7 +464,7 @@ export default function MenuScreen() {
           </View>
 
           {activeCat.items.map((item) => (
-            <MenuItemCard key={item.id} item={item} />
+            <MenuItemCard key={item.id} item={item} quantity={qtyMap.get(item.id) ?? 0} />
           ))}
 
           <View style={[styles.bookBox, { backgroundColor: "#1F130A", borderColor: "#E8920C" }]}>
@@ -664,7 +670,7 @@ export default function MenuScreen() {
             for (const item of section.data) {
               flatChildren.push(
                 <View key={item.id} style={{ paddingHorizontal: 14, paddingTop: 6 }}>
-                  <MenuItemCard item={item} />
+                  <MenuItemCard item={item} quantity={qtyMap.get(item.id) ?? 0} />
                 </View>
               );
             }

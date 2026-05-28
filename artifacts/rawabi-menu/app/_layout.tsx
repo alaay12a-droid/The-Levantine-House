@@ -17,6 +17,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { CartProvider } from "@/context/CartContext";
+import { DetailSheetProvider } from "@/context/DetailSheetContext";
 import { UserProvider, useUser } from "@/context/UserContext";
 import { OrderBadgeProvider } from "@/context/OrderBadgeContext";
 import { LanguageProvider } from "@/context/LanguageContext";
@@ -126,6 +127,7 @@ export default function RootLayout() {
               <UserProvider>
                 <FavoritesProvider>
                 <CartProvider>
+                  <DetailSheetProvider>
                   <OrderBadgeProvider>
                     <MusicProvider>
                     <GestureHandlerRootView>
@@ -135,6 +137,7 @@ export default function RootLayout() {
                     </GestureHandlerRootView>
                     </MusicProvider>
                   </OrderBadgeProvider>
+                  </DetailSheetProvider>
                 </CartProvider>
                 </FavoritesProvider>
               </UserProvider>
