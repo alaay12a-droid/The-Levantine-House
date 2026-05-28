@@ -1,5 +1,4 @@
 import { Router } from "express";
-import axios from "axios";
 import { db, appSettingsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
@@ -25,39 +24,45 @@ async function setSetting(key: string, value: string) {
     .onConflictDoUpdate({ target: appSettingsTable.key, set: { value, updatedAt: new Date() } });
 }
 
-// ── Helper: send via Authentica ───────────────────────────────────────────────
-async function sendViaAuthentica(
+// ── Helper: send via Msegat ───────────────────────────────────────────────────
+async function sendViaMsegat(
+  userName: string,
   apiKey: string,
   senderName: string,
   phone: string,
   message: string
 ): Promise<{ success: boolean; response: string }> {
   try {
-    const res = await axios.post(
-      "https://api.authentica.sa/api/v1/send",
-      {
-        number:     phone,
-        senderName: senderName,
-        message:    message,
-      },
-      {
-        headers: {
-          Authorization:  `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
-        timeout: 10000,
-      }
-    );
-    console.log("[Authentica] Response:", res.status, JSON.stringify(res.data));
-    return { success: res.status >= 200 && res.status < 300, response: JSON.stringify(res.data) };
+    const res = await fetch("https://www.msegat.com/gw/sendsms.php", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        userName:   userName,
+        apiKey:     apiKey,
+        numbers:    phone,
+        userSender: senderName,
+        msg:        message,
+        lang:       "3",
+      }),
+    });
+    const text = await res.text();
+    console.log("[Msegat] Response:", text);
+    let success = false;
+    try {
+      const json = JSON.parse(text);
+      success = json.code === "M0000" || json.code === "1";
+    } catch {
+      success = res.ok;
+    }
+    return { success, response: text };
   } catch (err: unknown) {
-    const msg = axios.isAxiosError(err) ? JSON.stringify(err.response?.data ?? err.message) : String(err);
-    console.error("[Authentica] Error:", msg);
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[Msegat] Error:", msg);
     return { success: false, response: msg };
   }
 }
 
-// ── GET /sms-settings  (admin reads current config) ──────────────────────────
+// ── GET /sms-settings ─────────────────────────────────────────────────────────
 router.get("/sms-settings", async (_req, res) => {
   const [enabled, apiKey, sender] = await Promise.all([
     getSetting(SETTING_ENABLED),
@@ -72,7 +77,7 @@ router.get("/sms-settings", async (_req, res) => {
   });
 });
 
-// ── PUT /sms-settings  (admin updates config) ─────────────────────────────────
+// ── PUT /sms-settings ─────────────────────────────────────────────────────────
 router.put("/sms-settings", async (req, res) => {
   const schema = z.object({
     enabled: z.boolean().optional(),
@@ -99,40 +104,30 @@ router.post("/sms/send-otp", async (req, res) => {
   const apiKey = await getSetting(SETTING_API_KEY);
   const sender = await getSetting(SETTING_SENDER) ?? "روابي";
 
-  // Strip spaces and leading + — Authentica expects digits only e.g. 966XXXXXXXXX
   const phone = parsed.data.phone.replace(/[\s+]/g, "");
+  const code  = String(Math.floor(1000 + Math.random() * 9000));
 
-  const code = String(Math.floor(1000 + Math.random() * 9000));
-
-  // Store OTP with 5-minute expiry
   otpStore.set(phone, { code, expiresAt: Date.now() + 5 * 60 * 1000 });
 
-  // No API key → dev mode: return code so app can show it
   if (!apiKey) {
-    req.log.warn({ phone, code }, "SMS OTP dev mode: no Authentica API key configured");
+    req.log.warn({ phone, code }, "SMS OTP dev mode: no API key configured");
     res.json({ ok: true, devCode: code });
     return;
   }
 
+  const [userName, key] = apiKey.includes(":") ? apiKey.split(":") : [apiKey, apiKey];
   const message = `${code} هو رمز التحقق الخاص بطلبك في روابي المندي. صالح لمدة 5 دقائق.`;
 
-  req.log.info({ phone, sender }, "Sending OTP via Authentica");
-  console.log(`[OTP] Sending to ${phone} via Authentica, sender: ${sender}`);
+  req.log.info({ phone, userName, sender }, "Sending OTP via Msegat");
 
-  const { success, response } = await sendViaAuthentica(apiKey, sender, phone, message);
+  const { success, response } = await sendViaMsegat(userName, key, sender, phone, message);
 
-  req.log.info({ phone, success, response }, "Authentica OTP result");
+  req.log.info({ phone, success, msegatResponse: response }, "Msegat OTP result");
 
-  if (success) {
-    res.json({ ok: true });
-  } else {
-    req.log.warn({ phone, response }, "Authentica OTP send failed");
-    // Return ok so we don't break orders — OTP is still in memory
-    res.json({ ok: true, warning: response });
-  }
+  res.json({ ok: true, ...(success ? {} : { warning: response }) });
 });
 
-// ── POST /sms/test  (admin tests config with a real message) ──────────────────
+// ── POST /sms/test ────────────────────────────────────────────────────────────
 router.post("/sms/test", async (req, res) => {
   const parsed = z.object({ phone: z.string().min(9) }).safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "رقم غير صحيح" }); return; }
@@ -146,21 +141,19 @@ router.post("/sms/test", async (req, res) => {
 
   const phone      = parsed.data.phone.replace(/[\s+]/g, "");
   const senderName = sender ?? "روابي";
+  const [userName, key] = apiKey.includes(":") ? apiKey.split(":") : [apiKey, apiKey];
 
-  req.log.info({ phone, senderName }, "Test SMS via Authentica");
-  console.log(`[SMS Test] Sending to ${phone}, sender: ${senderName}`);
+  req.log.info({ phone, userName, senderName }, "Test SMS via Msegat");
 
-  const { success, response } = await sendViaAuthentica(
-    apiKey,
-    senderName,
-    phone,
+  const { success, response } = await sendViaMsegat(
+    userName, key, senderName, phone,
     "اختبار — روابي المندي. نظام الرسائل يعمل بشكل صحيح ✅"
   );
 
-  res.json({ ok: success, authenticaResponse: response });
+  res.json({ ok: success, msegatResponse: response });
 });
 
-// ── POST /sms/verify-otp ─────────────────────────────────────────────────────
+// ── POST /sms/verify-otp ──────────────────────────────────────────────────────
 router.post("/sms/verify-otp", async (req, res) => {
   const parsed = z.object({ phone: z.string().min(9), code: z.string().length(4) }).safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "بيانات غير صحيحة" }); return; }

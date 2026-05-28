@@ -1,4 +1,3 @@
-import axios from "axios";
 import { db, appSettingsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { logger } from "./logger.js";
@@ -21,24 +20,25 @@ export async function sendSms(phone: string, message: string): Promise<void> {
     const senderName = sender ?? "روابي";
     const cleanPhone  = phone.replace(/[\s+]/g, "");
 
-    const response = await axios.post(
-      "https://api.authentica.sa/api/v1/send",
-      {
-        number:     cleanPhone,
-        senderName: senderName,
-        message:    message,
-      },
-      {
-        headers: {
-          Authorization:  `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
-        timeout: 10000,
-      }
-    );
+    // apiKey format: "username:apikey"
+    const [userName, key] = apiKey.includes(":") ? apiKey.split(":") : ["", apiKey];
 
-    logger.info({ phone: cleanPhone, status: response.status, data: response.data }, "Authentica SMS sent");
+    const res = await fetch("https://www.msegat.com/gw/sendsms.php", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        userName:   userName,
+        apiKey:     key,
+        numbers:    cleanPhone,
+        userSender: senderName,
+        msg:        message,
+        lang:       "3",
+      }),
+    });
+
+    const text = await res.text();
+    logger.info({ phone: cleanPhone, msegatResponse: text }, "Msegat SMS response");
   } catch (err) {
-    logger.warn({ err, phone }, "Authentica SMS send failed (non-critical)");
+    logger.warn({ err, phone }, "Msegat SMS send failed (non-critical)");
   }
 }

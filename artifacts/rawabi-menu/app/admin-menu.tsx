@@ -2824,15 +2824,15 @@ export default function AdminMenuScreen() {
           {settingsSection === "sms" && (<>
           {/* SMS OTP Settings */}
           <Text style={{ color: colors.gold, fontFamily: F.extra, fontSize: 16, textAlign: "right", marginTop: 8 }}>
-            📱 التحقق برسالة SMS — Authentica
+            📱 التحقق برسالة SMS — مسجات
           </Text>
 
-          <View style={{ backgroundColor: "#0A1A0A", borderRadius: 12, padding: 12, borderWidth: 1, borderColor: "#4CAF5033", marginBottom: 4 }}>
+          <View style={{ backgroundColor: "#0A1A1A", borderRadius: 12, padding: 12, borderWidth: 1, borderColor: "#4CAF5033", marginBottom: 4 }}>
             <Text style={{ color: "#81C784", fontFamily: F.semi, fontSize: 12, textAlign: "right" }}>
-              🔗 المنصة: Authentica السعودية — api.authentica.sa
+              🔗 المنصة: مسجات — msegat.com
             </Text>
             <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11, textAlign: "right", marginTop: 4 }}>
-              احصل على API Key من لوحة تحكم Authentica، ثم أدخله أدناه.
+              سجّل دخول في msegat.com ← الإعدادات ← API واحصل على اسم المستخدم ومفتاح API.
             </Text>
           </View>
 
@@ -2875,18 +2875,18 @@ export default function AdminMenuScreen() {
 
             {/* API Key */}
             <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 13, textAlign: "right" }}>
-              Authentica API Key (Bearer Token){smsHasKey ? " ✅ محفوظ" : " — لم يُضَف بعد"}
+              مفتاح Msegat{smsHasKey ? " ✅ محفوظ" : " — لم يُضَف بعد"}
             </Text>
             <TextInput
               value={smsApiKey}
               onChangeText={setSmsApiKey}
-              placeholder={smsHasKey ? "اتركه فارغاً إذا ما تريد تغييره" : "eyJ...الـ Bearer token من Authentica"}
+              placeholder={smsHasKey ? "اتركه فارغاً إذا ما تريد تغييره" : "اسم_المستخدم:مفتاح_API"}
               placeholderTextColor={colors.mutedForeground}
               secureTextEntry
               style={{ backgroundColor: colors.secondary, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, color: colors.foreground, fontFamily: F.regular, textAlign: "right", borderWidth: 1, borderColor: colors.border }}
             />
             <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11, textAlign: "right" }}>
-              💡 انسخ الـ API Key مباشرة من لوحة Authentica — لا تضيف Bearer يدوياً
+              💡 الصيغة: اسم_المستخدم:مفتاح_API — مثال: rawabi:abc123xyz
             </Text>
 
             <TouchableOpacity
