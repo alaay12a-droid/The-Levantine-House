@@ -122,6 +122,8 @@ export const MENU_CATEGORIES: MenuCategory[] = [
       { id: "m2", name: "لحم مندي بلدي - نص تيس",   nameEn: "Local Lamb Mandi - Half Goat",     price: 700,  category: "meat", imageKey: "goat_mandi" },
       { id: "m3", name: "لحم مندي بلدي - ربع تيس",  nameEn: "Local Lamb Mandi - Quarter Goat",  price: 350,  category: "meat", imageKey: "goat_mandi" },
       { id: "m4", name: "لحم مندي - نفر",            nameEn: "Lamb Mandi - Per Person",          price: 90,   category: "meat", imageKey: "meat_mandi_nfar" },
+      { id: "h1", name: "حنيذ بلدي - كامل",          nameEn: "Local Haneeth - Whole",            price: 1400, category: "meat", imageKey: "goat_mandi" },
+      { id: "h2", name: "حنيذ بلدي - نفر",           nameEn: "Local Haneeth - Per Person",       price: 90,   category: "meat", imageKey: "meat_mandi_nfar" },
     ],
   },
   {

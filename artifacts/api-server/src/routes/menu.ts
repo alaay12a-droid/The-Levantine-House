@@ -23,6 +23,8 @@ const INITIAL_ITEMS = [
   { itemId: "m2",   name: "لحم مندي بلدي - نص تيس",          nameEn: "Local Lamb Mandi - Half Goat",        category: "meat",     price: 70000,  imageKey: "goat_mandi",         sortOrder: 2  },
   { itemId: "m3",   name: "لحم مندي بلدي - ربع تيس",         nameEn: "Local Lamb Mandi - Quarter Goat",     category: "meat",     price: 35000,  imageKey: "goat_mandi",         sortOrder: 3  },
   { itemId: "m4",   name: "لحم مندي - نفر",                  nameEn: "Lamb Mandi - Per Person",             category: "meat",     price: 9000,   imageKey: "meat_mandi_nfar",    sortOrder: 4  },
+  { itemId: "h1",   name: "حنيذ بلدي - كامل",                nameEn: "Local Haneeth - Whole",               category: "meat",     price: 140000, imageKey: "goat_mandi",         sortOrder: 5  },
+  { itemId: "h2",   name: "حنيذ بلدي - نفر",                 nameEn: "Local Haneeth - Per Person",          category: "meat",     price: 9000,   imageKey: "meat_mandi_nfar",    sortOrder: 6  },
   { itemId: "s1",   name: "إيدام ملوخية صغير",               nameEn: "Mulukhiyah Stew Small",               category: "sides",    price: 400,    imageKey: "molokhia",           sortOrder: 1  },
   { itemId: "s2",   name: "إيدام ملوخية كبير",               nameEn: "Mulukhiyah Stew Large",               category: "sides",    price: 600,    imageKey: "molokhia",           sortOrder: 2  },
   { itemId: "e6",   name: "إيدام مصقعة صغير",                nameEn: "Masoqa Stew Small",                   category: "sides",    price: 400,    imageKey: "masqaa",             sortOrder: 3  },
