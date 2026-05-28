@@ -2933,8 +2933,8 @@ export default function AdminMenuScreen() {
                     setSmsTestLoading(true);
                     setSmsTestResult(null);
                     try {
-                      const r = await apiPost<{ ok: boolean; authenticaResponse?: string }>("/sms/test", { phone: smsTestPhone.trim() });
-                      setSmsTestResult(r.ok ? `✅ تم الإرسال بنجاح` : `❌ فشل: ${r.authenticaResponse}`);
+                      const r = await apiPost<{ ok: boolean; msegatResponse?: string }>("/sms/test", { phone: smsTestPhone.trim() });
+                      setSmsTestResult(r.ok ? `✅ تم الإرسال بنجاح` : `❌ فشل: ${r.msegatResponse}`);
                     } catch (e: unknown) {
                       setSmsTestResult(`❌ خطأ: ${e instanceof Error ? e.message : String(e)}`);
                     } finally {
