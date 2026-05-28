@@ -50,17 +50,15 @@ interface ChickenSizes {
 function getChickenSizes(item: MenuItem): ChickenSizes | null {
   if (item.category !== "chicken") return null;
   if (item.name.startsWith("رز ")) return null;
+  if (item.description?.includes("بدون رز") && item.name.includes("سادة")) return null;
 
   const isHalf = item.name.includes("نص") || item.name.includes("نصف");
-  const isWhole = item.name.includes("كامل");
 
   if (isHalf) {
     return { halfPrice: item.price, wholePrice: item.price * 2, defaultIdx: 0 };
   }
-  if (isWhole) {
-    return { halfPrice: item.price / 2, wholePrice: item.price, defaultIdx: 1 };
-  }
-  return null;
+  // whole or unlabelled chicken → treat item price as whole price
+  return { halfPrice: item.price / 2, wholePrice: item.price, defaultIdx: 1 };
 }
 
 interface Props {
