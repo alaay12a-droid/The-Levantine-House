@@ -29,7 +29,7 @@ import { usePaymentSettings } from "@/hooks/usePaymentSettings";
 import { useUIDensity, type UIDensity } from "@/hooks/useUIDensity";
 import { useDiscountCodes, type DiscountCode } from "@/hooks/useDiscountCodes";
 import { useBanners, type ApiBanner } from "@/hooks/useBanners";
-import { useRevenue } from "@/hooks/useRevenue";
+import { useRevenue, type RevenuePeriod } from "@/hooks/useRevenue";
 import { useCombos, type ApiCombo, type ComboComponent } from "@/hooks/useCombos";
 import { apiGet, apiPost, apiPut, apiDelete, API_BASE } from "@/constants/api";
 import { invalidateAppTextsCache, DEFAULT_TEXTS } from "@/hooks/useAppTexts";
@@ -333,6 +333,12 @@ export default function AdminMenuScreen() {
   const { data: revenueData, loading: revenueLoading, refresh: refreshRevenue } = useRevenue();
   const [revenueView, setRevenueView] = useState<"daily" | "monthly" | "yearly" | "items">("daily");
   const [revenuePeriod, setRevenuePeriod] = useState<"today" | "week" | "month" | "year">("month");
+  const [printModalVisible, setPrintModalVisible] = useState(false);
+  const [printPreset, setPrintPreset] = useState<string>("today");
+  const [printFromDate, setPrintFromDate] = useState("");
+  const [printToDate, setPrintToDate] = useState("");
+  const [printSections, setPrintSections] = useState({ kpi: true, payment: true, summary: true });
+  const [printFetching, setPrintFetching] = useState(false);
   const [settingsSection, setSettingsSection] = useState<"hours" | "payment" | "discounts" | "wallets" | "sms" | "security" | "appearance" | "ratings" | "drivers" | "texts" | "music" | "occasions" | "logobg" | "sounds">("hours");
 
   // ─── Logo background (synced via API) ────────────────────
@@ -497,21 +503,47 @@ export default function AdminMenuScreen() {
   useEffect(() => { refreshBanners(); }, [refreshBanners]);
   useEffect(() => { if (activeTab === "revenue") { refreshRevenue(); loadCommissionRate(); } }, [activeTab, refreshRevenue]);
 
-  const handlePrintRevenue = () => {
-    if (Platform.OS !== "web" || typeof window === "undefined" || !revenueData) return;
-    const periodLabels: Record<string, string> = { today: "اليوم", week: "الأسبوع", month: "الشهر", year: "السنة" };
-    const label = periodLabels[revenuePeriod] ?? revenuePeriod;
-    const pd = revenuePeriod === "today" ? revenueData.today
-             : revenuePeriod === "week"  ? revenueData.week
-             : revenuePeriod === "month" ? revenueData.month
-             : revenueData.year;
+  const getSaudiDateStr = (offsetDays = 0): string => {
+    const now = new Date(Date.now() + 3 * 3600 * 1000);
+    now.setUTCDate(now.getUTCDate() - offsetDays);
+    return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}-${String(now.getUTCDate()).padStart(2, "0")}`;
+  };
+
+  const generatePrintHTML = (pd: RevenuePeriod, label: string, sections: { kpi: boolean; payment: boolean; summary: boolean }): string => {
     const now = new Date().toLocaleString("ar-SA", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" });
     const f = (n: number) => n.toFixed(2);
     const totalPay = pd.cashRevenue + pd.onlineRevenue || 1;
     const cashPct  = Math.round((pd.cashRevenue / totalPay) * 100);
-    const html = `<!DOCTYPE html><html dir="rtl" lang="ar"><head>
-<meta charset="UTF-8"/>
-<title>التقرير المالي — ${label}</title>
+    const kpiBlock = sections.kpi ? `
+<div class="kpi-grid">
+  <div class="kpi" style="background:#FFF8EE;border-color:#E8920C44;"><div class="val" style="color:#E8920C;">${f(pd.totalRevenue)} ر.س</div><div class="lbl">الإيرادات الإجمالية</div></div>
+  <div class="kpi" style="background:#F0FFF0;border-color:#4CAF5044;"><div class="val" style="color:#2e7d32;">${f(pd.netRevenue)} ر.س</div><div class="lbl">الصافي بعد الضريبة</div></div>
+  <div class="kpi" style="background:#F0F4FF;border-color:#82B1FF44;"><div class="val" style="color:#1565C0;">${f(pd.taxAmount)} ر.س</div><div class="lbl">ضريبة 15%</div></div>
+  <div class="kpi" style="background:#F9F0FF;border-color:#CE93D844;"><div class="val" style="color:#6A1B9A;">${f(pd.deliveryRevenue)} ر.س</div><div class="lbl">إيراد التوصيل</div></div>
+  <div class="kpi" style="background:#F5F5F5;border-color:#ccc;"><div class="val" style="color:#333;">${pd.orderCount}</div><div class="lbl">الطلبات المكتملة</div></div>
+  <div class="kpi" style="background:#FFF0F0;border-color:#EF444444;"><div class="val" style="color:#C62828;">${pd.cancelledCount}</div><div class="lbl">الملغاة${pd.cancelledValue > 0 ? `<br><small>${f(pd.cancelledValue)} ر.س</small>` : ""}</div></div>
+</div>` : "";
+    const payBlock = sections.payment ? `
+<div class="section">
+  <h2>💳 طريقة الدفع</h2>
+  <div class="bar-wrap"><div class="bar-cash" style="width:${cashPct}%;"></div></div>
+  <div class="pay-row">
+    <div class="pay-item"><div class="v" style="color:#4CAF50;">${f(pd.cashRevenue)} ر.س</div><div class="l">نقدي — ${pd.cashCount} طلب (${cashPct}%)</div></div>
+    <div class="pay-item"><div class="v" style="color:#82B1FF;">${f(pd.onlineRevenue)} ر.س</div><div class="l">إلكتروني — ${pd.onlineCount} طلب (${100 - cashPct}%)</div></div>
+  </div>
+</div>` : "";
+    const sumBlock = sections.summary ? `
+<div class="section">
+  <h2>📋 الملخص المالي</h2>
+  <div class="row"><span class="lbl">إجمالي الإيرادات</span><span class="val" style="color:#E8920C;">${f(pd.totalRevenue)} ر.س</span></div>
+  <div class="row"><span class="lbl">إيراد الأصناف</span><span class="val">${f(pd.itemsRevenue)} ر.س</span></div>
+  <div class="row"><span class="lbl">إيراد التوصيل</span><span class="val" style="color:#9C27B0;">${f(pd.deliveryRevenue)} ر.س</span></div>
+  <div class="row"><span class="lbl">ضريبة القيمة المضافة 15%</span><span class="val" style="color:#1565C0;">${f(pd.taxAmount)} ر.س</span></div>
+  <div class="row"><span class="lbl">الصافي بعد الضريبة</span><span class="val" style="color:#2e7d32;">${f(pd.netRevenue)} ر.س</span></div>
+  ${pd.cancelledValue > 0 ? `<div class="row"><span class="lbl">قيمة الملغاة</span><span class="val" style="color:#C62828;">${f(pd.cancelledValue)} ر.س</span></div>` : ""}
+</div>` : "";
+    return `<!DOCTYPE html><html dir="rtl" lang="ar"><head>
+<meta charset="UTF-8"/><title>التقرير المالي — ${label}</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap');
   *{margin:0;padding:0;box-sizing:border-box}
@@ -538,62 +570,47 @@ export default function AdminMenuScreen() {
 </style></head><body>
 <h1>روابي المندي — التقرير المالي</h1>
 <div class="sub">الفترة: ${label} | طُبع في ${now}</div>
-
-<div class="kpi-grid">
-  <div class="kpi" style="background:#FFF8EE;border-color:#E8920C44;">
-    <div class="val" style="color:#E8920C;">${f(pd.totalRevenue)} ر.س</div>
-    <div class="lbl">الإيرادات الإجمالية</div>
-  </div>
-  <div class="kpi" style="background:#F0FFF0;border-color:#4CAF5044;">
-    <div class="val" style="color:#2e7d32;">${f(pd.netRevenue)} ر.س</div>
-    <div class="lbl">الصافي بعد الضريبة</div>
-  </div>
-  <div class="kpi" style="background:#F0F4FF;border-color:#82B1FF44;">
-    <div class="val" style="color:#1565C0;">${f(pd.taxAmount)} ر.س</div>
-    <div class="lbl">ضريبة القيمة المضافة 15%</div>
-  </div>
-  <div class="kpi" style="background:#F9F0FF;border-color:#CE93D844;">
-    <div class="val" style="color:#6A1B9A;">${f(pd.deliveryRevenue)} ر.س</div>
-    <div class="lbl">إيراد التوصيل</div>
-  </div>
-  <div class="kpi" style="background:#F5F5F5;border-color:#ccc;">
-    <div class="val" style="color:#333;">${pd.orderCount}</div>
-    <div class="lbl">الطلبات المكتملة</div>
-  </div>
-  <div class="kpi" style="background:#FFF0F0;border-color:#EF444444;">
-    <div class="val" style="color:#C62828;">${pd.cancelledCount}</div>
-    <div class="lbl">الطلبات الملغاة${pd.cancelledValue > 0 ? `<br><small style="font-weight:400">${f(pd.cancelledValue)} ر.س</small>` : ""}</div>
-  </div>
-</div>
-
-<div class="section">
-  <h2>💳 طريقة الدفع</h2>
-  <div class="bar-wrap"><div class="bar-cash" style="width:${cashPct}%;"></div></div>
-  <div class="pay-row">
-    <div class="pay-item">
-      <div class="v" style="color:#4CAF50;">${f(pd.cashRevenue)} ر.س</div>
-      <div class="l">نقدي — ${pd.cashCount} طلب (${cashPct}%)</div>
-    </div>
-    <div class="pay-item">
-      <div class="v" style="color:#82B1FF;">${f(pd.onlineRevenue)} ر.س</div>
-      <div class="l">إلكتروني — ${pd.onlineCount} طلب (${100 - cashPct}%)</div>
-    </div>
-  </div>
-</div>
-
-<div class="section">
-  <h2>📋 الملخص المالي</h2>
-  <div class="row"><span class="lbl">إجمالي الإيرادات</span><span class="val" style="color:#E8920C;">${f(pd.totalRevenue)} ر.س</span></div>
-  <div class="row"><span class="lbl">إيراد الأصناف</span><span class="val">${f(pd.itemsRevenue)} ر.س</span></div>
-  <div class="row"><span class="lbl">إيراد التوصيل</span><span class="val" style="color:#9C27B0;">${f(pd.deliveryRevenue)} ر.س</span></div>
-  <div class="row"><span class="lbl">ضريبة القيمة المضافة 15%</span><span class="val" style="color:#1565C0;">${f(pd.taxAmount)} ر.س</span></div>
-  <div class="row"><span class="lbl">الصافي بعد الضريبة</span><span class="val" style="color:#2e7d32;">${f(pd.netRevenue)} ر.س</span></div>
-  ${pd.cancelledValue > 0 ? `<div class="row"><span class="lbl">قيمة الطلبات الملغاة</span><span class="val" style="color:#C62828;">${f(pd.cancelledValue)} ر.س</span></div>` : ""}
-</div>
+${kpiBlock}${payBlock}${sumBlock}
 <script>window.onload=function(){window.print();}</script>
 </body></html>`;
-    const win = window.open("", "_blank", "width=900,height=700");
-    if (win) { win.document.write(html); win.document.close(); }
+  };
+
+  const executePrint = async () => {
+    if (Platform.OS !== "web" || typeof window === "undefined") return;
+    setPrintFetching(true);
+    try {
+      let pd: RevenuePeriod | null = null;
+      let label = "";
+      if (printPreset === "today" && revenueData)       { pd = revenueData.today; label = "اليوم"; }
+      else if (printPreset === "week" && revenueData)   { pd = revenueData.week;  label = "آخر 7 أيام"; }
+      else if (printPreset === "month" && revenueData)  { pd = revenueData.month; label = "هذا الشهر"; }
+      else if (printPreset === "year" && revenueData)   { pd = revenueData.year;  label = "هذه السنة"; }
+      else {
+        let from = printFromDate;
+        let to   = printToDate;
+        if (printPreset === "yesterday")  { from = to = getSaudiDateStr(1); label = "أمس"; }
+        else if (printPreset === "daybefore") { from = to = getSaudiDateStr(2); label = "أول أمس"; }
+        else if (printPreset === "lastmonth") {
+          const nl = new Date(Date.now() + 3 * 3600 * 1000);
+          const y = nl.getUTCFullYear(); const m = nl.getUTCMonth();
+          from = m === 0 ? `${y - 1}-12-01` : `${y}-${String(m).padStart(2, "0")}-01`;
+          const lastDay = new Date(Date.UTC(m === 0 ? y - 1 : y, m === 0 ? 12 : m, 0)).getUTCDate();
+          to   = m === 0 ? `${y - 1}-12-${lastDay}` : `${y}-${String(m).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+          label = "الشهر الماضي";
+        } else { label = from === to ? from : `${from} → ${to}`; }
+        if (!from || !to) { setPrintFetching(false); return; }
+        pd = await apiGet<RevenuePeriod>(`/revenue/range?from=${from}&to=${to}`);
+      }
+      if (!pd) return;
+      const html = generatePrintHTML(pd, label, printSections);
+      const win = window.open("", "_blank", "width=900,height=700");
+      if (win) { win.document.write(html); win.document.close(); }
+      setPrintModalVisible(false);
+    } catch {
+      Alert.alert("خطأ", "فشل في جلب بيانات الفترة المحددة");
+    } finally {
+      setPrintFetching(false);
+    }
   };
   useEffect(() => { if (activeTab === "stock") refresh(); }, [activeTab, refresh]);
 
@@ -3628,7 +3645,7 @@ export default function AdminMenuScreen() {
             <Text style={{ color: colors.foreground, fontFamily: F.extra, fontSize: 16 }}>📊 التقرير المالي</Text>
             <View style={{ flexDirection: "row-reverse", gap: 8 }}>
               <TouchableOpacity
-                onPress={handlePrintRevenue}
+                onPress={() => { setPrintPreset("today"); setPrintFromDate(getSaudiDateStr(0)); setPrintToDate(getSaudiDateStr(0)); setPrintModalVisible(true); }}
                 disabled={!revenueData}
                 style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6, backgroundColor: "#1A2A1A", paddingHorizontal: 12, paddingVertical: 7, borderRadius: 10, borderWidth: 1, borderColor: "#4CAF5044", opacity: revenueData ? 1 : 0.4 }}
               >
@@ -4752,6 +4769,141 @@ export default function AdminMenuScreen() {
                 <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 14 }}>إلغاء</Text>
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── Print Revenue Modal ── */}
+      <Modal visible={printModalVisible} transparent animationType="slide" onRequestClose={() => setPrintModalVisible(false)}>
+        <View style={{ flex: 1, backgroundColor: "#000000BB", justifyContent: "flex-end" }}>
+          <View style={{ backgroundColor: colors.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingBottom: insets.bottom + 8, borderWidth: 1, borderColor: colors.border, maxHeight: "90%" }}>
+            {/* Header */}
+            <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", padding: 16, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+              <Text style={{ color: colors.foreground, fontFamily: F.extra, fontSize: 16 }}>🖨 إعدادات الطباعة</Text>
+              <TouchableOpacity onPress={() => setPrintModalVisible(false)} style={{ padding: 6 }}>
+                <Feather name="x" size={20} color={colors.mutedForeground} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView contentContainerStyle={{ padding: 16, gap: 14 }} showsVerticalScrollIndicator={false}>
+              {/* ── Period ── */}
+              <Text style={{ color: colors.foreground, fontFamily: F.bold, fontSize: 14, textAlign: "right" }}>📅 الفترة الزمنية</Text>
+              <View style={{ flexDirection: "row-reverse", flexWrap: "wrap", gap: 8 }}>
+                {([
+                  { key: "today",     label: "اليوم" },
+                  { key: "yesterday", label: "أمس" },
+                  { key: "daybefore", label: "أول أمس" },
+                  { key: "week",      label: "آخر 7 أيام" },
+                  { key: "month",     label: "هذا الشهر" },
+                  { key: "lastmonth", label: "الشهر الماضي" },
+                  { key: "year",      label: "هذه السنة" },
+                  { key: "custom",    label: "📆 مخصص" },
+                ] as const).map(({ key, label }) => (
+                  <TouchableOpacity
+                    key={key}
+                    onPress={() => {
+                      setPrintPreset(key);
+                      if (key === "today")     { setPrintFromDate(getSaudiDateStr(0)); setPrintToDate(getSaudiDateStr(0)); }
+                      else if (key === "yesterday")  { setPrintFromDate(getSaudiDateStr(1)); setPrintToDate(getSaudiDateStr(1)); }
+                      else if (key === "daybefore")  { setPrintFromDate(getSaudiDateStr(2)); setPrintToDate(getSaudiDateStr(2)); }
+                      else if (key === "week")        { setPrintFromDate(getSaudiDateStr(6)); setPrintToDate(getSaudiDateStr(0)); }
+                      else if (key === "month") {
+                        const nl = new Date(Date.now() + 3 * 3600 * 1000);
+                        const ms = `${nl.getUTCFullYear()}-${String(nl.getUTCMonth() + 1).padStart(2, "0")}-01`;
+                        setPrintFromDate(ms); setPrintToDate(getSaudiDateStr(0));
+                      }
+                      else if (key === "year") {
+                        const yr = new Date(Date.now() + 3 * 3600 * 1000).getUTCFullYear();
+                        setPrintFromDate(`${yr}-01-01`); setPrintToDate(getSaudiDateStr(0));
+                      }
+                    }}
+                    style={{ paddingHorizontal: 14, paddingVertical: 9, borderRadius: 20,
+                      backgroundColor: printPreset === key ? colors.gold : colors.secondary,
+                      borderWidth: 1, borderColor: printPreset === key ? colors.gold : colors.border }}
+                  >
+                    <Text style={{ color: printPreset === key ? "#1A0A00" : colors.mutedForeground, fontFamily: F.bold, fontSize: 12 }}>{label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* ── Custom date range ── */}
+              {printPreset === "custom" && (
+                <View style={{ gap: 10, backgroundColor: colors.secondary, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: colors.border }}>
+                  <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12, textAlign: "right" }}>اختر نطاق التاريخ</Text>
+                  <View style={{ flexDirection: "row-reverse", gap: 10 }}>
+                    <View style={{ flex: 1, gap: 4 }}>
+                      <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11, textAlign: "right" }}>من</Text>
+                      {Platform.OS === "web" ? (
+                        // @ts-ignore
+                        <input type="date" value={printFromDate} onChange={(e: any) => setPrintFromDate(e.target.value)}
+                          style={{ fontSize: 13, padding: "8px", borderRadius: "8px", border: `1px solid #333`, backgroundColor: "#1A1008", color: "#fff", direction: "ltr", width: "100%", fontFamily: "Cairo, sans-serif" }} />
+                      ) : (
+                        <TextInput value={printFromDate} onChangeText={setPrintFromDate} placeholder="2026-05-01"
+                          placeholderTextColor={colors.mutedForeground}
+                          style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 10, color: colors.foreground, fontFamily: F.regular, fontSize: 13, textAlign: "center" }} />
+                      )}
+                    </View>
+                    <View style={{ flex: 1, gap: 4 }}>
+                      <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11, textAlign: "right" }}>إلى</Text>
+                      {Platform.OS === "web" ? (
+                        // @ts-ignore
+                        <input type="date" value={printToDate} onChange={(e: any) => setPrintToDate(e.target.value)}
+                          style={{ fontSize: 13, padding: "8px", borderRadius: "8px", border: `1px solid #333`, backgroundColor: "#1A1008", color: "#fff", direction: "ltr", width: "100%", fontFamily: "Cairo, sans-serif" }} />
+                      ) : (
+                        <TextInput value={printToDate} onChangeText={setPrintToDate} placeholder="2026-05-28"
+                          placeholderTextColor={colors.mutedForeground}
+                          style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 10, color: colors.foreground, fontFamily: F.regular, fontSize: 13, textAlign: "center" }} />
+                      )}
+                    </View>
+                  </View>
+                  {(printFromDate && printToDate) && (
+                    <Text style={{ color: colors.gold, fontFamily: F.semi, fontSize: 11, textAlign: "center" }}>
+                      {printFromDate} → {printToDate}
+                    </Text>
+                  )}
+                </View>
+              )}
+
+              {/* ── Sections ── */}
+              <Text style={{ color: colors.foreground, fontFamily: F.bold, fontSize: 14, textAlign: "right" }}>📄 محتويات التقرير</Text>
+              {([
+                { key: "kpi"     as const, label: "الأرقام الرئيسية",  desc: "الإيرادات، الضريبة، الطلبات المكتملة والملغاة" },
+                { key: "payment" as const, label: "طريقة الدفع",       desc: "مقارنة نقدي مقابل إلكتروني" },
+                { key: "summary" as const, label: "الملخص المالي",     desc: "تفاصيل كاملة بالأرقام" },
+              ]).map(({ key, label, desc }) => (
+                <TouchableOpacity
+                  key={key}
+                  onPress={() => setPrintSections(s => ({ ...s, [key]: !s[key] }))}
+                  style={{ flexDirection: "row-reverse", alignItems: "center", gap: 12,
+                    backgroundColor: colors.secondary, borderRadius: 12, padding: 14,
+                    borderWidth: 1, borderColor: printSections[key] ? "#4CAF5055" : colors.border }}
+                >
+                  <View style={{ width: 22, height: 22, borderRadius: 6,
+                    backgroundColor: printSections[key] ? "#4CAF50" : "transparent",
+                    borderWidth: 2, borderColor: printSections[key] ? "#4CAF50" : colors.mutedForeground,
+                    alignItems: "center", justifyContent: "center" }}>
+                    {printSections[key] && <Feather name="check" size={13} color="#fff" />}
+                  </View>
+                  <View style={{ flex: 1, alignItems: "flex-end" }}>
+                    <Text style={{ color: colors.foreground, fontFamily: F.bold, fontSize: 13 }}>{label}</Text>
+                    <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }}>{desc}</Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+
+              {/* ── Print Button ── */}
+              <TouchableOpacity
+                onPress={executePrint}
+                disabled={printFetching || (printPreset === "custom" && (!printFromDate || !printToDate))}
+                style={{ backgroundColor: "#4CAF50", borderRadius: 14, paddingVertical: 16, alignItems: "center", marginTop: 4,
+                  opacity: (printFetching || (printPreset === "custom" && (!printFromDate || !printToDate))) ? 0.5 : 1 }}
+              >
+                {printFetching
+                  ? <ActivityIndicator color="#fff" />
+                  : <Text style={{ color: "#fff", fontFamily: F.extra, fontSize: 15 }}>🖨 طباعة التقرير</Text>
+                }
+              </TouchableOpacity>
+            </ScrollView>
           </View>
         </View>
       </Modal>

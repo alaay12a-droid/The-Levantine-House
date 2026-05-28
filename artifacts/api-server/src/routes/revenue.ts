@@ -171,4 +171,16 @@ router.get("/revenue", async (_req, res) => {
   res.json({ today, week, month, year, dailyBreakdown, monthlyBreakdown, topItems });
 });
 
+router.get("/revenue/range", async (req, res) => {
+  const { from, to } = req.query as { from?: string; to?: string };
+  if (!from || !to) { res.status(400).json({ error: "from and to required (YYYY-MM-DD)" }); return; }
+  const [fy, fm, fd] = from.split("-").map(Number);
+  const [ty, tm, td] = to.split("-").map(Number);
+  if (!fy || !fm || !fd || !ty || !tm || !td) { res.status(400).json({ error: "invalid date format" }); return; }
+  const fromDate = toLocalMidnight(fy, fm - 1, fd);
+  const toDate   = toLocalMidnight(ty, tm - 1, td + 1);
+  const data = await aggregate(fromDate, toDate);
+  res.json(data);
+});
+
 export default router;
