@@ -4,9 +4,9 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  Image,
   Linking,
 } from "react-native";
+import { Image } from "expo-image";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useColors } from "@/hooks/useColors";
@@ -119,7 +119,7 @@ function MenuItemCardInner({ item, quantity }: Props) {
         >
           {foodImage ? (
             <View style={[styles.imageWrap, { backgroundColor: colors.isLight ? "#E8D8C8" : "#2A1508" }]}>
-              <Image source={foodImage} style={styles.foodImage} resizeMode="cover" />
+              <Image source={foodImage} style={styles.foodImage} contentFit="cover" cachePolicy="memory-disk" />
               {inCart && (
                 <View style={[styles.inCartDot, { backgroundColor: colors.gold }]} />
               )}
@@ -320,11 +320,6 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#C8171A",
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 4,
   },
   qtyGroup: {
     flexDirection: "row",

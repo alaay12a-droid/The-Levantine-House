@@ -6,13 +6,13 @@ import {
   ScrollView,
   StyleSheet,
   Platform,
-  Image,
   TouchableOpacity,
   StatusBar,
   Linking,
   Modal,
   TextInput,
 } from "react-native";
+import { Image } from "expo-image";
 import Animated, {
   useSharedValue,
   useAnimatedScrollHandler,
@@ -418,10 +418,10 @@ export default function MenuScreen() {
         </ScrollView>
       ) : specialCat?.isDelivery ? (
         /* ── DELIVERY SECTION ── */
-        <Animated.ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.list} onScroll={scrollHandler} scrollEventThrottle={16}>
+        <Animated.ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.list} onScroll={scrollHandler} scrollEventThrottle={32}>
           <BannerCarousel banners={banners} />
           <View style={[styles.deliveryCard, { backgroundColor: colors.card, borderColor: colors.gold }]}>
-            <Image source={deliveryCar} style={styles.carImage} resizeMode="cover" />
+            <Image source={deliveryCar} style={styles.carImage} contentFit="cover" cachePolicy="memory-disk" />
             <View style={[styles.deliveryOverlay, { backgroundColor: "#0F0A05EE" }]}>
               <Text style={[styles.deliveryTitle, { color: colors.gold, fontFamily: F.extra }]}>
                 {isEn ? "Delivery Service" : "خدمة التوصيل"}
@@ -457,10 +457,10 @@ export default function MenuScreen() {
         </Animated.ScrollView>
       ) : specialCat?.isDhabiha ? (
         /* ── DHABIHA SECTION ── */
-        <Animated.ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.list} onScroll={scrollHandler} scrollEventThrottle={16}>
+        <Animated.ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.list} onScroll={scrollHandler} scrollEventThrottle={32}>
           <BannerCarousel banners={banners} />
           <View style={[styles.dhabihaHero, { borderColor: "#E8920C" }]}>
-            <Image source={dhabihaPoster} style={styles.dhabihaImg} resizeMode="cover" />
+            <Image source={dhabihaPoster} style={styles.dhabihaImg} contentFit="cover" cachePolicy="memory-disk" />
           </View>
 
           {activeCat.items.map((item) => (
@@ -500,7 +500,7 @@ export default function MenuScreen() {
         </Animated.ScrollView>
       ) : specialCat?.isOccasions ? (
         /* ── OCCASIONS SECTION ── */
-        <Animated.ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.list} onScroll={scrollHandler} scrollEventThrottle={16}>
+        <Animated.ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.list} onScroll={scrollHandler} scrollEventThrottle={32}>
           <BannerCarousel banners={banners} />
           <View style={[styles.occasionsHeader, { backgroundColor: "#1A0D00", borderColor: colors.gold }]}>
             <Text style={[styles.occasionsTitle, { color: colors.gold, fontFamily: F.extra }]}>
@@ -519,9 +519,9 @@ export default function MenuScreen() {
               style={[styles.occasionCard, { backgroundColor: colors.card, borderColor: colors.border }]}
             >
               {occ.imageUrl ? (
-                <Image source={{ uri: occ.imageUrl }} style={styles.occasionImg} resizeMode="cover" />
+                <Image source={{ uri: occ.imageUrl }} style={styles.occasionImg} contentFit="cover" cachePolicy="memory-disk" />
               ) : occ.imageKey && FOOD_IMAGES[occ.imageKey] ? (
-                <Image source={FOOD_IMAGES[occ.imageKey]} style={styles.occasionImg} resizeMode="cover" />
+                <Image source={FOOD_IMAGES[occ.imageKey]} style={styles.occasionImg} contentFit="cover" cachePolicy="memory-disk" />
               ) : null}
               <View style={[styles.occasionOverlay, { backgroundColor: "#0F0A05CC" }]}>
                 <View style={[styles.occasionBadge, { backgroundColor: colors.gold }]}>
@@ -586,9 +586,9 @@ export default function MenuScreen() {
                   </View>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 12, gap: 10, flexDirection: "row-reverse" }}>
                     {favItems.map((item) => (
-                      <View key={item.id} style={{ width: 130, backgroundColor: "#1A0D05", borderRadius: 14, overflow: "hidden", borderWidth: 1, borderColor: "#C8171A33" }}>
+                      <View key={`fav-${item.id}`} style={{ width: 130, backgroundColor: "#1A0D05", borderRadius: 14, overflow: "hidden", borderWidth: 1, borderColor: "#C8171A33" }}>
                         {item.imageUrl ? (
-                          <Image source={{ uri: item.imageUrl }} style={{ width: "100%", height: 80 }} resizeMode="cover" />
+                          <Image source={{ uri: item.imageUrl }} style={{ width: "100%", height: 80 }} contentFit="cover" cachePolicy="memory-disk" />
                         ) : (
                           <View style={{ width: "100%", height: 80, alignItems: "center", justifyContent: "center", backgroundColor: "#2A1508" }}>
                             <Text style={{ fontSize: 32 }}>🍽️</Text>
@@ -613,9 +613,9 @@ export default function MenuScreen() {
                   </View>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 12, gap: 10, flexDirection: "row-reverse" }}>
                     {availableCombos.map((combo) => (
-                      <View key={combo.comboId} style={{ width: 200, backgroundColor: "#0F1A2A", borderRadius: 16, padding: 12, gap: 8, borderWidth: 1, borderColor: "#82B1FF33" }}>
+                      <View key={`combo-${combo.comboId}`} style={{ width: 200, backgroundColor: "#0F1A2A", borderRadius: 16, padding: 12, gap: 8, borderWidth: 1, borderColor: "#82B1FF33" }}>
                         {combo.imageUrl ? (
-                          <Image source={{ uri: combo.imageUrl }} style={{ width: "100%", height: 100, borderRadius: 10 }} resizeMode="cover" />
+                          <Image source={{ uri: combo.imageUrl }} style={{ width: "100%", height: 100, borderRadius: 10 }} contentFit="cover" cachePolicy="memory-disk" />
                         ) : (
                           <View style={{ width: "100%", height: 80, borderRadius: 10, backgroundColor: "#1A2A3A", alignItems: "center", justifyContent: "center" }}>
                             <Text style={{ fontSize: 36 }}>🎁</Text>
@@ -669,7 +669,7 @@ export default function MenuScreen() {
             // Items
             for (const item of section.data) {
               flatChildren.push(
-                <View key={item.id} style={{ paddingHorizontal: 14, paddingTop: 6 }}>
+                <View key={`${section.id}-${item.id}`} style={{ paddingHorizontal: 14, paddingTop: 6 }}>
                   <MenuItemCard item={item} quantity={qtyMap.get(item.id) ?? 0} />
                 </View>
               );
@@ -685,7 +685,8 @@ export default function MenuScreen() {
               stickyHeaderIndices={stickyHeaderIndices}
               showsVerticalScrollIndicator={false}
               onScroll={scrollHandler}
-              scrollEventThrottle={16}
+              scrollEventThrottle={32}
+              removeClippedSubviews
             >
               {flatChildren}
             </Animated.ScrollView>
