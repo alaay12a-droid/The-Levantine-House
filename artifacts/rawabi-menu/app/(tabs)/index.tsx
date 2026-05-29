@@ -11,6 +11,7 @@ import {
   Linking,
   Modal,
   TextInput,
+  InteractionManager,
 } from "react-native";
 import { Image } from "expo-image";
 import Animated, {
@@ -238,17 +239,28 @@ export default function MenuScreen() {
     },
   });
 
-  // ── Scroll to section — retry until onLayout has populated sectionYs ─
+  // ── Scroll to section ─────────────────────────────────────────────────
+  // Uses InteractionManager + rAF to ensure layout is settled before scrolling.
+  // sectionYs are recorded on non-sticky anchor Views so values are never
+  // overwritten by sticky-header repositioning.
   const scrollToSection = useCallback((_sectionIdx: number, catId: string, animated = true) => {
-    const attempt = () => {
+    const doScroll = () => {
       const y = sectionYs.current[catId];
-      if (y !== undefined) { scrollTo(menuScrollRef, 0, y, animated); return true; }
+      if (y !== undefined) {
+        scrollTo(menuScrollRef, 0, Math.max(0, y), animated);
+        return true;
+      }
       return false;
     };
-    if (!attempt()) {
-      setTimeout(attempt, 120);
-      setTimeout(attempt, 350);
-    }
+
+    InteractionManager.runAfterInteractions(() => {
+      requestAnimationFrame(() => {
+        if (!doScroll()) {
+          // Layout not yet measured — retry after a short delay
+          setTimeout(() => { doScroll(); }, 200);
+        }
+      });
+    });
   }, [menuScrollRef]);
 
   // ── Tab press: update active + scroll ───────────────────────────────
@@ -645,16 +657,24 @@ export default function MenuScreen() {
             </View>
           );
 
-          // ── Sections (separator → sticky header → items) ──────────────
+          // ── Sections (anchor → sticky header → items) ─────────────────
+          // IMPORTANT: onLayout lives on the NON-sticky anchor, not the sticky
+          // header. Sticky headers get repositioned by the native layer which
+          // fires onLayout with the wrong (sticky) Y, corrupting sectionYs.
           for (const section of sections) {
-            // Separator between sections
-            flatChildren.push(<View key={`sep-${section.id}`} style={{ height: 6 }} />);
-            // Section header — direct child → sticky works
+            // Anchor View — NOT sticky, always holds the true content Y
+            flatChildren.push(
+              <View
+                key={`anchor-${section.id}`}
+                style={{ height: 6 }}
+                onLayout={(e) => { sectionYs.current[section.id] = e.nativeEvent.layout.y; }}
+              />
+            );
+            // Section header — sticky, NO onLayout
             stickyHeaderIndices.push(flatChildren.length);
             flatChildren.push(
               <View
                 key={`h-${section.id}`}
-                onLayout={(e) => { sectionYs.current[section.id] = e.nativeEvent.layout.y; }}
                 style={[styles.sectionRow, { backgroundColor: colors.background, borderBottomColor: colors.border, borderTopColor: colors.border }]}
               >
                 <Text style={[styles.itemCount, { color: colors.mutedForeground, fontFamily: F.semi }]}>
@@ -686,7 +706,6 @@ export default function MenuScreen() {
               showsVerticalScrollIndicator={false}
               onScroll={scrollHandler}
               scrollEventThrottle={32}
-              removeClippedSubviews
             >
               {flatChildren}
             </Animated.ScrollView>
