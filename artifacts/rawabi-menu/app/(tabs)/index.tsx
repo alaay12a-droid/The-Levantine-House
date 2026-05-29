@@ -421,7 +421,7 @@ export default function MenuScreen() {
         <Animated.ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.list} onScroll={scrollHandler} scrollEventThrottle={32}>
           <BannerCarousel banners={banners} />
           <View style={[styles.deliveryCard, { backgroundColor: colors.card, borderColor: colors.gold }]}>
-            <Image source={deliveryCar} style={styles.carImage} contentFit="cover" cachePolicy="memory-disk" />
+            <Image source={deliveryCar} style={styles.carImage} contentFit="cover" />
             <View style={[styles.deliveryOverlay, { backgroundColor: "#0F0A05EE" }]}>
               <Text style={[styles.deliveryTitle, { color: colors.gold, fontFamily: F.extra }]}>
                 {isEn ? "Delivery Service" : "خدمة التوصيل"}
@@ -460,7 +460,7 @@ export default function MenuScreen() {
         <Animated.ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.list} onScroll={scrollHandler} scrollEventThrottle={32}>
           <BannerCarousel banners={banners} />
           <View style={[styles.dhabihaHero, { borderColor: "#E8920C" }]}>
-            <Image source={dhabihaPoster} style={styles.dhabihaImg} contentFit="cover" cachePolicy="memory-disk" />
+            <Image source={dhabihaPoster} style={styles.dhabihaImg} contentFit="cover" />
           </View>
 
           {activeCat.items.map((item) => (
@@ -519,9 +519,9 @@ export default function MenuScreen() {
               style={[styles.occasionCard, { backgroundColor: colors.card, borderColor: colors.border }]}
             >
               {occ.imageUrl ? (
-                <Image source={{ uri: occ.imageUrl }} style={styles.occasionImg} contentFit="cover" cachePolicy="memory-disk" />
+                <Image source={{ uri: occ.imageUrl }} style={styles.occasionImg} contentFit="cover" />
               ) : occ.imageKey && FOOD_IMAGES[occ.imageKey] ? (
-                <Image source={FOOD_IMAGES[occ.imageKey]} style={styles.occasionImg} contentFit="cover" cachePolicy="memory-disk" />
+                <Image source={FOOD_IMAGES[occ.imageKey]} style={styles.occasionImg} contentFit="cover" />
               ) : null}
               <View style={[styles.occasionOverlay, { backgroundColor: "#0F0A05CC" }]}>
                 <View style={[styles.occasionBadge, { backgroundColor: colors.gold }]}>
@@ -588,7 +588,7 @@ export default function MenuScreen() {
                     {favItems.map((item) => (
                       <View key={`fav-${item.id}`} style={{ width: 130, backgroundColor: "#1A0D05", borderRadius: 14, overflow: "hidden", borderWidth: 1, borderColor: "#C8171A33" }}>
                         {item.imageUrl ? (
-                          <Image source={{ uri: item.imageUrl }} style={{ width: "100%", height: 80 }} contentFit="cover" cachePolicy="memory-disk" />
+                          <Image source={{ uri: item.imageUrl }} style={{ width: "100%", height: 80 }} contentFit="cover" />
                         ) : (
                           <View style={{ width: "100%", height: 80, alignItems: "center", justifyContent: "center", backgroundColor: "#2A1508" }}>
                             <Text style={{ fontSize: 32 }}>🍽️</Text>
@@ -615,7 +615,7 @@ export default function MenuScreen() {
                     {availableCombos.map((combo) => (
                       <View key={`combo-${combo.comboId}`} style={{ width: 200, backgroundColor: "#0F1A2A", borderRadius: 16, padding: 12, gap: 8, borderWidth: 1, borderColor: "#82B1FF33" }}>
                         {combo.imageUrl ? (
-                          <Image source={{ uri: combo.imageUrl }} style={{ width: "100%", height: 100, borderRadius: 10 }} contentFit="cover" cachePolicy="memory-disk" />
+                          <Image source={{ uri: combo.imageUrl }} style={{ width: "100%", height: 100, borderRadius: 10 }} contentFit="cover" />
                         ) : (
                           <View style={{ width: "100%", height: 80, borderRadius: 10, backgroundColor: "#1A2A3A", alignItems: "center", justifyContent: "center" }}>
                             <Text style={{ fontSize: 36 }}>🎁</Text>

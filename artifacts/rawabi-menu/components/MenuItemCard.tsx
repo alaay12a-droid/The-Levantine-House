@@ -119,7 +119,7 @@ function MenuItemCardInner({ item, quantity }: Props) {
         >
           {foodImage ? (
             <View style={[styles.imageWrap, { backgroundColor: colors.isLight ? "#E8D8C8" : "#2A1508" }]}>
-              <Image source={foodImage} style={styles.foodImage} contentFit="cover" cachePolicy="memory-disk" />
+              <Image source={foodImage} style={styles.foodImage} contentFit="cover" />
               {inCart && (
                 <View style={[styles.inCartDot, { backgroundColor: colors.gold }]} />
               )}
