@@ -11,7 +11,6 @@ import {
   Linking,
   Modal,
   TextInput,
-  InteractionManager,
 } from "react-native";
 import { Image } from "expo-image";
 import Animated, {
@@ -253,13 +252,15 @@ export default function MenuScreen() {
       return false;
     };
 
-    InteractionManager.runAfterInteractions(() => {
-      requestAnimationFrame(() => {
-        if (!doScroll()) {
-          // Layout not yet measured — retry after a short delay
-          setTimeout(() => { doScroll(); }, 200);
-        }
-      });
+    // Skip InteractionManager — adds latency. Two rAF passes are enough:
+    // first ensures React has flushed layout, second gives the native layer
+    // one paint cycle to apply sticky-header positions.
+    requestAnimationFrame(() => {
+      if (!doScroll()) {
+        requestAnimationFrame(() => {
+          if (!doScroll()) setTimeout(() => { doScroll(); }, 150);
+        });
+      }
     });
   }, [menuScrollRef]);
 
@@ -279,7 +280,7 @@ export default function MenuScreen() {
 
     setActiveCategory(catId);
     isScrollingProgrammatically.current = true;
-    setTimeout(() => { isScrollingProgrammatically.current = false; }, 1500);
+    setTimeout(() => { isScrollingProgrammatically.current = false; }, 700);
     scrollToSection(sectionIdx, catId);
   }, [categories, sections, scrollToSection]);
 
@@ -430,7 +431,7 @@ export default function MenuScreen() {
         </ScrollView>
       ) : specialCat?.isDelivery ? (
         /* ── DELIVERY SECTION ── */
-        <Animated.ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.list} onScroll={scrollHandler} scrollEventThrottle={32}>
+        <Animated.ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.list} onScroll={scrollHandler} scrollEventThrottle={32} decelerationRate="normal" overScrollMode="never">
           <BannerCarousel banners={banners} />
           <View style={[styles.deliveryCard, { backgroundColor: colors.card, borderColor: colors.gold }]}>
             <Image source={deliveryCar} style={styles.carImage} contentFit="cover" />
@@ -469,7 +470,7 @@ export default function MenuScreen() {
         </Animated.ScrollView>
       ) : specialCat?.isDhabiha ? (
         /* ── DHABIHA SECTION ── */
-        <Animated.ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.list} onScroll={scrollHandler} scrollEventThrottle={32}>
+        <Animated.ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.list} onScroll={scrollHandler} scrollEventThrottle={32} decelerationRate="normal" overScrollMode="never">
           <BannerCarousel banners={banners} />
           <View style={[styles.dhabihaHero, { borderColor: "#E8920C" }]}>
             <Image source={dhabihaPoster} style={styles.dhabihaImg} contentFit="cover" />
@@ -512,7 +513,7 @@ export default function MenuScreen() {
         </Animated.ScrollView>
       ) : specialCat?.isOccasions ? (
         /* ── OCCASIONS SECTION ── */
-        <Animated.ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.list} onScroll={scrollHandler} scrollEventThrottle={32}>
+        <Animated.ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.list} onScroll={scrollHandler} scrollEventThrottle={32} decelerationRate="normal" overScrollMode="never">
           <BannerCarousel banners={banners} />
           <View style={[styles.occasionsHeader, { backgroundColor: "#1A0D00", borderColor: colors.gold }]}>
             <Text style={[styles.occasionsTitle, { color: colors.gold, fontFamily: F.extra }]}>
@@ -596,7 +597,7 @@ export default function MenuScreen() {
                     <Text style={{ color: "#E8920C", fontFamily: F.extra, fontSize: 16 }}>❤️ {isEn ? "Favourites" : "المفضلة"}</Text>
                     <Text style={{ color: "#9A7A5A", fontFamily: F.semi, fontSize: 12 }}>({favItems.length})</Text>
                   </View>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 12, gap: 10, flexDirection: "row-reverse" }}>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} nestedScrollEnabled contentContainerStyle={{ paddingHorizontal: 12, gap: 10, flexDirection: "row-reverse" }}>
                     {favItems.map((item) => (
                       <View key={`fav-${item.id}`} style={{ width: 130, backgroundColor: "#1A0D05", borderRadius: 14, overflow: "hidden", borderWidth: 1, borderColor: "#C8171A33" }}>
                         {item.imageUrl ? (
@@ -623,7 +624,7 @@ export default function MenuScreen() {
                   <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8, paddingHorizontal: 16, paddingTop: 14, paddingBottom: 8 }}>
                     <Text style={{ color: "#82B1FF", fontFamily: F.extra, fontSize: 16 }}>🎁 {isEn ? "Meal Combos" : "الوجبات المجمعة"}</Text>
                   </View>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 12, gap: 10, flexDirection: "row-reverse" }}>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} nestedScrollEnabled contentContainerStyle={{ paddingHorizontal: 12, gap: 10, flexDirection: "row-reverse" }}>
                     {availableCombos.map((combo) => (
                       <View key={`combo-${combo.comboId}`} style={{ width: 200, backgroundColor: "#0F1A2A", borderRadius: 16, padding: 12, gap: 8, borderWidth: 1, borderColor: "#82B1FF33" }}>
                         {combo.imageUrl ? (
@@ -705,7 +706,10 @@ export default function MenuScreen() {
               stickyHeaderIndices={stickyHeaderIndices}
               showsVerticalScrollIndicator={false}
               onScroll={scrollHandler}
-              scrollEventThrottle={32}
+              scrollEventThrottle={16}
+              decelerationRate="normal"
+              overScrollMode="never"
+              keyboardDismissMode="on-drag"
             >
               {flatChildren}
             </Animated.ScrollView>
