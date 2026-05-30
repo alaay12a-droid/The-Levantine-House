@@ -555,7 +555,11 @@ export default function CheckoutScreen() {
               <Text style={[styles.orderTypeBtnLabel, { color: orderType === "delivery" ? "#fff" : colors.foreground, fontFamily: F.bold }]}>
                 {isEn ? "Delivery" : "توصيل"}
               </Text>
-              {previewDeliveryFee > 0 ? (
+              {zoneChecking ? (
+                <Text style={{ color: orderType === "delivery" ? "#ffee99" : colors.mutedForeground, fontFamily: F.semi, fontSize: 12 }}>
+                  {"..."}
+                </Text>
+              ) : previewDeliveryFee > 0 ? (
                 <Text style={{ color: orderType === "delivery" ? "#ffee99" : colors.mutedForeground, fontFamily: F.semi, fontSize: 12 }}>
                   +{previewDeliveryFeeStr} {isEn ? "SAR" : "ر.س"}
                 </Text>

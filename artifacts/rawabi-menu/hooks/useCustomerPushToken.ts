@@ -5,16 +5,20 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export const TOKEN_KEY = "@rawabi_customer_push_token";
 
-// Show notifications even when app is foregrounded
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+// Show notifications even when app is foregrounded (guarded: not supported in Expo Go)
+try {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+      shouldShowBanner: true,
+      shouldShowList: true,
+    }),
+  });
+} catch {
+  // expo-notifications push features unavailable in Expo Go — safe to ignore
+}
 
 export async function registerCustomerNotifications(): Promise<string | null> {
   if (Platform.OS === "web") return null;
