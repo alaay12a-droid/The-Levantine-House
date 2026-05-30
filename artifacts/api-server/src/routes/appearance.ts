@@ -12,6 +12,8 @@ const DEFAULTS: Record<string, string> = {
   appearance_minOrderAmount: "0",
   appearance_deliveryEnabled: "false",
   appearance_deliveryFee:     "0",
+  appearance_cashierPin:      "Aa@000",
+  appearance_adminPin:        "Aa@000",
 };
 
 // ── GET /settings/appearance ──────────────────────────────────────────────────
@@ -48,6 +50,32 @@ router.put("/settings/appearance", async (req, res) => {
   if (minOrderAmount !== undefined)  updates.appearance_minOrderAmount  = String(minOrderAmount);
   if (deliveryEnabled !== undefined) updates.appearance_deliveryEnabled = String(deliveryEnabled);
   if (deliveryFee !== undefined)     updates.appearance_deliveryFee     = String(deliveryFee);
+  for (const [key, value] of Object.entries(updates)) {
+    await db
+      .insert(appSettingsTable)
+      .values({ key, value })
+      .onConflictDoUpdate({ target: appSettingsTable.key, set: { value, updatedAt: new Date() } });
+  }
+  res.json({ ok: true });
+});
+
+// ── GET /settings/pins ────────────────────────────────────────────────────────
+router.get("/settings/pins", async (_req, res) => {
+  const rows = await db.select().from(appSettingsTable).where(like(appSettingsTable.key, `${KEY_PREFIX}%`));
+  const result = { ...DEFAULTS };
+  for (const row of rows) result[row.key] = row.value;
+  res.json({
+    cashier: result.appearance_cashierPin,
+    admin:   result.appearance_adminPin,
+  });
+});
+
+// ── PUT /settings/pins ────────────────────────────────────────────────────────
+router.put("/settings/pins", async (req, res) => {
+  const { cashier, admin } = req.body as { cashier?: string; admin?: string };
+  const updates: Record<string, string> = {};
+  if (cashier !== undefined) updates.appearance_cashierPin = cashier;
+  if (admin   !== undefined) updates.appearance_adminPin   = admin;
   for (const [key, value] of Object.entries(updates)) {
     await db
       .insert(appSettingsTable)
