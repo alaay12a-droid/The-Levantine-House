@@ -16,15 +16,37 @@ const S = {
   VERIFIED_PHONES: "sms_verified_phones",
 };
 
+// Strip leading country codes (966, 967, 974, 965, 970, 963, 964) and leading zeros
+// so "966510531741", "+966510531741", "0510531741", "510531741" all compare equal
+function normalizePhone(p: string): string {
+  const digits = p.replace(/[\s+\-()]/g, "");
+  return digits.replace(/^(966|967|974|965|970|963|964|0)/, "");
+}
+
 async function getVerifiedPhones(): Promise<Set<string>> {
   const raw = await getSetting(S.VERIFIED_PHONES);
   if (!raw) return new Set();
   try { return new Set(JSON.parse(raw) as string[]); } catch { return new Set(); }
 }
 
+async function isPhoneVerified(phone: string): Promise<boolean> {
+  const set = await getVerifiedPhones();
+  const norm = normalizePhone(phone);
+  if (set.has(phone)) return true;
+  // Check normalized form against all stored entries
+  for (const stored of set) {
+    if (normalizePhone(stored) === norm) return true;
+  }
+  return false;
+}
+
 async function markPhoneVerifiedServer(phone: string): Promise<void> {
   const set = await getVerifiedPhones();
-  if (set.has(phone)) return;
+  const norm = normalizePhone(phone);
+  // Avoid duplicates in different formats
+  for (const stored of set) {
+    if (normalizePhone(stored) === norm) return;
+  }
   set.add(phone);
   await setSetting(S.VERIFIED_PHONES, JSON.stringify([...set]));
 }
@@ -201,8 +223,7 @@ router.post("/sms/send-otp", async (req, res) => {
   const phone = parsed.data.phone.replace(/[\s+]/g, "");
   const isOnboarding = (req.body as Record<string, unknown>).onboarding === true;
   if (!isOnboarding) {
-    const verified = await getVerifiedPhones();
-    if (verified.has(phone)) { res.json({ ok: true, skipped: true }); return; }
+    if (await isPhoneVerified(phone)) { res.json({ ok: true, skipped: true }); return; }
   }
 
   const [apiKey, sender, providerRaw, methodRaw] = await Promise.all([
