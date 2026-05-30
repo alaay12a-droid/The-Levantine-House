@@ -127,13 +127,6 @@ export const MENU_CATEGORIES: MenuCategory[] = [
     ],
   },
   {
-    id: "mains",
-    name: "الأطباق الرئيسية",
-    nameEn: "Main Dishes",
-    icon: "🍽️",
-    items: CHICKEN_AND_MAINS_ITEMS,
-  },
-  {
     id: "sides",
     name: "الإيدامات",
     nameEn: "Sides",

@@ -57,11 +57,6 @@ export function BannerCarousel({ banners }: Props) {
           offset: CARD_WIDTH * index,
           index,
         })}
-        onMomentumScrollEnd={(e) => {
-          const idx = Math.round(e.nativeEvent.contentOffset.x / CARD_WIDTH);
-          setCurrent(idx);
-          currentRef.current = idx;
-        }}
         onScrollBeginDrag={() => {
           if (intervalRef.current) clearInterval(intervalRef.current);
         }}

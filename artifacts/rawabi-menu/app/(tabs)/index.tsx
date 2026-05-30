@@ -229,6 +229,18 @@ export default function MenuScreen() {
   const sectionsRef = useRef(sections);
   useEffect(() => { sectionsRef.current = sections; }, [sections]);
 
+  // ── Invalidate sectionYs when sections change ─────────────────────────
+  // When categories load from the API, sections can gain/lose entries
+  // (e.g. "mains" has 0 items in the DB so it disappears after API fetch).
+  // The onLayout anchors fire with updated Y positions after re-render, but
+  // there is a brief window where sectionYs still holds static-data values.
+  // Clearing on every sections change forces scrollToSection to wait for the
+  // fresh onLayout measurements before scrolling.
+  useEffect(() => {
+    console.log("[NAV] sections changed →", sections.map(s => s.id).join(", "));
+    sectionYs.current = {};
+  }, [sections]); // sections is memoized — ref only changes when API data changes
+
   // ── Re-sync active category when dynamic header content loads ────────
   // When banners, combos, or favorites load/change, section Y positions
   // shift downward (content is inserted above the sections).  The anchor
@@ -258,7 +270,10 @@ export default function MenuScreen() {
       const secY = sectionYs.current[sec.id];
       if (secY !== undefined && secY <= y + 10) found = sec.id;
     }
-    if (found) setActiveCategory(found);
+    if (found) {
+      console.log(`[NAV] ActiveCat: scrollY=${y.toFixed(0)} → "${found}" | sectionYs=${JSON.stringify(sectionYs.current)}`);
+      setActiveCategory(found);
+    }
   }, []); // stable — uses refs, never stale
 
   // ── Scroll handler: header collapse + banner + active tracking ───────
@@ -281,33 +296,52 @@ export default function MenuScreen() {
   });
 
   // ── Scroll to section ─────────────────────────────────────────────────
-  // Uses InteractionManager + rAF to ensure layout is settled before scrolling.
-  // sectionYs are recorded on non-sticky anchor Views so values are never
-  // overwritten by sticky-header repositioning.
+  // Reads the anchor's current Y from sectionYs (populated by onLayout).
+  // sectionYs is cleared whenever sections change, so if the API hasn't
+  // finished re-measuring we retry: rAF → rAF → 300 ms timeout.
+  //
+  // Banner compensation: when the banner is currently visible and the target
+  // is below Y=8, the banner will collapse during the scroll (scroll handler
+  // fires bannerAnim→0 at Y>8).  This shrinks the content above sections by
+  // bannerH, so we subtract that amount to land at the correct position.
   const scrollToSection = useCallback((_sectionIdx: number, catId: string, animated = true) => {
     const doScroll = () => {
-      const y = sectionYs.current[catId];
-      if (y !== undefined) {
-        scrollTo(menuScrollRef, 0, Math.max(0, y), animated);
-        return true;
-      }
-      return false;
+      const storedY = sectionYs.current[catId];
+      if (storedY === undefined) return false;
+
+      // Compensate for banner collapsing during the scroll animation
+      const bannerWillCollapse = bannerH.value > 0 && bannerAnim.value > 0.5 && storedY > 8;
+      const targetY = bannerWillCollapse ? Math.max(0, storedY - bannerH.value) : storedY;
+
+      console.log(
+        `[NAV] scrollToSection → catId="${catId}"`,
+        `storedY=${storedY}`,
+        `bannerH=${bannerH.value.toFixed(0)}`,
+        `bannerWillCollapse=${bannerWillCollapse}`,
+        `targetY=${targetY}`,
+        `sectionKeys=${Object.keys(sectionYs.current).join(",")}`,
+      );
+
+      scrollTo(menuScrollRef, 0, targetY, animated);
+      return true;
     };
 
-    // Skip InteractionManager — adds latency. Two rAF passes are enough:
-    // first ensures React has flushed layout, second gives the native layer
-    // one paint cycle to apply sticky-header positions.
+    // Two rAF passes: first flushes React layout, second gives native layer
+    // a paint cycle.  If sectionYs is still empty (sections just changed and
+    // onLayout hasn't fired yet) fall back to a 300 ms timeout.
     requestAnimationFrame(() => {
       if (!doScroll()) {
         requestAnimationFrame(() => {
-          if (!doScroll()) setTimeout(() => { doScroll(); }, 150);
+          if (!doScroll()) setTimeout(() => { doScroll(); }, 300);
         });
       }
     });
-  }, [menuScrollRef]);
+  }, [menuScrollRef, bannerH, bannerAnim]);
 
   // ── Tab press: update active + scroll ───────────────────────────────
   const handleTabPress = useCallback((catId: string) => {
+    console.log(`[NAV] handleTabPress catId="${catId}" | currentY=${lastY.value.toFixed(0)} | sectionYs=${JSON.stringify(sectionYs.current)}`);
+
     const cat = categories.find((c) => c.id === catId);
     if (cat?.isDelivery || cat?.isDhabiha || cat?.isOccasions) {
       setActiveCategory(catId);
@@ -316,6 +350,7 @@ export default function MenuScreen() {
 
     const sectionIdx = sections.findIndex((s) => s.id === catId);
     if (sectionIdx === -1) {
+      console.log(`[NAV] catId="${catId}" not found in sections=[${sections.map(s=>s.id).join(",")}] — no scroll`);
       setActiveCategory(catId);
       return;
     }
@@ -323,15 +358,13 @@ export default function MenuScreen() {
     setActiveCategory(catId);
     isScrollingProgrammatically.current = true;
     scrollToSection(sectionIdx, catId);
-    // After the scroll animation completes, verify the scroll landed at the
-    // section's CURRENT position (not the stale one from before banners/combos
-    // loaded).  If they diverge by >80 px a corrective re-scroll is issued.
     setTimeout(() => {
       isScrollingProgrammatically.current = false;
       const landedY    = lastY.value;
       const freshTargetY = sectionYs.current[catId];
+      console.log(`[NAV] post-scroll: catId="${catId}" landedY=${landedY.toFixed(0)} freshTargetY=${freshTargetY}`);
       if (freshTargetY !== undefined && Math.abs(landedY - freshTargetY) > 80) {
-        // Dynamic content shifted the section — re-scroll to the real position
+        console.log(`[NAV] corrective re-scroll: diff=${Math.abs(landedY - freshTargetY).toFixed(0)} → re-targeting ${freshTargetY}`);
         isScrollingProgrammatically.current = true;
         scrollTo(menuScrollRef, 0, Math.max(0, freshTargetY), true);
         setTimeout(() => {
@@ -342,7 +375,7 @@ export default function MenuScreen() {
         updateActiveCategoryFromScroll(landedY, true);
       }
     }, 750);
-  }, [categories, sections, scrollToSection, updateActiveCategoryFromScroll]);
+  }, [categories, sections, scrollToSection, updateActiveCategoryFromScroll, lastY]);
 
   // ── Auto-scroll tabs bar to keep active tab in view ─────────────────
   useEffect(() => {
