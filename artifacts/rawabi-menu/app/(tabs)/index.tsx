@@ -170,6 +170,10 @@ export default function MenuScreen() {
   const bannerH = useSharedValue(0);
   const bannerAnim = useSharedValue(1); // 1=visible 0=hidden
 
+  // ── Left scroll indicator ────────────────────────────────────────────
+  const scrollContentH = useSharedValue(0);
+  const scrollViewportH = useSharedValue(0);
+
   const headerTopStyle = useAnimatedStyle(() => {
     if (collapsibleH.value <= 0) {
       return { overflow: "hidden" };
@@ -187,6 +191,23 @@ export default function MenuScreen() {
       height: interpolate(bannerAnim.value, [0, 1], [0, bannerH.value], Extrapolation.CLAMP),
       opacity: interpolate(bannerAnim.value, [0, 0.5], [0, 1], Extrapolation.CLAMP),
       overflow: "hidden",
+    };
+  });
+
+  // Runs entirely on UI thread — no JS bridge, zero lag
+  const scrollThumbStyle = useAnimatedStyle(() => {
+    const total = scrollContentH.value;
+    const viewport = scrollViewportH.value;
+    if (total <= viewport || viewport === 0) return { opacity: 0, height: 40 };
+
+    const thumbH = Math.max(40, (viewport / total) * viewport);
+    const maxY = Math.max(0, viewport - thumbH - 16);
+    const ratio = Math.min(1, Math.max(0, lastY.value / (total - viewport)));
+
+    return {
+      height: thumbH,
+      opacity: interpolate(lastY.value, [0, 24], [0, 0.85], Extrapolation.CLAMP),
+      transform: [{ translateY: 8 + ratio * maxY }],
     };
   });
 
@@ -701,18 +722,29 @@ export default function MenuScreen() {
           flatChildren.push(<View key="__bottom" style={{ height: Platform.OS === "web" ? 130 : 110 }} />);
 
           return (
-            <Animated.ScrollView
-              ref={menuScrollRef}
-              stickyHeaderIndices={stickyHeaderIndices}
-              showsVerticalScrollIndicator={false}
-              onScroll={scrollHandler}
-              scrollEventThrottle={16}
-              decelerationRate="normal"
-              overScrollMode="never"
-              keyboardDismissMode="on-drag"
+            <View
+              style={{ flex: 1 }}
+              onLayout={(e) => { scrollViewportH.value = e.nativeEvent.layout.height; }}
             >
-              {flatChildren}
-            </Animated.ScrollView>
+              <Animated.ScrollView
+                ref={menuScrollRef}
+                stickyHeaderIndices={stickyHeaderIndices}
+                showsVerticalScrollIndicator={false}
+                onScroll={scrollHandler}
+                scrollEventThrottle={16}
+                decelerationRate="normal"
+                overScrollMode="never"
+                keyboardDismissMode="on-drag"
+                onContentSizeChange={(_, h) => { scrollContentH.value = h; }}
+              >
+                {flatChildren}
+              </Animated.ScrollView>
+
+              {/* Left scroll indicator — runs on UI thread, zero lag */}
+              <View pointerEvents="none" style={styles.scrollTrack}>
+                <Animated.View style={[styles.scrollThumb, scrollThumbStyle]} />
+              </View>
+            </View>
           );
         })()
 
@@ -964,4 +996,21 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   occasionBtnText: { color: "#fff", fontSize: 13 },
+
+  scrollTrack: {
+    position: "absolute",
+    left: 3,
+    top: 0,
+    bottom: 0,
+    width: 3,
+    borderRadius: 2,
+  },
+  scrollThumb: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    width: 3,
+    borderRadius: 2,
+    backgroundColor: "#E8920C",
+  },
 });
