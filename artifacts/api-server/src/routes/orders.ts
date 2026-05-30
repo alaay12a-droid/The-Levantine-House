@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, ordersTable, menuItemsTable, appSettingsTable } from "@workspace/db";
+import { db, ordersTable, menuItemsTable, appSettingsTable, orderDriverAssignmentsTable } from "@workspace/db";
 import { eq, desc, gte, lt, count, and } from "drizzle-orm";
 import { sendPushToAll } from "../lib/sendPushNotification.js";
 import { sendSms } from "../lib/sendSms.js";
@@ -142,11 +142,12 @@ const CUSTOMER_STATUS_MESSAGES: Partial<Record<string, { title: string; body: st
   },
   ready: {
     title: "✅ طلبك جاهز!",
-    body: "تفضل استلم طلبك الآن 🎉",
+    body: "طلبك أصبح جاهزاً 🎉",
   },
+  // "done" for pickup orders only (no driver) — delivery orders get notified via driver events
   done: {
     title: "🙏 شكراً لك",
-    body: "تم تسليم طلبك — نتمنى تكون استمتعت بوجبتك!",
+    body: "تم استلام طلبك — نتمنى تكون استمتعت بوجبتك!",
   },
   cancelled: {
     title: "❌ تم إلغاء طلبك",
@@ -180,18 +181,31 @@ router.patch("/orders/:id/status", async (req, res) => {
   // Send push notification to customer if they have a token
   if (order.customerPushToken && CUSTOMER_STATUS_MESSAGES[status]) {
     const msg = CUSTOMER_STATUS_MESSAGES[status]!;
-    fetch("https://exp.host/--/api/v2/push/send", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        to: order.customerPushToken,
-        title: msg.title,
-        body: msg.body,
-        sound: "default",
-        data: { orderId: order.id, status },
-        channelId: "order-status",
-      }),
-    }).catch(() => {});
+    // For "done": skip if order has a driver assignment (delivery order) —
+    // the driver's "delivered" event sends the notification instead
+    let shouldSend = true;
+    if (status === "done") {
+      const [driverRow] = await db
+        .select({ id: orderDriverAssignmentsTable.orderId })
+        .from(orderDriverAssignmentsTable)
+        .where(eq(orderDriverAssignmentsTable.orderId, order.id))
+        .limit(1);
+      if (driverRow) shouldSend = false;
+    }
+    if (shouldSend) {
+      fetch("https://exp.host/--/api/v2/push/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          to: order.customerPushToken,
+          title: msg.title,
+          body: msg.body,
+          sound: "default",
+          data: { orderId: order.id, status },
+          channelId: "order-status",
+        }),
+      }).catch(() => {});
+    }
   }
 
   // Send SMS to customer on cancellation (works for web users who have no push token)

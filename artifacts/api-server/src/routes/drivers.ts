@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db, deliveryDriversTable, orderDriverAssignmentsTable, ordersTable, appSettingsTable, messagesTable } from "@workspace/db";
 import { eq, desc, and, gte, lt, ne } from "drizzle-orm";
 import { z } from "zod";
+import { sendPushToToken } from "../lib/sendPushNotification.js";
 
 const router = Router();
 
@@ -371,6 +372,32 @@ router.put("/orders/:id/driver-status", async (req, res) => {
     .where(eq(orderDriverAssignmentsTable.orderId, orderId))
     .returning();
   res.json(assignment);
+
+  // Send push notification to customer
+  const [order] = await db
+    .select({ customerPushToken: ordersTable.customerPushToken, id: ordersTable.id })
+    .from(ordersTable)
+    .where(eq(ordersTable.id, orderId))
+    .limit(1);
+  if (order?.customerPushToken) {
+    if (status === "picked_up") {
+      sendPushToToken(order.customerPushToken, {
+        title: "🛵 المندوب في الطريق إليك",
+        body: "المندوب استلم طلبك وهو الآن في الطريق إليك",
+        sound: "default",
+        data: { orderId, driverStatus: "picked_up" },
+        channelId: "order-status",
+      }).catch(() => {});
+    } else if (status === "delivered") {
+      sendPushToToken(order.customerPushToken, {
+        title: "✅ طلبك وصل! 🎉",
+        body: "تم تسليم طلبك — نتمنى تكون استمتعت بوجبتك 🙏",
+        sound: "default",
+        data: { orderId, driverStatus: "delivered" },
+        channelId: "order-status",
+      }).catch(() => {});
+    }
+  }
 });
 
 // ── GET /orders/:id/assignment ────────────────────────────────────────────────
