@@ -229,13 +229,34 @@ export default function MenuScreen() {
   const sectionsRef = useRef(sections);
   useEffect(() => { sectionsRef.current = sections; }, [sections]);
 
+  // ── Re-sync active category when dynamic header content loads ────────
+  // When banners, combos, or favorites load/change, section Y positions
+  // shift downward (content is inserted above the sections).  The anchor
+  // Views' onLayout callbacks will update sectionYs automatically, but we
+  // also need to re-evaluate which category is "active" at the current
+  // scroll position so the tab highlight stays correct.
+  // We wait 300 ms to let React finish re-layout and onLayout callbacks fire.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (!isScrollingProgrammatically.current) {
+        updateActiveCategoryFromScroll(lastY.value, true);
+      }
+    }, 300);
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [banners.length, combos.length, favorites.length]);
+
   // ── Active category update from manual scroll (JS thread, stable ref) ─
-  const updateActiveCategoryFromScroll = useCallback((y: number) => {
-    if (isScrollingProgrammatically.current) return;
+  // Threshold +10: section becomes "active" when its anchor is within 10px
+  // of the current scroll position — i.e. the section header is just about
+  // to stick at the top of the viewport.  The old value of +80 was too large
+  // and caused the highlighted tab to jump ahead of the visible content.
+  const updateActiveCategoryFromScroll = useCallback((y: number, force = false) => {
+    if (!force && isScrollingProgrammatically.current) return;
     let found = "";
     for (const sec of sectionsRef.current) {
       const secY = sectionYs.current[sec.id];
-      if (secY !== undefined && secY <= y + 80) found = sec.id;
+      if (secY !== undefined && secY <= y + 10) found = sec.id;
     }
     if (found) setActiveCategory(found);
   }, []); // stable — uses refs, never stale
@@ -301,9 +322,27 @@ export default function MenuScreen() {
 
     setActiveCategory(catId);
     isScrollingProgrammatically.current = true;
-    setTimeout(() => { isScrollingProgrammatically.current = false; }, 700);
     scrollToSection(sectionIdx, catId);
-  }, [categories, sections, scrollToSection]);
+    // After the scroll animation completes, verify the scroll landed at the
+    // section's CURRENT position (not the stale one from before banners/combos
+    // loaded).  If they diverge by >80 px a corrective re-scroll is issued.
+    setTimeout(() => {
+      isScrollingProgrammatically.current = false;
+      const landedY    = lastY.value;
+      const freshTargetY = sectionYs.current[catId];
+      if (freshTargetY !== undefined && Math.abs(landedY - freshTargetY) > 80) {
+        // Dynamic content shifted the section — re-scroll to the real position
+        isScrollingProgrammatically.current = true;
+        scrollTo(menuScrollRef, 0, Math.max(0, freshTargetY), true);
+        setTimeout(() => {
+          isScrollingProgrammatically.current = false;
+          updateActiveCategoryFromScroll(lastY.value, true);
+        }, 500);
+      } else {
+        updateActiveCategoryFromScroll(landedY, true);
+      }
+    }, 750);
+  }, [categories, sections, scrollToSection, updateActiveCategoryFromScroll]);
 
   // ── Auto-scroll tabs bar to keep active tab in view ─────────────────
   useEffect(() => {
