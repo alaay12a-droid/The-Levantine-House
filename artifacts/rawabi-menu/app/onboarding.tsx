@@ -138,7 +138,7 @@ export default function OnboardingScreen() {
     setOtpLoading(true);
     try {
       const intlPhone = buildIntlPhone();
-      const r = await apiPost<{ ok: boolean; skipped?: boolean; devCode?: string; otpLength?: number }>("/sms/send-otp", { phone: intlPhone });
+      const r = await apiPost<{ ok: boolean; skipped?: boolean; devCode?: string; otpLength?: number }>("/sms/send-otp", { phone: intlPhone, onboarding: true });
       if (r.skipped) { goToLocation(); return; }
       setOtpStep("sent");
       setOtpCode("");
@@ -164,6 +164,8 @@ export default function OnboardingScreen() {
     try {
       const intlPhone = buildIntlPhone();
       await apiPost("/sms/verify-otp", { phone: intlPhone, code: otpCode });
+      // Mark phone as permanently verified so checkout never asks again
+      apiPost("/sms/mark-verified", { phone: intlPhone }).catch(() => {});
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       goToLocation();
     } catch (e: any) {

@@ -197,10 +197,13 @@ router.post("/sms/send-otp", async (req, res) => {
   const enabled = await getSetting(S.ENABLED);
   if (enabled !== "true") { res.json({ ok: true, skipped: true }); return; }
 
-  // Already verified from any device → skip OTP
+  // Already verified from any device → skip OTP (only for checkout, not onboarding)
   const phone = parsed.data.phone.replace(/[\s+]/g, "");
-  const verified = await getVerifiedPhones();
-  if (verified.has(phone)) { res.json({ ok: true, skipped: true }); return; }
+  const isOnboarding = (req.body as Record<string, unknown>).onboarding === true;
+  if (!isOnboarding) {
+    const verified = await getVerifiedPhones();
+    if (verified.has(phone)) { res.json({ ok: true, skipped: true }); return; }
+  }
 
   const [apiKey, sender, providerRaw, methodRaw] = await Promise.all([
     getSetting(S.API_KEY), getSetting(S.SENDER), getSetting(S.PROVIDER), getSetting(S.METHOD),
