@@ -241,6 +241,11 @@ export default function CheckoutScreen() {
   const deliveryFee = (paymentSettings.deliveryEnabled && orderType === "delivery")
     ? (zoneFee !== null ? zoneFee : (paymentSettings.deliveryFee ?? 0))
     : 0;
+  // Preview fee shown on the delivery button card (independent of selected orderType)
+  const previewDeliveryFee = paymentSettings.deliveryEnabled
+    ? (zoneFee !== null ? zoneFee : (paymentSettings.deliveryFee ?? 0))
+    : 0;
+  const previewDeliveryFeeStr = previewDeliveryFee % 1 === 0 ? previewDeliveryFee.toString() : previewDeliveryFee.toFixed(2);
   const grandTotal = Math.max(0, totalPrice + deliveryFee - appliedDiscount);
   const grandTotalStr = grandTotal % 1 === 0 ? grandTotal.toString() : grandTotal.toFixed(2);
   const deliveryFeeStr = deliveryFee % 1 === 0 ? deliveryFee.toString() : deliveryFee.toFixed(2);
@@ -550,9 +555,9 @@ export default function CheckoutScreen() {
               <Text style={[styles.orderTypeBtnLabel, { color: orderType === "delivery" ? "#fff" : colors.foreground, fontFamily: F.bold }]}>
                 {isEn ? "Delivery" : "توصيل"}
               </Text>
-              {paymentSettings.deliveryFee > 0 ? (
+              {previewDeliveryFee > 0 ? (
                 <Text style={{ color: orderType === "delivery" ? "#ffee99" : colors.mutedForeground, fontFamily: F.semi, fontSize: 12 }}>
-                  +{paymentSettings.deliveryFee} {isEn ? "SAR" : "ر.س"}
+                  +{previewDeliveryFeeStr} {isEn ? "SAR" : "ر.س"}
                 </Text>
               ) : (
                 <Text style={{ color: orderType === "delivery" ? "#ccffcc" : "#4CAF50", fontFamily: F.semi, fontSize: 12 }}>
