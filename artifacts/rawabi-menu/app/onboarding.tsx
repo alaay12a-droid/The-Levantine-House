@@ -605,8 +605,8 @@ export default function OnboardingScreen() {
 const styles = StyleSheet.create({
   scroll: { alignItems: "center", paddingHorizontal: 24, gap: 24 },
   brand: { alignItems: "center", gap: 4 },
-  brandTitle: { fontSize: 28, fontFamily: "Cairo_800ExtraBold", color: "#F5ECD7", letterSpacing: 0.5 },
-  brandSub: { fontSize: 13, fontFamily: "Cairo_400Regular", color: "#E8920C" },
+  brandTitle: { fontSize: 28, fontFamily: "Cairo_800ExtraBold", color: "#C8171A", letterSpacing: 0.5 },
+  brandSub: { fontSize: 15, fontFamily: "Cairo_600SemiBold", color: "#E8920C" },
   dots: { flexDirection: "row", gap: 8 },
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#2E1F0E" },
   dotActive: { backgroundColor: "#C8171A", width: 24 },
