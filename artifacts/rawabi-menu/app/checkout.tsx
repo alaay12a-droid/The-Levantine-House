@@ -239,13 +239,17 @@ export default function CheckoutScreen() {
   const zoneFee = zoneCheckResult?.found && zoneCheckResult.zone
     ? zoneCheckResult.zone.deliveryFee / 100
     : null;
-  const deliveryFee = (paymentSettings.deliveryEnabled && orderType === "delivery")
-    ? (zoneFee !== null ? zoneFee : (paymentSettings.deliveryFee ?? 0))
+  // Zone fee always applies when in a zone (regardless of deliveryEnabled toggle).
+  // deliveryEnabled only gates the global fallback fee when no zone is matched.
+  const deliveryFee = orderType === "delivery"
+    ? (zoneFee !== null
+        ? zoneFee
+        : (paymentSettings.deliveryEnabled ? (paymentSettings.deliveryFee ?? 0) : 0))
     : 0;
   // Preview fee shown on the delivery button card (independent of selected orderType)
-  const previewDeliveryFee = paymentSettings.deliveryEnabled
-    ? (zoneFee !== null ? zoneFee : (paymentSettings.deliveryFee ?? 0))
-    : 0;
+  const previewDeliveryFee = zoneFee !== null
+    ? zoneFee
+    : (paymentSettings.deliveryEnabled ? (paymentSettings.deliveryFee ?? 0) : 0);
   const previewDeliveryFeeStr = previewDeliveryFee % 1 === 0 ? previewDeliveryFee.toString() : previewDeliveryFee.toFixed(2);
   const grandTotal = Math.max(0, totalPrice + deliveryFee - appliedDiscount);
   const grandTotalStr = grandTotal % 1 === 0 ? grandTotal.toString() : grandTotal.toFixed(2);
