@@ -1298,9 +1298,14 @@ export default function CheckoutScreen() {
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              onPress={() => {
+              onPress={async () => {
                 setOtpStep("verified");
-                if (user?.phone) markPhoneVerified(user.phone);
+                if (user?.phone) {
+                  markPhoneVerified(user.phone);
+                  // Mark on server so this device and all future devices skip OTP
+                  apiPost("/sms/mark-verified", { phone: user.phone }).catch(() => {});
+                }
+                await submitOrder();
               }}
               disabled={otpLoading}
               style={{ alignItems: "center", paddingVertical: 4 }}

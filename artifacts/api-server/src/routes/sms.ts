@@ -275,6 +275,15 @@ router.post("/sms/verify-otp", async (req, res) => {
   res.json({ ok: true });
 });
 
+// ── POST /sms/mark-verified — called when user skips OTP or verifies ─────────
+router.post("/sms/mark-verified", async (req, res) => {
+  const parsed = z.object({ phone: z.string().min(9) }).safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "رقم غير صحيح" }); return; }
+  const phone = parsed.data.phone.replace(/[\s+]/g, "");
+  await markPhoneVerifiedServer(phone);
+  res.json({ ok: true });
+});
+
 router.post("/sms/test", async (req, res) => {
   const parsed = z.object({ phone: z.string().min(9) }).safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "رقم غير صحيح" }); return; }
