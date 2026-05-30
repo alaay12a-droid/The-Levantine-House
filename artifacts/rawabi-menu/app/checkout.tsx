@@ -89,9 +89,31 @@ export default function CheckoutScreen() {
   const [zoneCheckResult, setZoneCheckResult] = useState<ZoneCheckResult | null>(null);
   const [zoneChecking, setZoneChecking] = useState(false);
 
+  const VERIFIED_PHONES_KEY = "@rawabi_verified_phones";
+  const markPhoneVerified = async (phone: string) => {
+    try {
+      const raw = await AsyncStorage.getItem(VERIFIED_PHONES_KEY);
+      const set: string[] = raw ? JSON.parse(raw) : [];
+      if (!set.includes(phone)) {
+        set.push(phone);
+        await AsyncStorage.setItem(VERIFIED_PHONES_KEY, JSON.stringify(set));
+      }
+    } catch {}
+  };
+
   const [otpStep, setOtpStep] = useState<"idle" | "sent" | "verified">("idle");
   const [otpCode, setOtpCode] = useState("");
   const [otpLoading, setOtpLoading] = useState(false);
+
+  // Skip OTP if phone was already verified in a previous session
+  useEffect(() => {
+    if (!user?.phone) return;
+    AsyncStorage.getItem(VERIFIED_PHONES_KEY).then((raw) => {
+      if (!raw) return;
+      const set: string[] = JSON.parse(raw);
+      if (set.includes(user.phone)) setOtpStep("verified");
+    }).catch(() => {});
+  }, [user?.phone]);
   const [cooldownSeconds, setCooldownSeconds] = useState(0);
   const cooldownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -294,7 +316,7 @@ export default function CheckoutScreen() {
     setOtpLoading(true);
     try {
       const r = await apiPost<{ ok: boolean; skipped?: boolean }>("/sms/send-otp", { phone: user.phone });
-      if (r.skipped) { setOtpStep("verified"); return true; }
+      if (r.skipped) { setOtpStep("verified"); markPhoneVerified(user.phone); return true; }
       setOtpStep("sent");
       setOtpCode("");
       return false;
@@ -436,6 +458,7 @@ export default function CheckoutScreen() {
       await apiPost("/sms/verify-otp", { phone: user.phone, code: otpCode });
       setOtpStep("verified");
       setOtpCode("");
+      markPhoneVerified(user.phone);
       await submitOrder();
     } catch (err: unknown) {
       const msg = (err as { message?: string })?.message ?? "الرمز غير صحيح";
@@ -1275,7 +1298,10 @@ export default function CheckoutScreen() {
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              onPress={() => setOtpStep("verified")}
+              onPress={() => {
+                setOtpStep("verified");
+                if (user?.phone) markPhoneVerified(user.phone);
+              }}
               disabled={otpLoading}
               style={{ alignItems: "center", paddingVertical: 4 }}
             >
