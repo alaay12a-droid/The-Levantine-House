@@ -234,7 +234,8 @@ export default function CheckoutScreen() {
   }, [orderType, effectiveLat, effectiveLng]);
 
   // ─── Delivery fee: use zone fee if zones are configured ───────────────────
-  const zoneFee = zoneCheckResult?.found && zoneCheckResult.zone
+  // Zone fee = 0 means "inherit global fee" — only override when zone has explicit fee > 0
+  const zoneFee = zoneCheckResult?.found && zoneCheckResult.zone && zoneCheckResult.zone.deliveryFee > 0
     ? zoneCheckResult.zone.deliveryFee / 100
     : null;
   const deliveryFee = (paymentSettings.deliveryEnabled && orderType === "delivery")
@@ -598,7 +599,9 @@ export default function CheckoutScreen() {
                     <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12, textAlign: "right" }}>
                       {zoneCheckResult.zone.deliveryFee > 0
                         ? `رسوم التوصيل: ${(zoneCheckResult.zone.deliveryFee / 100).toFixed(2)} ر.س`
-                        : "توصيل مجاني لهذه المنطقة"}
+                        : paymentSettings.deliveryFee > 0
+                          ? `رسوم التوصيل: ${paymentSettings.deliveryFee} ر.س`
+                          : "توصيل مجاني لهذه المنطقة"}
                       {zoneCheckResult.zone.minOrder > 0 && ` • حد أدنى: ${(zoneCheckResult.zone.minOrder / 100).toFixed(0)} ر.س`}
                     </Text>
                   </View>
