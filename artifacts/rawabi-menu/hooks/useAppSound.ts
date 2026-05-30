@@ -2,7 +2,7 @@ import { useCallback } from "react";
 import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
-import { SOUND_KEYS, type SoundOption } from "@/constants/appSounds";
+import { SOUND_KEYS, getCustomKey, type SoundOption } from "@/constants/appSounds";
 
 // ── Web Audio synthesis ────────────────────────────────────────────────────
 function playSynth(option: SoundOption): void {
@@ -67,15 +67,38 @@ async function playWebFile(src: string): Promise<boolean> {
   }
 }
 
+// ── Play a URI file natively via expo-av ────────────────────────────────────
+export async function playUriSound(uri: string): Promise<void> {
+  try {
+    const { Audio } = require("expo-av") as typeof import("expo-av");
+    await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
+    const { sound } = await Audio.Sound.createAsync({ uri }, { volume: 1 });
+    await sound.playAsync();
+    sound.setOnPlaybackStatusUpdate((status) => {
+      if (status.isLoaded && status.didJustFinish) {
+        sound.unloadAsync().catch(() => {});
+      }
+    });
+  } catch {}
+}
+
 // ── Core player ────────────────────────────────────────────────────────────
 export async function playAppSound(
   type: "order" | "message" | "delivery",
   defaultAsset: string
 ): Promise<void> {
   try {
-    const [mutedRaw, optionRaw] = await Promise.all([
+    const soundKey = (() => {
+      if (type === "order")    return SOUND_KEYS.order;
+      if (type === "delivery") return SOUND_KEYS.delivery;
+      return SOUND_KEYS.message;
+    })();
+    const customKey = getCustomKey(soundKey);
+
+    const [mutedRaw, optionRaw, customUri] = await Promise.all([
       AsyncStorage.getItem(SOUND_KEYS.muted),
-      AsyncStorage.getItem(SOUND_KEYS[type]),
+      AsyncStorage.getItem(soundKey),
+      AsyncStorage.getItem(customKey),
     ]);
 
     if (mutedRaw === "true") return;
@@ -85,6 +108,14 @@ export async function playAppSound(
 
     // Haptics (mobile only, silent on web)
     try { await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); } catch {}
+
+    // Custom file from device
+    if (option === "custom" && customUri) {
+      if (Platform.OS !== "web") {
+        await playUriSound(customUri);
+      }
+      return;
+    }
 
     if (Platform.OS === "web") {
       if (option === "default") {
@@ -126,8 +157,12 @@ export function useAppSound() {
   );
 
   // Preview: play a specific option without saving it
-  const previewSound = useCallback(async (option: SoundOption) => {
+  const previewSound = useCallback(async (option: SoundOption, customUri?: string) => {
     if (option === "silent") return;
+    if (option === "custom" && customUri && Platform.OS !== "web") {
+      await playUriSound(customUri);
+      return;
+    }
     if (Platform.OS === "web") {
       playSynth(option === "default" ? "chime" : option);
     }

@@ -19,6 +19,8 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
+import * as DocumentPicker from "expo-document-picker";
+import { getCustomKey } from "@/constants/appSounds";
 import { useColors } from "@/hooks/useColors";
 import { useAppConfig } from "@/context/AppConfigContext";
 import { useMenu, type ApiMenuItem } from "@/hooks/useMenu";
@@ -426,22 +428,51 @@ export default function AdminMenuScreen() {
   const [soundOrder, setSoundOrder] = useState<SoundOption>("default");
   const [soundMessage, setSoundMessage] = useState<SoundOption>("default");
   const [soundDelivery, setSoundDelivery] = useState<SoundOption>("default");
+  const [customUriOrder, setCustomUriOrder] = useState<string | null>(null);
+  const [customUriMessage, setCustomUriMessage] = useState<string | null>(null);
+  const [customUriDelivery, setCustomUriDelivery] = useState<string | null>(null);
   useEffect(() => {
     Promise.all([
       AsyncStorage.getItem(SOUND_KEYS.muted),
       AsyncStorage.getItem(SOUND_KEYS.order),
       AsyncStorage.getItem(SOUND_KEYS.message),
       AsyncStorage.getItem(SOUND_KEYS.delivery),
-    ]).then(([m, o, msg, d]) => {
+      AsyncStorage.getItem(SOUND_KEYS.customOrder),
+      AsyncStorage.getItem(SOUND_KEYS.customMessage),
+      AsyncStorage.getItem(SOUND_KEYS.customDelivery),
+    ]).then(([m, o, msg, d, co, cm, cd]) => {
       if (m) setSoundMuted(m === "true");
       if (o) setSoundOrder(o as SoundOption);
       if (msg) setSoundMessage(msg as SoundOption);
       if (d) setSoundDelivery(d as SoundOption);
+      if (co) setCustomUriOrder(co);
+      if (cm) setCustomUriMessage(cm);
+      if (cd) setCustomUriDelivery(cd);
     });
   }, []);
   const setSoundPref = useCallback(async (key: string, val: SoundOption | boolean) => {
     await AsyncStorage.setItem(key, String(val));
   }, []);
+  const pickCustomSound = useCallback(async (soundKey: string, setUri: (u: string) => void, setSoundVal: (v: SoundOption) => void) => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ["audio/*"],
+        copyToCacheDirectory: true,
+      });
+      if (result.canceled) return;
+      const asset = result.assets[0];
+      if (!asset?.uri) return;
+      const uri = asset.uri;
+      const customKey = getCustomKey(soundKey);
+      await AsyncStorage.setItem(customKey, uri);
+      await AsyncStorage.setItem(soundKey, "custom");
+      setUri(uri);
+      setSoundVal("custom");
+      previewSound("custom", uri);
+    } catch {
+      Alert.alert("خطأ", "تعذّر اختيار الملف الصوتي");
+    }
+  }, [previewSound]);
 
   // ─── Music ────────────────────────────────────────────────
   const {
@@ -3618,10 +3649,10 @@ ${kpiBlock}${payBlock}${sumBlock}
 
           {(
             [
-              { label: "🛎️ استلام طلب جديد",   key: SOUND_KEYS.order,    val: soundOrder,    set: setSoundOrder    },
-              { label: "💬 استلام رسالة",        key: SOUND_KEYS.message,  val: soundMessage,  set: setSoundMessage  },
-              { label: "🚗 تسليم الطلب",         key: SOUND_KEYS.delivery, val: soundDelivery, set: setSoundDelivery },
-            ] as { label: string; key: string; val: SoundOption; set: (v: SoundOption) => void }[]
+              { label: "🛎️ استلام طلب جديد",   key: SOUND_KEYS.order,    val: soundOrder,    set: setSoundOrder,    customUri: customUriOrder,    setUri: setCustomUriOrder    },
+              { label: "💬 استلام رسالة",        key: SOUND_KEYS.message,  val: soundMessage,  set: setSoundMessage,  customUri: customUriMessage,  setUri: setCustomUriMessage  },
+              { label: "🚗 تسليم الطلب",         key: SOUND_KEYS.delivery, val: soundDelivery, set: setSoundDelivery, customUri: customUriDelivery, setUri: setCustomUriDelivery },
+            ] as { label: string; key: string; val: SoundOption; set: (v: SoundOption) => void; customUri: string | null; setUri: (u: string) => void }[]
           ).map(row => (
             <View key={row.key} style={{ backgroundColor: colors.card, borderRadius: 14, borderWidth: 1, borderColor: colors.border, padding: 16, gap: 10 }}>
               <Text style={{ color: colors.foreground, fontFamily: F.bold, fontSize: 14, textAlign: "right" }}>
@@ -3654,7 +3685,41 @@ ${kpiBlock}${payBlock}${sumBlock}
                     </TouchableOpacity>
                   );
                 })}
+
+                {/* Custom sound from device */}
+                {Platform.OS !== "web" && (
+                  <TouchableOpacity
+                    onPress={() => pickCustomSound(row.key, row.setUri, row.set)}
+                    style={{
+                      flexDirection: "row-reverse", alignItems: "center", gap: 5,
+                      paddingHorizontal: 14, paddingVertical: 9, borderRadius: 20,
+                      borderWidth: 1.5,
+                      backgroundColor: row.val === "custom" ? "#4CAF5022" : colors.secondary,
+                      borderColor: row.val === "custom" ? "#4CAF50" : colors.border,
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Feather name="folder" size={14} color={row.val === "custom" ? "#4CAF50" : colors.mutedForeground} />
+                    <Text style={{ color: row.val === "custom" ? "#4CAF50" : colors.mutedForeground, fontFamily: row.val === "custom" ? F.bold : F.regular, fontSize: 13 }}>
+                      من الجهاز
+                    </Text>
+                  </TouchableOpacity>
+                )}
               </View>
+
+              {/* Show selected custom file name + preview button */}
+              {row.val === "custom" && row.customUri && (
+                <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8, backgroundColor: "#0A2A10", borderRadius: 10, padding: 10, borderWidth: 1, borderColor: "#4CAF5040" }}>
+                  <Feather name="music" size={14} color="#4CAF50" />
+                  <Text style={{ color: "#4CAF50", fontFamily: F.regular, fontSize: 11, flex: 1, textAlign: "right" }} numberOfLines={1}>
+                    {row.customUri.split("/").pop() ?? "ملف مخصص"}
+                  </Text>
+                  <TouchableOpacity onPress={() => previewSound("custom", row.customUri!)} style={{ paddingHorizontal: 10, paddingVertical: 4, backgroundColor: "#4CAF5033", borderRadius: 8 }}>
+                    <Text style={{ color: "#4CAF50", fontFamily: F.semi, fontSize: 11 }}>▶ معاينة</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
               <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11, textAlign: "right" }}>
                 اضغط على أي نغمة لمعاينتها
               </Text>

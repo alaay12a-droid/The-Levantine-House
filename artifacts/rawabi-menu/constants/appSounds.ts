@@ -1,4 +1,4 @@
-export type SoundOption = "default" | "chime" | "bell" | "short" | "silent";
+export type SoundOption = "default" | "chime" | "bell" | "short" | "silent" | "custom";
 
 export interface SoundChoice {
   id: SoundOption;
@@ -16,8 +16,18 @@ export const SOUND_CHOICES: SoundChoice[] = [
 ];
 
 export const SOUND_KEYS = {
-  muted:    "rawabi_snd_muted",
-  order:    "rawabi_snd_order",
-  message:  "rawabi_snd_message",
-  delivery: "rawabi_snd_delivery",
+  muted:       "rawabi_snd_muted",
+  order:       "rawabi_snd_order",
+  message:     "rawabi_snd_message",
+  delivery:    "rawabi_snd_delivery",
+  customOrder:    "rawabi_snd_custom_order",
+  customMessage:  "rawabi_snd_custom_message",
+  customDelivery: "rawabi_snd_custom_delivery",
 };
+
+export function getCustomKey(soundKey: string): string {
+  if (soundKey === SOUND_KEYS.order)    return SOUND_KEYS.customOrder;
+  if (soundKey === SOUND_KEYS.message)  return SOUND_KEYS.customMessage;
+  if (soundKey === SOUND_KEYS.delivery) return SOUND_KEYS.customDelivery;
+  return soundKey + "_custom_uri";
+}
