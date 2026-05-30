@@ -8,12 +8,26 @@ const router = Router();
 const otpStore = new Map<string, { code: string; expiresAt: number }>();
 
 const S = {
-  ENABLED:  "sms_otp_enabled",
-  API_KEY:  "sms_otp_api_key",
-  SENDER:   "sms_otp_sender",
-  PROVIDER: "sms_otp_provider",
-  METHOD:   "sms_otp_method",
+  ENABLED:         "sms_otp_enabled",
+  API_KEY:         "sms_otp_api_key",
+  SENDER:          "sms_otp_sender",
+  PROVIDER:        "sms_otp_provider",
+  METHOD:          "sms_otp_method",
+  VERIFIED_PHONES: "sms_verified_phones",
 };
+
+async function getVerifiedPhones(): Promise<Set<string>> {
+  const raw = await getSetting(S.VERIFIED_PHONES);
+  if (!raw) return new Set();
+  try { return new Set(JSON.parse(raw) as string[]); } catch { return new Set(); }
+}
+
+async function markPhoneVerifiedServer(phone: string): Promise<void> {
+  const set = await getVerifiedPhones();
+  if (set.has(phone)) return;
+  set.add(phone);
+  await setSetting(S.VERIFIED_PHONES, JSON.stringify([...set]));
+}
 
 async function getSetting(key: string): Promise<string | null> {
   const rows = await db.select().from(appSettingsTable).where(eq(appSettingsTable.key, key));
@@ -183,13 +197,17 @@ router.post("/sms/send-otp", async (req, res) => {
   const enabled = await getSetting(S.ENABLED);
   if (enabled !== "true") { res.json({ ok: true, skipped: true }); return; }
 
+  // Already verified from any device → skip OTP
+  const phone = parsed.data.phone.replace(/[\s+]/g, "");
+  const verified = await getVerifiedPhones();
+  if (verified.has(phone)) { res.json({ ok: true, skipped: true }); return; }
+
   const [apiKey, sender, providerRaw, methodRaw] = await Promise.all([
     getSetting(S.API_KEY), getSetting(S.SENDER), getSetting(S.PROVIDER), getSetting(S.METHOD),
   ]);
 
   const provider = (providerRaw ?? "msegat") as Provider;
   const method   = methodRaw ?? "sms";
-  const phone    = parsed.data.phone.replace(/[\s+]/g, "");
 
   if (!apiKey) {
     // Dev mode: generate code locally for testing
@@ -241,6 +259,7 @@ router.post("/sms/verify-otp", async (req, res) => {
     const { verified, response } = await verifyViaAuthentica(apiKey, phone, parsed.data.code);
     req.log.info({ phone, verified, response }, "Authentica verify-otp result");
     if (!verified) { res.status(400).json({ error: "الرمز غير صحيح أو منتهي الصلاحية", detail: response }); return; }
+    await markPhoneVerifiedServer(phone);
     res.json({ ok: true });
     return;
   }
@@ -252,6 +271,7 @@ router.post("/sms/verify-otp", async (req, res) => {
   if (entry.code !== parsed.data.code) { res.status(400).json({ error: "الرمز غير صحيح" }); return; }
 
   otpStore.delete(phone);
+  await markPhoneVerifiedServer(phone);
   res.json({ ok: true });
 });
 
