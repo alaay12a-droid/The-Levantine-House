@@ -89,7 +89,7 @@ export default function CartScreen() {
     });
   };
 
-  const getItemImage = (item: typeof recommendedItems[0]) => {
+  const getItemImage = (item: { imageUrl?: string; imageKey?: string }) => {
     if (item.imageUrl) return { uri: item.imageUrl };
     if (item.imageKey && FOOD_IMAGES[item.imageKey]) return FOOD_IMAGES[item.imageKey];
     return null;
@@ -170,12 +170,21 @@ export default function CartScreen() {
                 const itemName = isEn && cartItem.item.nameEn ? cartItem.item.nameEn : baseArabicName;
                 const customParts = resolveCustomizationParts(cartItem.customization);
 
+                const cartImg = getItemImage(cartItem.item);
                 return (
                   <React.Fragment key={cartItem.item.id}>
                     {index > 0 && (
                       <View style={[styles.itemDivider, { backgroundColor: colors.border }]} />
                     )}
                     <View style={styles.itemRow}>
+                      {/* Thumbnail image */}
+                      <View style={[styles.itemThumb, { backgroundColor: colors.secondary }]}>
+                        {cartImg ? (
+                          <Image source={cartImg} style={styles.itemThumbImg} resizeMode="cover" />
+                        ) : (
+                          <Text style={{ fontSize: 22 }}>🍽️</Text>
+                        )}
+                      </View>
                       <View style={styles.itemInfo}>
                         <Text style={[styles.itemName, { color: colors.foreground, fontFamily: F.bold }]} numberOfLines={2}>
                           {itemName}
@@ -413,6 +422,16 @@ const styles = StyleSheet.create({
   itemInfo: { flex: 1, alignItems: "flex-end", gap: 4 },
   itemName: { fontSize: 15, textAlign: "right", lineHeight: 22 },
   unitPrice: { fontSize: 12 },
+  itemThumb: {
+    width: 64,
+    height: 64,
+    borderRadius: 12,
+    overflow: "hidden",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  itemThumbImg: { width: "100%", height: "100%" },
   itemRight: { alignItems: "center", gap: 8 },
   removeBtn: {
     width: 26,
