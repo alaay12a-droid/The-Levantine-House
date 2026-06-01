@@ -20,14 +20,14 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.rawabialmandi.app",
+      "bundleIdentifier": "com.rwabi.almndi",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "نحتاج موقعك لتحديد عنوان التوصيل بدقة",
         "NSLocationAlwaysUsageDescription": "نحتاج موقعك لتحديد عنوان التوصيل بدقة"
       }
     },
     "android": {
-      "package": "com.rawabialmandi.app",
+      "package": "com.rwabi.almndi",
       "versionCode": 1,
       "compileSdkVersion": 35,
       "targetSdkVersion": 35,

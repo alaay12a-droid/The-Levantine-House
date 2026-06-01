@@ -40,7 +40,7 @@ Premium Arabic mobile restaurant ordering app built with Expo React Native.
 - **Expo Account**: 021837ala
 - **Expo Slug**: rawabi-menu
 - **Project ID**: 75492716-d1d5-4871-bfd9-18c7ef3982c7
-- **Android Package**: com.rawabialmandi.app
+- **Android Package**: com.rwabi.almndi
 
 ### Design System
 - **Colors**: dark red `#C8171A`, gold `#E8920C`, dark background `#0F0A05`
