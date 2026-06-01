@@ -1668,15 +1668,25 @@ ${daySections}
                           <Text style={{ color: "#82B1FF", fontFamily: F.semi, fontSize: 13 }}>{order.customerPhone}</Text>
                         </TouchableOpacity>
                       )}
-                      {/* Mark done button */}
-                      <TouchableOpacity
-                        onPress={() => handleUpdateStatus(order, "done")}
-                        style={{ backgroundColor: "#0D1F35", borderTopWidth: 1, borderTopColor: "#82B1FF22", paddingVertical: 13, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 8 }}
-                        activeOpacity={0.75}
-                      >
-                        <Feather name="check-circle" size={16} color="#82B1FF" />
-                        <Text style={{ color: "#82B1FF", fontFamily: F.extra, fontSize: 14 }}>✅ تم تسليم الطلب للعميل</Text>
-                      </TouchableOpacity>
+                      {/* Action buttons row */}
+                      <View style={{ flexDirection: "row", borderTopWidth: 1, borderTopColor: "#82B1FF22" }}>
+                        <TouchableOpacity
+                          onPress={() => setPrintOrder(order)}
+                          style={{ flex: 1, backgroundColor: "#0D1A0D", paddingVertical: 13, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 6, borderRightWidth: 1, borderRightColor: "#82B1FF22" }}
+                          activeOpacity={0.75}
+                        >
+                          <Feather name="printer" size={15} color="#E8920C" />
+                          <Text style={{ color: "#E8920C", fontFamily: F.bold, fontSize: 13 }}>طباعة الفاتورة</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={() => handleUpdateStatus(order, "done")}
+                          style={{ flex: 1, backgroundColor: "#0D1F35", paddingVertical: 13, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 6 }}
+                          activeOpacity={0.75}
+                        >
+                          <Feather name="check-circle" size={15} color="#82B1FF" />
+                          <Text style={{ color: "#82B1FF", fontFamily: F.extra, fontSize: 13 }}>✅ تم التسليم</Text>
+                        </TouchableOpacity>
+                      </View>
                     </View>
                   );
                 })}
@@ -1693,24 +1703,34 @@ ${daySections}
                   const timeStr = d.toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit", hour12: true });
                   const dateStr = d.toLocaleDateString("ar-SA", { day: "numeric", month: "long", year: "numeric" });
                   return (
-                    <View key={order.id} style={{ backgroundColor: colors.card, borderRadius: 14, borderWidth: 1, borderColor: "#4CAF5033", padding: 12, gap: 4, opacity: 0.75 }}>
-                      <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" }}>
-                        <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
-                          <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 13 }}>#{order.dailyNumber ?? order.id}</Text>
-                          <Text style={{ color: colors.foreground, fontFamily: F.semi, fontSize: 13 }}>{order.customerName}</Text>
+                    <View key={order.id} style={{ backgroundColor: colors.card, borderRadius: 14, borderWidth: 1, borderColor: "#4CAF5033", overflow: "hidden", opacity: 0.85 }}>
+                      <View style={{ padding: 12, gap: 4 }}>
+                        <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" }}>
+                          <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
+                            <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 13 }}>#{order.dailyNumber ?? order.id}</Text>
+                            <Text style={{ color: colors.foreground, fontFamily: F.semi, fontSize: 13 }}>{order.customerName}</Text>
+                          </View>
+                          <Text style={{ color: "#4CAF50", fontFamily: F.bold, fontSize: 14 }}>{(order.totalPrice / 100).toFixed(2)} ر.س</Text>
                         </View>
-                        <Text style={{ color: "#4CAF50", fontFamily: F.bold, fontSize: 14 }}>{(order.totalPrice / 100).toFixed(2)} ر.س</Text>
+                        <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" }}>
+                          <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 5 }}>
+                            <Feather name="clock" size={12} color={colors.mutedForeground} />
+                            <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }}>{timeStr}</Text>
+                          </View>
+                          <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 5 }}>
+                            <Feather name="calendar" size={12} color={colors.mutedForeground} />
+                            <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }}>{dateStr}</Text>
+                          </View>
+                        </View>
                       </View>
-                      <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" }}>
-                        <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 5 }}>
-                          <Feather name="clock" size={12} color={colors.mutedForeground} />
-                          <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }}>{timeStr}</Text>
-                        </View>
-                        <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 5 }}>
-                          <Feather name="calendar" size={12} color={colors.mutedForeground} />
-                          <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }}>{dateStr}</Text>
-                        </View>
-                      </View>
+                      <TouchableOpacity
+                        onPress={() => setPrintOrder(order)}
+                        style={{ backgroundColor: "#0D1A0D", borderTopWidth: 1, borderTopColor: "#4CAF5022", paddingVertical: 9, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 6 }}
+                        activeOpacity={0.75}
+                      >
+                        <Feather name="printer" size={13} color="#E8920C" />
+                        <Text style={{ color: "#E8920C", fontFamily: F.bold, fontSize: 12 }}>إعادة طباعة الفاتورة</Text>
+                      </TouchableOpacity>
                     </View>
                   );
                 })}
