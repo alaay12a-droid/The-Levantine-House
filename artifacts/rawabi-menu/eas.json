@@ -10,10 +10,12 @@
     "preview": {
       "distribution": "internal",
       "android": {
-        "buildType": "apk"
+        "buildType": "apk",
+        "image": "latest"
       },
+      "node": "22.15.0",
       "env": {
-        "EXPO_PUBLIC_API_BASE_URL": "https://dc93e0aa-3f78-420b-b841-3af65fe535e6-00-3qwzp8t1i4uai.pike.replit.dev"
+        "EXPO_PUBLIC_API_BASE_URL": "https://mandi-menu-1.replit.app"
       }
     },
     "production": {
