@@ -3,15 +3,12 @@
     "name": "روابي المندي",
     "slug": "rawabi-menu",
     "owner": "021837ala",
-    "version": "1.0.0",
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "rawabi-menu",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     
     "splash": {
       "image": "./assets/images/icon.png",
@@ -28,7 +25,7 @@
     },
     "android": {
       "package": "com.rwabi.almndi",
-      "versionCode": 2,
+      "versionCode": 3,
       "compileSdkVersion": 35,
       "targetSdkVersion": 35,
       "minSdkVersion": 26,
@@ -57,7 +54,6 @@
       ],
       "expo-font",
       "expo-web-browser",
-      "expo-updates",
       [
         "expo-location",
         {
@@ -80,8 +76,7 @@
       ]
     ],
     "experiments": {
-      "typedRoutes": true,
-      "reactCompiler": true
+      "typedRoutes": true
     },
     "extra": {
       "eas": {
