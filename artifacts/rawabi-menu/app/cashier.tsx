@@ -716,7 +716,7 @@ export default function CashierScreen() {
     if (Platform.OS !== "web" || typeof window === "undefined") return;
     const dateLabel = date.toLocaleDateString("ar-SA", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
     const now = new Date().toLocaleString("ar-SA", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" });
-    const f = (n: number) => n.toFixed(2);
+    const f = (n: number) => (n / 100).toFixed(2);
     const fmtT = (iso: string | null) => iso ? new Date(iso).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" }) : "--:--";
 
     // Group by driver
@@ -1211,8 +1211,8 @@ ${daySections}
         const monthLabel = midDay.toLocaleDateString("ar-SA", { month: "long", year: "numeric" });
 
         // stats for selected day
-        const totalCollected = allDeliveries.reduce((s, r) => s + r.totalPrice, 0);
-        const cashCollected  = allDeliveries.filter(r => r.paymentMethod === "cash").reduce((s, r) => s + r.totalPrice, 0);
+        const totalCollected = allDeliveries.reduce((s, r) => s + r.totalPrice / 100, 0);
+        const cashCollected  = allDeliveries.filter(r => r.paymentMethod === "cash").reduce((s, r) => s + r.totalPrice / 100, 0);
 
         const fmtTime = (iso: string | null) =>
           iso ? new Date(iso).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" }) : "--:--";
@@ -1335,7 +1335,7 @@ ${daySections}
                           <Text style={{ color: "#4CAF50", fontFamily: F.semi, fontSize: 12 }}>🛵 {a.driverName}</Text>
                         </View>
                         <View style={{ alignItems: "flex-end", gap: 3 }}>
-                          <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 15 }}>{a.totalPrice.toFixed(2)} ر.س</Text>
+                          <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 15 }}>{(a.totalPrice / 100).toFixed(2)} ر.س</Text>
                           <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 10 }}>{a.paymentMethod === "cash" ? "💵 نقدي" : "💳 إلكتروني"}</Text>
                         </View>
                       </View>
@@ -1443,7 +1443,7 @@ ${daySections}
                           </View>
                           <View style={{ flexDirection: "row-reverse", justifyContent: "space-between" }}>
                             <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12 }}>المبلغ</Text>
-                            <Text style={{ color: "#E8920C", fontFamily: F.extra, fontSize: 15 }}>{row.totalPrice.toFixed(2)} ر.س</Text>
+                            <Text style={{ color: "#E8920C", fontFamily: F.extra, fontSize: 15 }}>{(row.totalPrice / 100).toFixed(2)} ر.س</Text>
                           </View>
                           <View style={{ flexDirection: "row-reverse", justifyContent: "space-between" }}>
                             <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12 }}>طريقة الدفع</Text>
@@ -1470,7 +1470,7 @@ ${daySections}
         const todayStart = new Date(); todayStart.setHours(0,0,0,0);
         const todayPickup = pickupOrders.filter(o => new Date(o.createdAt) >= todayStart);
         const todayDone   = todayPickup.filter(o => o.status === "done");
-        const todayTotal  = todayDone.reduce((s, o) => s + o.totalPrice, 0);
+        const todayTotal  = todayDone.reduce((s, o) => s + o.totalPrice / 100, 0);
         const todayCount  = todayDone.length;
         const todayPending = todayPickup.filter(o => o.status !== "done" && o.status !== "cancelled").length;
 
@@ -1481,7 +1481,7 @@ ${daySections}
         });
         const activeFiltered  = filtered.filter(o => o.status !== "done" && o.status !== "cancelled");
         const doneFiltered    = filtered.filter(o => o.status === "done");
-        const filteredTotal   = doneFiltered.reduce((s, o) => s + o.totalPrice, 0);
+        const filteredTotal   = doneFiltered.reduce((s, o) => s + o.totalPrice / 100, 0);
         return (
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 14, gap: 12, paddingBottom: 60 }}>
             {/* Header */}
@@ -1632,7 +1632,7 @@ ${daySections}
                           <Text style={{ color: colors.foreground, fontFamily: F.bold, fontSize: 15 }}>{order.customerName}</Text>
                         </View>
                         <View style={{ alignItems: "flex-end", gap: 1 }}>
-                          <Text style={{ color: "#82B1FF", fontFamily: F.extra, fontSize: 16 }}>{order.totalPrice.toFixed(2)} ر.س</Text>
+                          <Text style={{ color: "#82B1FF", fontFamily: F.extra, fontSize: 16 }}>{(order.totalPrice / 100).toFixed(2)} ر.س</Text>
                           <View style={{ backgroundColor: STATUS_COLORS[order.status] + "22", paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8 }}>
                             <Text style={{ color: STATUS_COLORS[order.status], fontFamily: F.bold, fontSize: 11 }}>{STATUS_LABELS[order.status]}</Text>
                           </View>
@@ -1643,7 +1643,7 @@ ${daySections}
                         {order.items.map((item, i) => (
                           <View key={i} style={{ flexDirection: "row-reverse", justifyContent: "space-between" }}>
                             <Text style={{ color: colors.foreground, fontFamily: F.semi, fontSize: 13 }} numberOfLines={1}>× {item.quantity}  {item.name}</Text>
-                            <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12 }}>{(item.price * item.quantity).toFixed(2)}</Text>
+                            <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12 }}>{(item.price * item.quantity / 100).toFixed(2)}</Text>
                           </View>
                         ))}
                       </View>
@@ -1699,7 +1699,7 @@ ${daySections}
                           <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 13 }}>#{order.dailyNumber ?? order.id}</Text>
                           <Text style={{ color: colors.foreground, fontFamily: F.semi, fontSize: 13 }}>{order.customerName}</Text>
                         </View>
-                        <Text style={{ color: "#4CAF50", fontFamily: F.bold, fontSize: 14 }}>{order.totalPrice.toFixed(2)} ر.س</Text>
+                        <Text style={{ color: "#4CAF50", fontFamily: F.bold, fontSize: 14 }}>{(order.totalPrice / 100).toFixed(2)} ر.س</Text>
                       </View>
                       <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" }}>
                         <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 5 }}>
