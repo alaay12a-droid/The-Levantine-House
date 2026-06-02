@@ -28,7 +28,7 @@
       "versionCode": 3,
       "compileSdkVersion": 35,
       "targetSdkVersion": 35,
-      "minSdkVersion": 26,
+      "minSdkVersion": 21,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive_icon.png",
         "backgroundColor": "#0F0A05"
