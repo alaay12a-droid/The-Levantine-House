@@ -3,7 +3,7 @@
     "name": "روابي المندي",
     "slug": "rawabi-menu",
     "owner": "021837ala",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "rawabi-menu",
@@ -25,7 +25,7 @@
     },
     "android": {
       "package": "com.rwabi.almndi",
-      "versionCode": 3,
+      "versionCode": 4,
       "compileSdkVersion": 35,
       "targetSdkVersion": 35,
       "minSdkVersion": 21,
@@ -46,12 +46,7 @@
       "favicon": "./assets/images/icon.png"
     },
     "plugins": [
-      [
-        "expo-router",
-        {
-          "origin": "https://replit.com/"
-        }
-      ],
+      "expo-router",
       "expo-font",
       "expo-web-browser",
       [

@@ -1,10 +1,10 @@
 import { Platform } from "react-native";
 
-const REPLIT_DOMAIN = "dc93e0aa-3f78-420b-b841-3af65fe535e6-00-3qwzp8t1i4uai.pike.replit.dev";
+const PRODUCTION_API = "https://mandi-menu-1.replit.app";
 
 export const API_BASE =
   (process.env.EXPO_PUBLIC_API_BASE_URL as string | undefined) ||
-  (Platform.OS === "web" ? "" : `https://${REPLIT_DOMAIN}`);
+  (Platform.OS === "web" ? "" : PRODUCTION_API);
 
 export async function apiPost<T>(path: string, body: unknown): Promise<T> {
   const res = await fetch(`${API_BASE}/api${path}`, {
