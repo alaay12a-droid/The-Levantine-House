@@ -19,7 +19,6 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
-import * as DocumentPicker from "expo-document-picker";
 import { getCustomKey } from "@/constants/appSounds";
 import { useColors } from "@/hooks/useColors";
 import { useAppConfig } from "@/context/AppConfigContext";
@@ -453,26 +452,9 @@ export default function AdminMenuScreen() {
   const setSoundPref = useCallback(async (key: string, val: SoundOption | boolean) => {
     await AsyncStorage.setItem(key, String(val));
   }, []);
-  const pickCustomSound = useCallback(async (soundKey: string, setUri: (u: string) => void, setSoundVal: (v: SoundOption) => void) => {
-    try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: ["audio/*"],
-        copyToCacheDirectory: true,
-      });
-      if (result.canceled) return;
-      const asset = result.assets[0];
-      if (!asset?.uri) return;
-      const uri = asset.uri;
-      const customKey = getCustomKey(soundKey);
-      await AsyncStorage.setItem(customKey, uri);
-      await AsyncStorage.setItem(soundKey, "custom");
-      setUri(uri);
-      setSoundVal("custom");
-      previewSound("custom", uri);
-    } catch {
-      Alert.alert("خطأ", "تعذّر اختيار الملف الصوتي");
-    }
-  }, [previewSound]);
+  const pickCustomSound = useCallback(async (_soundKey: string, _setUri: (u: string) => void, _setSoundVal: (v: SoundOption) => void) => {
+    Alert.alert("غير متاح", "اختيار ملفات صوتية مخصصة غير مدعوم حالياً");
+  }, []);
 
   // ─── Music ────────────────────────────────────────────────
   const {
