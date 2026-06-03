@@ -5,7 +5,9 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export const TOKEN_KEY = "@rawabi_customer_push_token";
 
-// Show notifications even when app is foregrounded (guarded: not supported in Expo Go)
+const PROJECT_ID = "75492716-d1d5-4871-bfd9-18c7ef3982c7";
+
+// Must be wrapped in try/catch — throws in Expo Go and some emulators
 try {
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
@@ -17,41 +19,36 @@ try {
     }),
   });
 } catch {
-  // expo-notifications push features unavailable in Expo Go — safe to ignore
+  // Not supported in this environment — safe to ignore
 }
 
 export async function registerCustomerNotifications(): Promise<string | null> {
   if (Platform.OS === "web") return null;
 
-  // Request permission
-  const { status: existing } = await Notifications.getPermissionsAsync();
-  let finalStatus = existing;
-  if (existing !== "granted") {
-    const { status } = await Notifications.requestPermissionsAsync();
-    finalStatus = status;
-  }
-  if (finalStatus !== "granted") return null;
-
-  // Android notification channel
-  if (Platform.OS === "android") {
-    await Notifications.setNotificationChannelAsync("order-status", {
-      name: "حالة طلبك",
-      importance: Notifications.AndroidImportance.HIGH,
-      sound: "default",
-      vibrationPattern: [0, 200, 100, 200],
-      lightColor: "#D4AF37",
-      showBadge: true,
-    });
-  }
-
-  // Return cached token or fetch new one
   try {
+    const { status: existing } = await Notifications.getPermissionsAsync();
+    let finalStatus = existing;
+    if (existing !== "granted") {
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
+    }
+    if (finalStatus !== "granted") return null;
+
+    if (Platform.OS === "android") {
+      await Notifications.setNotificationChannelAsync("order-status", {
+        name: "حالة طلبك",
+        importance: Notifications.AndroidImportance.HIGH,
+        sound: "default",
+        vibrationPattern: [0, 200, 100, 200],
+        lightColor: "#D4AF37",
+        showBadge: true,
+      });
+    }
+
     const cached = await AsyncStorage.getItem(TOKEN_KEY);
     if (cached) return cached;
 
-    const { data } = await Notifications.getExpoPushTokenAsync({
-      projectId: "6bc7ecd0-c306-4464-a3a9-82074adfb750",
-    });
+    const { data } = await Notifications.getExpoPushTokenAsync({ projectId: PROJECT_ID });
     await AsyncStorage.setItem(TOKEN_KEY, data);
     return data;
   } catch {
@@ -63,7 +60,6 @@ export function useCustomerPushToken() {
   const [token, setToken] = useState<string | null>(null);
 
   useEffect(() => {
-    // Try to load cached token first (fast path, no permission re-prompt)
     AsyncStorage.getItem(TOKEN_KEY).then((cached) => {
       if (cached) {
         setToken(cached);
