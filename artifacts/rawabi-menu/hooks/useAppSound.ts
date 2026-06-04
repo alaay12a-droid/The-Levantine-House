@@ -4,6 +4,20 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
 import { SOUND_KEYS, getCustomKey, type SoundOption } from "@/constants/appSounds";
 
+// ── Active sound ref (module-level) — allows stopping from outside ─────────
+let _activeSoundObj: import("expo-av").Audio.Sound | null = null;
+
+export async function stopCurrentSound(): Promise<void> {
+  try {
+    if (_activeSoundObj) {
+      const s = _activeSoundObj;
+      _activeSoundObj = null;
+      await s.stopAsync();
+      await s.unloadAsync();
+    }
+  } catch {}
+}
+
 // ── Web Audio synthesis ────────────────────────────────────────────────────
 function playSynth(option: SoundOption): void {
   if (Platform.OS !== "web" || typeof window === "undefined") return;
@@ -70,12 +84,15 @@ async function playWebFile(src: string): Promise<boolean> {
 // ── Play a URI file natively via expo-av ────────────────────────────────────
 export async function playUriSound(uri: string): Promise<void> {
   try {
+    await stopCurrentSound();
     const { Audio } = require("expo-av") as typeof import("expo-av");
     await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
     const { sound } = await Audio.Sound.createAsync({ uri }, { volume: 1 });
+    _activeSoundObj = sound;
     await sound.playAsync();
     sound.setOnPlaybackStatusUpdate((status) => {
       if (status.isLoaded && status.didJustFinish) {
+        if (_activeSoundObj === sound) _activeSoundObj = null;
         sound.unloadAsync().catch(() => {});
       }
     });
@@ -127,6 +144,7 @@ export async function playAppSound(
     } else {
       // Native via expo-av
       try {
+        await stopCurrentSound();
         const { Audio } = require("expo-av") as typeof import("expo-av");
         const asset = (() => {
           if (type === "order") return require("@/assets/sounds/new_order.mp3");
@@ -135,7 +153,14 @@ export async function playAppSound(
         })();
         await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
         const { sound } = await Audio.Sound.createAsync(asset, { volume: 1 });
+        _activeSoundObj = sound;
         await sound.playAsync();
+        sound.setOnPlaybackStatusUpdate((status) => {
+          if (status.isLoaded && status.didJustFinish) {
+            if (_activeSoundObj === sound) _activeSoundObj = null;
+            sound.unloadAsync().catch(() => {});
+          }
+        });
       } catch {}
     }
   } catch { /* silent */ }

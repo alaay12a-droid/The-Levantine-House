@@ -27,7 +27,7 @@ import { useNotifications } from "@/hooks/useNotifications";
 import { apiGet, apiPatch, apiPut, apiPost, apiDelete, API_BASE } from "@/constants/api";
 import { MapWebView } from "@/components/MapWebView";
 import { useChatUnreadAlert } from "@/hooks/useChatSound";
-import { useAppSound } from "@/hooks/useAppSound";
+import { useAppSound, stopCurrentSound } from "@/hooks/useAppSound";
 import { type ApiMenuItem } from "@/hooks/useMenu";
 
 const F = {
@@ -925,6 +925,7 @@ ${daySections}
   };
 
   const handleUpdateStatus = async (order: Order, newStatus: OrderStatus) => {
+    stopCurrentSound().catch(() => {}); // إيقاف صوت التنبيه فور قبول الطلب
     try {
       const updated = await apiPatch<Order>(`/orders/${order.id}/status`, { status: newStatus });
       setOrders((prev) => prev.map((o) => (o.id === updated.id ? updated : o)));
@@ -949,6 +950,7 @@ ${daySections}
 
   const handleCancelOrder = (order: Order) => {
     const doCancel = async () => {
+      stopCurrentSound().catch(() => {});
       try {
         const updated = await apiPatch<Order>(`/orders/${order.id}/status`, { status: "cancelled" });
         setOrders((prev) => prev.map((o) => (o.id === updated.id ? updated : o)));
