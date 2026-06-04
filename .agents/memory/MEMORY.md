@@ -1,0 +1,2 @@
+- [Storage upload API pattern](storage-upload-api.md) — correct endpoint is /storage/uploads/request-url; response field is uploadURL (capital URL), not uploadUrl
+- [Global sound settings architecture](global-sounds.md) — sounds pushed to /settings/sounds server-side; AppConfigContext loads on startup and writes to AsyncStorage so useAppSound picks them up without any hook changes

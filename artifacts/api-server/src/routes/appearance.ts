@@ -85,4 +85,59 @@ router.put("/settings/pins", async (req, res) => {
   res.json({ ok: true });
 });
 
+// ── GET /settings/sounds ──────────────────────────────────────────────────
+const SOUND_PREFIX = "sound_";
+const SOUND_DEFAULTS: Record<string, string> = {
+  sound_muted:            "false",
+  sound_order:            "default",
+  sound_message:          "default",
+  sound_delivery:         "default",
+  sound_customOrderUrl:   "",
+  sound_customMessageUrl: "",
+  sound_customDeliveryUrl: "",
+};
+
+router.get("/settings/sounds", async (_req, res) => {
+  const rows = await db.select().from(appSettingsTable).where(like(appSettingsTable.key, `${SOUND_PREFIX}%`));
+  const result = { ...SOUND_DEFAULTS };
+  for (const row of rows) result[row.key] = row.value;
+  res.json({
+    muted:             result.sound_muted === "true",
+    order:             result.sound_order,
+    message:           result.sound_message,
+    delivery:          result.sound_delivery,
+    customOrderUrl:    result.sound_customOrderUrl    || null,
+    customMessageUrl:  result.sound_customMessageUrl  || null,
+    customDeliveryUrl: result.sound_customDeliveryUrl || null,
+  });
+});
+
+// ── PUT /settings/sounds ──────────────────────────────────────────────────
+router.put("/settings/sounds", async (req, res) => {
+  const { muted, order, message, delivery, customOrderUrl, customMessageUrl, customDeliveryUrl } = req.body as {
+    muted?: boolean;
+    order?: string;
+    message?: string;
+    delivery?: string;
+    customOrderUrl?: string | null;
+    customMessageUrl?: string | null;
+    customDeliveryUrl?: string | null;
+  };
+  const updates: Record<string, string> = {};
+  if (muted    !== undefined) updates.sound_muted    = String(muted);
+  if (order    !== undefined) updates.sound_order    = order;
+  if (message  !== undefined) updates.sound_message  = message;
+  if (delivery !== undefined) updates.sound_delivery = delivery;
+  if (customOrderUrl    !== undefined) updates.sound_customOrderUrl    = customOrderUrl    ?? "";
+  if (customMessageUrl  !== undefined) updates.sound_customMessageUrl  = customMessageUrl  ?? "";
+  if (customDeliveryUrl !== undefined) updates.sound_customDeliveryUrl = customDeliveryUrl ?? "";
+  for (const [key, value] of Object.entries(updates)) {
+    await db
+      .insert(appSettingsTable)
+      .values({ key, value })
+      .onConflictDoUpdate({ target: appSettingsTable.key, set: { value, updatedAt: new Date() } });
+  }
+  res.json({ ok: true });
+});
+
 export default router;

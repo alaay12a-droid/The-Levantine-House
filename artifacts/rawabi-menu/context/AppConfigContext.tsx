@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { apiGet, apiPut } from "@/constants/api";
+import { SOUND_KEYS } from "@/constants/appSounds";
 
 const STORAGE_KEY = "@rawabi_app_config_v2";
 
@@ -192,6 +193,21 @@ export function AppConfigProvider({ children }: { children: React.ReactNode }) {
         if (remote.minOrderAmount !== undefined)  local.minOrderAmount  = remote.minOrderAmount;
         if (remote.deliveryEnabled !== undefined) local.deliveryEnabled = remote.deliveryEnabled;
         if (remote.deliveryFee !== undefined)     local.deliveryFee     = remote.deliveryFee;
+      } catch {}
+
+      // 3. Load global sound settings from server → write into AsyncStorage so useAppSound picks them up
+      try {
+        const sounds = await apiGet<{
+          muted: boolean; order: string; message: string; delivery: string;
+          customOrderUrl: string | null; customMessageUrl: string | null; customDeliveryUrl: string | null;
+        }>("/settings/sounds");
+        await AsyncStorage.setItem(SOUND_KEYS.muted,    String(sounds.muted));
+        await AsyncStorage.setItem(SOUND_KEYS.order,    sounds.order);
+        await AsyncStorage.setItem(SOUND_KEYS.message,  sounds.message);
+        await AsyncStorage.setItem(SOUND_KEYS.delivery, sounds.delivery);
+        if (sounds.customOrderUrl)    await AsyncStorage.setItem(SOUND_KEYS.customOrder,   sounds.customOrderUrl);
+        if (sounds.customMessageUrl)  await AsyncStorage.setItem(SOUND_KEYS.customMessage, sounds.customMessageUrl);
+        if (sounds.customDeliveryUrl) await AsyncStorage.setItem(SOUND_KEYS.customDelivery, sounds.customDeliveryUrl);
       } catch {}
 
       setConfig({ ...DEFAULT_CONFIG, ...local });

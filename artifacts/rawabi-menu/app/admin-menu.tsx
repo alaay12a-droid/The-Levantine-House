@@ -430,6 +430,9 @@ export default function AdminMenuScreen() {
   const [customUriOrder, setCustomUriOrder] = useState<string | null>(null);
   const [customUriMessage, setCustomUriMessage] = useState<string | null>(null);
   const [customUriDelivery, setCustomUriDelivery] = useState<string | null>(null);
+  const [customSoundModalVisible, setCustomSoundModalVisible] = useState(false);
+  const [customSoundUrlInput, setCustomSoundUrlInput] = useState("");
+  const customSoundCallbacksRef = useRef<{ soundKey: string; setUri: (u: string) => void; setSoundVal: (v: SoundOption) => void } | null>(null);
   useEffect(() => {
     Promise.all([
       AsyncStorage.getItem(SOUND_KEYS.muted),
@@ -451,10 +454,34 @@ export default function AdminMenuScreen() {
   }, []);
   const setSoundPref = useCallback(async (key: string, val: SoundOption | boolean) => {
     await AsyncStorage.setItem(key, String(val));
+    const payload: Record<string, string | boolean> = {};
+    if (key === SOUND_KEYS.muted)    payload.muted    = val;
+    if (key === SOUND_KEYS.order)    payload.order    = String(val);
+    if (key === SOUND_KEYS.message)  payload.message  = String(val);
+    if (key === SOUND_KEYS.delivery) payload.delivery = String(val);
+    if (Object.keys(payload).length) apiPut("/settings/sounds", payload).catch(() => {});
   }, []);
-  const pickCustomSound = useCallback(async (_soundKey: string, _setUri: (u: string) => void, _setSoundVal: (v: SoundOption) => void) => {
-    Alert.alert("غير متاح", "اختيار ملفات صوتية مخصصة غير مدعوم حالياً");
+  const pickCustomSound = useCallback((soundKey: string, setUri: (u: string) => void, setSoundVal: (v: SoundOption) => void) => {
+    customSoundCallbacksRef.current = { soundKey, setUri, setSoundVal };
+    setCustomSoundUrlInput("");
+    setCustomSoundModalVisible(true);
   }, []);
+  const confirmCustomSoundUrl = useCallback(async () => {
+    const url = customSoundUrlInput.trim();
+    if (!url || !customSoundCallbacksRef.current) return;
+    const { soundKey, setUri, setSoundVal } = customSoundCallbacksRef.current;
+    const customKey = getCustomKey(soundKey);
+    await AsyncStorage.setItem(customKey, url);
+    await AsyncStorage.setItem(soundKey, "custom");
+    setUri(url);
+    setSoundVal("custom");
+    const payload: Record<string, string | null> = {};
+    if (soundKey === SOUND_KEYS.order)    payload.customOrderUrl    = url;
+    if (soundKey === SOUND_KEYS.message)  payload.customMessageUrl  = url;
+    if (soundKey === SOUND_KEYS.delivery) payload.customDeliveryUrl = url;
+    if (Object.keys(payload).length) apiPut("/settings/sounds", payload).catch(() => {});
+    setCustomSoundModalVisible(false);
+  }, [customSoundUrlInput]);
 
   // ─── Music ────────────────────────────────────────────────
   const {
@@ -838,15 +865,21 @@ ${kpiBlock}${payBlock}${sumBlock}
   const handlePickEditDriverPhoto = async () => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) { Alert.alert("الإذن مرفوض", "يرجى السماح بالوصول للمعرض"); return; }
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.7 });
-    if (result.canceled) return;
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], allowsEditing: true, aspect: [1, 1], quality: 0.7 });
+    if (result.canceled || !result.assets.length) return;
     const asset = result.assets[0];
-    const ext = asset.uri.split(".").pop() ?? "jpg";
-    const contentType = ext === "png" ? "image/png" : "image/jpeg";
+    const ext = (asset.uri.split(".").pop() ?? "jpg").replace("jpeg", "jpg");
+    const contentType = `image/${ext === "jpg" ? "jpeg" : ext}`;
     setEditDriverPhotoUploading(true);
     try {
-      const { uploadUrl, objectPath } = await apiPost<{ uploadUrl: string; objectPath: string }>("/storage/upload-url", { name: `driver-${Date.now()}.${ext}`, size: asset.fileSize ?? 0, contentType });
-      await fetch(uploadUrl, { method: "PUT", headers: { "Content-Type": contentType }, body: { uri: asset.uri, type: contentType, name: `driver.${ext}` } as unknown as BodyInit });
+      const urlRes = await fetch(`${API_BASE}/api/storage/uploads/request-url`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: `driver-${Date.now()}.${ext}`, size: asset.fileSize ?? 0, contentType }),
+      });
+      const { uploadURL, objectPath } = await urlRes.json() as { uploadURL: string; objectPath: string };
+      const imageBlob = await fetch(asset.uri).then((r) => r.blob());
+      await fetch(uploadURL, { method: "PUT", headers: { "Content-Type": contentType }, body: imageBlob });
       setEditDriverPhotoUrl(`${API_BASE}/api/storage${objectPath}`);
     } catch { Alert.alert("خطأ", "تعذّر رفع الصورة"); }
     setEditDriverPhotoUploading(false);
@@ -5234,6 +5267,53 @@ ${kpiBlock}${payBlock}${sumBlock}
             </ScrollView>
           </View>
         </View>
+      </Modal>
+
+      {/* ── Custom Sound URL Modal ── */}
+      <Modal visible={customSoundModalVisible} transparent animationType="fade" onRequestClose={() => setCustomSoundModalVisible(false)}>
+        <KeyboardAvoidingView style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "rgba(0,0,0,0.7)" }} behavior="padding">
+          <View style={{ width: "88%", backgroundColor: "#1A1008", borderRadius: 18, padding: 24, borderWidth: 1, borderColor: "#3A2410", gap: 16 }}>
+            <Text style={{ color: "#E8920C", fontFamily: F.extra, fontSize: 16, textAlign: "right" }}>🎵 صوت مخصص</Text>
+            <Text style={{ color: "#9A7A5A", fontFamily: F.regular, fontSize: 13, textAlign: "right" }}>
+              أدخل رابط ملف صوتي (MP3 أو WAV) ليُحدَّث على جميع الأجهزة
+            </Text>
+            <TextInput
+              value={customSoundUrlInput}
+              onChangeText={setCustomSoundUrlInput}
+              placeholder="https://example.com/sound.mp3"
+              placeholderTextColor="#5A4A3A"
+              autoCapitalize="none"
+              keyboardType="url"
+              style={{
+                backgroundColor: "#0F0A05",
+                borderWidth: 1,
+                borderColor: "#3A2410",
+                borderRadius: 12,
+                paddingHorizontal: 14,
+                paddingVertical: 12,
+                color: "#E8C87A",
+                fontFamily: F.regular,
+                fontSize: 13,
+                textAlign: "left",
+              }}
+            />
+            <View style={{ flexDirection: "row-reverse", gap: 10 }}>
+              <TouchableOpacity
+                onPress={confirmCustomSoundUrl}
+                disabled={!customSoundUrlInput.trim()}
+                style={{ flex: 1, backgroundColor: "#C8171A", borderRadius: 12, paddingVertical: 14, alignItems: "center", opacity: customSoundUrlInput.trim() ? 1 : 0.45 }}
+              >
+                <Text style={{ color: "#fff", fontFamily: F.bold, fontSize: 15 }}>✓ حفظ</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setCustomSoundModalVisible(false)}
+                style={{ flex: 1, backgroundColor: "#2A1A0A", borderRadius: 12, paddingVertical: 14, alignItems: "center", borderWidth: 1, borderColor: "#3A2410" }}
+              >
+                <Text style={{ color: "#9A7A5A", fontFamily: F.bold, fontSize: 15 }}>إلغاء</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
       </Modal>
 
     </View>
