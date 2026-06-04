@@ -755,7 +755,9 @@ router.get("/map/:orderId", async (req, res) => {
       etaIcon.textContent = '🕐';
       etaText.textContent = 'الوصول المتوقع: ' + minutes + ' دقيقة';
     }
-    distText.textContent = '📍 ' + distKm.toFixed(1) + ' كم';
+    distText.textContent = distKm < 1
+      ? '📍 ' + (Math.round(distKm * 100) * 10) + ' م'
+      : '📍 ' + distKm.toFixed(1) + ' كم';
     etaBar.style.display = 'flex';
   }
 
