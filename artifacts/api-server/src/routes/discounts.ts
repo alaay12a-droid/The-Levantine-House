@@ -65,6 +65,60 @@ router.get("/discount-codes/:id/usages", async (req, res) => {
   res.json({ usages, totalSavings, chartData });
 });
 
+// ── GET /discount-codes/:id/usages.csv
+router.get("/discount-codes/:id/usages.csv", async (req, res) => {
+  const id = Number(req.params.id);
+  if (isNaN(id)) { res.status(400).send("id غير صحيح"); return; }
+
+  const period = (req.query.period as string) ?? "all";
+  let sinceDate: Date | null = null;
+  if (period === "7d") sinceDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  else if (period === "30d") sinceDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+  const [codeRow] = await db.select().from(discountCodesTable).where(eq(discountCodesTable.id, id));
+
+  const whereClause = sinceDate
+    ? and(eq(discountCodeUsagesTable.discountCodeId, id), gte(discountCodeUsagesTable.usedAt, sinceDate))
+    : eq(discountCodeUsagesTable.discountCodeId, id);
+
+  const usages = await db
+    .select({
+      phone: discountCodeUsagesTable.phone,
+      orderId: discountCodeUsagesTable.orderId,
+      usedAt: discountCodeUsagesTable.usedAt,
+      orderTotal: ordersTable.totalPrice,
+      discountAmount: ordersTable.discountAmount,
+    })
+    .from(discountCodeUsagesTable)
+    .leftJoin(ordersTable, eq(discountCodeUsagesTable.orderId, ordersTable.id))
+    .where(whereClause)
+    .orderBy(desc(discountCodeUsagesTable.usedAt));
+
+  const code = codeRow?.code ?? String(id);
+  const filename = `discount-${code}-${period}.csv`;
+
+  const csvEscape = (v: unknown): string => {
+    const s = v == null ? "" : String(v);
+    return s.includes(",") || s.includes('"') || s.includes("\n") ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+
+  const header = ["الكود", "هاتف العميل", "رقم الطلب", "إجمالي الطلب (ر.س)", "قيمة الخصم (ر.س)", "التاريخ والوقت"].join(",");
+  const rows = usages.map((u) => [
+    csvEscape(code),
+    csvEscape(u.phone),
+    csvEscape(u.orderId ?? ""),
+    csvEscape(u.orderTotal != null ? (u.orderTotal / 100).toFixed(2) : ""),
+    csvEscape(u.discountAmount != null ? (u.discountAmount / 100).toFixed(2) : ""),
+    csvEscape(new Date(u.usedAt).toLocaleString("ar-SA", { timeZone: "Asia/Riyadh" })),
+  ].join(","));
+
+  const csv = "\uFEFF" + [header, ...rows].join("\r\n");
+
+  res.setHeader("Content-Type", "text/csv; charset=utf-8");
+  res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+  res.send(csv);
+});
+
 // ── POST /discount-codes
 router.post("/discount-codes", async (req, res) => {
   const parsed = z.object({

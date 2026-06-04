@@ -15,7 +15,10 @@ import {
   KeyboardAvoidingView,
   Image,
   Dimensions,
+  Linking,
 } from "react-native";
+import * as FileSystem from "expo-file-system";
+import * as Sharing from "expo-sharing";
 import Svg, { Rect, Text as SvgText, Line } from "react-native-svg";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -1003,6 +1006,28 @@ ${kpiBlock}${payBlock}${sumBlock}
     setShowDcUsagesModal(true);
     loadDcUsages(dc.id, "all");
   }, [loadDcUsages]);
+
+  const exportDcUsagesCsv = useCallback(async () => {
+    if (selectedDcId == null) return;
+    const code = discountCodes.find((d) => d.id === selectedDcId)?.code ?? String(selectedDcId);
+    const url = `${API_BASE}/api/discount-codes/${selectedDcId}/usages.csv?period=${dcUsagePeriod}`;
+    if (Platform.OS === "web") {
+      Linking.openURL(url);
+      return;
+    }
+    try {
+      const filename = `discount-${code}-${dcUsagePeriod}.csv`;
+      const destFile = new FileSystem.File(FileSystem.Paths.document, filename);
+      const downloaded = await FileSystem.File.downloadFileAsync(url, destFile, { idempotent: true });
+      await Sharing.shareAsync(downloaded.uri, {
+        mimeType: "text/csv",
+        dialogTitle: "تصدير بيانات الكود",
+        UTI: "public.comma-separated-values-text",
+      });
+    } catch {
+      Alert.alert("خطأ", "تعذر تصدير الملف");
+    }
+  }, [selectedDcId, discountCodes, dcUsagePeriod]);
 
   const [stockEdits, setStockEdits] = useState<Record<string, string>>({});
   const [stockSaving, setStockSaving] = useState<string | null>(null);
@@ -5504,9 +5529,17 @@ ${kpiBlock}${payBlock}${sumBlock}
                   </Text>
                 </View>
               </View>
-              <TouchableOpacity onPress={() => setShowDcUsagesModal(false)} style={{ padding: 6 }}>
-                <Feather name="x" size={22} color={colors.mutedForeground} />
-              </TouchableOpacity>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                <TouchableOpacity
+                  onPress={exportDcUsagesCsv}
+                  style={{ padding: 6, borderRadius: 8, backgroundColor: colors.secondary, borderWidth: 1, borderColor: colors.border }}
+                >
+                  <Feather name="download" size={18} color={colors.gold} />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => setShowDcUsagesModal(false)} style={{ padding: 6 }}>
+                  <Feather name="x" size={22} color={colors.mutedForeground} />
+                </TouchableOpacity>
+              </View>
             </View>
 
             {/* Period Filter */}
