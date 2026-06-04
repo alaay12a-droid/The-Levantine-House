@@ -376,7 +376,7 @@ export default function CheckoutScreen() {
       const order = await apiPost<Order>("/orders", {
         customerName: user.name,
         customerPhone: user.phone,
-        customerAddress: locationUrl || user.address || null,
+        customerAddress: orderType === "delivery" ? (locationUrl || user.address || null) : null,
         items: items.map((ci) => {
           const extra = ci.customization?.extraPrice ?? 0;
           const displayName = resolveCartItemName(ci.item.name, ci.customization);
