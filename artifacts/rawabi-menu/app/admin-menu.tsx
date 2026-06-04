@@ -3097,6 +3097,15 @@ ${kpiBlock}${payBlock}${sumBlock}
                     <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }}>اضغط للتفاصيل</Text>
                     <Feather name="chevron-left" size={13} color={colors.mutedForeground} style={{ marginRight: "auto" }} />
                   </TouchableOpacity>
+                  {dc.maxUses != null && (() => {
+                    const pct = Math.min((usageCount / dc.maxUses) * 100, 100);
+                    const barColor = pct >= 100 ? "#E57373" : pct >= 80 ? "#E8920C" : "#4CAF50";
+                    return (
+                      <View style={{ height: 4, borderRadius: 2, backgroundColor: colors.border + "55", overflow: "hidden" }}>
+                        <View style={{ height: 4, borderRadius: 2, backgroundColor: barColor, width: `${pct}%` }} />
+                      </View>
+                    );
+                  })()}
                 </View>
                 );
               })}
