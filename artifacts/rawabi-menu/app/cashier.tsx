@@ -68,6 +68,8 @@ interface Order {
   items: OrderItem[];
   totalPrice: number;
   deliveryFee: number;
+  discountCode: string | null;
+  discountAmount: number | null;
   status: OrderStatus;
   paymentMethod: string;
   notes: string | null;
@@ -1895,6 +1897,17 @@ ${daySections}
                     </View>
                   ))}
                 </View>
+
+                {order.discountCode && order.discountAmount != null && (
+                  <View style={[styles.notesRow, { backgroundColor: "#1A0A0A", borderTopWidth: 1, borderTopColor: "#C8171A33" }]}>
+                    <Text style={[styles.notesLabel, { color: "#C8171A", fontFamily: F.bold }]}>
+                      -{(order.discountAmount / 100) % 1 === 0 ? (order.discountAmount / 100) : (order.discountAmount / 100).toFixed(2)} ر.س
+                    </Text>
+                    <Text style={[styles.notesText, { color: "#E57373", fontFamily: F.semi }]}>
+                      🏷️ {order.discountCode}
+                    </Text>
+                  </View>
+                )}
 
                 {order.notes && (
                   <View style={[styles.notesRow, { backgroundColor: colors.secondary }]}>

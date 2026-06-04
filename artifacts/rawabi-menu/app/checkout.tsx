@@ -390,6 +390,8 @@ export default function CheckoutScreen() {
         }),
         totalPrice: grandTotal,
         deliveryFee,
+        discountCode: appliedCodeLabel || null,
+        discountAmount: appliedDiscount > 0 ? appliedDiscount : null,
         paymentMethod,
         notes: [
           orderType === "delivery" ? "🚗 توصيل" : "🏪 استلام من الفرع",
