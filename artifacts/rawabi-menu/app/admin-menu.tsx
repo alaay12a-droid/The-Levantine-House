@@ -394,7 +394,7 @@ export default function AdminMenuScreen() {
   const { config: tabConfig, update: updateTabConfig } = useTabConfig();
   const { density: uiDensity, saveDensity: saveUIDensity } = useUIDensity();
   const { settings: paymentSettings, saveSettings: savePaymentSettings } = usePaymentSettings();
-  const { codes: discountCodes, addCode, updateCode, deleteCode, fetchUsages } = useDiscountCodes();
+  const { codes: discountCodes, addCode, updateCode, deleteCode, fetchUsages, cleanupExpired } = useDiscountCodes();
   const { banners: allBanners, refresh: refreshBanners } = useBanners();
   const { data: revenueData, loading: revenueLoading, refresh: refreshRevenue } = useRevenue();
   const [revenueView, setRevenueView] = useState<"daily" | "monthly" | "yearly" | "items">("daily");
@@ -2864,10 +2864,48 @@ ${kpiBlock}${payBlock}${sumBlock}
             🏷️ أكواد الخصم
           </Text>
 
+          {/* Bulk delete expired button */}
+          {discountCodes.some((dc) => !!dc.expiresAt && new Date(dc.expiresAt) < new Date()) && (
+            <TouchableOpacity
+              onPress={() => {
+                Alert.alert(
+                  "حذف الأكواد المنتهية",
+                  "سيتم حذف جميع الأكواد المنتهية الصلاحية نهائياً. هل أنت متأكد؟",
+                  [
+                    { text: "إلغاء", style: "cancel" },
+                    {
+                      text: "حذف الكل",
+                      style: "destructive",
+                      onPress: async () => {
+                        try {
+                          const n = await cleanupExpired();
+                          Alert.alert("تم", `تم حذف ${n} كود منتهي`);
+                        } catch {
+                          Alert.alert("خطأ", "تعذّر حذف الأكواد المنتهية");
+                        }
+                      },
+                    },
+                  ],
+                );
+              }}
+              style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 10, borderRadius: 10, borderWidth: 1, borderColor: "#E5737355", backgroundColor: "#2A0A08" }}
+            >
+              <Feather name="trash-2" size={14} color="#E57373" />
+              <Text style={{ color: "#E57373", fontFamily: F.bold, fontSize: 13 }}>حذف جميع الأكواد المنتهية</Text>
+            </TouchableOpacity>
+          )}
+
           {/* Existing codes list */}
           {discountCodes.length > 0 && (
             <View style={{ gap: 10 }}>
-              {discountCodes.map((dc) => {
+              {[...discountCodes]
+                .sort((a, b) => {
+                  const aExpired = !!a.expiresAt && new Date(a.expiresAt) < new Date();
+                  const bExpired = !!b.expiresAt && new Date(b.expiresAt) < new Date();
+                  if (aExpired === bExpired) return 0;
+                  return aExpired ? 1 : -1;
+                })
+                .map((dc) => {
                 const isExpired = !!dc.expiresAt && new Date(dc.expiresAt) < new Date();
                 const borderColor = isExpired ? "#E57373" : (dc.active ? colors.gold : colors.border);
                 return (

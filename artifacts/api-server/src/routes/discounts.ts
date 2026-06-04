@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { db, discountCodesTable, discountCodeUsagesTable, ordersTable } from "@workspace/db";
-import { eq, and, count, desc, gte } from "drizzle-orm";
+import { eq, and, count, desc, gte, sql } from "drizzle-orm";
 
 const router = Router();
 
@@ -170,6 +170,15 @@ router.delete("/discount-codes/:id", async (req, res) => {
   if (isNaN(id)) { res.status(400).json({ error: "id غير صحيح" }); return; }
   await db.delete(discountCodesTable).where(eq(discountCodesTable.id, id));
   res.json({ ok: true });
+});
+
+// ── POST /discount-codes/cleanup — delete all codes whose expiresAt has passed
+router.post("/discount-codes/cleanup", async (_req, res) => {
+  const deleted = await db
+    .delete(discountCodesTable)
+    .where(sql`${discountCodesTable.expiresAt} IS NOT NULL AND ${discountCodesTable.expiresAt} < NOW()`)
+    .returning({ id: discountCodesTable.id });
+  res.json({ deleted: deleted.length });
 });
 
 // ── POST /discount-codes/validate  (used by checkout — public)

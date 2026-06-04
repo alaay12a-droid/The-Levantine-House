@@ -68,7 +68,14 @@ export function useDiscountCodes() {
     return await apiGet<DiscountCodeUsages>(`/discount-codes/${id}/usages?period=${period}`);
   };
 
+  const cleanupExpired = async (): Promise<number> => {
+    const result = await apiPost<{ deleted: number }>("/discount-codes/cleanup", {});
+    const now = new Date();
+    setCodes((prev) => prev.filter((c) => !c.expiresAt || new Date(c.expiresAt) >= now));
+    return result.deleted;
+  };
+
   const activeCodes = codes.filter((c) => c.active);
 
-  return { codes, activeCodes, loaded, load, addCode, updateCode, deleteCode, fetchUsages };
+  return { codes, activeCodes, loaded, load, addCode, updateCode, deleteCode, fetchUsages, cleanupExpired };
 }
