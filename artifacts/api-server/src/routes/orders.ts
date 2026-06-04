@@ -139,25 +139,35 @@ router.get("/orders", async (req, res) => {
   res.json(orders);
 });
 
-const CUSTOMER_STATUS_MESSAGES: Partial<Record<string, { title: string; body: string }>> = {
-  preparing: {
-    title: "🍳 جاري تحضير طلبك",
-    body: "طلبك قيد التحضير الآن — سيكون جاهز قريباً!",
-  },
-  ready: {
-    title: "✅ طلبك جاهز!",
-    body: "طلبك أصبح جاهزاً 🎉",
-  },
-  // "done" for pickup orders only (no driver) — delivery orders get notified via driver events
-  done: {
-    title: "🙏 شكراً لك",
-    body: "تم استلام طلبك — نتمنى تكون استمتعت بوجبتك!",
-  },
-  cancelled: {
-    title: "❌ تم إلغاء طلبك",
-    body: "نأسف، تم إلغاء طلبك من قِبل المطعم. للاستفسار تواصل معنا مباشرة.",
-  },
-};
+const RESTAURANT_NAME = "روابي المندي";
+
+function buildCustomerStatusMessage(status: string, dailyNumber: number): { title: string; body: string } | null {
+  switch (status) {
+    case "preparing":
+      return {
+        title: "🍳 جاري تحضير طلبك",
+        body: `طلبك رقم #${dailyNumber} من ${RESTAURANT_NAME} قيد التحضير الآن — سيكون جاهز قريباً!`,
+      };
+    case "ready":
+      return {
+        title: "✅ طلبك جاهز!",
+        body: `طلبك رقم #${dailyNumber} من ${RESTAURANT_NAME} أصبح جاهزاً، تفضّل بالاستلام 🎉`,
+      };
+    case "done":
+      // pickup orders only (delivery orders notified via driver "delivered" event)
+      return {
+        title: "🙏 شكراً لك",
+        body: `تم استلام طلبك رقم #${dailyNumber} — نتمنى تكون استمتعت بوجبتك!`,
+      };
+    case "cancelled":
+      return {
+        title: "❌ تم إلغاء طلبك",
+        body: `نأسف، تم إلغاء طلبك رقم #${dailyNumber} من قِبل ${RESTAURANT_NAME}. للاستفسار تواصل معنا مباشرة.`,
+      };
+    default:
+      return null;
+  }
+}
 
 router.patch("/orders/:id/status", async (req, res) => {
   const id = parseInt(req.params.id);
@@ -183,8 +193,8 @@ router.patch("/orders/:id/status", async (req, res) => {
   res.json(order);
 
   // Send push notification to customer if they have a token
-  if (order.customerPushToken && CUSTOMER_STATUS_MESSAGES[status]) {
-    const msg = CUSTOMER_STATUS_MESSAGES[status]!;
+  const customerMsg = buildCustomerStatusMessage(status, order.dailyNumber);
+  if (order.customerPushToken && customerMsg) {
     // For "done": skip if order has a driver assignment (delivery order) —
     // the driver's "delivered" event sends the notification instead
     let shouldSend = true;
@@ -202,8 +212,8 @@ router.patch("/orders/:id/status", async (req, res) => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           to: order.customerPushToken,
-          title: msg.title,
-          body: msg.body,
+          title: customerMsg.title,
+          body: customerMsg.body,
           sound: "default",
           data: { orderId: order.id, status },
           channelId: "order-status",

@@ -8,8 +8,9 @@ import {
 import { Feather } from "@expo/vector-icons";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack, useRouter, useSegments } from "expo-router";
+import * as Notifications from "expo-notifications";
 import * as SplashScreen from "expo-splash-screen";
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import { Platform } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
@@ -73,10 +74,33 @@ function AuthGate() {
 }
 
 function NotificationSetup() {
+  const router = useRouter();
+  const responseListener = useRef<Notifications.EventSubscription | null>(null);
+
   useEffect(() => {
     // Request notification permissions immediately on app launch
     registerCustomerNotifications().catch(() => {});
+
+    // Navigate to order-confirmed screen when customer taps a status notification
+    try {
+      responseListener.current = Notifications.addNotificationResponseReceivedListener((response) => {
+        const data = response.notification.request.content.data as Record<string, unknown>;
+        const orderId = data?.orderId;
+        if (orderId != null) {
+          router.push(`/order-confirmed?orderId=${orderId}`);
+        }
+      });
+    } catch {
+      // Not supported in this environment — safe to ignore
+    }
+
+    return () => {
+      try {
+        responseListener.current?.remove();
+      } catch {}
+    };
   }, []);
+
   return null;
 }
 
