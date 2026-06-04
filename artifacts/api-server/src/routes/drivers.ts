@@ -594,6 +594,8 @@ router.get("/map/:orderId", async (req, res) => {
     }
     #etaIcon{font-size:16px}
     #etaText{color:#29B6F6;font-size:13px;font-weight:700}
+    #etaDivider{color:#555;font-size:13px;font-weight:400}
+    #distText{color:#81C784;font-size:13px;font-weight:700}
 
     /* ── legend ── */
     #legend{
@@ -656,6 +658,8 @@ router.get("/map/:orderId", async (req, res) => {
 <div id="etaBar">
   <span id="etaIcon">🕐</span>
   <span id="etaText">جاري الحساب...</span>
+  <span id="etaDivider">|</span>
+  <span id="distText">📍 ...</span>
 </div>
 
 <div id="legend">
@@ -721,6 +725,7 @@ router.get("/map/:orderId", async (req, res) => {
     var etaBar  = document.getElementById('etaBar');
     var etaText = document.getElementById('etaText');
     var etaIcon = document.getElementById('etaIcon');
+    var distText = document.getElementById('distText');
     if (minutes <= 2) {
       etaIcon.textContent = '🏁';
       etaText.textContent = 'الوصول خلال دقيقتين أو أقل';
@@ -728,6 +733,7 @@ router.get("/map/:orderId", async (req, res) => {
       etaIcon.textContent = '🕐';
       etaText.textContent = 'الوصول المتوقع: ' + minutes + ' دقيقة';
     }
+    distText.textContent = '📍 ' + distKm.toFixed(1) + ' كم';
     etaBar.style.display = 'flex';
   }
 
