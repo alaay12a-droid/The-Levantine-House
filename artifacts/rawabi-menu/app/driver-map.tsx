@@ -20,6 +20,8 @@ const F = {
   extra:   "Cairo_800ExtraBold",
 };
 
+const SIGNAL_LOST_THRESHOLD_MS = 30_000;
+
 interface AssignmentRow {
   driver: { id: number; name: string; phone: string; photoUrl?: string | null };
   assignment: {
@@ -27,6 +29,7 @@ interface AssignmentRow {
     status: "assigned" | "picked_up" | "delivered";
     driverLat?: number | null;
     driverLng?: number | null;
+    locationUpdatedAt?: string | null;
   };
 }
 
@@ -40,7 +43,10 @@ export default function DriverMapScreen() {
 
   const [assignment, setAssignment] = useState<AssignmentRow | null>(null);
   const [hasLocation, setHasLocation] = useState(false);
+  const [signalLost, setSignalLost] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const signalCheckRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const locationUpdatedAtRef = useRef<string | null>(null);
 
   const fetchAssignment = useCallback(async () => {
     if (!orderId) return;
@@ -49,14 +55,26 @@ export default function DriverMapScreen() {
       if (!row) return;
       setAssignment(row);
       if (row.assignment.driverLat && row.assignment.driverLng) setHasLocation(true);
+      locationUpdatedAtRef.current = row.assignment.locationUpdatedAt ?? null;
     } catch {}
   }, [orderId]);
+
+  const checkSignal = useCallback(() => {
+    const updatedAt = locationUpdatedAtRef.current;
+    if (!updatedAt) return;
+    const age = Date.now() - new Date(updatedAt).getTime();
+    setSignalLost(age > SIGNAL_LOST_THRESHOLD_MS);
+  }, []);
 
   useEffect(() => {
     fetchAssignment();
     pollRef.current = setInterval(fetchAssignment, 15000);
-    return () => { if (pollRef.current) clearInterval(pollRef.current); };
-  }, [fetchAssignment]);
+    signalCheckRef.current = setInterval(checkSignal, 5000);
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+      if (signalCheckRef.current) clearInterval(signalCheckRef.current);
+    };
+  }, [fetchAssignment, checkSignal]);
 
   const mapUrl = Platform.OS === "web"
     ? `/api/map/${orderId}`
@@ -113,24 +131,63 @@ export default function DriverMapScreen() {
             </Text>
           </View>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
-            <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: "#4CAF50" }} />
-            <Text style={{ color: "#4CAF50", fontFamily: F.semi, fontSize: 11 }}>
-              {isEn ? "LIVE" : "مباشر"}
-            </Text>
+            {signalLost ? (
+              <>
+                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: "#F59E0B" }} />
+                <Text style={{ color: "#F59E0B", fontFamily: F.semi, fontSize: 11 }}>
+                  {isEn ? "WEAK" : "ضعيف"}
+                </Text>
+              </>
+            ) : (
+              <>
+                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: "#4CAF50" }} />
+                <Text style={{ color: "#4CAF50", fontFamily: F.semi, fontSize: 11 }}>
+                  {isEn ? "LIVE" : "مباشر"}
+                </Text>
+              </>
+            )}
           </View>
         </View>
       )}
 
-      {/* Map — web uses <iframe>, native uses react-native-webview */}
-      {orderId ? (
-        <MapWebView uri={mapUrl} style={{ flex: 1 }} />
-      ) : (
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-          <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 14 }}>
-            {isEn ? "Order not found" : "الطلب غير موجود"}
-          </Text>
-        </View>
-      )}
+      {/* Map area with optional signal-lost banner */}
+      <View style={{ flex: 1 }}>
+        {orderId ? (
+          <MapWebView uri={mapUrl} style={{ flex: 1 }} />
+        ) : (
+          <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+            <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 14 }}>
+              {isEn ? "Order not found" : "الطلب غير موجود"}
+            </Text>
+          </View>
+        )}
+
+        {/* Signal-lost banner — overlaid on the map */}
+        {signalLost && hasLocation && (
+          <View style={{
+            position: "absolute",
+            top: 12,
+            left: 16,
+            right: 16,
+            flexDirection: "row-reverse",
+            alignItems: "center",
+            gap: 8,
+            backgroundColor: "#78350F",
+            borderWidth: 1,
+            borderColor: "#F59E0B",
+            borderRadius: 10,
+            paddingHorizontal: 14,
+            paddingVertical: 10,
+          }}>
+            <Feather name="wifi-off" size={16} color="#F59E0B" />
+            <Text style={{ color: "#FDE68A", fontFamily: F.semi, fontSize: 13, flex: 1, textAlign: "right" }}>
+              {isEn
+                ? "GPS signal lost — location may be outdated"
+                : "انقطع إشارة GPS — قد يكون الموقع غير محدَّث"}
+            </Text>
+          </View>
+        )}
+      </View>
     </View>
   );
 }
