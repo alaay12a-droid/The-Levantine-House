@@ -25,7 +25,7 @@
     },
     "android": {
       "package": "com.rwabi.almndi",
-      "versionCode": 5,
+      "versionCode": 6,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive_icon.png",
         "backgroundColor": "#0F0A05"
