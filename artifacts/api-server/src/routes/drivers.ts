@@ -584,8 +584,21 @@ router.get("/map/:orderId", async (req, res) => {
     #infoSub{color:#aaa;font-size:11px;font-weight:600;text-align:center}
     #statusRow{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:2px}
     .dot{width:7px;height:7px;border-radius:50%;background:#4CAF50;animation:blink 1.2s infinite;flex-shrink:0}
+    .dot.delivered{background:#4CAF50;animation:none}
     #statusText{color:#4CAF50;font-size:11px;font-weight:700}
     @keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+
+    /* ── delivered overlay banner ── */
+    #deliveredBanner{
+      display:none;
+      position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:2000;
+      background:rgba(10,20,10,.95);border:1.5px solid #4CAF50;border-radius:20px;
+      padding:24px 32px;text-align:center;flex-direction:column;align-items:center;gap:10px;
+      box-shadow:0 0 40px rgba(76,175,80,.25);min-width:220px;
+    }
+    #deliveredBanner .db-icon{font-size:48px;line-height:1;margin-bottom:4px}
+    #deliveredBanner .db-title{color:#4CAF50;font-size:18px;font-weight:700}
+    #deliveredBanner .db-sub{color:#aaa;font-size:12px;font-weight:600}
 
     /* ── ETA badge ── */
     #etaBar{
@@ -675,6 +688,12 @@ router.get("/map/:orderId", async (req, res) => {
 
 <div class="no-loc" id="noLoc"><span>📍</span>لم يشارك المندوب موقعه بعد</div>
 
+<div id="deliveredBanner">
+  <div class="db-icon">✅</div>
+  <div class="db-title">تم التسليم!</div>
+  <div class="db-sub">وصل طلبك — آخر موقع للمندوب معروض على الخريطة</div>
+</div>
+
 <script>
   var ORDER_ID      = ${orderId};
   var POLL_MS       = 10000;
@@ -686,6 +705,8 @@ router.get("/map/:orderId", async (req, res) => {
   var map = null, driverMarker = null, routeLine = null;
   var curLat = null, curLng = null, animReq = null;
   var staticMarkersAdded = false;
+  var isDelivered = false;
+  var pollIntervalId = null;
 
   /* ── Haversine distance (km) ── */
   function haversineKm(lat1, lng1, lat2, lng2) {
@@ -806,6 +827,39 @@ router.get("/map/:orderId", async (req, res) => {
     frame();
   }
 
+  /* ── show delivered state (freeze pin, show banner, stop polling) ── */
+  function showDelivered(lat, lng) {
+    if (isDelivered) return;
+    isDelivered = true;
+    if (pollIntervalId) { clearInterval(pollIntervalId); pollIntervalId = null; }
+    // Ensure pin is shown at last known location
+    if (!map && lat && lng) { initMap(lat, lng); }
+    else if (lat && lng && driverMarker) { driverMarker.setLatLng([lat, lng]); curLat = lat; curLng = lng; }
+    // Remove pulsing animation from driver marker
+    if (driverMarker) {
+      var frozenIcon = L.divIcon({
+        html: '<div style="width:50px;height:50px;border-radius:50%;background:rgba(76,175,80,.18);border:2px solid #4CAF50;display:flex;align-items:center;justify-content:center;"><div style="font-size:26px;line-height:1">✅</div></div>',
+        iconSize:[50,50], iconAnchor:[25,25], className:''
+      });
+      driverMarker.setIcon(frozenIcon);
+    }
+    // Remove route line — delivery complete
+    if (routeLine && map) { map.removeLayer(routeLine); routeLine = null; }
+    // Hide ETA + noLoc
+    document.getElementById('etaBar').style.display = 'none';
+    document.getElementById('noLoc').style.display = 'none';
+    // Update status bar
+    var dot = document.querySelector('.dot');
+    if (dot) { dot.classList.add('delivered'); }
+    var st = document.getElementById('statusText');
+    if (st) { st.textContent = 'تم التسليم ✅'; st.style.color = '#4CAF50'; }
+    // Show delivered banner (centred overlay)
+    var banner = document.getElementById('deliveredBanner');
+    if (banner) { banner.style.display = 'flex'; }
+    // Auto-hide banner after 6 seconds
+    setTimeout(function() { if (banner) banner.style.display = 'none'; }, 6000);
+  }
+
   /* ── poll for driver location ── */
   async function poll() {
     try {
@@ -815,6 +869,11 @@ router.get("/map/:orderId", async (req, res) => {
       if (!data || !data.assignment) return;
       var lat = data.assignment.driverLat;
       var lng = data.assignment.driverLng;
+      // Handle delivered state — freeze pin with last known coords
+      if (data.assignment.status === 'delivered') {
+        showDelivered(lat, lng);
+        return;
+      }
       if (!lat || !lng) {
         document.getElementById('noLoc').style.display = 'block';
         return;
@@ -842,7 +901,7 @@ router.get("/map/:orderId", async (req, res) => {
   });
 
   poll();
-  setInterval(poll, POLL_MS);
+  pollIntervalId = setInterval(poll, POLL_MS);
 </script>
 </body>
 </html>`;

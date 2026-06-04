@@ -64,11 +64,12 @@ export default function DriverMapScreen() {
   }, [orderId]);
 
   const checkSignal = useCallback(() => {
+    if (assignment?.assignment.status === "delivered") { setSignalLost(false); return; }
     const updatedAt = locationUpdatedAtRef.current;
     if (!updatedAt) return;
     const age = Date.now() - new Date(updatedAt).getTime();
     setSignalLost(age > SIGNAL_LOST_THRESHOLD_MS);
-  }, []);
+  }, [assignment?.assignment.status]);
 
   useEffect(() => {
     fetchAssignment();
@@ -144,11 +145,20 @@ export default function DriverMapScreen() {
               {assignment.driver.name}
             </Text>
             <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11, textAlign: "right" }}>
-              {isEn ? "Live location · updates every 10s" : "موقع مباشر · يُحدَّث كل 10 ثوانٍ"}
+              {assignment?.assignment.status === "delivered"
+                ? (isEn ? "Last known location" : "آخر موقع معروف")
+                : (isEn ? "Live location · updates every 10s" : "موقع مباشر · يُحدَّث كل 10 ثوانٍ")}
             </Text>
           </View>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
-            {signalLost ? (
+            {assignment?.assignment.status === "delivered" ? (
+              <>
+                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: "#4CAF50" }} />
+                <Text style={{ color: "#4CAF50", fontFamily: F.semi, fontSize: 11 }}>
+                  {isEn ? "DELIVERED" : "تم التسليم"}
+                </Text>
+              </>
+            ) : signalLost ? (
               <>
                 <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: "#F59E0B" }} />
                 <Text style={{ color: "#F59E0B", fontFamily: F.semi, fontSize: 11 }}>
