@@ -24,6 +24,7 @@ const comboBodySchema = z.object({
 
 // GET /combos — public
 router.get("/combos", async (_req, res) => {
+  res.setHeader("Cache-Control", "no-store");
   const rows = await db.select().from(combosTable).orderBy(asc(combosTable.sortOrder), asc(combosTable.createdAt));
   res.json(rows.map((r) => ({ ...r, price: r.price / 100 })));
 });

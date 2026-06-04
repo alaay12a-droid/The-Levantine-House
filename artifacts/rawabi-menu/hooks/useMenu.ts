@@ -3,7 +3,13 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { apiGet } from "@/constants/api";
 import { MENU_CATEGORIES, FOOD_IMAGES, type MenuItem } from "@/constants/menu";
 
-const MENU_CACHE_KEY = "@rawabi_menu_cache_v1";
+const MENU_CACHE_KEY = "@rawabi_menu_cache_v2";
+const MENU_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes — stale data after this triggers silent refresh
+
+interface MenuCache {
+  items: ApiMenuItem[];
+  savedAt: number;
+}
 
 export interface ApiMenuItem {
   id: number;
@@ -96,15 +102,19 @@ export function useMenu() {
   const [loading, setLoading] = useState(true);
   const [apiItems, setApiItems] = useState<ApiMenuItem[]>([]);
 
-  // On mount: load cached API data first, then fetch fresh
+  // On mount: load cached data (only if still fresh) then always fetch from server
   useEffect(() => {
     AsyncStorage.getItem(MENU_CACHE_KEY).then((raw) => {
       if (raw) {
         try {
-          const cached: ApiMenuItem[] = JSON.parse(raw);
-          if (Array.isArray(cached) && cached.length > 0) {
-            setCategories(buildCategories(cached));
-            setApiItems(cached);
+          const parsed: MenuCache = JSON.parse(raw);
+          const isFresh = Date.now() - parsed.savedAt < MENU_CACHE_TTL_MS;
+          if (isFresh && Array.isArray(parsed.items) && parsed.items.length > 0) {
+            setCategories(buildCategories(parsed.items));
+            setApiItems(parsed.items);
+          } else {
+            // Cache expired — show static fallback until fresh fetch completes
+            setCategories(staticFallback());
           }
         } catch {
           setCategories(staticFallback());
@@ -122,7 +132,8 @@ export function useMenu() {
       const data = await apiGet<ApiMenuItem[]>("/menu");
       setApiItems(data);
       setCategories(buildCategories(data));
-      AsyncStorage.setItem(MENU_CACHE_KEY, JSON.stringify(data)).catch(() => {});
+      const cache: MenuCache = { items: data, savedAt: Date.now() };
+      AsyncStorage.setItem(MENU_CACHE_KEY, JSON.stringify(cache)).catch(() => {});
     } catch {
       // fallback to cached/static data (already set)
     } finally {

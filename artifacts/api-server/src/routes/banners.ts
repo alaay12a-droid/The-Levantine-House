@@ -8,6 +8,7 @@ const router = Router();
 
 // GET all active banners (public)
 router.get("/banners", async (_req, res) => {
+  res.setHeader("Cache-Control", "no-store");
   const banners = await db
     .select()
     .from(bannersTable)

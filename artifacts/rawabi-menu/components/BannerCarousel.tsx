@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback } from "react";
-import { View, FlatList, Image, Text, Dimensions, StyleSheet } from "react-native";
+import { View, FlatList, Text, Dimensions, StyleSheet } from "react-native";
+import { Image } from "expo-image";
 import type { ApiBanner } from "@/hooks/useBanners";
 
 const { width: SW } = Dimensions.get("window");
@@ -69,7 +70,13 @@ export function BannerCarousel({ banners }: Props) {
         style={{ width: CARD_WIDTH }}
         renderItem={({ item }) => (
           <View style={[styles.slide, { width: CARD_WIDTH }]}>
-            <Image source={{ uri: item.imageUrl }} style={styles.img} resizeMode="cover" />
+            <Image
+              source={{ uri: item.imageUrl }}
+              style={styles.img}
+              contentFit="cover"
+              cachePolicy="memory"
+              transition={300}
+            />
             {item.title ? (
               <View style={styles.overlay}>
                 <Text style={styles.title}>{item.title}</Text>

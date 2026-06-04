@@ -21,6 +21,7 @@ export async function seedOccasions() {
 }
 
 router.get("/", async (req, res) => {
+  res.setHeader("Cache-Control", "no-store");
   const occasions = await db
     .select()
     .from(occasionsTable)

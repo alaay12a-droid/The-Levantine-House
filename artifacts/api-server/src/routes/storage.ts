@@ -52,6 +52,11 @@ router.post("/storage/uploads/request-url", async (req: Request, res: Response) 
     const uploadURL = await objectStorageService.getObjectEntityUploadURL();
     const objectPath = objectStorageService.normalizeObjectEntityPath(uploadURL);
 
+    // Invalidate any cached signed URL for this path so the next read
+    // always generates a fresh signed URL pointing to the new upload.
+    const cacheKey = `object:${objectPath.replace(/^\/objects\//, "")}`;
+    signedUrlCache.delete(cacheKey);
+
     res.json(
       RequestUploadUrlResponse.parse({
         uploadURL,
@@ -93,6 +98,9 @@ router.get("/storage/public-objects/*filePath", async (req: Request, res: Respon
     const signedUrl = await getCachedSignedUrl(cacheKey, () =>
       objectStorageService.getSignedReadUrl(file, SIGNED_URL_SIGN_SEC)
     );
+    // Prevent clients/proxies from caching the redirect — they must always
+    // re-request so we can serve a fresh signed URL when content changes.
+    res.setHeader("Cache-Control", "no-store");
     res.redirect(302, signedUrl);
   } catch (error) {
     req.log.error({ err: error }, "Error serving public object");
@@ -126,6 +134,9 @@ router.get("/storage/objects/*path", async (req: Request, res: Response) => {
     const signedUrl = await getCachedSignedUrl(cacheKey, () =>
       objectStorageService.getSignedReadUrl(objectFile, SIGNED_URL_SIGN_SEC)
     );
+    // Prevent clients/proxies from caching the redirect — they must always
+    // re-request so we can serve a fresh signed URL when content changes.
+    res.setHeader("Cache-Control", "no-store");
     res.redirect(302, signedUrl);
   } catch (error) {
     if (error instanceof ObjectNotFoundError) {
