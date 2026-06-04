@@ -2909,7 +2909,10 @@ ${kpiBlock}${payBlock}${sumBlock}
                 })
                 .map((dc) => {
                 const isExpired = !!dc.expiresAt && new Date(dc.expiresAt) < new Date();
-                const borderColor = isExpired ? "#E57373" : (dc.active ? colors.gold : colors.border);
+                const usageCount = dc.usageCount ?? 0;
+                const isExhausted = dc.maxUses != null && usageCount >= dc.maxUses;
+                const isNearlyExhausted = dc.maxUses != null && !isExhausted && usageCount / dc.maxUses >= 0.8;
+                const borderColor = isExpired ? "#E57373" : isExhausted ? "#E57373" : isNearlyExhausted ? "#E8920C" : (dc.active ? colors.gold : colors.border);
                 return (
                 <View key={dc.id} style={{ backgroundColor: colors.card, borderRadius: 12, borderWidth: 1, borderColor, padding: 14, gap: 8 }}>
                   <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" }}>
@@ -2925,6 +2928,16 @@ ${kpiBlock}${payBlock}${sumBlock}
                       {isExpired && (
                         <View style={{ backgroundColor: "#3A1010", borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: "#E5737355" }}>
                           <Text style={{ color: "#E57373", fontFamily: F.bold, fontSize: 11 }}>منتهي</Text>
+                        </View>
+                      )}
+                      {isExhausted && (
+                        <View style={{ backgroundColor: "#3A1010", borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: "#E5737355" }}>
+                          <Text style={{ color: "#E57373", fontFamily: F.bold, fontSize: 11 }}>نفد ⚠️</Text>
+                        </View>
+                      )}
+                      {isNearlyExhausted && (
+                        <View style={{ backgroundColor: "#2A1800", borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: "#E8920C55" }}>
+                          <Text style={{ color: "#E8920C", fontFamily: F.bold, fontSize: 11 }}>قارب على النفاد ⚠️</Text>
                         </View>
                       )}
                     </View>
