@@ -662,6 +662,10 @@ router.get("/map/:orderId", async (req, res) => {
   <div class="leg-item">🛵 <span>المندوب</span></div>
   <div class="leg-item" style="color:#E8920C">🏠 <span>العميل</span></div>
   <div class="leg-item" style="color:#C8171A">🏪 <span>المطعم</span></div>
+  <div class="leg-item" id="routeLegend" style="display:none;color:#29B6F6">
+    <svg width="22" height="8" viewBox="0 0 22 8" style="vertical-align:middle"><line x1="0" y1="4" x2="22" y2="4" stroke="#29B6F6" stroke-width="2.5" stroke-dasharray="5,4"/></svg>
+    <span>المسار</span>
+  </div>
 </div>
 
 <div class="no-loc" id="noLoc"><span>📍</span>لم يشارك المندوب موقعه بعد</div>
@@ -674,7 +678,7 @@ router.get("/map/:orderId", async (req, res) => {
   var REST_LAT      = ${RESTAURANT_LAT};
   var REST_LNG      = ${RESTAURANT_LNG};
 
-  var map = null, driverMarker = null;
+  var map = null, driverMarker = null, routeLine = null;
   var curLat = null, curLng = null, animReq = null;
   var staticMarkersAdded = false;
 
@@ -687,6 +691,25 @@ router.get("/map/:orderId", async (req, res) => {
             Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*
             Math.sin(dLng/2)*Math.sin(dLng/2);
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  }
+
+  /* ── Update route polyline driver → customer ── */
+  function updateRouteLine(dLat, dLng) {
+    if (CUSTOMER_LAT === null || CUSTOMER_LNG === null) return;
+    if (!map) return;
+    var latlngs = [[dLat, dLng], [CUSTOMER_LAT, CUSTOMER_LNG]];
+    if (routeLine) {
+      routeLine.setLatLngs(latlngs);
+    } else {
+      routeLine = L.polyline(latlngs, {
+        color: '#29B6F6',
+        weight: 3,
+        opacity: 0.85,
+        dashArray: '8, 6',
+      }).addTo(map);
+      var leg = document.getElementById('routeLegend');
+      if (leg) leg.style.display = 'flex';
+    }
   }
 
   /* ── Update ETA banner ── */
@@ -729,6 +752,7 @@ router.get("/map/:orderId", async (req, res) => {
     curLat = lat; curLng = lng;
     driverMarker = L.marker([lat,lng],{icon:driverIcon}).addTo(map);
     addStaticMarkers();
+    updateRouteLine(lat, lng);
     fitAll(lat, lng);
     document.getElementById('statusText').textContent = 'موقع مباشر ● يُحدَّث كل 10 ثوانٍ';
     document.getElementById('noLoc').style.display = 'none';
@@ -768,6 +792,7 @@ router.get("/map/:orderId", async (req, res) => {
       curLat = sLat + (tLat-sLat)*t;
       curLng = sLng + (tLng-sLng)*t;
       driverMarker.setLatLng([curLat,curLng]);
+      updateRouteLine(curLat, curLng);
       if (step < STEPS) animReq = requestAnimationFrame(frame);
       else { curLat=tLat; curLng=tLng; }
     }
