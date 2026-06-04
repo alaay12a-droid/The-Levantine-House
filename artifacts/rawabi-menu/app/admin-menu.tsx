@@ -2951,7 +2951,7 @@ ${kpiBlock}${payBlock}${sumBlock}
                 const usageCount = dc.usageCount ?? 0;
                 const isExhausted = dc.maxUses != null && usageCount >= dc.maxUses;
                 const isNearlyExhausted = dc.maxUses != null && !isExhausted && usageCount / dc.maxUses >= 0.8;
-                const borderColor = isExpired ? "#E57373" : isExhausted ? "#E57373" : isNearlyExhausted ? "#E8920C" : (dc.active ? colors.gold : colors.border);
+                const borderColor = isExpired ? "#E57373" : isExhausted ? "#E8920C" : isNearlyExhausted ? "#E8920C" : (dc.active ? colors.gold : colors.border);
                 return (
                 <View key={dc.id} style={{ backgroundColor: colors.card, borderRadius: 12, borderWidth: 1, borderColor, padding: 14, gap: 8 }}>
                   <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" }}>
@@ -2970,8 +2970,8 @@ ${kpiBlock}${payBlock}${sumBlock}
                         </View>
                       )}
                       {isExhausted && (
-                        <View style={{ backgroundColor: "#3A1010", borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: "#E5737355" }}>
-                          <Text style={{ color: "#E57373", fontFamily: F.bold, fontSize: 11 }}>نفد ⚠️</Text>
+                        <View style={{ backgroundColor: "#2A1800", borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: "#E8920C55" }}>
+                          <Text style={{ color: "#E8920C", fontFamily: F.bold, fontSize: 11 }}>نفد الرصيد 🔒</Text>
                         </View>
                       )}
                       {isNearlyExhausted && (
@@ -3075,6 +3075,17 @@ ${kpiBlock}${payBlock}${sumBlock}
                         </TouchableOpacity>
                       </View>
                     </View>
+                  ) : isExhausted ? (
+                    <TouchableOpacity
+                      onPress={() => {
+                        setDcEditingMaxUsesId(dc.id);
+                        setDcEditingMaxUsesVal(dc.maxUses != null ? String(dc.maxUses) : "");
+                      }}
+                      style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8, backgroundColor: "#2A1800", borderWidth: 1, borderColor: "#E8920C55" }}
+                    >
+                      <Feather name="sliders" size={13} color="#E8920C" />
+                      <Text style={{ color: "#E8920C", fontFamily: F.semi, fontSize: 12 }}>رفع الحد لإعادة تفعيل الكود</Text>
+                    </TouchableOpacity>
                   ) : (
                     <TouchableOpacity
                       onPress={() => {
