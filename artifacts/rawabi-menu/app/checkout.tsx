@@ -13,6 +13,7 @@ import {
   StatusBar,
   Linking,
   Animated,
+  I18nManager,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -569,7 +570,7 @@ export default function CheckoutScreen() {
 
         {/* ── Delivery / Pickup toggle — always visible ── */}
         <View style={[styles.listCard, dyn.card, { backgroundColor: colors.card, borderColor: colors.border, padding: 6 }]}>
-          <View style={{ flexDirection: "row", gap: 6 }}>
+          <View style={{ flexDirection: I18nManager.isRTL ? "row" : "row-reverse", gap: 6 }}>
             <TouchableOpacity
               onPress={() => { setOrderType("delivery"); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
               activeOpacity={0.8}
