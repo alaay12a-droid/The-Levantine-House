@@ -135,9 +135,9 @@ export default function MenuScreen() {
     if (logoTapTimer.current) clearTimeout(logoTapTimer.current);
     if (logoTapCount.current >= 3) {
       logoTapCount.current = 0;
-      driversEnabled ? setShowStaffPicker(true) : router.push("/cashier");
+      setShowStaffPicker(true);
     } else {
-      logoTapTimer.current = setTimeout(() => { logoTapCount.current = 0; }, 800);
+      logoTapTimer.current = setTimeout(() => { logoTapCount.current = 0; }, 1200);
     }
   };
   const availableCombos = combos.filter((c) => c.available);
