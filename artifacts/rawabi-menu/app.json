@@ -26,6 +26,7 @@
     "android": {
       "package": "com.rwabi.almndi",
       "versionCode": 9,
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive_icon.png",
         "backgroundColor": "#0F0A05"
