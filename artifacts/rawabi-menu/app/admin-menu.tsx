@@ -28,7 +28,7 @@ import { useTabConfig, type TabConfig } from "@/hooks/useTabConfig";
 import { loadPins, savePins, isMasterCode, type Pins } from "@/hooks/usePins";
 import { usePaymentSettings } from "@/hooks/usePaymentSettings";
 import { useUIDensity, type UIDensity } from "@/hooks/useUIDensity";
-import { useDiscountCodes, type DiscountCode } from "@/hooks/useDiscountCodes";
+import { useDiscountCodes, type DiscountCode, type DiscountCodeUsage } from "@/hooks/useDiscountCodes";
 import { useBanners, type ApiBanner } from "@/hooks/useBanners";
 import { useRevenue, type RevenuePeriod } from "@/hooks/useRevenue";
 import { useCombos, type ApiCombo, type ComboComponent } from "@/hooks/useCombos";
@@ -389,7 +389,7 @@ export default function AdminMenuScreen() {
   const { config: tabConfig, update: updateTabConfig } = useTabConfig();
   const { density: uiDensity, saveDensity: saveUIDensity } = useUIDensity();
   const { settings: paymentSettings, saveSettings: savePaymentSettings } = usePaymentSettings();
-  const { codes: discountCodes, addCode, updateCode, deleteCode } = useDiscountCodes();
+  const { codes: discountCodes, addCode, updateCode, deleteCode, fetchUsages } = useDiscountCodes();
   const { banners: allBanners, refresh: refreshBanners } = useBanners();
   const { data: revenueData, loading: revenueLoading, refresh: refreshRevenue } = useRevenue();
   const [revenueView, setRevenueView] = useState<"daily" | "monthly" | "yearly" | "items">("daily");
@@ -966,6 +966,26 @@ ${kpiBlock}${payBlock}${sumBlock}
   const [dcValue, setDcValue] = useState("");
   const [dcMinOrder, setDcMinOrder] = useState("");
   const [dcDesc, setDcDesc] = useState("");
+
+  const [selectedDcId, setSelectedDcId] = useState<number | null>(null);
+  const [dcUsages, setDcUsages] = useState<DiscountCodeUsage[]>([]);
+  const [dcTotalSavings, setDcTotalSavings] = useState(0);
+  const [dcUsagesLoading, setDcUsagesLoading] = useState(false);
+  const [showDcUsagesModal, setShowDcUsagesModal] = useState(false);
+
+  const openDcUsages = useCallback(async (dc: DiscountCode) => {
+    setSelectedDcId(dc.id);
+    setDcUsages([]);
+    setDcTotalSavings(0);
+    setDcUsagesLoading(true);
+    setShowDcUsagesModal(true);
+    try {
+      const result = await fetchUsages(dc.id);
+      setDcUsages(result.usages);
+      setDcTotalSavings(result.totalSavings);
+    } catch {}
+    setDcUsagesLoading(false);
+  }, [fetchUsages]);
 
   const [stockEdits, setStockEdits] = useState<Record<string, string>>({});
   const [stockSaving, setStockSaving] = useState<string | null>(null);
@@ -2836,6 +2856,19 @@ ${kpiBlock}${payBlock}${sumBlock}
                   {dc.minOrder > 0 ? (
                     <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11, textAlign: "right" }}>الحد الأدنى للطلب: {dc.minOrder} ر.س</Text>
                   ) : null}
+                  {/* Usage count row */}
+                  <TouchableOpacity
+                    onPress={() => openDcUsages(dc)}
+                    style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8, paddingTop: 4, borderTopWidth: 1, borderTopColor: colors.border + "55" }}
+                  >
+                    <View style={{ backgroundColor: "#1A2A3A", borderRadius: 20, paddingHorizontal: 10, paddingVertical: 3, borderWidth: 1, borderColor: "#64B5F655" }}>
+                      <Text style={{ color: "#64B5F6", fontFamily: F.bold, fontSize: 12 }}>
+                        {dc.usageCount ?? 0} {dc.usageCount === 1 ? "استخدام" : "مرة"}
+                      </Text>
+                    </View>
+                    <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }}>عدد مرات الاستخدام · اضغط للتفاصيل</Text>
+                    <Feather name="chevron-left" size={13} color={colors.mutedForeground} style={{ marginRight: "auto" }} />
+                  </TouchableOpacity>
                 </View>
               ))}
             </View>
@@ -5314,6 +5347,102 @@ ${kpiBlock}${payBlock}${sumBlock}
             </View>
           </View>
         </KeyboardAvoidingView>
+      </Modal>
+
+      {/* ─── Discount Code Usages Modal ────────────────────── */}
+      <Modal
+        visible={showDcUsagesModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowDcUsagesModal(false)}
+      >
+        <View style={{ flex: 1, justifyContent: "flex-end", backgroundColor: "#00000099" }}>
+          <View style={{ backgroundColor: colors.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, borderTopWidth: 1, borderColor: colors.border, maxHeight: "80%" }}>
+            {/* Header */}
+            <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", padding: 20, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+              <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 10 }}>
+                <Text style={{ fontSize: 22 }}>🏷️</Text>
+                <View>
+                  <Text style={{ color: colors.foreground, fontFamily: F.extra, fontSize: 17, textAlign: "right" }}>
+                    {discountCodes.find((d) => d.id === selectedDcId)?.code ?? ""}
+                  </Text>
+                  <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12, textAlign: "right" }}>
+                    سجل الاستخدام
+                  </Text>
+                </View>
+              </View>
+              <TouchableOpacity onPress={() => setShowDcUsagesModal(false)} style={{ padding: 6 }}>
+                <Feather name="x" size={22} color={colors.mutedForeground} />
+              </TouchableOpacity>
+            </View>
+
+            {dcUsagesLoading ? (
+              <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 48 }}>
+                <ActivityIndicator size="large" color={colors.gold} />
+              </View>
+            ) : (
+              <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, gap: 12 }}>
+                {/* Summary */}
+                <View style={{ flexDirection: "row-reverse", gap: 10, marginBottom: 4 }}>
+                  <View style={{ flex: 1, backgroundColor: "#1A2A3A", borderRadius: 12, padding: 14, alignItems: "center", gap: 4, borderWidth: 1, borderColor: "#64B5F633" }}>
+                    <Text style={{ color: "#64B5F6", fontFamily: F.extra, fontSize: 22 }}>{dcUsages.length}</Text>
+                    <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 12 }}>مرة استُخدم</Text>
+                  </View>
+                  <View style={{ flex: 1, backgroundColor: "#1A3A1A", borderRadius: 12, padding: 14, alignItems: "center", gap: 4, borderWidth: 1, borderColor: "#4CAF5033" }}>
+                    <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 22 }}>
+                      {(dcTotalSavings / 100) % 1 === 0 ? dcTotalSavings / 100 : (dcTotalSavings / 100).toFixed(2)}
+                    </Text>
+                    <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 12 }}>ر.س إجمالي الخصم</Text>
+                  </View>
+                </View>
+
+                {dcUsages.length === 0 ? (
+                  <View style={{ alignItems: "center", paddingVertical: 32, gap: 8 }}>
+                    <Text style={{ fontSize: 36 }}>📭</Text>
+                    <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 14 }}>لم يُستخدم هذا الكود بعد</Text>
+                  </View>
+                ) : (
+                  dcUsages.map((u, idx) => {
+                    const date = new Date(u.usedAt);
+                    const dateStr = date.toLocaleDateString("ar-SA", { day: "numeric", month: "short", year: "numeric" });
+                    const timeStr = date.toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" });
+                    const rowBg = idx % 2 === 0 ? colors.background : colors.card;
+                    return (
+                      <View key={u.id} style={{ backgroundColor: rowBg, borderRadius: 10, padding: 12, gap: 6, borderWidth: 1, borderColor: colors.border }}>
+                        <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" }}>
+                          <Text style={{ color: colors.foreground, fontFamily: F.bold, fontSize: 14, textAlign: "right" }}>
+                            📱 {u.phone}
+                          </Text>
+                          {u.orderId && (
+                            <View style={{ backgroundColor: colors.secondary, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2 }}>
+                              <Text style={{ color: colors.mutedForeground, fontFamily: F.bold, fontSize: 11 }}>طلب #{u.orderId}</Text>
+                            </View>
+                          )}
+                        </View>
+                        <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" }}>
+                          <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12 }}>
+                            {dateStr} · {timeStr}
+                          </Text>
+                          {u.discountAmount != null && u.discountAmount > 0 && (
+                            <Text style={{ color: "#4CAF50", fontFamily: F.bold, fontSize: 13 }}>
+                              -{(u.discountAmount / 100) % 1 === 0 ? u.discountAmount / 100 : (u.discountAmount / 100).toFixed(2)} ر.س
+                            </Text>
+                          )}
+                        </View>
+                        {u.orderTotal != null && (
+                          <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11, textAlign: "right" }}>
+                            إجمالي الطلب: {(u.orderTotal / 100) % 1 === 0 ? u.orderTotal / 100 : (u.orderTotal / 100).toFixed(2)} ر.س
+                          </Text>
+                        )}
+                      </View>
+                    );
+                  })
+                )}
+                <View style={{ height: 24 }} />
+              </ScrollView>
+            )}
+          </View>
+        </View>
       </Modal>
 
     </View>

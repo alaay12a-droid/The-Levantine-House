@@ -1,14 +1,47 @@
 import { Router } from "express";
 import { z } from "zod";
-import { db, discountCodesTable, discountCodeUsagesTable } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import { db, discountCodesTable, discountCodeUsagesTable, ordersTable } from "@workspace/db";
+import { eq, and, count, desc } from "drizzle-orm";
 
 const router = Router();
 
 // ── GET /discount-codes
 router.get("/discount-codes", async (_req, res) => {
   const codes = await db.select().from(discountCodesTable).orderBy(discountCodesTable.createdAt);
-  res.json(codes);
+
+  const usageCounts = await db
+    .select({ discountCodeId: discountCodeUsagesTable.discountCodeId, cnt: count() })
+    .from(discountCodeUsagesTable)
+    .groupBy(discountCodeUsagesTable.discountCodeId);
+
+  const countMap: Record<number, number> = {};
+  for (const u of usageCounts) countMap[u.discountCodeId] = Number(u.cnt);
+
+  res.json(codes.map((c) => ({ ...c, usageCount: countMap[c.id] ?? 0 })));
+});
+
+// ── GET /discount-codes/:id/usages
+router.get("/discount-codes/:id/usages", async (req, res) => {
+  const id = Number(req.params.id);
+  if (isNaN(id)) { res.status(400).json({ error: "id غير صحيح" }); return; }
+
+  const usages = await db
+    .select({
+      id: discountCodeUsagesTable.id,
+      phone: discountCodeUsagesTable.phone,
+      orderId: discountCodeUsagesTable.orderId,
+      usedAt: discountCodeUsagesTable.usedAt,
+      orderTotal: ordersTable.totalPrice,
+      discountAmount: ordersTable.discountAmount,
+    })
+    .from(discountCodeUsagesTable)
+    .leftJoin(ordersTable, eq(discountCodeUsagesTable.orderId, ordersTable.id))
+    .where(eq(discountCodeUsagesTable.discountCodeId, id))
+    .orderBy(desc(discountCodeUsagesTable.usedAt));
+
+  const totalSavings = usages.reduce((sum, u) => sum + (u.discountAmount ?? 0), 0);
+
+  res.json({ usages, totalSavings });
 });
 
 // ── POST /discount-codes
@@ -25,7 +58,7 @@ router.post("/discount-codes", async (req, res) => {
 
   try {
     const [row] = await db.insert(discountCodesTable).values(parsed.data).returning();
-    res.status(201).json(row);
+    res.status(201).json({ ...row, usageCount: 0 });
   } catch (e: any) {
     if (e?.code === "23505") { res.status(409).json({ error: "الكود موجود مسبقاً" }); return; }
     throw e;
