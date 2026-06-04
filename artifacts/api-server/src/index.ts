@@ -1,7 +1,9 @@
+import { schedule } from "node-cron";
 import app from "./app";
 import { logger } from "./lib/logger";
 import { seedMenu } from "./routes/menu";
 import { seedOccasions } from "./routes/occasions";
+import { cleanupExpiredDiscountCodes } from "./routes/discounts";
 
 const rawPort = process.env["PORT"];
 
@@ -27,4 +29,15 @@ app.listen(port, "0.0.0.0", (err) => {
 
   seedMenu().catch((e) => logger.error({ err: e }, "Menu seed failed"));
   seedOccasions().catch((e) => logger.error({ err: e }, "Occasions seed failed"));
+
+  schedule(
+    "0 0 * * *",
+    () => {
+      cleanupExpiredDiscountCodes()
+        .then((n) => logger.info({ deleted: n }, "Scheduled cleanup: expired discount codes removed"))
+        .catch((e) => logger.error({ err: e }, "Scheduled cleanup: failed to remove expired discount codes"));
+    },
+    { timezone: "Asia/Riyadh" },
+  );
+  logger.info("Scheduled daily discount-code cleanup at midnight (Riyadh time)");
 });

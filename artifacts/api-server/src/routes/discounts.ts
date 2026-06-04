@@ -184,13 +184,19 @@ router.delete("/discount-codes/:id", async (req, res) => {
   res.json({ ok: true });
 });
 
-// ── POST /discount-codes/cleanup — delete all codes whose expiresAt has passed
-router.post("/discount-codes/cleanup", async (_req, res) => {
+// ── Shared cleanup logic (also called by the scheduled job in index.ts)
+export async function cleanupExpiredDiscountCodes(): Promise<number> {
   const deleted = await db
     .delete(discountCodesTable)
     .where(sql`${discountCodesTable.expiresAt} IS NOT NULL AND ${discountCodesTable.expiresAt} < NOW()`)
     .returning({ id: discountCodesTable.id });
-  res.json({ deleted: deleted.length });
+  return deleted.length;
+}
+
+// ── POST /discount-codes/cleanup — delete all codes whose expiresAt has passed
+router.post("/discount-codes/cleanup", async (_req, res) => {
+  const count = await cleanupExpiredDiscountCodes();
+  res.json({ deleted: count });
 });
 
 // ── POST /discount-codes/validate  (used by checkout — public)
