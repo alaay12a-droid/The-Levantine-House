@@ -774,7 +774,7 @@ router.get("/map/:orderId", async (req, res) => {
     /* customer home — only if coords available */
     if (CUSTOMER_LAT !== null && CUSTOMER_LNG !== null) {
       var homeMarker = L.marker([CUSTOMER_LAT, CUSTOMER_LNG],{icon:homeIcon}).addTo(map);
-      homeMarker.bindPopup('<div style="font-family:Cairo,sans-serif;font-weight:700;color:#E8920C;text-align:center;direction:rtl">🏠 موقع العميل</div>');
+      homeMarker.bindPopup('<div style="font-family:Cairo,sans-serif;text-align:center;direction:rtl"><div style="font-weight:700;color:#E8920C;margin-bottom:6px">🏠 موقع العميل</div><a href="https://maps.google.com/?q='+CUSTOMER_LAT+','+CUSTOMER_LNG+'" target="_blank" style="display:inline-block;background:#1a1a1a;color:#E8920C;border:1px solid #E8920C;border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600;text-decoration:none">📍 فتح في خرائط Google</a></div>');
     }
   }
 
