@@ -205,6 +205,7 @@ export const discountCodesTable = pgTable("discount_codes", {
   description: text("description").notNull().default(""),
   active: boolean("active").notNull().default(true),
   expiresAt: timestamp("expires_at"),
+  maxUses: integer("max_uses"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

@@ -54,6 +54,7 @@ router.post("/discount-codes", async (req, res) => {
     description: z.string().default(""),
     active: z.boolean().default(true),
     expiresAt: z.string().datetime().nullable().optional(),
+    maxUses: z.number().int().min(1).nullable().optional(),
   }).safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
@@ -79,6 +80,7 @@ router.patch("/discount-codes/:id", async (req, res) => {
     description: z.string().optional(),
     active: z.boolean().optional(),
     expiresAt: z.string().datetime().nullable().optional(),
+    maxUses: z.number().int().min(1).nullable().optional(),
   }).safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
@@ -116,6 +118,18 @@ router.post("/discount-codes/validate", async (req, res) => {
   if (parsed.data.orderTotal < found.minOrder) {
     res.status(422).json({ error: `الحد الأدنى للطلب لاستخدام هذا الكود هو ${found.minOrder} ر.س` });
     return;
+  }
+
+  // Check total usage limit (maxUses)
+  if (found.maxUses != null) {
+    const [{ total }] = await db
+      .select({ total: count() })
+      .from(discountCodeUsagesTable)
+      .where(eq(discountCodeUsagesTable.discountCodeId, found.id));
+    if (Number(total) >= found.maxUses) {
+      res.status(410).json({ error: "تم استنفاد الكود — شكراً لمشاركتك" });
+      return;
+    }
   }
 
   // Check single-use per phone

@@ -10,6 +10,7 @@ export interface DiscountCode {
   description: string;
   active: boolean;
   expiresAt: string | null;
+  maxUses: number | null;
   usageCount: number;
 }
 

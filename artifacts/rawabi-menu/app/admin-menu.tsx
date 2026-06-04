@@ -967,6 +967,7 @@ ${kpiBlock}${payBlock}${sumBlock}
   const [dcMinOrder, setDcMinOrder] = useState("");
   const [dcDesc, setDcDesc] = useState("");
   const [dcExpiresAt, setDcExpiresAt] = useState("");
+  const [dcMaxUses, setDcMaxUses] = useState("");
   const [dcEditingExpiryId, setDcEditingExpiryId] = useState<number | null>(null);
   const [dcEditingExpiryVal, setDcEditingExpiryVal] = useState("");
 
@@ -2937,7 +2938,9 @@ ${kpiBlock}${payBlock}${sumBlock}
                   >
                     <View style={{ backgroundColor: "#1A2A3A", borderRadius: 20, paddingHorizontal: 10, paddingVertical: 3, borderWidth: 1, borderColor: "#64B5F655" }}>
                       <Text style={{ color: "#64B5F6", fontFamily: F.bold, fontSize: 12 }}>
-                        {dc.usageCount ?? 0} {dc.usageCount === 1 ? "استخدام" : "مرة"}
+                        {dc.maxUses != null
+                          ? `${dc.usageCount ?? 0}/${dc.maxUses} مستخدم`
+                          : `${dc.usageCount ?? 0} ${dc.usageCount === 1 ? "استخدام" : "مرة"}`}
                       </Text>
                     </View>
                     <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }}>عدد مرات الاستخدام · اضغط للتفاصيل</Text>
@@ -3027,6 +3030,18 @@ ${kpiBlock}${payBlock}${sumBlock}
               />
             </View>
 
+            <View style={{ gap: 4 }}>
+              <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 12, textAlign: "right" }}>الحد الأقصى للاستخدام (اختياري — اتركه فارغاً للاستخدام غير المحدود)</Text>
+              <TextInput
+                value={dcMaxUses}
+                onChangeText={setDcMaxUses}
+                placeholder="مثال: 50"
+                placeholderTextColor={colors.mutedForeground}
+                keyboardType="number-pad"
+                style={{ color: colors.foreground, borderColor: colors.border, backgroundColor: colors.secondary, fontFamily: F.bold, borderWidth: 1, borderRadius: 10, padding: 12, textAlign: "center" }}
+              />
+            </View>
+
             <TouchableOpacity
               onPress={async () => {
                 const val = parseFloat(dcValue);
@@ -3043,6 +3058,11 @@ ${kpiBlock}${payBlock}${sumBlock}
                   }
                   expiresAtIso = d.toISOString();
                 }
+                const maxUsesVal = dcMaxUses.trim() ? parseInt(dcMaxUses.trim(), 10) : null;
+                if (maxUsesVal !== null && (isNaN(maxUsesVal) || maxUsesVal < 1)) {
+                  Alert.alert("تنبيه", "الحد الأقصى للاستخدام يجب أن يكون رقماً أكبر من صفر");
+                  return;
+                }
                 try {
                   await addCode({
                     code: dcCode.trim(),
@@ -3052,8 +3072,9 @@ ${kpiBlock}${payBlock}${sumBlock}
                     description: dcDesc.trim(),
                     active: true,
                     expiresAt: expiresAtIso,
+                    maxUses: maxUsesVal,
                   });
-                  setDcCode(""); setDcValue(""); setDcMinOrder(""); setDcDesc(""); setDcExpiresAt("");
+                  setDcCode(""); setDcValue(""); setDcMinOrder(""); setDcDesc(""); setDcExpiresAt(""); setDcMaxUses("");
                 } catch (e: any) {
                   Alert.alert("خطأ", e?.message || "تعذّر حفظ الكود");
                 }
