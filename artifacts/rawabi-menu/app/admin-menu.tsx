@@ -19,6 +19,7 @@ import {
 } from "react-native";
 import * as FileSystem from "expo-file-system";
 import * as Sharing from "expo-sharing";
+import { captureRef } from "react-native-view-shot";
 import Svg, { Rect, Text as SvgText, Line } from "react-native-svg";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -987,6 +988,20 @@ ${kpiBlock}${payBlock}${sumBlock}
   const [showDcUsagesModal, setShowDcUsagesModal] = useState(false);
   const [dcUsagePeriod, setDcUsagePeriod] = useState<"7d" | "30d" | "all">("all");
   const [dcChartMetric, setDcChartMetric] = useState<"count" | "savings">("count");
+  const [dcChartSharing, setDcChartSharing] = useState(false);
+  const dcChartRef = useRef<View>(null);
+
+  const shareDcChart = useCallback(async () => {
+    if (!dcChartRef.current) return;
+    setDcChartSharing(true);
+    try {
+      const uri = await captureRef(dcChartRef, { format: "png", quality: 1 });
+      await Sharing.shareAsync(uri, { mimeType: "image/png", dialogTitle: "مشاركة مخطط الاستخدام" });
+    } catch {
+      Alert.alert("خطأ", "تعذّر التقاط المخطط، حاول مرة أخرى.");
+    }
+    setDcChartSharing(false);
+  }, []);
 
   const loadDcUsages = useCallback(async (id: number, period: "7d" | "30d" | "all") => {
     setDcUsagesLoading(true);
@@ -5784,8 +5799,12 @@ ${kpiBlock}${payBlock}${sumBlock}
                         ))}
                       </View>
 
-                      {/* SVG bar chart */}
-                      <View style={{ alignSelf: "center", backgroundColor: colors.secondary, borderRadius: 14, padding: 10, borderWidth: 1, borderColor: colors.border }}>
+                      {/* SVG bar chart (captured for share) */}
+                      <View
+                        ref={dcChartRef}
+                        collapsable={false}
+                        style={{ alignSelf: "center", backgroundColor: colors.secondary, borderRadius: 14, padding: 10, borderWidth: 1, borderColor: colors.border }}
+                      >
                         <Svg width={chartW} height={chartH}>
                           {/* Baseline */}
                           <Line
@@ -5834,6 +5853,27 @@ ${kpiBlock}${payBlock}${sumBlock}
                           })}
                         </Svg>
                       </View>
+
+                      {/* Share chart button */}
+                      <TouchableOpacity
+                        onPress={shareDcChart}
+                        disabled={dcChartSharing}
+                        style={{
+                          flexDirection: "row-reverse", alignItems: "center", justifyContent: "center",
+                          gap: 6, alignSelf: "center", paddingHorizontal: 16, paddingVertical: 8,
+                          borderRadius: 20, backgroundColor: colors.secondary,
+                          borderWidth: 1, borderColor: colors.border,
+                          opacity: dcChartSharing ? 0.6 : 1,
+                        }}
+                      >
+                        {dcChartSharing
+                          ? <ActivityIndicator size="small" color={colors.gold} />
+                          : <Feather name="share-2" size={14} color={colors.gold} />
+                        }
+                        <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 12 }}>
+                          {dcChartSharing ? "جاري الالتقاط…" : "مشاركة المخطط"}
+                        </Text>
+                      </TouchableOpacity>
                     </View>
                   );
                 })()}
