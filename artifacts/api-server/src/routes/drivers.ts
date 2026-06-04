@@ -101,6 +101,7 @@ router.get("/drivers/active-assignments", async (_req, res) => {
     customerAddress: r.order?.customerAddress ?? null,
     totalPrice: (r.order?.totalPrice ?? 0) / 100,
     paymentMethod: r.order?.paymentMethod ?? "cash",
+    locationUpdatedAt: r.assignment.locationUpdatedAt ? r.assignment.locationUpdatedAt.toISOString() : null,
   })));
 });
 

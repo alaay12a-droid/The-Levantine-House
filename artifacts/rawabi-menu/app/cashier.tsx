@@ -238,6 +238,7 @@ export default function CashierScreen() {
     driverName: string; driverPhone: string;
     dailyNumber: number | null; customerName: string;
     customerAddress: string | null; totalPrice: number; paymentMethod: string;
+    locationUpdatedAt: string | null;
   }
   const [activeAssignments, setActiveAssignments] = useState<ActiveAssignment[]>([]);
   const [activeAssignmentsLoading, setActiveAssignmentsLoading] = useState(false);
@@ -578,6 +579,13 @@ export default function CashierScreen() {
       }
     };
   }, [authenticated, fetchOrders]);
+
+  useEffect(() => {
+    if (!authenticated || cashierView !== "drivers") return;
+    loadActiveAssignments();
+    const interval = setInterval(loadActiveAssignments, 10000);
+    return () => clearInterval(interval);
+  }, [authenticated, cashierView, loadActiveAssignments]);
 
   const [printOrder, setPrintOrder] = useState<Order | null>(null);
   const [cashPaid, setCashPaid] = useState("");
@@ -1329,8 +1337,16 @@ ${daySections}
                       <Feather name="refresh-cw" size={12} color="#4CAF50" />
                     </TouchableOpacity>
                   </View>
-                  {activeAssignments.map(a => (
-                    <View key={a.orderId} style={{ backgroundColor: "#0A1A0A", borderRadius: 14, borderWidth: 1, borderColor: "#4CAF5044", overflow: "hidden" }}>
+                  {activeAssignments.map(a => {
+                    const gpsLost = !a.locationUpdatedAt || (Date.now() - new Date(a.locationUpdatedAt).getTime() > 30000);
+                    return (
+                    <View key={a.orderId} style={{ backgroundColor: "#0A1A0A", borderRadius: 14, borderWidth: 1, borderColor: gpsLost ? "#F9A82544" : "#4CAF5044", overflow: "hidden" }}>
+                      {gpsLost && (
+                        <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 5, backgroundColor: "#F9A82518", paddingHorizontal: 12, paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: "#F9A82533" }}>
+                          <Text style={{ fontSize: 13 }}>⚠️</Text>
+                          <Text style={{ color: "#F9A825", fontFamily: F.bold, fontSize: 12 }}>انقطع إشارة GPS للمندوب</Text>
+                        </View>
+                      )}
                       <View style={{ flexDirection: "row-reverse", alignItems: "center", padding: 12, gap: 10 }}>
                         <View style={{ flex: 1, gap: 3 }}>
                           <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6 }}>
@@ -1369,7 +1385,8 @@ ${daySections}
                         </TouchableOpacity>
                       </View>
                     </View>
-                  ))}
+                    );
+                  })}
                 </View>
               )}
 
