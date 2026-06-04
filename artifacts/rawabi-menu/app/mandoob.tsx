@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, TextInput,
-  ActivityIndicator, StatusBar, Platform, RefreshControl, Image, Alert, Modal, Vibration, KeyboardAvoidingView,
+  ActivityIndicator, StatusBar, Platform, RefreshControl, Image, Alert, Modal, Vibration, KeyboardAvoidingView, Linking,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -124,6 +124,7 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
   const [updating, setUpdating] = useState<number | null>(null);
   const [sharingLocation, setSharingLocation] = useState(false);
   const [locationError, setLocationError] = useState(false);
+  const [bgPermDenied, setBgPermDenied] = useState(false);
   const [locationSharingEnabled, setLocationSharingEnabled] = useState(true);
   const locationSharingEnabledRef = useRef(true);
   const [driverCoords, setDriverCoords] = useState<{ lat: number; lng: number } | null>(null);
@@ -347,6 +348,7 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
   const stopGPS = useCallback(async () => {
     setSharingLocation(false);
     setLocationError(false);
+    setBgPermDenied(false);
     trackedOrderRef.current = null;
     _bgOrderId = null;
     if (gpsIntervalRef.current) { clearInterval(gpsIntervalRef.current); gpsIntervalRef.current = null; }
@@ -392,6 +394,7 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
 
       // Request background permission so updates continue when app is minimised
       const { status: bgStatus } = await Location.requestBackgroundPermissionsAsync();
+      setBgPermDenied(bgStatus !== "granted");
 
       // Set module-level order ID for the background task callback
       _bgOrderId = orderId;
@@ -1277,6 +1280,30 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
                           <Text style={{ color: "#4CAF5099", fontFamily: F.semi, fontSize: 11 }}>
                             مباشر — موقعك مرئي على خريطة العميل الآن
                           </Text>
+                        </View>
+                      )}
+
+                      {/* Background permission warning */}
+                      {locationSharingEnabled && bgPermDenied && (
+                        <View style={{ backgroundColor: "#2A1A00", borderTopWidth: 1, borderTopColor: "#E8920C44", paddingHorizontal: 14, paddingVertical: 10, gap: 8 }}>
+                          <View style={{ flexDirection: "row-reverse", alignItems: "flex-start", gap: 8 }}>
+                            <Feather name="alert-triangle" size={14} color="#E8920C" style={{ marginTop: 2 }} />
+                            <View style={{ flex: 1, gap: 3 }}>
+                              <Text style={{ color: "#E8920C", fontFamily: F.bold, fontSize: 13, textAlign: "right" }}>
+                                صلاحية الموقع في الخلفية غير مفعّلة
+                              </Text>
+                              <Text style={{ color: "#E8920C99", fontFamily: F.regular, fontSize: 11, textAlign: "right", lineHeight: 17 }}>
+                                سيتوقف إرسال موقعك للعميل عند تصغير التطبيق. افتح الإعدادات وغيّر صلاحية الموقع إلى "دائمًا".
+                              </Text>
+                            </View>
+                          </View>
+                          <TouchableOpacity
+                            onPress={() => Linking.openSettings()}
+                            activeOpacity={0.8}
+                            style={{ backgroundColor: "#E8920C22", borderRadius: 8, paddingVertical: 8, alignItems: "center", borderWidth: 1, borderColor: "#E8920C55" }}
+                          >
+                            <Text style={{ color: "#E8920C", fontFamily: F.bold, fontSize: 12 }}>⚙️ فتح إعدادات التطبيق</Text>
+                          </TouchableOpacity>
                         </View>
                       )}
                     </TouchableOpacity>
