@@ -66,6 +66,20 @@ router.post("/orders", async (req, res) => {
 
   const dailyNumber = Number(todayCount) + 1;
 
+  // ── Minimum order amount check ─────────────────────────────────────────────
+  const [minOrderSetting] = await db
+    .select({ value: appSettingsTable.value })
+    .from(appSettingsTable)
+    .where(eq(appSettingsTable.key, "appearance_minOrderAmount"));
+  const minOrderSAR = parseFloat(minOrderSetting?.value ?? "0") || 0;
+  if (minOrderSAR > 0 && data.totalPrice < minOrderSAR) {
+    res.status(422).json({
+      error: `الحد الأدنى للطلب هو ${minOrderSAR} ر.س`,
+      minOrderAmount: minOrderSAR,
+    });
+    return;
+  }
+
   // ── Validate stock before inserting ────────────────────────────────────────
   for (const item of data.items) {
     const [menuItem] = await db.select().from(menuItemsTable).where(eq(menuItemsTable.itemId, item.id));
