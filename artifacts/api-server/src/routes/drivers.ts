@@ -27,15 +27,20 @@ router.get("/drivers", async (_req, res) => {
 router.post("/drivers", async (req, res) => {
   const parsed = driverSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "بيانات غير صحيحة" }); return; }
-  const [driver] = await db.insert(deliveryDriversTable).values({
-    name: parsed.data.name,
-    phone: cleanPhone(parsed.data.phone),
-    photoUrl: parsed.data.photoUrl ?? null,
-    photoKey: parsed.data.photoKey ?? null,
-    active: parsed.data.active ?? true,
-    pin: parsed.data.pin ?? "0000",
-  }).returning();
-  res.json(driver);
+  try {
+    const [driver] = await db.insert(deliveryDriversTable).values({
+      name: parsed.data.name,
+      phone: cleanPhone(parsed.data.phone),
+      photoUrl: parsed.data.photoUrl ?? null,
+      photoKey: parsed.data.photoKey ?? null,
+      active: parsed.data.active ?? true,
+      pin: parsed.data.pin ?? "0000",
+    }).returning();
+    res.json(driver);
+  } catch (e: any) {
+    if (e?.code === "23505") { res.status(409).json({ error: "رقم الجوال مسجل مسبقاً لدى مندوب آخر" }); return; }
+    throw e;
+  }
 });
 
 // ── PUT /drivers/:id ──────────────────────────────────────────────────────────
@@ -44,9 +49,14 @@ router.put("/drivers/:id", async (req, res) => {
   if (isNaN(id)) { res.status(400).json({ error: "معرّف غير صحيح" }); return; }
   const parsed = driverSchema.partial().safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "بيانات غير صحيحة" }); return; }
-  const updateData = { ...parsed.data, ...(parsed.data.phone ? { phone: cleanPhone(parsed.data.phone) } : {}) };
-  const [driver] = await db.update(deliveryDriversTable).set(updateData).where(eq(deliveryDriversTable.id, id)).returning();
-  res.json(driver);
+  try {
+    const updateData = { ...parsed.data, ...(parsed.data.phone ? { phone: cleanPhone(parsed.data.phone) } : {}) };
+    const [driver] = await db.update(deliveryDriversTable).set(updateData).where(eq(deliveryDriversTable.id, id)).returning();
+    res.json(driver);
+  } catch (e: any) {
+    if (e?.code === "23505") { res.status(409).json({ error: "رقم الجوال مسجل مسبقاً لدى مندوب آخر" }); return; }
+    throw e;
+  }
 });
 
 // ── DELETE /drivers/:id ───────────────────────────────────────────────────────

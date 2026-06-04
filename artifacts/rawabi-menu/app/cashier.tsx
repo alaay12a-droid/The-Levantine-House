@@ -286,7 +286,10 @@ export default function CashierScreen() {
       }
       await loadAllDrivers();
       setDriverForm(null);
-    } catch { Alert.alert("خطأ", "تعذر حفظ بيانات المندوب"); }
+    } catch (e: any) {
+      const msg = e?.error || e?.message || "تعذر حفظ بيانات المندوب";
+      Alert.alert("خطأ", msg);
+    }
     setDriverFormSaving(false);
   }, [driverForm, loadAllDrivers]);
 
