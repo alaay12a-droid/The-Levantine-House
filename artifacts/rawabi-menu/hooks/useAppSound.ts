@@ -166,6 +166,32 @@ export async function playAppSound(
   } catch { /* silent */ }
 }
 
+// ── GPS signal sounds ───────────────────────────────────────────────────────
+export async function playGpsSound(event: "lost" | "restored"): Promise<void> {
+  try {
+    if (Platform.OS === "web") {
+      playSynth(event === "lost" ? "short" : "chime");
+      return;
+    }
+    await stopCurrentSound();
+    const { Audio } = require("expo-av") as typeof import("expo-av");
+    const asset =
+      event === "lost"
+        ? require("@/assets/sounds/notification.wav")
+        : require("@/assets/sounds/order_arrived.m4a");
+    await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
+    const { sound } = await Audio.Sound.createAsync(asset, { volume: 0.7 });
+    _activeSoundObj = sound;
+    await sound.playAsync();
+    sound.setOnPlaybackStatusUpdate((status) => {
+      if (status.isLoaded && status.didJustFinish) {
+        if (_activeSoundObj === sound) _activeSoundObj = null;
+        sound.unloadAsync().catch(() => {});
+      }
+    });
+  } catch {}
+}
+
 // ── Hook ───────────────────────────────────────────────────────────────────
 export function useAppSound() {
   const playOrder = useCallback(
@@ -181,6 +207,9 @@ export function useAppSound() {
     []
   );
 
+  const playGpsLost = useCallback(() => playGpsSound("lost"), []);
+  const playGpsRestored = useCallback(() => playGpsSound("restored"), []);
+
   // Preview: play a specific option without saving it
   const previewSound = useCallback(async (option: SoundOption, customUri?: string) => {
     if (option === "silent") return;
@@ -193,5 +222,5 @@ export function useAppSound() {
     }
   }, []);
 
-  return { playOrder, playMessage, playDelivery, previewSound };
+  return { playOrder, playMessage, playDelivery, previewSound, playGpsLost, playGpsRestored };
 }

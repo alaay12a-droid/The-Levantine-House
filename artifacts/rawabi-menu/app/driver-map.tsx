@@ -12,6 +12,7 @@ import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import { apiGet, API_BASE } from "@/constants/api";
 import { useLanguage } from "@/context/LanguageContext";
+import { useAppSound } from "@/hooks/useAppSound";
 
 const F = {
   regular: "Cairo_400Regular",
@@ -41,12 +42,15 @@ export default function DriverMapScreen() {
   const { language } = useLanguage();
   const isEn = language === "en";
 
+  const { playGpsLost, playGpsRestored } = useAppSound();
+
   const [assignment, setAssignment] = useState<AssignmentRow | null>(null);
   const [hasLocation, setHasLocation] = useState(false);
   const [signalLost, setSignalLost] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const signalCheckRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const locationUpdatedAtRef = useRef<string | null>(null);
+  const prevSignalLostRef = useRef<boolean | null>(null);
 
   const fetchAssignment = useCallback(async () => {
     if (!orderId) return;
@@ -75,6 +79,19 @@ export default function DriverMapScreen() {
       if (signalCheckRef.current) clearInterval(signalCheckRef.current);
     };
   }, [fetchAssignment, checkSignal]);
+
+  useEffect(() => {
+    if (prevSignalLostRef.current === null) {
+      prevSignalLostRef.current = signalLost;
+      return;
+    }
+    if (!prevSignalLostRef.current && signalLost) {
+      playGpsLost();
+    } else if (prevSignalLostRef.current && !signalLost) {
+      playGpsRestored();
+    }
+    prevSignalLostRef.current = signalLost;
+  }, [signalLost, playGpsLost, playGpsRestored]);
 
   const mapUrl = Platform.OS === "web"
     ? `/api/map/${orderId}`
