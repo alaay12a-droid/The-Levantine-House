@@ -5,8 +5,7 @@ import { z } from "zod";
 
 const router = Router();
 
-const otpStore = new Map<string, { code: string; expiresAt: number }>();
-
+// ── Settings keys ─────────────────────────────────────────────────────────────
 const S = {
   ENABLED:         "sms_otp_enabled",
   API_KEY:         "sms_otp_api_key",
@@ -23,6 +22,36 @@ function normalizePhone(p: string): string {
   return digits.replace(/^(966|967|974|965|970|963|964|0)/, "");
 }
 
+// ── DB helpers ────────────────────────────────────────────────────────────────
+async function getSetting(key: string): Promise<string | null> {
+  const rows = await db.select().from(appSettingsTable).where(eq(appSettingsTable.key, key));
+  return rows[0]?.value ?? null;
+}
+async function setSetting(key: string, value: string) {
+  await db.insert(appSettingsTable).values({ key, value })
+    .onConflictDoUpdate({ target: appSettingsTable.key, set: { value, updatedAt: new Date() } });
+}
+async function deleteSetting(key: string) {
+  await db.delete(appSettingsTable).where(eq(appSettingsTable.key, key));
+}
+
+// ── DB-backed OTP store (survives server restarts) ────────────────────────────
+async function storeOtp(phone: string, code: string): Promise<void> {
+  const expiresAt = Date.now() + 5 * 60 * 1000; // 5 minutes
+  await setSetting(`otp_${phone}`, JSON.stringify({ code, expiresAt }));
+}
+
+async function getOtp(phone: string): Promise<{ code: string; expiresAt: number } | null> {
+  const raw = await getSetting(`otp_${phone}`);
+  if (!raw) return null;
+  try { return JSON.parse(raw) as { code: string; expiresAt: number }; } catch { return null; }
+}
+
+async function clearOtp(phone: string): Promise<void> {
+  await deleteSetting(`otp_${phone}`);
+}
+
+// ── Verified phones ───────────────────────────────────────────────────────────
 async function getVerifiedPhones(): Promise<Set<string>> {
   const raw = await getSetting(S.VERIFIED_PHONES);
   if (!raw) return new Set();
@@ -33,7 +62,6 @@ async function isPhoneVerified(phone: string): Promise<boolean> {
   const set = await getVerifiedPhones();
   const norm = normalizePhone(phone);
   if (set.has(phone)) return true;
-  // Check normalized form against all stored entries
   for (const stored of set) {
     if (normalizePhone(stored) === norm) return true;
   }
@@ -43,7 +71,6 @@ async function isPhoneVerified(phone: string): Promise<boolean> {
 async function markPhoneVerifiedServer(phone: string): Promise<void> {
   const set = await getVerifiedPhones();
   const norm = normalizePhone(phone);
-  // Avoid duplicates in different formats
   for (const stored of set) {
     if (normalizePhone(stored) === norm) return;
   }
@@ -51,20 +78,12 @@ async function markPhoneVerifiedServer(phone: string): Promise<void> {
   await setSetting(S.VERIFIED_PHONES, JSON.stringify([...set]));
 }
 
-async function getSetting(key: string): Promise<string | null> {
-  const rows = await db.select().from(appSettingsTable).where(eq(appSettingsTable.key, key));
-  return rows[0]?.value ?? null;
-}
-async function setSetting(key: string, value: string) {
-  await db.insert(appSettingsTable).values({ key, value })
-    .onConflictDoUpdate({ target: appSettingsTable.key, set: { value, updatedAt: new Date() } });
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Provider send implementations
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function sendViaMsegat(apiKey: string, sender: string, phone: string, msg: string) {
+  // Format: "username:apikey" or just "apikey" (apikey used as username too)
   const [userName, key] = apiKey.includes(":") ? apiKey.split(":") : [apiKey, apiKey];
   const res = await fetch("https://www.msegat.com/gw/sendsms.php", {
     method: "POST", headers: { "Content-Type": "application/json" },
@@ -126,14 +145,14 @@ async function sendViaTwilio(apiKey: string, _sender: string, phone: string, msg
   return { success: res.ok, response: text };
 }
 
-// ── Authentica: THEY manage OTP generation & verification ────────────────────
-// Authentica requires E.164 format (+9665XXXXXXXX)
+// Authentica: THEY manage OTP generation & verification
+// Requires E.164 format (+9665XXXXXXXX)
 function toE164(phone: string): string {
   const clean = phone.replace(/[\s-]/g, "");
-  if (clean.startsWith("+")) return clean;           // already E.164
-  if (clean.startsWith("966")) return `+${clean}`;  // 9665XXXXXXXX → +9665XXXXXXXX
-  if (clean.startsWith("0"))   return `+966${clean.slice(1)}`; // 05XXXXXXXX → +9665XXXXXXXX
-  return `+966${clean}`;                             // 5XXXXXXXX → +9665XXXXXXXX
+  if (clean.startsWith("+")) return clean;
+  if (clean.startsWith("966")) return `+${clean}`;
+  if (clean.startsWith("0"))   return `+966${clean.slice(1)}`;
+  return `+966${clean}`;
 }
 
 async function sendViaAuthentica(apiKey: string, phone: string, method: string) {
@@ -234,10 +253,10 @@ router.post("/sms/send-otp", async (req, res) => {
   const method   = methodRaw ?? "sms";
 
   if (!apiKey) {
-    // Dev mode: generate code locally for testing
+    // Dev mode: generate code locally for testing (no real SMS sent)
     const code = String(Math.floor(1000 + Math.random() * 9000));
-    otpStore.set(phone, { code, expiresAt: Date.now() + 5 * 60 * 1000 });
-    req.log.warn({ phone, code }, "SMS OTP dev mode: no API key");
+    await storeOtp(phone, code);
+    req.log.warn({ phone, code }, "SMS OTP dev-mode: no API key configured — code stored in DB but not sent");
     res.json({ ok: true, devCode: code, otpLength: 4 });
     return;
   }
@@ -246,21 +265,30 @@ router.post("/sms/send-otp", async (req, res) => {
   if (provider === "authentica") {
     req.log.info({ phone, method }, "Sending OTP via Authentica");
     const { success, response } = await sendViaAuthentica(apiKey, phone, method);
-    req.log.info({ phone, success, response }, "Authentica send-otp result");
+    if (success) {
+      req.log.info({ phone, method }, "Authentica send-otp OK");
+    } else {
+      req.log.error({ phone, method, response }, "Authentica send-otp FAILED");
+    }
     res.json({ ok: true, otpLength: 4, ...(success ? {} : { warning: response }) });
     return;
   }
 
-  // Other providers: we generate and store the code
+  // Other providers: generate code and persist in DB (survives server restarts)
   const code = String(Math.floor(1000 + Math.random() * 9000));
-  otpStore.set(phone, { code, expiresAt: Date.now() + 5 * 60 * 1000 });
+  await storeOtp(phone, code);
 
   const senderName = sender ?? "روابي";
   const message = `${code} رمز التحقق الخاص بطلبك في روابي المندي. صالح 5 دقائق.`;
 
   req.log.info({ phone, provider, senderName }, "Sending OTP");
   const { success, response } = await sendSmsViaProvider(provider, apiKey, senderName, phone, message, method);
-  req.log.info({ phone, success, response }, "OTP send result");
+
+  if (success) {
+    req.log.info({ phone, provider }, "OTP sent successfully");
+  } else {
+    req.log.error({ phone, provider, response }, "OTP send FAILED — provider returned error");
+  }
 
   res.json({ ok: true, otpLength: 4, ...(success ? {} : { warning: response }) });
 });
@@ -281,21 +309,39 @@ router.post("/sms/verify-otp", async (req, res) => {
     if (!apiKey) { res.status(400).json({ error: "لم يتم إعداد API Key" }); return; }
     req.log.info({ phone, code: parsed.data.code }, "Calling Authentica verify-otp");
     const { verified, response } = await verifyViaAuthentica(apiKey, phone, parsed.data.code);
-    req.log.info({ phone, verified, response }, "Authentica verify-otp result");
+    if (verified) {
+      req.log.info({ phone }, "Authentica verify-otp OK");
+    } else {
+      req.log.error({ phone, response }, "Authentica verify-otp FAILED");
+    }
     if (!verified) { res.status(400).json({ error: "الرمز غير صحيح أو منتهي الصلاحية", detail: response }); return; }
     await markPhoneVerifiedServer(phone);
     res.json({ ok: true });
     return;
   }
 
-  // Other providers: check our local store
-  const entry = otpStore.get(phone);
-  if (!entry) { res.status(400).json({ error: "لم يتم طلب رمز لهذا الرقم" }); return; }
-  if (Date.now() > entry.expiresAt) { otpStore.delete(phone); res.status(400).json({ error: "انتهت صلاحية الرمز، أعد الإرسال" }); return; }
-  if (entry.code !== parsed.data.code) { res.status(400).json({ error: "الرمز غير صحيح" }); return; }
+  // Other providers: check DB-backed OTP store
+  const entry = await getOtp(phone);
+  if (!entry) {
+    req.log.warn({ phone }, "verify-otp: no OTP found in DB for this phone (may have expired or server restarted before DB fix)");
+    res.status(400).json({ error: "لم يتم طلب رمز لهذا الرقم أو انتهت صلاحيته، أعد الإرسال" });
+    return;
+  }
+  if (Date.now() > entry.expiresAt) {
+    await clearOtp(phone);
+    req.log.warn({ phone }, "verify-otp: OTP expired");
+    res.status(400).json({ error: "انتهت صلاحية الرمز، أعد الإرسال" });
+    return;
+  }
+  if (entry.code !== parsed.data.code) {
+    req.log.warn({ phone, submitted: parsed.data.code }, "verify-otp: wrong code");
+    res.status(400).json({ error: "الرمز غير صحيح" });
+    return;
+  }
 
-  otpStore.delete(phone);
+  await clearOtp(phone);
   await markPhoneVerifiedServer(phone);
+  req.log.info({ phone }, "OTP verified successfully");
   res.json({ ok: true });
 });
 
@@ -322,7 +368,7 @@ router.post("/sms/test", async (req, res) => {
   const phone      = parsed.data.phone.replace(/[\s+]/g, "");
   const senderName = sender ?? "روابي";
 
-  req.log.info({ phone, provider, senderName }, "Test SMS");
+  req.log.info({ phone, provider, senderName }, "Test SMS requested");
 
   let success: boolean, response: string;
   if (provider === "authentica") {
@@ -330,6 +376,13 @@ router.post("/sms/test", async (req, res) => {
   } else {
     ({ success, response } = await sendSmsViaProvider(provider, apiKey, senderName, phone, "اختبار — روابي المندي. نظام الرسائل يعمل ✅", method));
   }
+
+  if (success) {
+    req.log.info({ phone, provider }, "Test SMS sent successfully");
+  } else {
+    req.log.error({ phone, provider, response }, "Test SMS FAILED");
+  }
+
   res.json({ ok: success, response });
 });
 
