@@ -25,6 +25,7 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { getCustomKey } from "@/constants/appSounds";
 import { useColors } from "@/hooks/useColors";
 import { useAppConfig } from "@/context/AppConfigContext";
@@ -972,10 +973,12 @@ ${kpiBlock}${payBlock}${sumBlock}
   const [dcValue, setDcValue] = useState("");
   const [dcMinOrder, setDcMinOrder] = useState("");
   const [dcDesc, setDcDesc] = useState("");
-  const [dcExpiresAt, setDcExpiresAt] = useState("");
+  const [dcExpiresAt, setDcExpiresAt] = useState<Date | null>(null);
   const [dcMaxUses, setDcMaxUses] = useState("");
-  const [dcEditingExpiryId, setDcEditingExpiryId] = useState<number | null>(null);
-  const [dcEditingExpiryVal, setDcEditingExpiryVal] = useState("");
+  const [dcPickerVisible, setDcPickerVisible] = useState(false);
+  const [dcPickerDate, setDcPickerDate] = useState<Date>(new Date());
+  const [dcPickerContext, setDcPickerContext] = useState<"edit" | "new">("new");
+  const [dcPickerEditId, setDcPickerEditId] = useState<number | null>(null);
   const [dcEditingMaxUsesId, setDcEditingMaxUsesId] = useState<number | null>(null);
   const [dcEditingMaxUsesVal, setDcEditingMaxUsesVal] = useState("");
   const [dcSortBy, setDcSortBy] = useState<"default" | "cost" | "usage">("default");
@@ -3002,62 +3005,21 @@ ${kpiBlock}${payBlock}${sumBlock}
                     </Text>
                   ) : null}
                   {/* Expiry edit row */}
-                  {dcEditingExpiryId === dc.id ? (
-                    <View style={{ gap: 6 }}>
-                      <TextInput
-                        value={dcEditingExpiryVal}
-                        onChangeText={setDcEditingExpiryVal}
-                        placeholder="YYYY-MM-DD (اتركه فارغاً للإزالة)"
-                        placeholderTextColor={colors.mutedForeground}
-                        autoCorrect={false}
-                        autoCapitalize="none"
-                        keyboardType="numbers-and-punctuation"
-                        style={{ color: colors.foreground, borderColor: colors.border, backgroundColor: colors.secondary, fontFamily: F.regular, borderWidth: 1, borderRadius: 8, padding: 10, textAlign: "right", fontSize: 13 }}
-                      />
-                      <View style={{ flexDirection: "row-reverse", gap: 8 }}>
-                        <TouchableOpacity
-                          onPress={async () => {
-                            let expiresAtIso: string | null = null;
-                            const raw = dcEditingExpiryVal.trim();
-                            if (raw) {
-                              const d = new Date(raw + "T23:59:59.000Z");
-                              if (isNaN(d.getTime())) {
-                                Alert.alert("تنبيه", "صيغة التاريخ غير صحيحة، استخدم: YYYY-MM-DD");
-                                return;
-                              }
-                              expiresAtIso = d.toISOString();
-                            }
-                            try {
-                              await updateCode(dc.id, { expiresAt: expiresAtIso });
-                              setDcEditingExpiryId(null);
-                            } catch { Alert.alert("خطأ", "تعذّر تحديث تاريخ الانتهاء"); }
-                          }}
-                          style={{ flex: 1, paddingVertical: 8, borderRadius: 8, alignItems: "center", backgroundColor: colors.gold }}
-                        >
-                          <Text style={{ color: "#1A0A00", fontFamily: F.bold, fontSize: 13 }}>حفظ</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          onPress={() => setDcEditingExpiryId(null)}
-                          style={{ flex: 1, paddingVertical: 8, borderRadius: 8, alignItems: "center", backgroundColor: colors.secondary, borderWidth: 1, borderColor: colors.border }}
-                        >
-                          <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 13 }}>إلغاء</Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  ) : (
-                    <TouchableOpacity
-                      onPress={() => {
-                        setDcEditingExpiryId(dc.id);
-                        setDcEditingExpiryVal(dc.expiresAt ? dc.expiresAt.slice(0, 10) : "");
-                      }}
-                      style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6, paddingTop: 2 }}
-                    >
-                      <Feather name="calendar" size={12} color={colors.mutedForeground} />
-                      <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }}>
-                        {dc.expiresAt ? "تعديل أو إزالة تاريخ الانتهاء" : "تحديد تاريخ انتهاء الصلاحية"}
-                      </Text>
-                    </TouchableOpacity>
-                  )}
+                  <TouchableOpacity
+                    onPress={() => {
+                      const initial = dc.expiresAt ? new Date(dc.expiresAt) : new Date();
+                      setDcPickerDate(initial);
+                      setDcPickerContext("edit");
+                      setDcPickerEditId(dc.id);
+                      setDcPickerVisible(true);
+                    }}
+                    style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6, paddingTop: 2 }}
+                  >
+                    <Feather name="calendar" size={12} color={colors.mutedForeground} />
+                    <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }}>
+                      {dc.expiresAt ? "تعديل أو إزالة تاريخ الانتهاء" : "تحديد تاريخ انتهاء الصلاحية"}
+                    </Text>
+                  </TouchableOpacity>
                   {/* Max uses edit row */}
                   {dcEditingMaxUsesId === dc.id ? (
                     <View style={{ gap: 6 }}>
@@ -3230,16 +3192,30 @@ ${kpiBlock}${payBlock}${sumBlock}
 
             <View style={{ gap: 4 }}>
               <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 12, textAlign: "right" }}>تاريخ انتهاء الصلاحية (اختياري)</Text>
-              <TextInput
-                value={dcExpiresAt}
-                onChangeText={setDcExpiresAt}
-                placeholder="YYYY-MM-DD مثال: 2025-12-31"
-                placeholderTextColor={colors.mutedForeground}
-                autoCorrect={false}
-                autoCapitalize="none"
-                keyboardType="numbers-and-punctuation"
-                style={{ color: colors.foreground, borderColor: colors.border, backgroundColor: colors.secondary, fontFamily: F.regular, borderWidth: 1, borderRadius: 10, padding: 12, textAlign: "right" }}
-              />
+              <TouchableOpacity
+                onPress={() => {
+                  setDcPickerDate(dcExpiresAt ?? new Date());
+                  setDcPickerContext("new");
+                  setDcPickerEditId(null);
+                  setDcPickerVisible(true);
+                }}
+                style={{ flexDirection: "row-reverse", alignItems: "center", gap: 10, borderColor: colors.border, backgroundColor: colors.secondary, borderWidth: 1, borderRadius: 10, padding: 12 }}
+              >
+                <Feather name="calendar" size={16} color={dcExpiresAt ? colors.gold : colors.mutedForeground} />
+                <Text style={{ color: dcExpiresAt ? colors.foreground : colors.mutedForeground, fontFamily: F.regular, fontSize: 13, flex: 1, textAlign: "right" }}>
+                  {dcExpiresAt
+                    ? dcExpiresAt.toLocaleDateString("ar-SA", { year: "numeric", month: "long", day: "numeric" })
+                    : "اختر تاريخاً (اختياري)"}
+                </Text>
+                {dcExpiresAt && (
+                  <TouchableOpacity
+                    onPress={(e) => { e.stopPropagation(); setDcExpiresAt(null); }}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Feather name="x" size={14} color={colors.mutedForeground} />
+                  </TouchableOpacity>
+                )}
+              </TouchableOpacity>
             </View>
 
             <View style={{ gap: 4 }}>
@@ -3262,12 +3238,9 @@ ${kpiBlock}${payBlock}${sumBlock}
                   return;
                 }
                 let expiresAtIso: string | null = null;
-                if (dcExpiresAt.trim()) {
-                  const d = new Date(dcExpiresAt.trim() + "T23:59:59.000Z");
-                  if (isNaN(d.getTime())) {
-                    Alert.alert("تنبيه", "صيغة التاريخ غير صحيحة، استخدم: YYYY-MM-DD");
-                    return;
-                  }
+                if (dcExpiresAt) {
+                  const d = new Date(dcExpiresAt);
+                  d.setHours(23, 59, 59, 0);
                   expiresAtIso = d.toISOString();
                 }
                 const maxUsesVal = dcMaxUses.trim() ? parseInt(dcMaxUses.trim(), 10) : null;
@@ -3286,7 +3259,7 @@ ${kpiBlock}${payBlock}${sumBlock}
                     expiresAt: expiresAtIso,
                     maxUses: maxUsesVal,
                   });
-                  setDcCode(""); setDcValue(""); setDcMinOrder(""); setDcDesc(""); setDcExpiresAt(""); setDcMaxUses("");
+                  setDcCode(""); setDcValue(""); setDcMinOrder(""); setDcDesc(""); setDcExpiresAt(null); setDcMaxUses("");
                 } catch (e: any) {
                   Alert.alert("خطأ", e?.message || "تعذّر حفظ الكود");
                 }
@@ -5924,6 +5897,88 @@ ${kpiBlock}${payBlock}${sumBlock}
                 <View style={{ height: 24 }} />
               </ScrollView>
             )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Date Picker Modal */}
+      <Modal
+        visible={dcPickerVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setDcPickerVisible(false)}
+      >
+        <View style={{ flex: 1, justifyContent: "flex-end", backgroundColor: "#00000099" }}>
+          <View style={{ backgroundColor: colors.card, borderTopLeftRadius: 20, borderTopRightRadius: 20, borderTopWidth: 1, borderColor: colors.border, paddingBottom: 32, paddingHorizontal: 16, paddingTop: 16, gap: 14 }}>
+            {/* Header */}
+            <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" }}>
+              <Text style={{ color: colors.foreground, fontFamily: F.bold, fontSize: 16 }}>تاريخ انتهاء الصلاحية</Text>
+              <TouchableOpacity onPress={() => setDcPickerVisible(false)}>
+                <Feather name="x" size={22} color={colors.mutedForeground} />
+              </TouchableOpacity>
+            </View>
+            {/* Picker */}
+            <View style={{ alignItems: "center" }}>
+              <DateTimePicker
+                value={dcPickerDate}
+                mode="date"
+                display={Platform.OS === "ios" ? "spinner" : "calendar"}
+                onChange={(_event, date) => { if (date) setDcPickerDate(date); }}
+                minimumDate={new Date()}
+                style={{ width: "100%" }}
+                themeVariant="dark"
+              />
+            </View>
+            {/* Selected date preview */}
+            <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 13, textAlign: "center" }}>
+              {dcPickerDate.toLocaleDateString("ar-SA", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+            </Text>
+            {/* Action buttons */}
+            <View style={{ flexDirection: "row-reverse", gap: 8 }}>
+              <TouchableOpacity
+                onPress={async () => {
+                  const d = new Date(dcPickerDate);
+                  d.setHours(23, 59, 59, 0);
+                  const iso = d.toISOString();
+                  if (dcPickerContext === "edit" && dcPickerEditId != null) {
+                    try {
+                      await updateCode(dcPickerEditId, { expiresAt: iso });
+                    } catch { Alert.alert("خطأ", "تعذّر تحديث تاريخ الانتهاء"); }
+                  } else {
+                    setDcExpiresAt(dcPickerDate);
+                  }
+                  setDcPickerVisible(false);
+                }}
+                style={{ flex: 2, paddingVertical: 12, borderRadius: 10, alignItems: "center", backgroundColor: colors.gold }}
+              >
+                <Text style={{ color: "#1A0A00", fontFamily: F.bold, fontSize: 14 }}>حفظ التاريخ</Text>
+              </TouchableOpacity>
+              {(dcPickerContext === "edit"
+                ? discountCodes.find((d) => d.id === dcPickerEditId)?.expiresAt
+                : dcExpiresAt) ? (
+                <TouchableOpacity
+                  onPress={async () => {
+                    if (dcPickerContext === "edit" && dcPickerEditId != null) {
+                      try {
+                        await updateCode(dcPickerEditId, { expiresAt: null });
+                      } catch { Alert.alert("خطأ", "تعذّر إزالة تاريخ الانتهاء"); }
+                    } else {
+                      setDcExpiresAt(null);
+                    }
+                    setDcPickerVisible(false);
+                  }}
+                  style={{ flex: 1, paddingVertical: 12, borderRadius: 10, alignItems: "center", backgroundColor: "#2A0A08", borderWidth: 1, borderColor: "#E5737355" }}
+                >
+                  <Text style={{ color: "#E57373", fontFamily: F.semi, fontSize: 13 }}>إزالة</Text>
+                </TouchableOpacity>
+              ) : null}
+              <TouchableOpacity
+                onPress={() => setDcPickerVisible(false)}
+                style={{ flex: 1, paddingVertical: 12, borderRadius: 10, alignItems: "center", backgroundColor: colors.secondary, borderWidth: 1, borderColor: colors.border }}
+              >
+                <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 13 }}>إلغاء</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
