@@ -150,8 +150,8 @@ export const DEFAULT_CONFIG: AppConfig = {
   tabFontSize: 12,
 
   accentColor: "#E8920C",
-  bgTheme: "dark-brown",
-  logoBg: "#1F130A",
+  bgTheme: "light-warm",
+  logoBg: "#FFFFFF",
   minOrderAmount: 0,
   deliveryEnabled: false,
   deliveryFee: 0,

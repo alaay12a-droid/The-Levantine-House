@@ -6,9 +6,9 @@ const router = Router();
 
 const KEY_PREFIX = "appearance_";
 const DEFAULTS: Record<string, string> = {
-  appearance_bgTheme:        "dark-brown",
+  appearance_bgTheme:        "light-warm",
   appearance_accentColor:    "#E8920C",
-  appearance_logoBg:         "#1F130A",
+  appearance_logoBg:         "#FFFFFF",
   appearance_minOrderAmount: "0",
   appearance_deliveryEnabled: "false",
   appearance_deliveryFee:     "0",
