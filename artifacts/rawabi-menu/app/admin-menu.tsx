@@ -977,6 +977,7 @@ ${kpiBlock}${payBlock}${sumBlock}
   const [dcEditingExpiryVal, setDcEditingExpiryVal] = useState("");
   const [dcEditingMaxUsesId, setDcEditingMaxUsesId] = useState<number | null>(null);
   const [dcEditingMaxUsesVal, setDcEditingMaxUsesVal] = useState("");
+  const [dcSortBy, setDcSortBy] = useState<"default" | "cost" | "usage">("default");
 
   const [selectedDcId, setSelectedDcId] = useState<number | null>(null);
   const [dcUsages, setDcUsages] = useState<DiscountCodeUsage[]>([]);
@@ -2900,8 +2901,28 @@ ${kpiBlock}${payBlock}${sumBlock}
           {/* Existing codes list */}
           {discountCodes.length > 0 && (
             <View style={{ gap: 10 }}>
+              {/* Sort toggle */}
+              <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6 }}>
+                <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }}>ترتيب:</Text>
+                {(["default", "cost", "usage"] as const).map((opt) => {
+                  const label = opt === "default" ? "الافتراضي" : opt === "cost" ? "الأعلى تكلفة" : "الأكثر استخداماً";
+                  const active = dcSortBy === opt;
+                  return (
+                    <TouchableOpacity
+                      key={opt}
+                      onPress={() => setDcSortBy(opt)}
+                      style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, backgroundColor: active ? colors.gold : colors.secondary, borderWidth: 1, borderColor: active ? colors.gold : colors.border }}
+                    >
+                      <Text style={{ color: active ? "#1A0A00" : colors.mutedForeground, fontFamily: F.semi, fontSize: 11 }}>{label}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
               {[...discountCodes]
                 .sort((a, b) => {
+                  if (dcSortBy === "cost") return (b.totalSavings ?? 0) - (a.totalSavings ?? 0);
+                  if (dcSortBy === "usage") return (b.usageCount ?? 0) - (a.usageCount ?? 0);
                   const aExpired = !!a.expiresAt && new Date(a.expiresAt) < new Date();
                   const bExpired = !!b.expiresAt && new Date(b.expiresAt) < new Date();
                   if (aExpired === bExpired) return 0;
@@ -3077,7 +3098,7 @@ ${kpiBlock}${payBlock}${sumBlock}
                       </Text>
                     </TouchableOpacity>
                   )}
-                  {/* Usage count row */}
+                  {/* Usage count + cost row */}
                   <TouchableOpacity
                     onPress={() => openDcUsages(dc)}
                     style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8, paddingTop: 4, borderTopWidth: 1, borderTopColor: colors.border + "55" }}
@@ -3089,7 +3110,14 @@ ${kpiBlock}${payBlock}${sumBlock}
                           : `${dc.usageCount ?? 0} ${dc.usageCount === 1 ? "استخدام" : "مرة"}`}
                       </Text>
                     </View>
-                    <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }}>عدد مرات الاستخدام · اضغط للتفاصيل</Text>
+                    {(dc.totalSavings ?? 0) > 0 && (
+                      <View style={{ backgroundColor: "#2A1A00", borderRadius: 20, paddingHorizontal: 10, paddingVertical: 3, borderWidth: 1, borderColor: colors.gold + "55" }}>
+                        <Text style={{ color: colors.gold, fontFamily: F.bold, fontSize: 12 }}>
+                          -{((dc.totalSavings ?? 0) / 100).toFixed((dc.totalSavings ?? 0) % 100 === 0 ? 0 : 2)} ر.س
+                        </Text>
+                      </View>
+                    )}
+                    <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }}>اضغط للتفاصيل</Text>
                     <Feather name="chevron-left" size={13} color={colors.mutedForeground} style={{ marginRight: "auto" }} />
                   </TouchableOpacity>
                 </View>
@@ -3097,6 +3125,29 @@ ${kpiBlock}${payBlock}${sumBlock}
               })}
             </View>
           )}
+
+          {/* Total cost summary row */}
+          {discountCodes.length > 0 && (() => {
+            const activeCodes = discountCodes.filter((c) => c.active);
+            const totalCostAll = discountCodes.reduce((s, c) => s + (c.totalSavings ?? 0), 0);
+            const totalCostActive = activeCodes.reduce((s, c) => s + (c.totalSavings ?? 0), 0);
+            if (totalCostAll === 0) return null;
+            return (
+              <View style={{ backgroundColor: "#1A0E02", borderRadius: 12, borderWidth: 1, borderColor: colors.gold + "44", padding: 14, flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" }}>
+                <Text style={{ color: colors.gold, fontFamily: F.extra, fontSize: 13, textAlign: "right" }}>💰 إجمالي الخصومات الممنوحة</Text>
+                <View style={{ alignItems: "flex-start", gap: 2 }}>
+                  <Text style={{ color: colors.gold, fontFamily: F.bold, fontSize: 14, textAlign: "left" }}>
+                    {(totalCostAll / 100).toFixed(totalCostAll % 100 === 0 ? 0 : 2)} ر.س
+                  </Text>
+                  {totalCostActive !== totalCostAll && (
+                    <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11, textAlign: "left" }}>
+                      {(totalCostActive / 100).toFixed(totalCostActive % 100 === 0 ? 0 : 2)} ر.س للأكواد الفعّالة
+                    </Text>
+                  )}
+                </View>
+              </View>
+            );
+          })()}
 
           {/* Add new code form */}
           <View style={{ backgroundColor: colors.card, borderRadius: 14, borderWidth: 1, borderColor: colors.border, padding: 16, gap: 12 }}>

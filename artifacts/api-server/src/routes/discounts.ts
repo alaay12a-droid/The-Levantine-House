@@ -14,10 +14,22 @@ router.get("/discount-codes", async (_req, res) => {
     .from(discountCodeUsagesTable)
     .groupBy(discountCodeUsagesTable.discountCodeId);
 
+  const savingsSums = await db
+    .select({
+      discountCodeId: discountCodeUsagesTable.discountCodeId,
+      totalSavings: sql<number>`COALESCE(SUM(${ordersTable.discountAmount}), 0)`,
+    })
+    .from(discountCodeUsagesTable)
+    .leftJoin(ordersTable, eq(discountCodeUsagesTable.orderId, ordersTable.id))
+    .groupBy(discountCodeUsagesTable.discountCodeId);
+
   const countMap: Record<number, number> = {};
   for (const u of usageCounts) countMap[u.discountCodeId] = Number(u.cnt);
 
-  res.json(codes.map((c) => ({ ...c, usageCount: countMap[c.id] ?? 0 })));
+  const savingsMap: Record<number, number> = {};
+  for (const s of savingsSums) savingsMap[s.discountCodeId] = Number(s.totalSavings);
+
+  res.json(codes.map((c) => ({ ...c, usageCount: countMap[c.id] ?? 0, totalSavings: savingsMap[c.id] ?? 0 })));
 });
 
 // ── GET /discount-codes/:id/usages

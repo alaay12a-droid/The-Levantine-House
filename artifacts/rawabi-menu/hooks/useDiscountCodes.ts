@@ -12,6 +12,7 @@ export interface DiscountCode {
   expiresAt: string | null;
   maxUses: number | null;
   usageCount: number;
+  totalSavings?: number;
 }
 
 export interface DiscountCodeUsage {
