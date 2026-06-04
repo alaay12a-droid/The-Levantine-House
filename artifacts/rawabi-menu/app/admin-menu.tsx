@@ -975,6 +975,8 @@ ${kpiBlock}${payBlock}${sumBlock}
   const [dcMaxUses, setDcMaxUses] = useState("");
   const [dcEditingExpiryId, setDcEditingExpiryId] = useState<number | null>(null);
   const [dcEditingExpiryVal, setDcEditingExpiryVal] = useState("");
+  const [dcEditingMaxUsesId, setDcEditingMaxUsesId] = useState<number | null>(null);
+  const [dcEditingMaxUsesVal, setDcEditingMaxUsesVal] = useState("");
 
   const [selectedDcId, setSelectedDcId] = useState<number | null>(null);
   const [dcUsages, setDcUsages] = useState<DiscountCodeUsage[]>([]);
@@ -3004,6 +3006,61 @@ ${kpiBlock}${payBlock}${sumBlock}
                       <Feather name="calendar" size={12} color={colors.mutedForeground} />
                       <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }}>
                         {dc.expiresAt ? "تعديل أو إزالة تاريخ الانتهاء" : "تحديد تاريخ انتهاء الصلاحية"}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                  {/* Max uses edit row */}
+                  {dcEditingMaxUsesId === dc.id ? (
+                    <View style={{ gap: 6 }}>
+                      <TextInput
+                        value={dcEditingMaxUsesVal}
+                        onChangeText={setDcEditingMaxUsesVal}
+                        placeholder="عدد الاستخدامات (اتركه فارغاً لجعله غير محدود)"
+                        placeholderTextColor={colors.mutedForeground}
+                        keyboardType="number-pad"
+                        style={{ color: colors.foreground, borderColor: colors.border, backgroundColor: colors.secondary, fontFamily: F.regular, borderWidth: 1, borderRadius: 8, padding: 10, textAlign: "right", fontSize: 13 }}
+                      />
+                      <View style={{ flexDirection: "row-reverse", gap: 8 }}>
+                        <TouchableOpacity
+                          onPress={async () => {
+                            const raw = dcEditingMaxUsesVal.trim();
+                            let maxUses: number | null = null;
+                            if (raw) {
+                              const parsed = parseInt(raw, 10);
+                              if (isNaN(parsed) || parsed < 1) {
+                                Alert.alert("تنبيه", "أدخل رقماً صحيحاً أكبر من صفر");
+                                return;
+                              }
+                              maxUses = parsed;
+                            }
+                            try {
+                              await updateCode(dc.id, { maxUses });
+                              setDcEditingMaxUsesId(null);
+                            } catch { Alert.alert("خطأ", "تعذّر تحديث حد الاستخدام"); }
+                          }}
+                          style={{ flex: 1, paddingVertical: 8, borderRadius: 8, alignItems: "center", backgroundColor: colors.gold }}
+                        >
+                          <Text style={{ color: "#1A0A00", fontFamily: F.bold, fontSize: 13 }}>حفظ</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={() => setDcEditingMaxUsesId(null)}
+                          style={{ flex: 1, paddingVertical: 8, borderRadius: 8, alignItems: "center", backgroundColor: colors.secondary, borderWidth: 1, borderColor: colors.border }}
+                        >
+                          <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 13 }}>إلغاء</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  ) : (
+                    <TouchableOpacity
+                      onPress={() => {
+                        setDcEditingMaxUsesId(dc.id);
+                        setDcEditingMaxUsesVal(dc.maxUses != null ? String(dc.maxUses) : "");
+                      }}
+                      style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6, paddingTop: 2 }}
+                    >
+                      <Feather name="sliders" size={12} color={colors.mutedForeground} />
+                      <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }}>
+                        {dc.maxUses != null ? "تعديل أو إزالة حد الاستخدام" : "تحديد حد للاستخدام"}
                       </Text>
                     </TouchableOpacity>
                   )}
