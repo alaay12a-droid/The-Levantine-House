@@ -2947,11 +2947,13 @@ ${kpiBlock}${payBlock}${sumBlock}
                   return aExpired ? 1 : -1;
                 })
                 .map((dc) => {
-                const isExpired = !!dc.expiresAt && new Date(dc.expiresAt) < new Date();
+                const now = new Date();
+                const isExpired = !!dc.expiresAt && new Date(dc.expiresAt) < now;
+                const isExpiringSoon = !!dc.expiresAt && !isExpired && (new Date(dc.expiresAt).getTime() - now.getTime()) <= 3 * 24 * 60 * 60 * 1000;
                 const usageCount = dc.usageCount ?? 0;
                 const isExhausted = dc.maxUses != null && usageCount >= dc.maxUses;
                 const isNearlyExhausted = dc.maxUses != null && !isExhausted && usageCount / dc.maxUses >= 0.8;
-                const borderColor = isExpired ? "#E57373" : isExhausted ? "#E8920C" : isNearlyExhausted ? "#E8920C" : (dc.active ? colors.gold : colors.border);
+                const borderColor = isExpired ? "#E57373" : isExhausted ? "#E8920C" : isExpiringSoon ? "#F5C518" : isNearlyExhausted ? "#E8920C" : (dc.active ? colors.gold : colors.border);
                 return (
                 <View key={dc.id} style={{ backgroundColor: colors.card, borderRadius: 12, borderWidth: 1, borderColor, padding: 14, gap: 8 }}>
                   <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" }}>
@@ -2967,6 +2969,11 @@ ${kpiBlock}${payBlock}${sumBlock}
                       {isExpired && (
                         <View style={{ backgroundColor: "#3A1010", borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: "#E5737355" }}>
                           <Text style={{ color: "#E57373", fontFamily: F.bold, fontSize: 11 }}>منتهي</Text>
+                        </View>
+                      )}
+                      {isExpiringSoon && (
+                        <View style={{ backgroundColor: "#2A2000", borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: "#F5C51855" }}>
+                          <Text style={{ color: "#F5C518", fontFamily: F.bold, fontSize: 11 }}>⏰ ينتهي قريباً</Text>
                         </View>
                       )}
                       {isExhausted && (
@@ -2999,8 +3006,8 @@ ${kpiBlock}${payBlock}${sumBlock}
                     <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11, textAlign: "right" }}>الحد الأدنى للطلب: {dc.minOrder} ر.س</Text>
                   ) : null}
                   {dc.expiresAt ? (
-                    <Text style={{ color: isExpired ? "#E57373" : colors.mutedForeground, fontFamily: F.semi, fontSize: 11, textAlign: "right" }}>
-                      {isExpired ? "⏰ انتهت الصلاحية: " : "⏳ صالح حتى: "}
+                    <Text style={{ color: isExpired ? "#E57373" : isExpiringSoon ? "#F5C518" : colors.mutedForeground, fontFamily: F.semi, fontSize: 11, textAlign: "right" }}>
+                      {isExpired ? "⏰ انتهت الصلاحية: " : isExpiringSoon ? "⚠️ ينتهي قريباً: " : "⏳ صالح حتى: "}
                       {new Date(dc.expiresAt).toLocaleDateString("ar-SA", { year: "numeric", month: "long", day: "numeric" })}
                     </Text>
                   ) : null}
