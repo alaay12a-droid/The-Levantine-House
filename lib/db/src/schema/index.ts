@@ -110,6 +110,7 @@ export const appSettingsTable = pgTable("app_settings", {
 export const pushTokensTable = pgTable("push_tokens", {
   id: serial("id").primaryKey(),
   token: text("token").notNull().unique(),
+  role: text("role").default("cashier").notNull(), // "cashier" | "customer"
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

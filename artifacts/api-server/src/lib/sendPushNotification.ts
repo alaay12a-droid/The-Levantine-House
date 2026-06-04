@@ -32,10 +32,11 @@ async function sendToExpo(messages: object[]): Promise<void> {
   }
 }
 
-/** Send to all registered cashier devices */
+/** Send to all registered customer devices */
 export async function sendPushToAll(msg: PushMessage): Promise<void> {
   try {
-    const rows = await db.select().from(pushTokensTable);
+    const { eq } = await import("drizzle-orm");
+    const rows = await db.select().from(pushTokensTable).where(eq(pushTokensTable.role, "customer"));
     if (rows.length === 0) return;
 
     const messages = rows.map((r) => ({

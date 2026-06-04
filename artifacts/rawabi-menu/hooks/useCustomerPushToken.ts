@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { apiPost } from "@/constants/api";
 
 export const TOKEN_KEY = "@rawabi_customer_push_token";
 
@@ -46,10 +47,16 @@ export async function registerCustomerNotifications(): Promise<string | null> {
     }
 
     const cached = await AsyncStorage.getItem(TOKEN_KEY);
-    if (cached) return cached;
+    if (cached) {
+      // Re-register on every app launch so the server always has a fresh entry
+      apiPost("/push-tokens", { token: cached, role: "customer" }).catch(() => {});
+      return cached;
+    }
 
     const { data } = await Notifications.getExpoPushTokenAsync({ projectId: PROJECT_ID });
     await AsyncStorage.setItem(TOKEN_KEY, data);
+    // Register with server so broadcast notifications can reach this device
+    apiPost("/push-tokens", { token: data, role: "customer" }).catch(() => {});
     return data;
   } catch {
     return null;

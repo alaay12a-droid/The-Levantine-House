@@ -7,6 +7,7 @@ const router = Router();
 
 const tokenSchema = z.object({
   token: z.string().min(1),
+  role: z.enum(["cashier", "customer"]).default("cashier"),
 });
 
 router.post("/push-tokens", async (req, res) => {
@@ -16,7 +17,10 @@ router.post("/push-tokens", async (req, res) => {
     return;
   }
   try {
-    await db.insert(pushTokensTable).values({ token: parsed.data.token }).onConflictDoNothing();
+    await db
+      .insert(pushTokensTable)
+      .values({ token: parsed.data.token, role: parsed.data.role })
+      .onConflictDoNothing();
     res.json({ ok: true });
   } catch {
     res.status(500).json({ error: "تعذر حفظ الرمز" });
