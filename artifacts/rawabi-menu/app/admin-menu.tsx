@@ -3044,10 +3044,24 @@ ${kpiBlock}${payBlock}${sumBlock}
                               }
                               maxUses = parsed;
                             }
-                            try {
-                              await updateCode(dc.id, { maxUses });
-                              setDcEditingMaxUsesId(null);
-                            } catch { Alert.alert("خطأ", "تعذّر تحديث حد الاستخدام"); }
+                            const doSave = async () => {
+                              try {
+                                await updateCode(dc.id, { maxUses });
+                                setDcEditingMaxUsesId(null);
+                              } catch { Alert.alert("خطأ", "تعذّر تحديث حد الاستخدام"); }
+                            };
+                            if (maxUses !== null && maxUses <= (dc.usageCount ?? 0)) {
+                              Alert.alert(
+                                "تحذير",
+                                `الحد الجديد (${maxUses}) أقل من أو يساوي عدد الاستخدامات الحالية (${dc.usageCount ?? 0}). سيظهر الكود منتهياً فور الحفظ. هل تريد المتابعة؟`,
+                                [
+                                  { text: "إلغاء", style: "cancel" },
+                                  { text: "متابعة", style: "destructive", onPress: doSave },
+                                ]
+                              );
+                              return;
+                            }
+                            await doSave();
                           }}
                           style={{ flex: 1, paddingVertical: 8, borderRadius: 8, alignItems: "center", backgroundColor: colors.gold }}
                         >
