@@ -101,6 +101,8 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
   const [updating, setUpdating] = useState<number | null>(null);
   const [sharingLocation, setSharingLocation] = useState(false);
   const [locationError, setLocationError] = useState(false);
+  const [locationSharingEnabled, setLocationSharingEnabled] = useState(true);
+  const locationSharingEnabledRef = useRef(true);
   const [pendingDelivery, setPendingDelivery] = useState<{ orderId: number; total: number; customerName: string } | null>(null);
   const [cashConfirmed, setCashConfirmed] = useState(false);
   const [activeView, setActiveView] = useState<"waiting" | "delivered" | "statement" | "messages">("waiting");
@@ -342,11 +344,11 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
           setSharingLocation(false);
           setLocationError(true);
         };
-        const opts: PositionOptions = { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 };
+        const opts: PositionOptions = { enableHighAccuracy: true, timeout: 15000, maximumAge: 3000 };
         navigator.geolocation.getCurrentPosition(onSuccess, onError, opts);
         gpsIntervalRef.current = setInterval(
           () => navigator.geolocation.getCurrentPosition(onSuccess, onError, opts),
-          15000,
+          8000,
         );
       } else {
         setLocationError(true);
@@ -356,7 +358,7 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
       if (status !== "granted") { setLocationError(true); return; }
       setSharingLocation(true);
       const sub = await Location.watchPositionAsync(
-        { accuracy: Location.Accuracy.Balanced, timeInterval: 15000, distanceInterval: 50 },
+        { accuracy: Location.Accuracy.Balanced, timeInterval: 8000, distanceInterval: 20 },
         (loc) => {
           setLocationError(false);
           sendLocation(orderId, loc.coords.latitude, loc.coords.longitude);
@@ -366,12 +368,27 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
     }
   }, [sendLocation, stopGPS]);
 
+  const toggleLocationSharing = useCallback(async (orderId: number) => {
+    const next = !locationSharingEnabledRef.current;
+    locationSharingEnabledRef.current = next;
+    setLocationSharingEnabled(next);
+    if (next) {
+      await startGPS(orderId);
+    } else {
+      stopGPS();
+    }
+  }, [startGPS, stopGPS]);
+
   useEffect(() => {
     const pickedUp = rows.find(r => r.assignment.status === "picked_up");
     if (pickedUp) {
-      startGPS(pickedUp.assignment.orderId);
+      if (locationSharingEnabledRef.current) {
+        startGPS(pickedUp.assignment.orderId);
+      }
     } else {
       stopGPS();
+      locationSharingEnabledRef.current = true;
+      setLocationSharingEnabled(true);
     }
   }, [rows, startGPS, stopGPS]);
 
@@ -1047,6 +1064,110 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
                       <Text style={{ color: "#FB8C00", fontFamily: F.bold, fontSize: 14 }}>بانتظار استلامه من المطعم</Text>
                       <Text style={{ color: "#FB8C0099", fontFamily: F.regular, fontSize: 11 }}>سيتم إشعارك عند جاهزية التسليم</Text>
                     </View>
+                  )}
+
+                  {/* ── مشاركة الموقع — فقط للـ picked_up ── */}
+                  {assignment.status === "picked_up" && (
+                    <TouchableOpacity
+                      onPress={() => toggleLocationSharing(assignment.orderId)}
+                      activeOpacity={0.8}
+                      style={{
+                        borderRadius: 14,
+                        overflow: "hidden",
+                        borderWidth: 1.5,
+                        borderColor: locationSharingEnabled
+                          ? (locationError ? "#E5737355" : "#29B6F655")
+                          : "#55555555",
+                      }}
+                    >
+                      <View style={{
+                        backgroundColor: locationSharingEnabled
+                          ? (locationError ? "#3A1B1B" : "#0A1F2A")
+                          : "#1A1A1A",
+                        paddingHorizontal: 16,
+                        paddingVertical: 13,
+                        flexDirection: "row-reverse",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: 10,
+                      }}>
+                        {/* Right side: icon + label */}
+                        <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 10, flex: 1 }}>
+                          <View style={{
+                            width: 38, height: 38, borderRadius: 19,
+                            backgroundColor: locationSharingEnabled
+                              ? (locationError ? "#3A1B1B" : "#0D2A3A")
+                              : "#2A2A2A",
+                            alignItems: "center", justifyContent: "center",
+                            borderWidth: 1.5,
+                            borderColor: locationSharingEnabled
+                              ? (locationError ? "#E57373" : "#29B6F6")
+                              : "#444",
+                          }}>
+                            <Feather
+                              name={locationSharingEnabled && !locationError ? "navigation" : "navigation-2"}
+                              size={18}
+                              color={locationSharingEnabled
+                                ? (locationError ? "#E57373" : "#29B6F6")
+                                : "#666"}
+                            />
+                          </View>
+                          <View style={{ flex: 1, gap: 2 }}>
+                            <Text style={{
+                              color: locationSharingEnabled
+                                ? (locationError ? "#E57373" : "#29B6F6")
+                                : "#888",
+                              fontFamily: F.bold, fontSize: 14, textAlign: "right",
+                            }}>
+                              {locationSharingEnabled
+                                ? (locationError ? "تعذّر الوصول للموقع" : "📡 مشاركة موقعك مفعّلة")
+                                : "مشاركة الموقع مُعطَّلة"}
+                            </Text>
+                            <Text style={{
+                              color: locationSharingEnabled
+                                ? (locationError ? "#E5737399" : "#29B6F699")
+                                : "#555",
+                              fontFamily: F.regular, fontSize: 11, textAlign: "right",
+                            }}>
+                              {locationSharingEnabled
+                                ? (locationError
+                                    ? "تحقق من صلاحية الموقع في الإعدادات"
+                                    : "يُرسَل للعميل تلقائياً كل 8 ثوانٍ")
+                                : "اضغط لتفعيل الإرسال التلقائي للعميل"}
+                            </Text>
+                          </View>
+                        </View>
+
+                        {/* Toggle switch */}
+                        <View style={{
+                          width: 50, height: 28, borderRadius: 14,
+                          backgroundColor: locationSharingEnabled && !locationError ? "#29B6F6" : "#333",
+                          justifyContent: "center",
+                          paddingHorizontal: 3,
+                        }}>
+                          <View style={{
+                            width: 22, height: 22, borderRadius: 11,
+                            backgroundColor: "#fff",
+                            alignSelf: locationSharingEnabled ? "flex-end" : "flex-start",
+                            shadowColor: "#000",
+                            shadowOffset: { width: 0, height: 1 },
+                            shadowOpacity: 0.3,
+                            shadowRadius: 2,
+                            elevation: 2,
+                          }} />
+                        </View>
+                      </View>
+
+                      {/* Live pulse bar — only when actively sharing */}
+                      {locationSharingEnabled && !locationError && (
+                        <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6, backgroundColor: "#29B6F611", paddingHorizontal: 16, paddingVertical: 6, borderTopWidth: 1, borderTopColor: "#29B6F622" }}>
+                          <View style={{ width: 7, height: 7, borderRadius: 3.5, backgroundColor: "#4CAF50" }} />
+                          <Text style={{ color: "#4CAF5099", fontFamily: F.semi, fontSize: 11 }}>
+                            مباشر — موقعك مرئي على خريطة العميل الآن
+                          </Text>
+                        </View>
+                      )}
+                    </TouchableOpacity>
                   )}
 
                   {/* زر تسليم للعميل — فقط للـ picked_up */}
