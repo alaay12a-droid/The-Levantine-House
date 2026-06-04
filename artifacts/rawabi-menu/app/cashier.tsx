@@ -1812,7 +1812,8 @@ ${daySections}
           {filtered.map((order) => {
             const nextStatus = STATUS_NEXT[order.status];
             const isPickup   = !!order.notes?.includes("استلام من الفرع");
-            const isDelivery = !isPickup && driversEnabled && (!!order.customerAddress || order.notes?.includes("توصيل"));
+            // الكاشير يرى دائماً قسم المندوب لأي طلب توصيل — بغض النظر عن إعداد driversEnabled
+            const isDelivery = !isPickup && (!!order.customerAddress || order.notes?.includes("توصيل"));
             const assignmentRow = assignments[order.id];
             const hasAssignedDriver = order.status === "ready" && assignmentRow?.status === "assigned";
             const driverPickedUp = assignmentRow?.status === "picked_up";
