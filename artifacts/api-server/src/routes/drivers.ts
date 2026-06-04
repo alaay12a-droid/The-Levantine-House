@@ -576,6 +576,15 @@ router.get("/map/:orderId", async (req, res) => {
     #statusText{color:#4CAF50;font-size:11px;font-weight:700}
     @keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
 
+    /* ── ETA badge ── */
+    #etaBar{
+      position:fixed;bottom:60px;left:50%;transform:translateX(-50%);z-index:1000;
+      background:rgba(10,5,2,.92);border:1px solid #29B6F655;border-radius:24px;
+      padding:8px 20px;display:none;align-items:center;gap:8px;white-space:nowrap;
+    }
+    #etaIcon{font-size:16px}
+    #etaText{color:#29B6F6;font-size:13px;font-weight:700}
+
     /* ── legend ── */
     #legend{
       position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:1000;
@@ -634,6 +643,11 @@ router.get("/map/:orderId", async (req, res) => {
   <div id="statusRow"><div class="dot"></div><span id="statusText">جاري تحديد موقع المندوب...</span></div>
 </div>
 
+<div id="etaBar">
+  <span id="etaIcon">🕐</span>
+  <span id="etaText">جاري الحساب...</span>
+</div>
+
 <div id="legend">
   <div class="leg-item">🛵 <span>المندوب</span></div>
   <div class="leg-item" style="color:#E8920C">🏠 <span>العميل</span></div>
@@ -653,6 +667,36 @@ router.get("/map/:orderId", async (req, res) => {
   var map = null, driverMarker = null;
   var curLat = null, curLng = null, animReq = null;
   var staticMarkersAdded = false;
+
+  /* ── Haversine distance (km) ── */
+  function haversineKm(lat1, lng1, lat2, lng2) {
+    var R = 6371;
+    var dLat = (lat2 - lat1) * Math.PI / 180;
+    var dLng = (lng2 - lng1) * Math.PI / 180;
+    var a = Math.sin(dLat/2)*Math.sin(dLat/2) +
+            Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*
+            Math.sin(dLng/2)*Math.sin(dLng/2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  }
+
+  /* ── Update ETA banner ── */
+  function updateEta(dLat, dLng) {
+    if (CUSTOMER_LAT === null || CUSTOMER_LNG === null) return;
+    var distKm = haversineKm(dLat, dLng, CUSTOMER_LAT, CUSTOMER_LNG);
+    var AVG_SPEED_KMH = 35;
+    var minutes = Math.max(1, Math.round((distKm / AVG_SPEED_KMH) * 60));
+    var etaBar  = document.getElementById('etaBar');
+    var etaText = document.getElementById('etaText');
+    var etaIcon = document.getElementById('etaIcon');
+    if (minutes <= 2) {
+      etaIcon.textContent = '🏁';
+      etaText.textContent = 'الوصول خلال دقيقتين أو أقل';
+    } else {
+      etaIcon.textContent = '🕐';
+      etaText.textContent = 'الوصول المتوقع: ' + minutes + ' دقيقة';
+    }
+    etaBar.style.display = 'flex';
+  }
 
   /* ── icon factories ── */
   var driverIcon = L.divIcon({
@@ -678,6 +722,7 @@ router.get("/map/:orderId", async (req, res) => {
     fitAll(lat, lng);
     document.getElementById('statusText').textContent = 'موقع مباشر ● يُحدَّث كل 10 ثوانٍ';
     document.getElementById('noLoc').style.display = 'none';
+    updateEta(lat, lng);
   }
 
   function addStaticMarkers() {
@@ -734,7 +779,7 @@ router.get("/map/:orderId", async (req, res) => {
       }
       document.getElementById('noLoc').style.display = 'none';
       if (!map) { initMap(lat, lng); }
-      else { animateTo(lat, lng); }
+      else { animateTo(lat, lng); updateEta(lat, lng); }
     } catch(e){}
   }
 

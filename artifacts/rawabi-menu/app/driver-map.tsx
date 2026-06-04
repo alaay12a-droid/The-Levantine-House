@@ -10,7 +10,7 @@ import { MapWebView } from "@/components/MapWebView";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
-import { apiGet } from "@/constants/api";
+import { apiGet, API_BASE } from "@/constants/api";
 import { useLanguage } from "@/context/LanguageContext";
 
 const F = {
@@ -19,8 +19,6 @@ const F = {
   bold:    "Cairo_700Bold",
   extra:   "Cairo_800ExtraBold",
 };
-
-const REPLIT_DOMAIN = "dc93e0aa-3f78-420b-b841-3af65fe535e6-00-3qwzp8t1i4uai.pike.replit.dev";
 
 interface AssignmentRow {
   driver: { id: number; name: string; phone: string; photoUrl?: string | null };
@@ -62,7 +60,7 @@ export default function DriverMapScreen() {
 
   const mapUrl = Platform.OS === "web"
     ? `/api/map/${orderId}`
-    : `https://${REPLIT_DOMAIN}/api/map/${orderId}`;
+    : `${API_BASE}/api/map/${orderId}`;
 
   const topInset = Platform.OS === "web" ? 80 : insets.top;
 
