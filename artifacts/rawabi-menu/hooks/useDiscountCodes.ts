@@ -9,6 +9,7 @@ export interface DiscountCode {
   minOrder: number;
   description: string;
   active: boolean;
+  expiresAt: string | null;
   usageCount: number;
 }
 

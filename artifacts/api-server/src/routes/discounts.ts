@@ -53,6 +53,7 @@ router.post("/discount-codes", async (req, res) => {
     minOrder: z.number().int().min(0).default(0),
     description: z.string().default(""),
     active: z.boolean().default(true),
+    expiresAt: z.string().datetime().nullable().optional(),
   }).safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
@@ -77,6 +78,7 @@ router.patch("/discount-codes/:id", async (req, res) => {
     minOrder: z.number().int().min(0).optional(),
     description: z.string().optional(),
     active: z.boolean().optional(),
+    expiresAt: z.string().datetime().nullable().optional(),
   }).safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
@@ -107,6 +109,10 @@ router.post("/discount-codes/validate", async (req, res) => {
     .where(eq(discountCodesTable.code, code));
 
   if (!found || !found.active) { res.status(404).json({ error: "الكود غير صحيح أو غير فعّال" }); return; }
+  if (found.expiresAt && new Date(found.expiresAt) < new Date()) {
+    res.status(410).json({ error: "انتهت صلاحية هذا الكود" });
+    return;
+  }
   if (parsed.data.orderTotal < found.minOrder) {
     res.status(422).json({ error: `الحد الأدنى للطلب لاستخدام هذا الكود هو ${found.minOrder} ر.س` });
     return;

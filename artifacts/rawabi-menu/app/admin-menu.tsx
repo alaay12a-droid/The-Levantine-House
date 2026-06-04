@@ -966,6 +966,9 @@ ${kpiBlock}${payBlock}${sumBlock}
   const [dcValue, setDcValue] = useState("");
   const [dcMinOrder, setDcMinOrder] = useState("");
   const [dcDesc, setDcDesc] = useState("");
+  const [dcExpiresAt, setDcExpiresAt] = useState("");
+  const [dcEditingExpiryId, setDcEditingExpiryId] = useState<number | null>(null);
+  const [dcEditingExpiryVal, setDcEditingExpiryVal] = useState("");
 
   const [selectedDcId, setSelectedDcId] = useState<number | null>(null);
   const [dcUsages, setDcUsages] = useState<DiscountCodeUsage[]>([]);
@@ -2825,18 +2828,26 @@ ${kpiBlock}${payBlock}${sumBlock}
           {/* Existing codes list */}
           {discountCodes.length > 0 && (
             <View style={{ gap: 10 }}>
-              {discountCodes.map((dc) => (
-                <View key={dc.id} style={{ backgroundColor: colors.card, borderRadius: 12, borderWidth: 1, borderColor: dc.active ? colors.gold : colors.border, padding: 14, gap: 8 }}>
+              {discountCodes.map((dc) => {
+                const isExpired = !!dc.expiresAt && new Date(dc.expiresAt) < new Date();
+                const borderColor = isExpired ? "#E57373" : (dc.active ? colors.gold : colors.border);
+                return (
+                <View key={dc.id} style={{ backgroundColor: colors.card, borderRadius: 12, borderWidth: 1, borderColor, padding: 14, gap: 8 }}>
                   <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" }}>
                     <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
-                      <View style={{ backgroundColor: dc.active ? "#2A1A08" : colors.secondary, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4, borderWidth: 1, borderColor: dc.active ? colors.gold : colors.border }}>
-                        <Text style={{ color: dc.active ? colors.gold : colors.mutedForeground, fontFamily: F.extra, fontSize: 13 }}>{dc.code}</Text>
+                      <View style={{ backgroundColor: isExpired ? "#2A0A08" : (dc.active ? "#2A1A08" : colors.secondary), borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4, borderWidth: 1, borderColor: isExpired ? "#E5737355" : (dc.active ? colors.gold : colors.border) }}>
+                        <Text style={{ color: isExpired ? "#E57373" : (dc.active ? colors.gold : colors.mutedForeground), fontFamily: F.extra, fontSize: 13 }}>{dc.code}</Text>
                       </View>
                       <View style={{ backgroundColor: colors.secondary, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 }}>
                         <Text style={{ color: colors.foreground, fontFamily: F.bold, fontSize: 12 }}>
                           {dc.type === "percentage" ? `${dc.value}%` : `${dc.value} ر.س`}
                         </Text>
                       </View>
+                      {isExpired && (
+                        <View style={{ backgroundColor: "#3A1010", borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: "#E5737355" }}>
+                          <Text style={{ color: "#E57373", fontFamily: F.bold, fontSize: 11 }}>منتهي</Text>
+                        </View>
+                      )}
                     </View>
                     <View style={{ flexDirection: "row-reverse", gap: 10, alignItems: "center" }}>
                       <Switch
@@ -2856,6 +2867,69 @@ ${kpiBlock}${payBlock}${sumBlock}
                   {dc.minOrder > 0 ? (
                     <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11, textAlign: "right" }}>الحد الأدنى للطلب: {dc.minOrder} ر.س</Text>
                   ) : null}
+                  {dc.expiresAt ? (
+                    <Text style={{ color: isExpired ? "#E57373" : colors.mutedForeground, fontFamily: F.semi, fontSize: 11, textAlign: "right" }}>
+                      {isExpired ? "⏰ انتهت الصلاحية: " : "⏳ صالح حتى: "}
+                      {new Date(dc.expiresAt).toLocaleDateString("ar-SA", { year: "numeric", month: "long", day: "numeric" })}
+                    </Text>
+                  ) : null}
+                  {/* Expiry edit row */}
+                  {dcEditingExpiryId === dc.id ? (
+                    <View style={{ gap: 6 }}>
+                      <TextInput
+                        value={dcEditingExpiryVal}
+                        onChangeText={setDcEditingExpiryVal}
+                        placeholder="YYYY-MM-DD (اتركه فارغاً للإزالة)"
+                        placeholderTextColor={colors.mutedForeground}
+                        autoCorrect={false}
+                        autoCapitalize="none"
+                        keyboardType="numbers-and-punctuation"
+                        style={{ color: colors.foreground, borderColor: colors.border, backgroundColor: colors.secondary, fontFamily: F.regular, borderWidth: 1, borderRadius: 8, padding: 10, textAlign: "right", fontSize: 13 }}
+                      />
+                      <View style={{ flexDirection: "row-reverse", gap: 8 }}>
+                        <TouchableOpacity
+                          onPress={async () => {
+                            let expiresAtIso: string | null = null;
+                            const raw = dcEditingExpiryVal.trim();
+                            if (raw) {
+                              const d = new Date(raw + "T23:59:59.000Z");
+                              if (isNaN(d.getTime())) {
+                                Alert.alert("تنبيه", "صيغة التاريخ غير صحيحة، استخدم: YYYY-MM-DD");
+                                return;
+                              }
+                              expiresAtIso = d.toISOString();
+                            }
+                            try {
+                              await updateCode(dc.id, { expiresAt: expiresAtIso });
+                              setDcEditingExpiryId(null);
+                            } catch { Alert.alert("خطأ", "تعذّر تحديث تاريخ الانتهاء"); }
+                          }}
+                          style={{ flex: 1, paddingVertical: 8, borderRadius: 8, alignItems: "center", backgroundColor: colors.gold }}
+                        >
+                          <Text style={{ color: "#1A0A00", fontFamily: F.bold, fontSize: 13 }}>حفظ</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={() => setDcEditingExpiryId(null)}
+                          style={{ flex: 1, paddingVertical: 8, borderRadius: 8, alignItems: "center", backgroundColor: colors.secondary, borderWidth: 1, borderColor: colors.border }}
+                        >
+                          <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 13 }}>إلغاء</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  ) : (
+                    <TouchableOpacity
+                      onPress={() => {
+                        setDcEditingExpiryId(dc.id);
+                        setDcEditingExpiryVal(dc.expiresAt ? dc.expiresAt.slice(0, 10) : "");
+                      }}
+                      style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6, paddingTop: 2 }}
+                    >
+                      <Feather name="calendar" size={12} color={colors.mutedForeground} />
+                      <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }}>
+                        {dc.expiresAt ? "تعديل أو إزالة تاريخ الانتهاء" : "تحديد تاريخ انتهاء الصلاحية"}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
                   {/* Usage count row */}
                   <TouchableOpacity
                     onPress={() => openDcUsages(dc)}
@@ -2870,7 +2944,8 @@ ${kpiBlock}${payBlock}${sumBlock}
                     <Feather name="chevron-left" size={13} color={colors.mutedForeground} style={{ marginRight: "auto" }} />
                   </TouchableOpacity>
                 </View>
-              ))}
+                );
+              })}
             </View>
           )}
 
@@ -2938,12 +3013,35 @@ ${kpiBlock}${payBlock}${sumBlock}
               style={{ color: colors.foreground, borderColor: colors.border, backgroundColor: colors.secondary, fontFamily: F.regular, borderWidth: 1, borderRadius: 10, padding: 12, textAlign: "right" }}
             />
 
+            <View style={{ gap: 4 }}>
+              <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 12, textAlign: "right" }}>تاريخ انتهاء الصلاحية (اختياري)</Text>
+              <TextInput
+                value={dcExpiresAt}
+                onChangeText={setDcExpiresAt}
+                placeholder="YYYY-MM-DD مثال: 2025-12-31"
+                placeholderTextColor={colors.mutedForeground}
+                autoCorrect={false}
+                autoCapitalize="none"
+                keyboardType="numbers-and-punctuation"
+                style={{ color: colors.foreground, borderColor: colors.border, backgroundColor: colors.secondary, fontFamily: F.regular, borderWidth: 1, borderRadius: 10, padding: 12, textAlign: "right" }}
+              />
+            </View>
+
             <TouchableOpacity
               onPress={async () => {
                 const val = parseFloat(dcValue);
                 if (!dcCode.trim() || isNaN(val) || val <= 0) {
                   Alert.alert("تنبيه", "يرجى إدخال كود وقيمة صحيحة");
                   return;
+                }
+                let expiresAtIso: string | null = null;
+                if (dcExpiresAt.trim()) {
+                  const d = new Date(dcExpiresAt.trim() + "T23:59:59.000Z");
+                  if (isNaN(d.getTime())) {
+                    Alert.alert("تنبيه", "صيغة التاريخ غير صحيحة، استخدم: YYYY-MM-DD");
+                    return;
+                  }
+                  expiresAtIso = d.toISOString();
                 }
                 try {
                   await addCode({
@@ -2953,8 +3051,9 @@ ${kpiBlock}${payBlock}${sumBlock}
                     minOrder: parseFloat(dcMinOrder) || 0,
                     description: dcDesc.trim(),
                     active: true,
+                    expiresAt: expiresAtIso,
                   });
-                  setDcCode(""); setDcValue(""); setDcMinOrder(""); setDcDesc("");
+                  setDcCode(""); setDcValue(""); setDcMinOrder(""); setDcDesc(""); setDcExpiresAt("");
                 } catch (e: any) {
                   Alert.alert("خطأ", e?.message || "تعذّر حفظ الكود");
                 }

@@ -204,6 +204,7 @@ export const discountCodesTable = pgTable("discount_codes", {
   minOrder: integer("min_order").notNull().default(0),
   description: text("description").notNull().default(""),
   active: boolean("active").notNull().default(true),
+  expiresAt: timestamp("expires_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
