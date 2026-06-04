@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { db, discountCodesTable, discountCodeUsagesTable, ordersTable } from "@workspace/db";
-import { eq, and, count, desc } from "drizzle-orm";
+import { eq, and, count, desc, gte } from "drizzle-orm";
 
 const router = Router();
 
@@ -25,6 +25,15 @@ router.get("/discount-codes/:id/usages", async (req, res) => {
   const id = Number(req.params.id);
   if (isNaN(id)) { res.status(400).json({ error: "id غير صحيح" }); return; }
 
+  const period = (req.query.period as string) ?? "all";
+  let sinceDate: Date | null = null;
+  if (period === "7d") sinceDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  else if (period === "30d") sinceDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+  const whereClause = sinceDate
+    ? and(eq(discountCodeUsagesTable.discountCodeId, id), gte(discountCodeUsagesTable.usedAt, sinceDate))
+    : eq(discountCodeUsagesTable.discountCodeId, id);
+
   const usages = await db
     .select({
       id: discountCodeUsagesTable.id,
@@ -36,12 +45,24 @@ router.get("/discount-codes/:id/usages", async (req, res) => {
     })
     .from(discountCodeUsagesTable)
     .leftJoin(ordersTable, eq(discountCodeUsagesTable.orderId, ordersTable.id))
-    .where(eq(discountCodeUsagesTable.discountCodeId, id))
+    .where(whereClause)
     .orderBy(desc(discountCodeUsagesTable.usedAt));
 
   const totalSavings = usages.reduce((sum, u) => sum + (u.discountAmount ?? 0), 0);
 
-  res.json({ usages, totalSavings });
+  const dayMap: Record<string, { count: number; savings: number }> = {};
+  for (const u of usages) {
+    const saudiMs = new Date(u.usedAt).getTime() + 3 * 3600 * 1000;
+    const key = new Date(saudiMs).toISOString().slice(0, 10);
+    if (!dayMap[key]) dayMap[key] = { count: 0, savings: 0 };
+    dayMap[key].count++;
+    dayMap[key].savings += u.discountAmount ?? 0;
+  }
+  const chartData = Object.entries(dayMap)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, v]) => ({ date, count: v.count, savings: v.savings }));
+
+  res.json({ usages, totalSavings, chartData });
 });
 
 // ── POST /discount-codes

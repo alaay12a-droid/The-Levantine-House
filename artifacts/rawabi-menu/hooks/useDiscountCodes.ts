@@ -23,9 +23,16 @@ export interface DiscountCodeUsage {
   discountAmount: number | null;
 }
 
+export interface ChartDataPoint {
+  date: string;
+  count: number;
+  savings: number;
+}
+
 export interface DiscountCodeUsages {
   usages: DiscountCodeUsage[];
   totalSavings: number;
+  chartData: ChartDataPoint[];
 }
 
 export function useDiscountCodes() {
@@ -57,8 +64,8 @@ export function useDiscountCodes() {
     setCodes((prev) => prev.filter((c) => c.id !== id));
   };
 
-  const fetchUsages = async (id: number): Promise<DiscountCodeUsages> => {
-    return await apiGet<DiscountCodeUsages>(`/discount-codes/${id}/usages`);
+  const fetchUsages = async (id: number, period: "7d" | "30d" | "all" = "all"): Promise<DiscountCodeUsages> => {
+    return await apiGet<DiscountCodeUsages>(`/discount-codes/${id}/usages?period=${period}`);
   };
 
   const activeCodes = codes.filter((c) => c.active);

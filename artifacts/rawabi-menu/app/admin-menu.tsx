@@ -14,7 +14,9 @@ import {
   Modal,
   KeyboardAvoidingView,
   Image,
+  Dimensions,
 } from "react-native";
+import Svg, { Rect, Text as SvgText, Line } from "react-native-svg";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
@@ -28,7 +30,7 @@ import { useTabConfig, type TabConfig } from "@/hooks/useTabConfig";
 import { loadPins, savePins, isMasterCode, type Pins } from "@/hooks/usePins";
 import { usePaymentSettings } from "@/hooks/usePaymentSettings";
 import { useUIDensity, type UIDensity } from "@/hooks/useUIDensity";
-import { useDiscountCodes, type DiscountCode, type DiscountCodeUsage } from "@/hooks/useDiscountCodes";
+import { useDiscountCodes, type DiscountCode, type DiscountCodeUsage, type ChartDataPoint } from "@/hooks/useDiscountCodes";
 import { useBanners, type ApiBanner } from "@/hooks/useBanners";
 import { useRevenue, type RevenuePeriod } from "@/hooks/useRevenue";
 import { useCombos, type ApiCombo, type ComboComponent } from "@/hooks/useCombos";
@@ -974,22 +976,33 @@ ${kpiBlock}${payBlock}${sumBlock}
   const [selectedDcId, setSelectedDcId] = useState<number | null>(null);
   const [dcUsages, setDcUsages] = useState<DiscountCodeUsage[]>([]);
   const [dcTotalSavings, setDcTotalSavings] = useState(0);
+  const [dcChartData, setDcChartData] = useState<ChartDataPoint[]>([]);
   const [dcUsagesLoading, setDcUsagesLoading] = useState(false);
   const [showDcUsagesModal, setShowDcUsagesModal] = useState(false);
+  const [dcUsagePeriod, setDcUsagePeriod] = useState<"7d" | "30d" | "all">("all");
+  const [dcChartMetric, setDcChartMetric] = useState<"count" | "savings">("count");
+
+  const loadDcUsages = useCallback(async (id: number, period: "7d" | "30d" | "all") => {
+    setDcUsagesLoading(true);
+    try {
+      const result = await fetchUsages(id, period);
+      setDcUsages(result.usages);
+      setDcTotalSavings(result.totalSavings);
+      setDcChartData(result.chartData ?? []);
+    } catch {}
+    setDcUsagesLoading(false);
+  }, [fetchUsages]);
 
   const openDcUsages = useCallback(async (dc: DiscountCode) => {
     setSelectedDcId(dc.id);
     setDcUsages([]);
     setDcTotalSavings(0);
-    setDcUsagesLoading(true);
+    setDcChartData([]);
+    setDcUsagePeriod("all");
+    setDcChartMetric("count");
     setShowDcUsagesModal(true);
-    try {
-      const result = await fetchUsages(dc.id);
-      setDcUsages(result.usages);
-      setDcTotalSavings(result.totalSavings);
-    } catch {}
-    setDcUsagesLoading(false);
-  }, [fetchUsages]);
+    loadDcUsages(dc.id, "all");
+  }, [loadDcUsages]);
 
   const [stockEdits, setStockEdits] = useState<Record<string, string>>({});
   const [stockSaving, setStockSaving] = useState<string | null>(null);
@@ -5477,7 +5490,7 @@ ${kpiBlock}${payBlock}${sumBlock}
         onRequestClose={() => setShowDcUsagesModal(false)}
       >
         <View style={{ flex: 1, justifyContent: "flex-end", backgroundColor: "#00000099" }}>
-          <View style={{ backgroundColor: colors.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, borderTopWidth: 1, borderColor: colors.border, maxHeight: "80%" }}>
+          <View style={{ backgroundColor: colors.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, borderTopWidth: 1, borderColor: colors.border, maxHeight: "90%" }}>
             {/* Header */}
             <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", padding: 20, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: colors.border }}>
               <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 10 }}>
@@ -5496,13 +5509,38 @@ ${kpiBlock}${payBlock}${sumBlock}
               </TouchableOpacity>
             </View>
 
+            {/* Period Filter */}
+            <View style={{ flexDirection: "row-reverse", gap: 8, paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+              {([
+                { key: "7d" as const, label: "7 أيام" },
+                { key: "30d" as const, label: "30 يوم" },
+                { key: "all" as const, label: "الكل" },
+              ]).map(({ key, label }) => (
+                <TouchableOpacity
+                  key={key}
+                  onPress={() => {
+                    if (key === dcUsagePeriod) return;
+                    setDcUsagePeriod(key);
+                    if (selectedDcId != null) loadDcUsages(selectedDcId, key);
+                  }}
+                  style={{
+                    paddingHorizontal: 16, paddingVertical: 7, borderRadius: 20,
+                    backgroundColor: dcUsagePeriod === key ? colors.gold : colors.secondary,
+                    borderWidth: 1, borderColor: dcUsagePeriod === key ? colors.gold : colors.border,
+                  }}
+                >
+                  <Text style={{ color: dcUsagePeriod === key ? "#1A0A00" : colors.mutedForeground, fontFamily: F.bold, fontSize: 12 }}>{label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
             {dcUsagesLoading ? (
-              <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 48 }}>
+              <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 64 }}>
                 <ActivityIndicator size="large" color={colors.gold} />
               </View>
             ) : (
               <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, gap: 12 }}>
-                {/* Summary */}
+                {/* Summary Cards */}
                 <View style={{ flexDirection: "row-reverse", gap: 10, marginBottom: 4 }}>
                   <View style={{ flex: 1, backgroundColor: "#1A2A3A", borderRadius: 12, padding: 14, alignItems: "center", gap: 4, borderWidth: 1, borderColor: "#64B5F633" }}>
                     <Text style={{ color: "#64B5F6", fontFamily: F.extra, fontSize: 22 }}>{dcUsages.length}</Text>
@@ -5516,6 +5554,99 @@ ${kpiBlock}${payBlock}${sumBlock}
                   </View>
                 </View>
 
+                {/* Chart */}
+                {dcChartData.length > 1 && (() => {
+                  const chartW = Math.min(Dimensions.get("window").width - 48, 360);
+                  const chartH = 110;
+                  const padL = 6;
+                  const padR = 6;
+                  const padT = 10;
+                  const padB = 32;
+                  const plotW = chartW - padL - padR;
+                  const plotH = chartH - padT - padB;
+                  const values = dcChartData.map((d) => dcChartMetric === "count" ? d.count : d.savings / 100);
+                  const maxVal = Math.max(...values, 1);
+                  const barCount = dcChartData.length;
+                  const barW = Math.max(4, Math.floor(plotW / barCount) - 2);
+                  const slotW = plotW / barCount;
+
+                  return (
+                    <View style={{ gap: 8 }}>
+                      {/* Metric toggle */}
+                      <View style={{ flexDirection: "row-reverse", gap: 6, justifyContent: "center" }}>
+                        {([
+                          { key: "count" as const, label: "عدد الاستخدامات" },
+                          { key: "savings" as const, label: "قيمة الخصم (ر.س)" },
+                        ]).map(({ key, label }) => (
+                          <TouchableOpacity
+                            key={key}
+                            onPress={() => setDcChartMetric(key)}
+                            style={{
+                              paddingHorizontal: 12, paddingVertical: 5, borderRadius: 16,
+                              backgroundColor: dcChartMetric === key ? colors.primary : colors.secondary,
+                              borderWidth: 1, borderColor: dcChartMetric === key ? colors.primary : colors.border,
+                            }}
+                          >
+                            <Text style={{ color: dcChartMetric === key ? "#fff" : colors.mutedForeground, fontFamily: F.semi, fontSize: 11 }}>{label}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+
+                      {/* SVG bar chart */}
+                      <View style={{ alignSelf: "center", backgroundColor: colors.secondary, borderRadius: 14, padding: 10, borderWidth: 1, borderColor: colors.border }}>
+                        <Svg width={chartW} height={chartH}>
+                          {/* Baseline */}
+                          <Line
+                            x1={padL} y1={padT + plotH}
+                            x2={padL + plotW} y2={padT + plotH}
+                            stroke={colors.border} strokeWidth={1}
+                          />
+                          {dcChartData.map((d, i) => {
+                            const val = dcChartMetric === "count" ? d.count : d.savings / 100;
+                            const barH = Math.max(3, (val / maxVal) * plotH);
+                            const x = padL + i * slotW + (slotW - barW) / 2;
+                            const y = padT + plotH - barH;
+                            const isLast = i === barCount - 1;
+                            const isFirst = i === 0;
+                            const showLabel = barCount <= 10 || isFirst || isLast || i === Math.floor(barCount / 2);
+                            const dateParts = d.date.split("-");
+                            const dayLabel = barCount <= 7 ? `${parseInt(dateParts[2])}/${parseInt(dateParts[1])}` : `${parseInt(dateParts[2])}`;
+                            return (
+                              <React.Fragment key={d.date}>
+                                <Rect
+                                  x={x} y={y} width={barW} height={barH}
+                                  fill={colors.gold} rx={2}
+                                  opacity={0.9}
+                                />
+                                {/* Value label on top of bar if bar is tall enough */}
+                                {barH > 18 && barW >= 12 && (
+                                  <SvgText
+                                    x={x + barW / 2} y={y + 10}
+                                    textAnchor="middle" fontSize={9}
+                                    fill={colors.background} fontWeight="bold"
+                                  >
+                                    {dcChartMetric === "count" ? String(val) : val % 1 === 0 ? String(val) : val.toFixed(1)}
+                                  </SvgText>
+                                )}
+                                {showLabel && (
+                                  <SvgText
+                                    x={x + barW / 2} y={chartH - 4}
+                                    textAnchor="middle" fontSize={8}
+                                    fill={colors.mutedForeground}
+                                  >
+                                    {dayLabel}
+                                  </SvgText>
+                                )}
+                              </React.Fragment>
+                            );
+                          })}
+                        </Svg>
+                      </View>
+                    </View>
+                  );
+                })()}
+
+                {/* Usage List */}
                 {dcUsages.length === 0 ? (
                   <View style={{ alignItems: "center", paddingVertical: 32, gap: 8 }}>
                     <Text style={{ fontSize: 36 }}>📭</Text>
