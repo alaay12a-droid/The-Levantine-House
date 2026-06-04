@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import { apiPost, apiGet, apiPut, API_BASE } from "@/constants/api";
+import { MapWebView } from "@/components/MapWebView";
 import * as Location from "expo-location";
 import * as TaskManager from "expo-task-manager";
 import { Audio } from "expo-av";
@@ -125,6 +126,7 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
   const [locationError, setLocationError] = useState(false);
   const [locationSharingEnabled, setLocationSharingEnabled] = useState(true);
   const locationSharingEnabledRef = useRef(true);
+  const [driverCoords, setDriverCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [pendingDelivery, setPendingDelivery] = useState<{ orderId: number; total: number; customerName: string } | null>(null);
   const [cashConfirmed, setCashConfirmed] = useState(false);
   const [activeView, setActiveView] = useState<"waiting" | "delivered" | "statement" | "messages">("waiting");
@@ -338,6 +340,7 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
   }, []);
 
   const sendLocation = useCallback(async (orderId: number, lat: number, lng: number) => {
+    setDriverCoords({ lat, lng });
     try { await apiPut(`/orders/${orderId}/driver-location`, { lat, lng }); } catch {}
   }, []);
 
@@ -1093,6 +1096,56 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
                     </TouchableOpacity>
                   )}
                 </View>
+
+                {/* خريطة مصغّرة — تظهر فقط عند الاستلام */}
+                {assignment.status === "picked_up" && (() => {
+                  const mapUri = Platform.OS === "web"
+                    ? `/api/map/${assignment.orderId}`
+                    : `${API_BASE}/api/map/${assignment.orderId}`;
+
+                  const openNavigation = () => {
+                    const addr = order.customerAddress;
+                    let url: string;
+                    if (!addr) {
+                      url = "https://maps.google.com/";
+                    } else if (addr.startsWith("https://") || addr.startsWith("http://")) {
+                      url = addr;
+                    } else {
+                      url = `https://maps.google.com/maps?daddr=${encodeURIComponent(addr)}`;
+                    }
+                    if (Platform.OS === "web") {
+                      window.open(url, "_blank");
+                    } else {
+                      import("react-native").then(({ Linking }) => Linking.openURL(url));
+                    }
+                  };
+
+                  return (
+                    <View style={{ gap: 6 }}>
+                      <View style={{ height: 180, borderRadius: 12, overflow: "hidden", borderWidth: 1, borderColor: "#29B6F633" }}>
+                        <MapWebView uri={mapUri} style={{ flex: 1 }} />
+                      </View>
+                      <TouchableOpacity
+                        onPress={openNavigation}
+                        activeOpacity={0.8}
+                        style={{
+                          flexDirection: "row-reverse",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: 8,
+                          backgroundColor: "#0A1F2A",
+                          borderRadius: 10,
+                          paddingVertical: 10,
+                          borderWidth: 1,
+                          borderColor: "#29B6F633",
+                        }}
+                      >
+                        <Feather name="navigation" size={14} color="#29B6F6" />
+                        <Text style={{ color: "#29B6F6", fontFamily: F.semi, fontSize: 13 }}>افتح للتنقل إلى العميل</Text>
+                      </TouchableOpacity>
+                    </View>
+                  );
+                })()}
 
                 {/* المشتريات */}
                 <View style={{ backgroundColor: colors.secondary, borderRadius: 10, padding: 10, gap: 4 }}>
