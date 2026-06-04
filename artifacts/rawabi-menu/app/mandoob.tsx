@@ -7,10 +7,32 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
-import { apiPost, apiGet, apiPut } from "@/constants/api";
+import { apiPost, apiGet, apiPut, API_BASE } from "@/constants/api";
 import * as Location from "expo-location";
+import * as TaskManager from "expo-task-manager";
 import { Audio } from "expo-av";
 import * as Notifications from "expo-notifications";
+
+// ── Background location task ─────────────────────────────────────────────────
+// Must be defined at module level (top of file), outside any component.
+const BG_LOCATION_TASK = "DRIVER_BG_LOCATION";
+
+// Module-level refs shared with the task callback (survives component re-mounts)
+let _bgOrderId: number | null = null;
+
+if (!TaskManager.isTaskDefined(BG_LOCATION_TASK)) {
+  TaskManager.defineTask(BG_LOCATION_TASK, async ({ data, error }: TaskManager.TaskManagerTaskBody<{ locations: Location.LocationObject[] }>) => {
+    if (error || !data?.locations?.length || _bgOrderId === null) return;
+    const { latitude, longitude } = data.locations[0].coords;
+    try {
+      await fetch(`${API_BASE}/api/orders/${_bgOrderId}/driver-location`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lat: latitude, lng: longitude }),
+      });
+    } catch {}
+  });
+}
 
 const ORDER_SOUND   = require("../assets/sounds/notification_loop.wav");
 const MESSAGE_SOUND = require("../assets/sounds/notification.wav");
@@ -319,17 +341,24 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
     try { await apiPut(`/orders/${orderId}/driver-location`, { lat, lng }); } catch {}
   }, []);
 
-  const stopGPS = useCallback(() => {
+  const stopGPS = useCallback(async () => {
     setSharingLocation(false);
     setLocationError(false);
     trackedOrderRef.current = null;
+    _bgOrderId = null;
     if (gpsIntervalRef.current) { clearInterval(gpsIntervalRef.current); gpsIntervalRef.current = null; }
     if (locationSubRef.current) { locationSubRef.current.remove(); locationSubRef.current = null; }
+    if (Platform.OS !== "web") {
+      try {
+        const running = await Location.hasStartedLocationUpdatesAsync(BG_LOCATION_TASK);
+        if (running) await Location.stopLocationUpdatesAsync(BG_LOCATION_TASK);
+      } catch {}
+    }
   }, []);
 
   const startGPS = useCallback(async (orderId: number) => {
     if (trackedOrderRef.current === orderId) return;
-    stopGPS();
+    await stopGPS();
     trackedOrderRef.current = orderId;
     setLocationError(false);
 
@@ -354,17 +383,47 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
         setLocationError(true);
       }
     } else {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") { setLocationError(true); return; }
-      setSharingLocation(true);
-      const sub = await Location.watchPositionAsync(
-        { accuracy: Location.Accuracy.Balanced, timeInterval: 8000, distanceInterval: 20 },
-        (loc) => {
-          setLocationError(false);
-          sendLocation(orderId, loc.coords.latitude, loc.coords.longitude);
-        },
-      );
-      locationSubRef.current = sub;
+      // Request foreground permission first
+      const { status: fgStatus } = await Location.requestForegroundPermissionsAsync();
+      if (fgStatus !== "granted") { setLocationError(true); return; }
+
+      // Request background permission so updates continue when app is minimised
+      const { status: bgStatus } = await Location.requestBackgroundPermissionsAsync();
+
+      // Set module-level order ID for the background task callback
+      _bgOrderId = orderId;
+
+      try {
+        await Location.startLocationUpdatesAsync(BG_LOCATION_TASK, {
+          accuracy: Location.Accuracy.Balanced,
+          timeInterval: 8000,
+          distanceInterval: 20,
+          pausesUpdatesAutomatically: false,
+          // Android requires a foreground service notification to keep the
+          // task alive when the app is backgrounded.
+          foregroundService: {
+            notificationTitle: "روابي المندي",
+            notificationBody: "يتم إرسال موقعك للعميل أثناء التوصيل",
+            notificationColor: "#E8920C",
+          },
+          // showsBackgroundLocationIndicator shows the blue bar on iOS
+          showsBackgroundLocationIndicator: true,
+          // Warn developer if background permission was not granted
+          ...(bgStatus !== "granted" && { activityType: Location.ActivityType.AutomotiveNavigation }),
+        });
+        setSharingLocation(true);
+      } catch {
+        // Fall back to foreground-only watchPositionAsync if background task fails
+        const sub = await Location.watchPositionAsync(
+          { accuracy: Location.Accuracy.Balanced, timeInterval: 8000, distanceInterval: 20 },
+          (loc) => {
+            setLocationError(false);
+            sendLocation(orderId, loc.coords.latitude, loc.coords.longitude);
+          },
+        );
+        locationSubRef.current = sub;
+        setSharingLocation(true);
+      }
     }
   }, [sendLocation, stopGPS]);
 
@@ -375,7 +434,7 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
     if (next) {
       await startGPS(orderId);
     } else {
-      stopGPS();
+      await stopGPS();
     }
   }, [startGPS, stopGPS]);
 
@@ -392,7 +451,7 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
     }
   }, [rows, startGPS, stopGPS]);
 
-  useEffect(() => { return () => stopGPS(); }, [stopGPS]);
+  useEffect(() => { return () => { stopGPS(); }; }, [stopGPS]);
 
   const loadOrders = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
