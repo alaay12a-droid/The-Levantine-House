@@ -1,2 +1,3 @@
 - [Storage upload API pattern](storage-upload-api.md) — correct endpoint is /storage/uploads/request-url; response field is uploadURL (capital URL), not uploadUrl
 - [Global sound settings architecture](global-sounds.md) — sounds pushed to /settings/sounds server-side; AppConfigContext loads on startup and writes to AsyncStorage so useAppSound picks them up without any hook changes
+- [Production deploy flow](production-deploy-flow.md) — user must click Republish in Replit UI then Approve DB migrations; suggest_deploy only shows the button, cannot trigger programmatically
