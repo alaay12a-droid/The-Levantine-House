@@ -535,7 +535,7 @@ export default function MenuScreen() {
     flatChildren.push(<View key="__bottom" style={{ height: Platform.OS === "web" ? 130 : 110 }} />);
 
     return { menuFlatChildren: flatChildren, menuStickyHeaders: stickyHeaderIndices };
-  }, [sections, qtyMap, favorites, occasionId, availableCombos, banners, bannerH, bannerStyle, isEn, colors, addItem]);
+  }, [sections, qtyMap, favorites, occasionId, availableCombos, banners, isEn, colors, addItem]);
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
@@ -799,7 +799,6 @@ export default function MenuScreen() {
             decelerationRate="normal"
             overScrollMode="never"
             keyboardDismissMode="on-drag"
-            removeClippedSubviews
             onContentSizeChange={(_, h) => { scrollContentH.value = h; }}
           >
             {menuFlatChildren}
