@@ -39,7 +39,7 @@ import { useDiscountCodes, type DiscountCode, type DiscountCodeUsage, type Chart
 import { useBanners, type ApiBanner } from "@/hooks/useBanners";
 import { useRevenue, type RevenuePeriod } from "@/hooks/useRevenue";
 import { useCombos, type ApiCombo, type ComboComponent } from "@/hooks/useCombos";
-import { apiGet, apiPost, apiPut, apiDelete, API_BASE } from "@/constants/api";
+import { apiGet, apiPost, apiPut, apiDelete, API_BASE, STORAGE_BASE_URL } from "@/constants/api";
 import { invalidateAppTextsCache, DEFAULT_TEXTS } from "@/hooks/useAppTexts";
 import { useMusic, PRESET_MUSIC } from "@/context/MusicContext";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -824,7 +824,7 @@ ${kpiBlock}${payBlock}${sumBlock}
       const { uploadURL, objectPath } = await urlRes.json() as { uploadURL: string; objectPath: string };
       const imageBlob = await fetch(asset.uri).then((r) => r.blob());
       await fetch(uploadURL, { method: "PUT", headers: { "Content-Type": contentType }, body: imageBlob });
-      setDriverPhotoUrl(`${API_BASE}/api/storage${objectPath}`);
+      setDriverPhotoUrl(`${STORAGE_BASE_URL}/api/storage${objectPath}`);
     } catch {
       Alert.alert("خطأ", "تعذر رفع الصورة، حاول مرة أخرى");
     } finally {
@@ -887,7 +887,7 @@ ${kpiBlock}${payBlock}${sumBlock}
       const { uploadURL, objectPath } = await urlRes.json() as { uploadURL: string; objectPath: string };
       const imageBlob = await fetch(asset.uri).then((r) => r.blob());
       await fetch(uploadURL, { method: "PUT", headers: { "Content-Type": contentType }, body: imageBlob });
-      setEditDriverPhotoUrl(`${API_BASE}/api/storage${objectPath}`);
+      setEditDriverPhotoUrl(`${STORAGE_BASE_URL}/api/storage${objectPath}`);
     } catch { Alert.alert("خطأ", "تعذّر رفع الصورة"); }
     setEditDriverPhotoUploading(false);
   };
@@ -1099,7 +1099,7 @@ ${kpiBlock}${payBlock}${sumBlock}
       const { uploadURL, objectPath } = await urlRes.json() as { uploadURL: string; objectPath: string };
       const imageBlob = await fetch(asset.uri).then((r) => r.blob());
       await fetch(uploadURL, { method: "PUT", headers: { "Content-Type": contentType }, body: imageBlob });
-      setNewImageUrl(`${API_BASE}/api/storage${objectPath}`);
+      setNewImageUrl(`${STORAGE_BASE_URL}/api/storage${objectPath}`);
     } catch {
       Alert.alert("خطأ", "تعذر رفع الصورة، حاول مرة أخرى");
     } finally {
@@ -1132,7 +1132,7 @@ ${kpiBlock}${payBlock}${sumBlock}
       const { uploadURL, objectPath } = await urlRes.json() as { uploadURL: string; objectPath: string };
       const imageBlob = await fetch(asset.uri).then((r) => r.blob());
       await fetch(uploadURL, { method: "PUT", headers: { "Content-Type": contentType }, body: imageBlob });
-      setOccImageUrl(`${API_BASE}/api/storage${objectPath}`);
+      setOccImageUrl(`${STORAGE_BASE_URL}/api/storage${objectPath}`);
     } catch {
       Alert.alert("خطأ", "تعذر رفع الصورة، حاول مرة أخرى");
     } finally {
@@ -1385,7 +1385,7 @@ ${kpiBlock}${payBlock}${sumBlock}
       const { uploadURL, objectPath } = await urlRes.json() as { uploadURL: string; objectPath: string };
       const imageBlob = await fetch(asset.uri).then((r) => r.blob());
       await fetch(uploadURL, { method: "PUT", headers: { "Content-Type": contentType }, body: imageBlob });
-      setBannerImageUrl(`${API_BASE}/api/storage${objectPath}`);
+      setBannerImageUrl(`${STORAGE_BASE_URL}/api/storage${objectPath}`);
     } catch {
       Alert.alert("خطأ", "تعذر رفع الصورة، حاول مرة أخرى");
     } finally {

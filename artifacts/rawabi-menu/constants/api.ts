@@ -6,6 +6,12 @@ export const API_BASE =
   (process.env.EXPO_PUBLIC_API_BASE_URL as string | undefined) ||
   (Platform.OS === "web" ? "" : PRODUCTION_API);
 
+// Always an absolute URL — used when saving storage URLs to the DB so the
+// APK (which cannot resolve relative URLs) can load images correctly.
+export const STORAGE_BASE_URL =
+  (process.env.EXPO_PUBLIC_API_BASE_URL as string | undefined) ||
+  PRODUCTION_API;
+
 // Log API base on startup so it's visible in logcat / Metro
 console.log(`[API] BASE_URL = "${API_BASE}" | EXPO_PUBLIC_API_BASE_URL = "${process.env.EXPO_PUBLIC_API_BASE_URL ?? "(not set)"}"`);
 
