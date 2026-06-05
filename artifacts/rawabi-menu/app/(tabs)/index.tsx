@@ -163,6 +163,7 @@ export default function MenuScreen() {
 
   // ── Scroll tracking ──
   const lastY = useSharedValue(0);
+  const lastCatUpdateY = useSharedValue(-999); // throttle runOnJS category updates
   const headerVisible = useSharedValue(1); // 1=expanded 0=collapsed
   const collapsibleH = useSharedValue(-1); // -1 = not yet measured
 
@@ -237,7 +238,6 @@ export default function MenuScreen() {
   // Clearing on every sections change forces scrollToSection to wait for the
   // fresh onLayout measurements before scrolling.
   useEffect(() => {
-    console.log("[NAV] sections changed →", sections.map(s => s.id).join(", "));
     sectionYs.current = {};
   }, [sections]); // sections is memoized — ref only changes when API data changes
 
@@ -288,7 +288,11 @@ export default function MenuScreen() {
       } else if (diff < -5) {
         headerVisible.value = withTiming(1, { duration: 250 });
       }
-      runOnJS(updateActiveCategoryFromScroll)(y);
+      // Throttle JS-thread category tracking: only fire when scroll moves >40px
+      if (Math.abs(y - lastCatUpdateY.value) > 40) {
+        lastCatUpdateY.value = y;
+        runOnJS(updateActiveCategoryFromScroll)(y);
+      }
     },
   });
 
@@ -310,15 +314,6 @@ export default function MenuScreen() {
       const bannerWillCollapse = bannerH.value > 0 && bannerAnim.value > 0.5 && storedY > 8;
       const targetY = bannerWillCollapse ? Math.max(0, storedY - bannerH.value) : storedY;
 
-      console.log(
-        `[NAV] scrollToSection → catId="${catId}"`,
-        `storedY=${storedY}`,
-        `bannerH=${bannerH.value.toFixed(0)}`,
-        `bannerWillCollapse=${bannerWillCollapse}`,
-        `targetY=${targetY}`,
-        `sectionKeys=${Object.keys(sectionYs.current).join(",")}`,
-      );
-
       scrollTo(menuScrollRef, 0, targetY, animated);
       return true;
     };
@@ -337,8 +332,6 @@ export default function MenuScreen() {
 
   // ── Tab press: update active + scroll ───────────────────────────────
   const handleTabPress = useCallback((catId: string) => {
-    console.log(`[NAV] handleTabPress catId="${catId}" | currentY=${lastY.value.toFixed(0)} | sectionYs=${JSON.stringify(sectionYs.current)}`);
-
     const cat = categories.find((c) => c.id === catId);
     if (cat?.isDelivery || cat?.isDhabiha || cat?.isOccasions) {
       setActiveCategory(catId);
@@ -347,7 +340,6 @@ export default function MenuScreen() {
 
     const sectionIdx = sections.findIndex((s) => s.id === catId);
     if (sectionIdx === -1) {
-      console.log(`[NAV] catId="${catId}" not found in sections=[${sections.map(s=>s.id).join(",")}] — no scroll`);
       setActiveCategory(catId);
       return;
     }
@@ -359,9 +351,7 @@ export default function MenuScreen() {
       isScrollingProgrammatically.current = false;
       const landedY    = lastY.value;
       const freshTargetY = sectionYs.current[catId];
-      console.log(`[NAV] post-scroll: catId="${catId}" landedY=${landedY.toFixed(0)} freshTargetY=${freshTargetY}`);
       if (freshTargetY !== undefined && Math.abs(landedY - freshTargetY) > 80) {
-        console.log(`[NAV] corrective re-scroll: diff=${Math.abs(landedY - freshTargetY).toFixed(0)} → re-targeting ${freshTargetY}`);
         isScrollingProgrammatically.current = true;
         scrollTo(menuScrollRef, 0, Math.max(0, freshTargetY), true);
         setTimeout(() => {
@@ -659,7 +649,7 @@ export default function MenuScreen() {
         </ScrollView>
       ) : specialCat?.isDelivery ? (
         /* ── DELIVERY SECTION ── */
-        <Animated.ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.list} onScroll={scrollHandler} scrollEventThrottle={32} decelerationRate="normal" overScrollMode="never">
+        <Animated.ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.list} onScroll={scrollHandler} scrollEventThrottle={100} decelerationRate="fast" overScrollMode="never">
           <BannerCarousel banners={banners} />
           <View style={[styles.deliveryCard, { backgroundColor: colors.card, borderColor: colors.gold }]}>
             <Image source={deliveryCar} style={styles.carImage} contentFit="cover" />
@@ -698,7 +688,7 @@ export default function MenuScreen() {
         </Animated.ScrollView>
       ) : specialCat?.isDhabiha ? (
         /* ── DHABIHA SECTION ── */
-        <Animated.ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.list} onScroll={scrollHandler} scrollEventThrottle={32} decelerationRate="normal" overScrollMode="never">
+        <Animated.ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.list} onScroll={scrollHandler} scrollEventThrottle={100} decelerationRate="fast" overScrollMode="never">
           <BannerCarousel banners={banners} />
           <View style={[styles.dhabihaHero, { borderColor: "#E8920C" }]}>
             <Image source={dhabihaPoster} style={styles.dhabihaImg} contentFit="cover" />
@@ -741,7 +731,7 @@ export default function MenuScreen() {
         </Animated.ScrollView>
       ) : specialCat?.isOccasions ? (
         /* ── OCCASIONS SECTION ── */
-        <Animated.ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.list} onScroll={scrollHandler} scrollEventThrottle={32} decelerationRate="normal" overScrollMode="never">
+        <Animated.ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.list} onScroll={scrollHandler} scrollEventThrottle={100} decelerationRate="fast" overScrollMode="never">
           <BannerCarousel banners={banners} />
           <View style={[styles.occasionsHeader, { backgroundColor: "#1A0D00", borderColor: colors.gold }]}>
             <Text style={[styles.occasionsTitle, { color: colors.gold, fontFamily: F.extra }]}>
@@ -795,8 +785,8 @@ export default function MenuScreen() {
             stickyHeaderIndices={menuStickyHeaders}
             showsVerticalScrollIndicator={false}
             onScroll={scrollHandler}
-            scrollEventThrottle={16}
-            decelerationRate="normal"
+            scrollEventThrottle={100}
+            decelerationRate="fast"
             overScrollMode="never"
             keyboardDismissMode="on-drag"
             onContentSizeChange={(_, h) => { scrollContentH.value = h; }}
