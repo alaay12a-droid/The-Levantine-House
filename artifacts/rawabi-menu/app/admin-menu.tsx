@@ -3593,8 +3593,8 @@ ${kpiBlock}${payBlock}${sumBlock}
                     setSmsTestLoading(true);
                     setSmsTestResult(null);
                     try {
-                      const r = await apiPost<{ ok: boolean; msegatResponse?: string }>("/sms/test", { phone: smsTestPhone.trim() });
-                      setSmsTestResult(r.ok ? `✅ تم الإرسال بنجاح` : `❌ فشل: ${r.msegatResponse}`);
+                      const r = await apiPost<{ ok: boolean; response?: string }>("/sms/test", { phone: smsTestPhone.trim() });
+                      setSmsTestResult(r.ok ? `✅ تم الإرسال بنجاح` : `❌ فشل: ${r.response ?? "خطأ غير معروف"}`);
                     } catch (e: unknown) {
                       setSmsTestResult(`❌ خطأ: ${e instanceof Error ? e.message : String(e)}`);
                     } finally {
