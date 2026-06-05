@@ -252,6 +252,7 @@ export default function CashierScreen() {
   const [allDeliveries, setAllDeliveries]     = useState<AllDeliveryRow[]>([]);
   const [allDeliveriesLoading, setAllDeliveriesLoading] = useState(false);
   const [drvExpandedId, setDrvExpandedId]     = useState<number | null>(null);
+  const [expandedDriverNames, setExpandedDriverNames] = useState<Set<string>>(new Set());
 
   // ─── Driver management ──────────────────────────────────
   const [showDriversMgmt, setShowDriversMgmt]   = useState(false);
@@ -1234,34 +1235,48 @@ ${daySections}
 
         return (
           <>
-            {/* ── Calendar header ── */}
+            {/* ── Calendar header (compact) ── */}
             <View style={{ backgroundColor: "#0D0D0D", borderBottomWidth: 1, borderBottomColor: colors.border }}>
 
-              {/* Month row */}
-              <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingTop: 14, paddingBottom: 8 }}>
-                <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 8 }}>
-                  <Text style={{ color: colors.foreground, fontFamily: F.extra, fontSize: 16 }}>{monthLabel}</Text>
-                  <Feather name="chevron-down" size={14} color={colors.mutedForeground} />
-                </View>
+              {/* Month row + arrows + today button — all in one row */}
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 10, paddingTop: 10, paddingBottom: 6 }}>
+                {/* Left: go to newer week (disabled at current) */}
                 <TouchableOpacity
-                  onPress={() => { setDrvWeekOffset(0); const d = new Date(); d.setHours(0,0,0,0); setDrvSelectedDate(d); loadAllDeliveries(d); }}
-                  style={{ backgroundColor: "#1A2A1A", borderRadius: 10, paddingHorizontal: 12, paddingVertical: 5, borderWidth: 1, borderColor: "#4CAF5044" }}
+                  onPress={() => setDrvWeekOffset(p => p + 1)}
+                  disabled={drvWeekOffset >= 0}
+                  style={{ opacity: drvWeekOffset >= 0 ? 0.25 : 1, padding: 6 }}
                 >
-                  <Text style={{ color: "#4CAF50", fontFamily: F.bold, fontSize: 12 }}>اليوم</Text>
+                  <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
                 </TouchableOpacity>
+
+                {/* Center: month label */}
+                <Text style={{ color: colors.foreground, fontFamily: F.extra, fontSize: 14 }}>{monthLabel}</Text>
+
+                {/* Right: today button + go to older week */}
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                  <TouchableOpacity
+                    onPress={() => { setDrvWeekOffset(0); const d = new Date(); d.setHours(0,0,0,0); setDrvSelectedDate(d); loadAllDeliveries(d); }}
+                    style={{ backgroundColor: "#1A2A1A", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4, borderWidth: 1, borderColor: "#4CAF5044" }}
+                  >
+                    <Text style={{ color: "#4CAF50", fontFamily: F.bold, fontSize: 11 }}>اليوم</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => setDrvWeekOffset(p => p - 1)} style={{ padding: 6 }}>
+                    <Feather name="chevron-left" size={18} color={colors.mutedForeground} />
+                  </TouchableOpacity>
+                </View>
               </View>
 
               {/* Day abbreviations */}
               <View style={{ flexDirection: "row-reverse", paddingHorizontal: 8 }}>
                 {weekDays.map((_, i) => (
                   <View key={i} style={{ flex: 1, alignItems: "center" }}>
-                    <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 11 }}>{DAY_ABBR[i]}</Text>
+                    <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 10 }}>{DAY_ABBR[i]}</Text>
                   </View>
                 ))}
               </View>
 
               {/* Date numbers */}
-              <View style={{ flexDirection: "row-reverse", paddingHorizontal: 8, paddingBottom: 12, paddingTop: 4 }}>
+              <View style={{ flexDirection: "row-reverse", paddingHorizontal: 6, paddingBottom: 8, paddingTop: 2 }}>
                 {weekDays.map((d, i) => {
                   const sel  = isSelected(d);
                   const tod  = isToday(d);
@@ -1270,17 +1285,17 @@ ${daySections}
                     <TouchableOpacity
                       key={i}
                       disabled={fut}
-                      onPress={() => { setDrvSelectedDate(d); loadAllDeliveries(d); setDrvExpandedId(null); }}
-                      style={{ flex: 1, alignItems: "center", paddingVertical: 4 }}
+                      onPress={() => { setDrvSelectedDate(d); loadAllDeliveries(d); setDrvExpandedId(null); setExpandedDriverNames(new Set()); }}
+                      style={{ flex: 1, alignItems: "center", paddingVertical: 3 }}
                     >
                       <View style={{
-                        width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center",
+                        width: 30, height: 30, borderRadius: 15, alignItems: "center", justifyContent: "center",
                         backgroundColor: sel ? "#4CAF50" : tod ? "#4CAF5022" : "transparent",
                         borderWidth: tod && !sel ? 1 : 0, borderColor: "#4CAF5066",
                       }}>
                         <Text style={{
                           color: sel ? "#fff" : fut ? colors.border : tod ? "#4CAF50" : colors.foreground,
-                          fontFamily: sel ? F.extra : F.semi, fontSize: 14,
+                          fontFamily: sel ? F.extra : F.semi, fontSize: 13,
                         }}>
                           {d.getDate()}
                         </Text>
@@ -1288,23 +1303,6 @@ ${daySections}
                     </TouchableOpacity>
                   );
                 })}
-              </View>
-
-              {/* Week navigation arrows */}
-              <View style={{ flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 16, paddingBottom: 10 }}>
-                <TouchableOpacity
-                  onPress={() => setDrvWeekOffset(p => p + 1)}
-                  disabled={drvWeekOffset >= 0}
-                  style={{ opacity: drvWeekOffset >= 0 ? 0.3 : 1, padding: 6 }}
-                >
-                  <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => setDrvWeekOffset(p => p - 1)}
-                  style={{ padding: 6 }}
-                >
-                  <Feather name="chevron-left" size={18} color={colors.mutedForeground} />
-                </TouchableOpacity>
               </View>
             </View>
 
@@ -1393,27 +1391,29 @@ ${daySections}
               {/* ── Divider ── */}
               <View style={{ height: 1, backgroundColor: colors.border, marginHorizontal: 16 }} />
 
-              {/* ── All deliveries list ── */}
-              <View style={{ padding: 14, gap: 0 }}>
-                <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-                  <Text style={{ color: colors.foreground, fontFamily: F.extra, fontSize: 14 }}>
-                    {isToday(drvSelectedDate) ? "جميع توصيلات اليوم" : `توصيلات ${drvSelectedDate.toLocaleDateString("ar-SA", { day: "numeric", month: "long" })}`}
-                  </Text>
-                  <View style={{ flexDirection: "row-reverse", gap: 8, alignItems: "center" }}>
-                    {allDeliveries.length > 0 && (
-                      <TouchableOpacity
-                        onPress={() => handlePrintAllDriversReport(allDeliveries, drvSelectedDate)}
-                        style={{ flexDirection: "row-reverse", alignItems: "center", gap: 5, backgroundColor: "#0A1A2A", borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: "#64B5F644" }}
-                      >
-                        <Feather name="printer" size={13} color="#64B5F6" />
-                        <Text style={{ color: "#64B5F6", fontFamily: F.bold, fontSize: 11 }}>طباعة الكل</Text>
-                      </TouchableOpacity>
-                    )}
-                    <TouchableOpacity onPress={() => loadAllDeliveries(drvSelectedDate)} style={{ padding: 5 }}>
-                      <Feather name="refresh-cw" size={13} color={colors.mutedForeground} />
+              {/* ── Deliveries header ── */}
+              <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 14, paddingTop: 14, paddingBottom: 4 }}>
+                <Text style={{ color: colors.foreground, fontFamily: F.extra, fontSize: 14 }}>
+                  {isToday(drvSelectedDate) ? "توصيلات اليوم" : `توصيلات ${drvSelectedDate.toLocaleDateString("ar-SA", { day: "numeric", month: "long" })}`}
+                </Text>
+                <View style={{ flexDirection: "row-reverse", gap: 6, alignItems: "center" }}>
+                  {allDeliveries.length > 0 && (
+                    <TouchableOpacity
+                      onPress={() => handlePrintAllDriversReport(allDeliveries, drvSelectedDate)}
+                      style={{ flexDirection: "row-reverse", alignItems: "center", gap: 5, backgroundColor: "#1A0A2A", borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: "#CE93D844" }}
+                    >
+                      <Feather name="printer" size={13} color="#CE93D8" />
+                      <Text style={{ color: "#CE93D8", fontFamily: F.bold, fontSize: 11 }}>تقرير نهاية الدوام</Text>
                     </TouchableOpacity>
-                  </View>
+                  )}
+                  <TouchableOpacity onPress={() => loadAllDeliveries(drvSelectedDate)} style={{ padding: 5 }}>
+                    <Feather name="refresh-cw" size={13} color={colors.mutedForeground} />
+                  </TouchableOpacity>
                 </View>
+              </View>
+
+              {/* ── Driver grouped cards ── */}
+              <View style={{ padding: 14, paddingTop: 10, gap: 10 }}>
 
                 {allDeliveriesLoading && <ActivityIndicator color="#4CAF50" style={{ marginVertical: 20 }} />}
 
@@ -1424,60 +1424,118 @@ ${daySections}
                   </View>
                 )}
 
-                {!allDeliveriesLoading && allDeliveries.map((row, idx) => {
-                  const expanded = drvExpandedId === row.orderId;
-                  const isCash   = row.paymentMethod === "cash";
-                  return (
-                    <TouchableOpacity
-                      key={`${row.orderId}-${idx}`}
-                      onPress={() => setDrvExpandedId(expanded ? null : row.orderId)}
-                      activeOpacity={0.8}
-                      style={{ borderBottomWidth: 1, borderBottomColor: colors.border, paddingVertical: 14, paddingHorizontal: 4 }}
-                    >
-                      <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 10 }}>
-                        {/* Payment icon */}
-                        <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: isCash ? "#0F1A14" : "#0A0F1A", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: isCash ? "#2E7D3244" : "#1565C044" }}>
-                          <Text style={{ fontSize: 16 }}>{isCash ? "💵" : "💳"}</Text>
-                        </View>
-                        {/* Order + customer */}
-                        <View style={{ flex: 1, gap: 2 }}>
-                          <Text style={{ color: colors.foreground, fontFamily: F.bold, fontSize: 14, textAlign: "right" }}>
-                            (#{row.dailyNumber ?? row.orderId}) {row.customerPhone || row.customerName}
-                          </Text>
-                          {row.deliveredAt && (
-                            <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11, textAlign: "right" }}>
-                              انتهى في {fmtTime(row.deliveredAt)}
-                            </Text>
-                          )}
-                        </View>
-                        {/* Expand arrow */}
-                        <Feather name={expanded ? "chevron-up" : "chevron-down"} size={16} color={colors.mutedForeground} />
-                      </View>
+                {!allDeliveriesLoading && (() => {
+                  // Group by driver
+                  const driverMap = new Map<string, AllDeliveryRow[]>();
+                  for (const r of allDeliveries) {
+                    const key = r.driverName || "غير محدد";
+                    if (!driverMap.has(key)) driverMap.set(key, []);
+                    driverMap.get(key)!.push(r);
+                  }
+                  const groups = Array.from(driverMap.entries()).map(([name, rows]) => {
+                    const total      = rows.reduce((s, r) => s + r.totalPrice / 100, 0);
+                    const cash       = rows.filter(r => r.paymentMethod === "cash").reduce((s, r) => s + r.totalPrice / 100, 0);
+                    const electronic = total - cash;
+                    return { name, rows, total, cash, electronic };
+                  });
 
-                      {/* Expanded details */}
-                      {expanded && (
-                        <View style={{ marginTop: 10, backgroundColor: colors.card, borderRadius: 12, padding: 12, gap: 6, borderWidth: 1, borderColor: colors.border }}>
-                          <View style={{ flexDirection: "row-reverse", justifyContent: "space-between" }}>
-                            <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12 }}>اسم العميل</Text>
-                            <Text style={{ color: colors.foreground, fontFamily: F.semi, fontSize: 13 }}>{row.customerName}</Text>
+                  return groups.map(group => {
+                    const isExpanded = expandedDriverNames.has(group.name);
+                    const toggleDriver = () => {
+                      setExpandedDriverNames(prev => {
+                        const next = new Set(prev);
+                        if (next.has(group.name)) next.delete(group.name); else next.add(group.name);
+                        return next;
+                      });
+                    };
+                    return (
+                      <View key={group.name} style={{ backgroundColor: "#0D1A0D", borderRadius: 14, borderWidth: 1, borderColor: "#4CAF5033", overflow: "hidden" }}>
+                        {/* Driver header row */}
+                        <TouchableOpacity
+                          onPress={toggleDriver}
+                          activeOpacity={0.8}
+                          style={{ padding: 12 }}
+                        >
+                          <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 10 }}>
+                            {/* Avatar */}
+                            <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: "#1A3A1A", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "#4CAF5055" }}>
+                              <Text style={{ fontSize: 18 }}>🛵</Text>
+                            </View>
+                            {/* Name + stats */}
+                            <View style={{ flex: 1, gap: 3 }}>
+                              <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 14, textAlign: "right" }}>{group.name}</Text>
+                              <View style={{ flexDirection: "row-reverse", gap: 8, flexWrap: "wrap" }}>
+                                <View style={{ backgroundColor: "#E8920C22", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
+                                  <Text style={{ color: "#E8920C", fontFamily: F.bold, fontSize: 11 }}>{group.rows.length} طلب</Text>
+                                </View>
+                                {group.cash > 0 && (
+                                  <View style={{ backgroundColor: "#2E7D3222", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
+                                    <Text style={{ color: "#81C784", fontFamily: F.bold, fontSize: 11 }}>💵 {group.cash.toFixed(2)}</Text>
+                                  </View>
+                                )}
+                                {group.electronic > 0 && (
+                                  <View style={{ backgroundColor: "#1565C022", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
+                                    <Text style={{ color: "#64B5F6", fontFamily: F.bold, fontSize: 11 }}>💳 {group.electronic.toFixed(2)}</Text>
+                                  </View>
+                                )}
+                              </View>
+                            </View>
+                            {/* Total + expand icon */}
+                            <View style={{ alignItems: "flex-end", gap: 4 }}>
+                              <Text style={{ color: "#E8920C", fontFamily: F.extra, fontSize: 15 }}>{group.total.toFixed(2)} ر.س</Text>
+                              <Feather name={isExpanded ? "chevron-up" : "chevron-down"} size={14} color={colors.mutedForeground} />
+                            </View>
                           </View>
-                          <View style={{ flexDirection: "row-reverse", justifyContent: "space-between" }}>
-                            <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12 }}>المندوب</Text>
-                            <Text style={{ color: "#4CAF50", fontFamily: F.semi, fontSize: 13 }}>🛵 {row.driverName}</Text>
+                        </TouchableOpacity>
+
+                        {/* Print button for this driver */}
+                        <TouchableOpacity
+                          onPress={() => handlePrintAllDriversReport(group.rows, drvSelectedDate)}
+                          style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 5, backgroundColor: "#0A1A2A", paddingVertical: 8, borderTopWidth: 1, borderTopColor: "#4CAF5022" }}
+                          activeOpacity={0.75}
+                        >
+                          <Feather name="printer" size={12} color="#64B5F6" />
+                          <Text style={{ color: "#64B5F6", fontFamily: F.semi, fontSize: 11 }}>طباعة كشف {group.name}</Text>
+                        </TouchableOpacity>
+
+                        {/* Expanded: delivery rows */}
+                        {isExpanded && (
+                          <View style={{ borderTopWidth: 1, borderTopColor: "#4CAF5022" }}>
+                            {group.rows.map((row, idx) => {
+                              const isCash = row.paymentMethod === "cash";
+                              return (
+                                <View
+                                  key={`${row.orderId}-${idx}`}
+                                  style={{ flexDirection: "row-reverse", alignItems: "center", paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: idx < group.rows.length - 1 ? 1 : 0, borderBottomColor: "#4CAF5011" }}
+                                >
+                                  {/* Payment icon */}
+                                  <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: isCash ? "#0F1A14" : "#0A0F1A", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: isCash ? "#2E7D3244" : "#1565C044" }}>
+                                    <Text style={{ fontSize: 13 }}>{isCash ? "💵" : "💳"}</Text>
+                                  </View>
+                                  {/* Order info */}
+                                  <View style={{ flex: 1, gap: 2, paddingHorizontal: 8 }}>
+                                    <Text style={{ color: colors.foreground, fontFamily: F.semi, fontSize: 13, textAlign: "right" }}>
+                                      #{row.dailyNumber ?? row.orderId} — {row.customerName}
+                                    </Text>
+                                    {row.deliveredAt && (
+                                      <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11, textAlign: "right" }}>
+                                        {fmtTime(row.deliveredAt)}
+                                      </Text>
+                                    )}
+                                  </View>
+                                  {/* Price */}
+                                  <Text style={{ color: isCash ? "#81C784" : "#64B5F6", fontFamily: F.extra, fontSize: 13 }}>
+                                    {(row.totalPrice / 100).toFixed(2)} ر.س
+                                  </Text>
+                                </View>
+                              );
+                            })}
                           </View>
-                          <View style={{ flexDirection: "row-reverse", justifyContent: "space-between" }}>
-                            <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12 }}>المبلغ</Text>
-                            <Text style={{ color: "#E8920C", fontFamily: F.extra, fontSize: 15 }}>{(row.totalPrice / 100).toFixed(2)} ر.س</Text>
-                          </View>
-                          <View style={{ flexDirection: "row-reverse", justifyContent: "space-between" }}>
-                            <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12 }}>طريقة الدفع</Text>
-                            <Text style={{ color: isCash ? "#81C784" : "#64B5F6", fontFamily: F.semi, fontSize: 12 }}>{isCash ? "💵 نقدي" : "💳 إلكتروني"}</Text>
-                          </View>
-                        </View>
-                      )}
-                    </TouchableOpacity>
-                  );
-                })}
+                        )}
+                      </View>
+                    );
+                  });
+                })()}
               </View>
             </ScrollView>
           </>
