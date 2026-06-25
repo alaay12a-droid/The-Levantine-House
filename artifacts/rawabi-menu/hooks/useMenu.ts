@@ -141,9 +141,20 @@ export function useMenu() {
     }
   }, []);
 
+  const refreshIfStale = useCallback(async () => {
+    try {
+      const raw = await AsyncStorage.getItem(MENU_CACHE_KEY);
+      if (!raw) { await fetch(); return; }
+      const { savedAt } = JSON.parse(raw) as MenuCache;
+      if (Date.now() - savedAt > MENU_CACHE_TTL_MS) await fetch();
+    } catch {
+      await fetch();
+    }
+  }, [fetch]);
+
   useEffect(() => {
     fetch();
   }, [fetch]);
 
-  return { categories, loading, refresh: fetch, apiItems, FOOD_IMAGES };
+  return { categories, loading, refresh: fetch, refreshIfStale, apiItems, FOOD_IMAGES };
 }

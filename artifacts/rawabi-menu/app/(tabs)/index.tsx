@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect, useMemo } from "react";
+import React, { useState, useRef, useCallback, useEffect, useMemo, useDeferredValue } from "react";
 import { useFocusEffect } from "expo-router";
 import {
   View,
@@ -52,6 +52,30 @@ import {
   type OccasionId,
 } from "@/constants/occasions";
 
+// ── Fix #1: per-item quantity reader — keeps menuFlatChildren stable on cart changes ──
+// Defined at module level so React doesn't recreate the class on each MenuScreen render.
+const MenuItemRow = React.memo(function MenuItemRow({
+  item,
+}: {
+  item: import("@/constants/menu").MenuItem & {
+    available?: boolean;
+    nameEn?: string;
+    descriptionEn?: string;
+    stock?: number | null;
+  };
+}) {
+  const { items: cartItems } = useCartState();
+  const quantity = useMemo(
+    () => cartItems.find((c) => c.item.id === item.id)?.quantity ?? 0,
+    [cartItems, item.id]
+  );
+  return (
+    <View style={{ paddingHorizontal: 14, paddingTop: 6 }}>
+      <MenuItemCard item={item} quantity={quantity} />
+    </View>
+  );
+});
+
 const logo = require("@/assets/images/logo.png");
 const deliveryCar = require("@/assets/images/delivery_car.jpg");
 const dhabihaImg = require("@/assets/images/dhabiha.png");
@@ -80,7 +104,7 @@ export default function MenuScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useUser();
-  const { categories, refresh: refreshMenu } = useMenu();
+  const { categories, refresh: refreshMenu, refreshIfStale } = useMenu();
   const { occasions } = useOccasions();
   const { banners, refresh: refreshBanners } = useBanners();
   const { combos } = useCombos();
@@ -151,7 +175,7 @@ export default function MenuScreen() {
       .catch(() => {});
   }, []);
 
-  useFocusEffect(useCallback(() => { refreshMenu(); }, [refreshMenu]));
+  useFocusEffect(useCallback(() => { refreshIfStale(); }, [refreshIfStale]));
 
   useEffect(() => { refreshBanners(); }, [refreshBanners]);
   const menuScrollRef = useAnimatedRef<Animated.ScrollView>();
@@ -380,14 +404,19 @@ export default function MenuScreen() {
     Linking.openURL(`tel:${info.phone}`);
   };
 
-  // ── Search filtering ──────────────────────────────────────────────────
-  const searchResults = searchQuery.trim().length >= 1
-    ? categories.flatMap((c) => c.items).filter((item) =>
-        item.name.includes(searchQuery) ||
-        (item.nameEn ?? "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (item.description ?? "").includes(searchQuery)
-      )
-    : [];
+  // ── Fix #3: debounced search via useDeferredValue + useMemo ──────────
+  // useDeferredValue lets React defer the search computation to a lower
+  // priority, keeping the TextInput responsive on every keystroke.
+  const deferredSearch = useDeferredValue(searchQuery);
+  const searchResults = useMemo(() => {
+    if (deferredSearch.trim().length < 1) return [];
+    const q = deferredSearch.toLowerCase();
+    return categories.flatMap((c) => c.items).filter((item) =>
+      item.name.includes(deferredSearch) ||
+      (item.nameEn ?? "").toLowerCase().includes(q) ||
+      (item.description ?? "").includes(deferredSearch)
+    );
+  }, [deferredSearch, categories]);
 
   // ── Memoised menu content — only rebuilds when data changes, not on every scroll render ──
   const { menuFlatChildren, menuStickyHeaders } = useMemo(() => {
@@ -514,10 +543,11 @@ export default function MenuScreen() {
         </View>
       );
       for (const item of section.data) {
+        // Fix #1: MenuItemRow reads its own quantity from CartContext — qtyMap
+        // is no longer a dependency here, so this useMemo no longer rebuilds
+        // on every cart add/remove. Only menu data / appearance changes trigger it.
         flatChildren.push(
-          <View key={`${section.id}-${item.id}`} style={{ paddingHorizontal: 14, paddingTop: 6 }}>
-            <MenuItemCard item={item} quantity={qtyMap.get(item.id) ?? 0} />
-          </View>
+          <MenuItemRow key={`${section.id}-${item.id}`} item={item} />
         );
       }
     }
@@ -525,7 +555,7 @@ export default function MenuScreen() {
     flatChildren.push(<View key="__bottom" style={{ height: Platform.OS === "web" ? 130 : 110 }} />);
 
     return { menuFlatChildren: flatChildren, menuStickyHeaders: stickyHeaderIndices };
-  }, [sections, qtyMap, favorites, occasionId, availableCombos, banners, isEn, colors, addItem]);
+  }, [sections, favorites, occasionId, availableCombos, banners, isEn, colors, addItem]);
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
