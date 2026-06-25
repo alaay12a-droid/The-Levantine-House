@@ -7,6 +7,8 @@ import { Layout } from "@/components/layout";
 import Home from "@/pages/home";
 import Orders from "@/pages/orders";
 import Login from "@/pages/login";
+import Drivers from "@/pages/drivers";
+import MenuManagement from "@/pages/menu-management";
 
 const queryClient = new QueryClient();
 
@@ -22,6 +24,16 @@ function Router() {
       <Route path="/orders">
         <Layout>
           <Orders />
+        </Layout>
+      </Route>
+      <Route path="/drivers">
+        <Layout>
+          <Drivers />
+        </Layout>
+      </Route>
+      <Route path="/menu">
+        <Layout>
+          <MenuManagement />
         </Layout>
       </Route>
       <Route component={NotFound} />

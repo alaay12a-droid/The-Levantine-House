@@ -3,7 +3,7 @@ import { Link, useLocation } from "wouter";
 import { useDashboardMe, useDashboardLogout } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getDashboardMeQueryKey } from "@workspace/api-client-react";
-import { LayoutDashboard, ListOrdered, LogOut, Loader2, Menu } from "lucide-react";
+import { LayoutDashboard, ListOrdered, LogOut, Loader2, Menu, Users, UtensilsCrossed } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
@@ -28,6 +28,8 @@ function SidebarContent({ currentLocation, onNavigate }: { currentLocation: stri
   const navItems = [
     { href: "/", label: "الرئيسية", icon: LayoutDashboard },
     { href: "/orders", label: "الطلبات", icon: ListOrdered },
+    { href: "/drivers", label: "المناديب", icon: Users },
+    { href: "/menu", label: "القائمة", icon: UtensilsCrossed },
   ];
 
   return (
