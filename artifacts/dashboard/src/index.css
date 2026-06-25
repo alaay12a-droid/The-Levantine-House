@@ -320,3 +320,61 @@
     inset: -1px;
   }
 }
+
+/* ── Print Styles ─────────────────────────────────────────────────── */
+@media print {
+  @page {
+    size: A4;
+    margin: 15mm 12mm;
+  }
+
+  body {
+    font-family: 'Cairo', 'Segoe UI', sans-serif !important;
+    font-size: 11pt;
+    color: #111 !important;
+    background: white !important;
+    direction: rtl;
+  }
+
+  /* Hide sidebar, top nav, and any non-report chrome */
+  nav, aside, header, footer,
+  [data-sidebar], [data-sidebar-trigger],
+  .print\:hidden {
+    display: none !important;
+  }
+
+  /* Expand the main content to full width */
+  main, [role="main"], .report-page {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Force white backgrounds and visible borders */
+  .bg-card, .bg-muted, .bg-muted\/30, .bg-muted\/40 {
+    background: white !important;
+  }
+
+  .rounded-xl, .rounded-2xl, .rounded-lg {
+    border-radius: 4px !important;
+  }
+
+  /* Prevent sections from breaking across pages when possible */
+  section, .report-section {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Table header repeat on new pages */
+  thead { display: table-header-group; }
+  tfoot { display: table-footer-group; }
+
+  /* Ensure borders show in print */
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  a { text-decoration: none !important; }
+}
