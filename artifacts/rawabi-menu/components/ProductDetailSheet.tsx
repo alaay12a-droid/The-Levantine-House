@@ -41,9 +41,10 @@ function itemNeedsCustomization(item: MenuItem): boolean {
 }
 
 interface ChickenSizes {
+  quarterPrice: number;
   halfPrice: number;
   wholePrice: number;
-  defaultIdx: number;
+  defaultIdx: number; // 0=ربع 1=نصف 2=حبة كاملة
 }
 
 function getChickenSizes(item: MenuItem): ChickenSizes | null {
@@ -51,12 +52,17 @@ function getChickenSizes(item: MenuItem): ChickenSizes | null {
   if (item.name.startsWith("رز ")) return null;
   if (item.description?.includes("بدون رز") && item.name.includes("سادة")) return null;
 
-  const isHalf = item.name.includes("نص") || item.name.includes("نصف");
+  const isHalf    = item.name.includes("نص") || item.name.includes("نصف");
+  const isQuarter = item.name.includes("ربع");
 
-  if (isHalf) {
-    return { halfPrice: item.price, wholePrice: item.price * 2, defaultIdx: 0 };
+  if (isQuarter) {
+    return { quarterPrice: item.price, halfPrice: item.price * 2, wholePrice: item.price * 4, defaultIdx: 0 };
   }
-  return { halfPrice: item.price / 2, wholePrice: item.price, defaultIdx: 1 };
+  if (isHalf) {
+    return { quarterPrice: item.price / 2, halfPrice: item.price, wholePrice: item.price * 2, defaultIdx: 1 };
+  }
+  // whole or unlabelled → treat as whole
+  return { quarterPrice: item.price / 4, halfPrice: item.price / 2, wholePrice: item.price, defaultIdx: 2 };
 }
 
 interface MeatSizes {
@@ -128,8 +134,12 @@ export function ProductDetailSheet({ item, visible, onClose }: Props) {
     ? [meatSizes.quarterPrice, meatSizes.halfPrice, meatSizes.wholePrice]
     : [];
 
+  const chickenPrices = sizes
+    ? [sizes.quarterPrice, sizes.halfPrice, sizes.wholePrice]
+    : [];
+
   const baseSizePrice = showSizeSelector
-    ? (sizeIdx === 0 ? sizes!.halfPrice : sizes!.wholePrice)
+    ? chickenPrices[sizeIdx]
     : showMeatSizeSelector
       ? meatSizePrices[meatSizeIdx]
       : item.price;
@@ -145,7 +155,7 @@ export function ProductDetailSheet({ item, visible, onClose }: Props) {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     const sizeLabel = showSizeSelector
-      ? (sizeIdx === 0 ? "نصف" : "حبة كاملة")
+      ? (["ربع", "نصف", "حبة كاملة"][sizeIdx])
       : showMeatSizeSelector
         ? (["ربع", "نصف", "كامل"][meatSizeIdx])
         : undefined;
@@ -206,14 +216,15 @@ export function ProductDetailSheet({ item, visible, onClose }: Props) {
               ) : null}
             </View>
 
-            {/* ── Size Selector (Chicken: نصف / كامل) ── */}
+            {/* ── Size Selector (Chicken: ربع / نصف / كامل) ── */}
             {showSizeSelector && (
               <View style={{ gap: 10 }}>
                 <Text style={[styles.sectionTitle, { color: colors.foreground }]}>الحجم</Text>
-                <View style={{ flexDirection: "row", gap: 10 }}>
+                <View style={{ flexDirection: "row", gap: 8 }}>
                   {([
-                    { label: "نصف", icon: "½", price: sizes!.halfPrice },
-                    { label: "حبة كاملة", icon: "1", price: sizes!.wholePrice },
+                    { label: "ربع",        icon: "¼", price: sizes!.quarterPrice },
+                    { label: "نصف",        icon: "½", price: sizes!.halfPrice    },
+                    { label: "حبة كاملة", icon: "1", price: sizes!.wholePrice   },
                   ] as const).map((opt, i) => {
                     const active = sizeIdx === i;
                     return (
