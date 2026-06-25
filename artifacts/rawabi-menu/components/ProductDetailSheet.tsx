@@ -4,7 +4,6 @@ import {
   Text,
   TouchableOpacity,
   Modal,
-  Image,
   ScrollView,
   StyleSheet,
 } from "react-native";
@@ -12,7 +11,7 @@ import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useColors } from "@/hooks/useColors";
 import { useCart, CartCustomization } from "@/context/CartContext";
-import { MenuItem, FOOD_IMAGES } from "@/constants/menu";
+import { MenuItem } from "@/constants/menu";
 
 const F = {
   regular: "Cairo_400Regular",
@@ -114,10 +113,6 @@ export function ProductDetailSheet({ item, visible, onClose }: Props) {
 
   if (!item) return null;
 
-  const foodImage = item.imageUrl
-    ? { uri: item.imageUrl }
-    : item.imageKey ? FOOD_IMAGES[item.imageKey] : null;
-
   const showCustomization = itemNeedsCustomization(item);
   const showRiceOptions = showCustomization && !item.name.includes("مضغوط");
   const selectedRice = showRiceOptions ? RICE_OPTIONS[riceIdx] : null;
@@ -187,17 +182,10 @@ export function ProductDetailSheet({ item, visible, onClose }: Props) {
         <TouchableOpacity style={styles.backdropTouch} onPress={onClose} activeOpacity={1} />
 
         <View style={[styles.sheet, { backgroundColor: colors.card }]}>
-          {/* ── Image ── */}
-          <View style={styles.imageContainer}>
-            {foodImage ? (
-              <Image source={foodImage} style={styles.image} resizeMode="cover" />
-            ) : (
-              <View style={[styles.imagePlaceholder, { backgroundColor: "#2A1508" }]}>
-                <Text style={{ fontSize: 56 }}>🍽️</Text>
-              </View>
-            )}
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <Feather name="x" size={18} color="#fff" />
+          {/* ── Close button ── */}
+          <View style={styles.closeRow}>
+            <TouchableOpacity onPress={onClose} style={[styles.closeBtn, { backgroundColor: colors.secondary }]}>
+              <Feather name="x" size={18} color={colors.foreground} />
             </TouchableOpacity>
           </View>
 
@@ -422,29 +410,17 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     maxHeight: "88%",
   },
-  imageContainer: {
-    width: "100%",
-    height: 230,
-    position: "relative",
-  },
-  image: {
-    width: "100%",
-    height: "100%",
-  },
-  imagePlaceholder: {
-    width: "100%",
-    height: "100%",
-    alignItems: "center",
-    justifyContent: "center",
+  closeRow: {
+    flexDirection: "row",
+    justifyContent: "flex-start",
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 4,
   },
   closeBtn: {
-    position: "absolute",
-    top: 14,
-    left: 14,
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: "#00000088",
     alignItems: "center",
     justifyContent: "center",
   },

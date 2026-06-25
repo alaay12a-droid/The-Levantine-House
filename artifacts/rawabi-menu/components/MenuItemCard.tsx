@@ -6,15 +6,14 @@ import {
   StyleSheet,
   Linking,
 } from "react-native";
-import { Image } from "expo-image";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useColors } from "@/hooks/useColors";
 import { useCartActions } from "@/context/CartContext";
-import { useDetailSheet } from "@/context/DetailSheetContext";
+
 import { useLanguage } from "@/context/LanguageContext";
 import { useFavorites } from "@/hooks/useFavorites";
-import { MenuItem, FOOD_IMAGES } from "@/constants/menu";
+import { MenuItem } from "@/constants/menu";
 import { useAppTexts } from "@/hooks/useAppTexts";
 
 const F = {
@@ -32,16 +31,13 @@ interface Props {
 function MenuItemCardInner({ item, quantity }: Props) {
   const colors = useColors();
   const { addItem, updateQuantity } = useCartActions();
-  const { openDetail } = useDetailSheet();
+
   const { language } = useLanguage();
   const { isFavorite, toggleFavorite } = useFavorites();
   const isEn = language === "en";
   const info = useAppTexts();
 
   const inCart = quantity > 0;
-  const foodImage = item.imageUrl
-    ? { uri: item.imageUrl }
-    : item.imageKey ? FOOD_IMAGES[item.imageKey] : null;
   const isDhabiha = item.price === 0;
   const isUnavailable = item.available === false;
   const faved = isFavorite(item.id);
@@ -76,10 +72,6 @@ function MenuItemCardInner({ item, quantity }: Props) {
     toggleFavorite(item.id);
   }, [toggleFavorite, item.id]);
 
-  const handleOpenDetail = useCallback(() => {
-    if (!isUnavailable && !isDhabiha) openDetail(item);
-  }, [isUnavailable, isDhabiha, openDetail, item]);
-
   const priceStr = item.price % 1 === 0 ? item.price.toString() : item.price.toFixed(1);
 
   return (
@@ -110,48 +102,23 @@ function MenuItemCardInner({ item, quantity }: Props) {
       )}
 
       <View style={styles.inner}>
-        {/* Right: food image */}
-        <TouchableOpacity
-          onPress={handleOpenDetail}
-          activeOpacity={isUnavailable || isDhabiha ? 1 : 0.85}
-          disabled={isUnavailable || isDhabiha}
-          style={styles.imageContainer}
-        >
-          {foodImage ? (
-            <View style={[styles.imageWrap, { backgroundColor: colors.isLight ? "#E8D8C8" : "#2A1508" }]}>
-              <Image source={foodImage} style={styles.foodImage} contentFit="cover" />
-              {inCart && (
-                <View style={[styles.inCartDot, { backgroundColor: colors.gold }]} />
-              )}
-              {!isUnavailable && !isDhabiha && (
-                <View style={styles.zoomHint}>
-                  <Feather name="zoom-in" size={11} color="#ffffffcc" />
-                </View>
-              )}
-            </View>
-          ) : (
-            <View style={[styles.imageWrap, styles.noImage, { backgroundColor: colors.isLight ? "#EDE0CE" : "#2A1508", borderColor: colors.border }]}>
-              <Text style={styles.noImageIcon}>🍽️</Text>
-            </View>
-          )}
-          {/* Heart button on image */}
-          <TouchableOpacity
-            onPress={handleToggleFav}
-            style={[styles.heartBtn, { backgroundColor: faved ? "#C8171A22" : "#00000044" }]}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Feather name="heart" size={12} color={faved ? "#C8171A" : "#ffffffbb"} />
-          </TouchableOpacity>
-        </TouchableOpacity>
-
-        {/* Center: info */}
+        {/* Info */}
         <View style={[styles.infoBlock, { alignItems: isEn ? "flex-start" : "flex-end" }]}>
-          <Text
-            style={[styles.name, { color: colors.foreground, fontFamily: F.bold, textAlign: isEn ? "left" : "right" }]}
-            numberOfLines={2}
-          >
-            {displayName}
-          </Text>
+          <View style={{ flexDirection: isEn ? "row" : "row-reverse", alignItems: "flex-start", justifyContent: "space-between", width: "100%" }}>
+            <Text
+              style={[styles.name, { color: colors.foreground, fontFamily: F.bold, textAlign: isEn ? "left" : "right", flex: 1 }]}
+              numberOfLines={2}
+            >
+              {displayName}
+            </Text>
+            <TouchableOpacity
+              onPress={handleToggleFav}
+              style={[styles.heartBtn, { backgroundColor: faved ? "#C8171A22" : "transparent" }]}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Feather name="heart" size={14} color={faved ? "#C8171A" : colors.mutedForeground} />
+            </TouchableOpacity>
+          </View>
           {displayDesc ? (
             <Text
               style={[styles.desc, { color: colors.mutedForeground, fontFamily: F.regular, textAlign: isEn ? "left" : "right" }]}
@@ -241,60 +208,17 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   inner: {
-    flexDirection: "row-reverse",
+    flexDirection: "row",
     alignItems: "center",
     padding: 14,
-    gap: 14,
-  },
-  imageContainer: {
-    position: "relative",
-  },
-  imageWrap: {
-    width: 100,
-    height: 100,
-    borderRadius: 14,
-    overflow: "hidden",
-  },
-  foodImage: {
-    width: "100%",
-    height: "100%",
-  },
-  noImage: {
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  noImageIcon: {
-    fontSize: 36,
-  },
-  inCartDot: {
-    position: "absolute",
-    top: 7,
-    right: 7,
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-  },
-  zoomHint: {
-    position: "absolute",
-    bottom: 6,
-    right: 6,
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: "#00000066",
-    alignItems: "center",
-    justifyContent: "center",
   },
   heartBtn: {
-    position: "absolute",
-    top: 6,
-    left: 6,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
+    marginStart: 6,
   },
   infoBlock: {
     flex: 1,

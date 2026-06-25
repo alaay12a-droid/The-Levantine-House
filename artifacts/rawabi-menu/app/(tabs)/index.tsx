@@ -29,7 +29,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
-import { FOOD_IMAGES } from "@/constants/menu";
 import { useAppTexts } from "@/hooks/useAppTexts";
 import { MenuItemCard } from "@/components/MenuItemCard";
 import { CartBar } from "@/components/CartBar";
@@ -458,13 +457,6 @@ export default function MenuScreen() {
             <ScrollView horizontal showsHorizontalScrollIndicator={false} nestedScrollEnabled contentContainerStyle={{ paddingHorizontal: 12, gap: 10, flexDirection: "row-reverse" }}>
               {favItems.map((item) => (
                 <View key={`fav-${item.id}`} style={{ width: 130, backgroundColor: "#1A0D05", borderRadius: 14, overflow: "hidden", borderWidth: 1, borderColor: "#C8171A33" }}>
-                  {item.imageUrl ? (
-                    <Image source={{ uri: item.imageUrl }} style={{ width: "100%", height: 80 }} contentFit="cover" />
-                  ) : (
-                    <View style={{ width: "100%", height: 80, alignItems: "center", justifyContent: "center", backgroundColor: "#2A1508" }}>
-                      <Text style={{ fontSize: 32 }}>🍽️</Text>
-                    </View>
-                  )}
                   <View style={{ padding: 8, gap: 4 }}>
                     <Text style={{ color: "#fff", fontFamily: F.bold, fontSize: 12, textAlign: "right" }} numberOfLines={2}>{isEn && item.nameEn ? item.nameEn : item.name}</Text>
                     <Text style={{ color: "#E8920C", fontFamily: F.extra, fontSize: 14, textAlign: "right" }}>
@@ -484,13 +476,6 @@ export default function MenuScreen() {
             <ScrollView horizontal showsHorizontalScrollIndicator={false} nestedScrollEnabled contentContainerStyle={{ paddingHorizontal: 12, gap: 10, flexDirection: "row-reverse" }}>
               {availableCombos.map((combo) => (
                 <View key={`combo-${combo.comboId}`} style={{ width: 200, backgroundColor: "#0F1A2A", borderRadius: 16, padding: 12, gap: 8, borderWidth: 1, borderColor: "#82B1FF33" }}>
-                  {combo.imageUrl ? (
-                    <Image source={{ uri: combo.imageUrl }} style={{ width: "100%", height: 100, borderRadius: 10 }} contentFit="cover" />
-                  ) : (
-                    <View style={{ width: "100%", height: 80, borderRadius: 10, backgroundColor: "#1A2A3A", alignItems: "center", justifyContent: "center" }}>
-                      <Text style={{ fontSize: 36 }}>🎁</Text>
-                    </View>
-                  )}
                   <Text style={{ color: "#fff", fontFamily: F.bold, fontSize: 14, textAlign: "right" }} numberOfLines={2}>{combo.name}</Text>
                   <View style={{ gap: 3 }}>
                     {combo.components.map((comp, i) => (
@@ -779,11 +764,6 @@ export default function MenuScreen() {
               onPress={() => handleWhatsApp(isEn ? `Hello, I would like to inquire about: ${occ.name}` : `السلام عليكم، أرغب في الاستفسار عن: ${occ.name}`)}
               style={[styles.occasionCard, { backgroundColor: colors.card, borderColor: colors.border }]}
             >
-              {occ.imageUrl ? (
-                <Image source={{ uri: occ.imageUrl }} style={styles.occasionImg} contentFit="cover" />
-              ) : occ.imageKey && FOOD_IMAGES[occ.imageKey] ? (
-                <Image source={FOOD_IMAGES[occ.imageKey]} style={styles.occasionImg} contentFit="cover" />
-              ) : null}
               <View style={[styles.occasionOverlay, { backgroundColor: "#0F0A05CC" }]}>
                 <View style={[styles.occasionBadge, { backgroundColor: colors.gold }]}>
                   <Text style={[styles.occasionBadgeText, { fontFamily: F.bold }]}>
