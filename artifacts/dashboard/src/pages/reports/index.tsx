@@ -2,86 +2,89 @@ import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Printer, FileDown, Sheet, FileText, Image, RefreshCw, BarChart2 } from "lucide-react";
-import { StatsCards } from "./stats-cards";
+import { KpiCards }       from "./kpi-cards";
+import { TrendChart }     from "./trend-chart";
+import { InsightGrid }    from "./insight-grid";
+import { SmartCards }     from "./smart-cards";
+import { RecentInvoices } from "./recent-invoices";
 import { ReportFilters, FilterState, DEFAULT_FILTERS } from "./filters";
-import { SalesCharts } from "./charts";
-import { SubReports } from "./sub-reports";
-import { SalesTable } from "./sales-table";
-import { PrintLayout } from "./print-layout";
-import { ALL_SALES, SaleRecord } from "./mock-data";
+import { PrintLayout }    from "./print-layout";
+import { ALL_SALES, TODAY, YESTERDAY, SaleRecord } from "./mock-data";
 import { exportCSV, exportXLSX, exportPDF, exportPNG, printReport } from "./export-utils";
 
 export default function SalesReports() {
-  const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [filters, setFilters]     = useState<FilterState>(DEFAULT_FILTERS);
+  const [showFilters, setShowFilters] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  const filtered = useMemo(() => {
-    let data: SaleRecord[] = ALL_SALES;
-    if (filters.from) data = data.filter(s => s.date >= filters.from);
-    if (filters.to)   data = data.filter(s => s.date <= filters.to);
+  const filtered = useMemo((): SaleRecord[] => {
+    let data = ALL_SALES;
+    if (filters.from)          data = data.filter(s => s.date >= filters.from);
+    if (filters.to)            data = data.filter(s => s.date <= filters.to);
     if (filters.branch)        data = data.filter(s => s.branch === filters.branch);
     if (filters.employee)      data = data.filter(s => s.employee === filters.employee);
     if (filters.customer)      data = data.filter(s => s.customer === filters.customer);
     if (filters.paymentMethod) data = data.filter(s => s.paymentMethod === filters.paymentMethod);
     if (filters.product)       data = data.filter(s => s.product === filters.product);
     return data;
-  }, [filters, refreshKey]);
+  }, [filters, refreshKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const exportData = selectedIds.size > 0
-    ? filtered.filter(s => selectedIds.has(s.id))
-    : filtered;
+  const todaySales     = ALL_SALES.filter(s => s.date === TODAY);
+  const yesterdaySales = ALL_SALES.filter(s => s.date === YESTERDAY);
 
   const period = filters.from && filters.to
     ? `${filters.from} — ${filters.to}`
     : filters.from ? `من ${filters.from}` : filters.to ? `حتى ${filters.to}` : "كل الفترات";
 
   const totals = useMemo(() => {
-    const done = exportData.filter(s => s.status === "done");
+    const done = filtered.filter(s => s.status === "done");
     return {
-      sales: done.reduce((a, s) => a + s.total, 0),
+      sales:  done.reduce((a, s) => a + s.total, 0),
       profit: done.reduce((a, s) => a + s.profit, 0),
-      count: done.length,
+      count:  done.length,
     };
-  }, [exportData]);
+  }, [filtered]);
 
   return (
-    <div className="space-y-6" key={refreshKey}>
-      {/* Header */}
+    <div className="space-y-7" key={refreshKey}>
+
+      {/* ── Header ── */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
             <BarChart2 className="h-6 w-6 text-primary" />
-            تقارير المبيعات
+            لوحة تقارير المبيعات
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {filtered.length} سجل • {period}
-            {selectedIds.size > 0 && ` • ${selectedIds.size} محدد`}
+            {new Date("2026-06-25").toLocaleDateString("ar-SA", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+            &nbsp;·&nbsp;{filtered.length} سجل
           </p>
         </div>
 
-        {/* Action buttons */}
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline" size="sm"
+            onClick={() => setShowFilters(f => !f)}
+            className="gap-1.5"
+          >
+            🔍 {showFilters ? "إخفاء الفلاتر" : "الفلاتر"}
+          </Button>
           <Button variant="outline" size="sm" onClick={() => setRefreshKey(k => k + 1)} className="gap-1.5">
             <RefreshCw className="h-3.5 w-3.5" />تحديث
           </Button>
           <Button variant="outline" size="sm" onClick={() => printReport("print-area")} className="gap-1.5">
             <Printer className="h-3.5 w-3.5" />طباعة
           </Button>
-          <Button variant="outline" size="sm"
-            onClick={() => exportPDF(exportData, period, totals)} className="gap-1.5">
+          <Button variant="outline" size="sm" onClick={() => exportPDF(filtered, period, totals)} className="gap-1.5">
             <FileDown className="h-3.5 w-3.5" />PDF
           </Button>
-          <Button variant="outline" size="sm"
-            onClick={() => exportXLSX(exportData)} className="gap-1.5">
+          <Button variant="outline" size="sm" onClick={() => exportXLSX(filtered)} className="gap-1.5">
             <Sheet className="h-3.5 w-3.5" />Excel
           </Button>
-          <Button variant="outline" size="sm"
-            onClick={() => exportCSV(exportData)} className="gap-1.5">
+          <Button variant="outline" size="sm" onClick={() => exportCSV(filtered)} className="gap-1.5">
             <FileText className="h-3.5 w-3.5" />CSV
           </Button>
-          <Button variant="outline" size="sm"
-            onClick={() => exportPNG("print-area")} className="gap-1.5">
+          <Button variant="outline" size="sm" onClick={() => exportPNG("print-area")} className="gap-1.5">
             <Image className="h-3.5 w-3.5" />PNG
           </Button>
         </div>
@@ -89,28 +92,33 @@ export default function SalesReports() {
 
       <Separator />
 
-      {/* Filters */}
-      <ReportFilters
-        filters={filters}
-        onChange={f => { setFilters(f); setSelectedIds(new Set()); }}
-        onReset={() => { setFilters(DEFAULT_FILTERS); setSelectedIds(new Set()); }}
-      />
+      {/* ── Filters (collapsible) ── */}
+      {showFilters && (
+        <ReportFilters
+          filters={filters}
+          onChange={f => setFilters(f)}
+          onReset={() => setFilters(DEFAULT_FILTERS)}
+        />
+      )}
 
-      {/* Stats */}
-      <StatsCards sales={filtered} />
+      {/* ── Section 1: KPI Cards ── */}
+      <KpiCards today={todaySales} yesterday={yesterdaySales} />
 
-      {/* Charts */}
-      <SalesCharts sales={filtered} />
+      {/* ── Section 2: Trend Chart ── */}
+      <TrendChart sales={filtered} />
 
-      {/* Sub-reports tabs */}
-      <SubReports sales={filtered} />
+      {/* ── Section 3: 2×2 Insight Grid ── */}
+      <InsightGrid sales={filtered} />
 
-      {/* Main table */}
-      <SalesTable sales={filtered} selectedIds={selectedIds} onSelect={setSelectedIds} />
+      {/* ── Section 4: Smart / Live Cards ── */}
+      <SmartCards allSales={ALL_SALES} />
 
-      {/* Hidden print layout */}
+      {/* ── Section 5: Recent Invoices ── */}
+      <RecentInvoices sales={filtered} />
+
+      {/* ── Hidden print layout ── */}
       <div className="hidden">
-        <PrintLayout sales={exportData} period={period} />
+        <PrintLayout sales={filtered} period={period} />
       </div>
     </div>
   );
