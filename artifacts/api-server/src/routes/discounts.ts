@@ -146,7 +146,12 @@ router.post("/discount-codes", async (req, res) => {
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
   try {
-    const [row] = await db.insert(discountCodesTable).values(parsed.data).returning();
+    const { expiresAt: expiresAtStr, ...restData } = parsed.data;
+    const insertData = {
+      ...restData,
+      expiresAt: expiresAtStr != null ? new Date(expiresAtStr) : (expiresAtStr as null | undefined),
+    };
+    const [row] = await db.insert(discountCodesTable).values(insertData).returning();
     res.status(201).json({ ...row, usageCount: 0 });
   } catch (e: any) {
     if (e?.code === "23505") { res.status(409).json({ error: "الكود موجود مسبقاً" }); return; }
@@ -171,7 +176,14 @@ router.patch("/discount-codes/:id", async (req, res) => {
   }).safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
-  const [row] = await db.update(discountCodesTable).set(parsed.data).where(eq(discountCodesTable.id, id)).returning();
+  const { expiresAt: expiresAtStr2, ...restUpdate } = parsed.data;
+  const updateData = {
+    ...restUpdate,
+    ...(expiresAtStr2 !== undefined
+      ? { expiresAt: expiresAtStr2 != null ? new Date(expiresAtStr2) : null }
+      : {}),
+  };
+  const [row] = await db.update(discountCodesTable).set(updateData).where(eq(discountCodesTable.id, id)).returning();
   if (!row) { res.status(404).json({ error: "لم يُوجد الكود" }); return; }
   res.json(row);
 });

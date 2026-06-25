@@ -8,17 +8,19 @@ import { logger } from "../lib/logger";
 
 const router = Router();
 
-const JWT_SECRET = process.env["DASHBOARD_JWT_SECRET"] ?? "rawabi-dashboard-secret-2024";
+const JWT_SECRET = process.env["DASHBOARD_JWT_SECRET"];
+if (!JWT_SECRET) throw new Error("DASHBOARD_JWT_SECRET env var is required");
+const JWT_SECRET_STR: string = JWT_SECRET;
 const COOKIE_NAME = "dashboard_token";
 const COOKIE_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
 
 function signToken(userId: number, role: string): string {
-  return jwt.sign({ userId, role }, JWT_SECRET, { expiresIn: "7d" });
+  return jwt.sign({ userId, role }, JWT_SECRET_STR, { expiresIn: "7d" });
 }
 
 function verifyToken(token: string): { userId: number; role: string } | null {
   try {
-    const payload = jwt.verify(token, JWT_SECRET) as { userId: number; role: string };
+    const payload = jwt.verify(token, JWT_SECRET_STR) as { userId: number; role: string };
     return payload;
   } catch {
     return null;

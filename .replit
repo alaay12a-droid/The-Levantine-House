@@ -88,3 +88,8 @@ externalPort = 6000
 [[ports]]
 localPort = 26249
 externalPort = 3000
+
+[userenv]
+
+[userenv.shared]
+DASHBOARD_JWT_SECRET = "00ceu0okmtftb1rnwk02pakmjo42kowtjgswfcotu19pcjxi0hd79pnkgksui4rz"

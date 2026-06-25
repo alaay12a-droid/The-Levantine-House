@@ -5,7 +5,7 @@ description: How the web dashboard authentication works — JWT cookies, admin s
 
 ## Auth mechanism
 - JWT stored in httpOnly cookie `dashboard_token` (7 days expiry)
-- Secret: `DASHBOARD_JWT_SECRET` env var, falls back to hardcoded dev secret
+- Secret: `DASHBOARD_JWT_SECRET` env var — **required**, no fallback (throws on missing)
 - cookie-parser middleware added to `artifacts/api-server/src/app.ts`
 
 ## Routes
@@ -13,10 +13,10 @@ description: How the web dashboard authentication works — JWT cookies, admin s
 - `GET /api/dashboard/auth/me` — reads cookie, returns DashboardUser
 - `POST /api/dashboard/auth/logout` — clears cookie
 
-## Default admin
-- username: `admin`, password: `rawabi2024`
+## Admin seed
 - `seedDashboardAdmin()` called in `artifacts/api-server/src/index.ts` on startup
 - Idempotent — skips if admin already exists
+- Credentials are set via environment variables, not hardcoded
 
 ## DB table
 - `dashboard_users` table added to `lib/db/src/schema/index.ts`
