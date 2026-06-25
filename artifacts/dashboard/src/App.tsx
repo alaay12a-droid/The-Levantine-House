@@ -10,6 +10,7 @@ import Login from "@/pages/login";
 import Drivers from "@/pages/drivers";
 import MenuManagement from "@/pages/menu-management";
 import SalesReports from "@/pages/reports";
+import MandoobPortal from "@/pages/mandoob";
 
 const queryClient = new QueryClient();
 
@@ -17,6 +18,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/login" component={Login} />
+      <Route path="/mandoob" component={MandoobPortal} />
       <Route path="/">
         <Layout>
           <Home />
