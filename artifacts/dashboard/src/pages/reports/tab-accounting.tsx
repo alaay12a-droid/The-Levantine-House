@@ -282,8 +282,8 @@ export function TabAccounting({ today, week, month, year, orders, loading }: Pro
           </div>
         )}
 
-        {/* Period label */}
-        <div className="flex items-center justify-between flex-wrap gap-3">
+        {/* Period label + status filters + print */}
+        <div className="flex items-center justify-between flex-wrap gap-3 mt-2">
           <p className="text-sm font-bold text-indigo-900">
             📊 {range.label}
             <span className="mr-2 font-normal text-indigo-600 text-xs">
@@ -292,6 +292,32 @@ export function TabAccounting({ today, week, month, year, orders, loading }: Pro
               {new Date(range.end.getTime() - 1000).toLocaleDateString("ar-SA", { timeZone: "Asia/Riyadh" })})
             </span>
           </p>
+
+          {/* Status filter tabs + print button */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {(["all", "completed", "cancelled"] as StatusFilter[]).map(f => {
+              const count = f === "all" ? filtered.length
+                          : f === "completed" ? filtered.filter(o => o.status !== "cancelled").length
+                          : filtered.filter(o => o.status === "cancelled").length;
+              const active = statusFilter === f;
+              const colors =
+                f === "completed" ? active ? "bg-emerald-600 text-white border-emerald-600 shadow-sm" : "bg-white text-emerald-700 border-emerald-200 hover:bg-emerald-50"
+              : f === "cancelled" ? active ? "bg-red-600 text-white border-red-600 shadow-sm"         : "bg-white text-red-700 border-red-200 hover:bg-red-50"
+              :                     active ? "bg-slate-700 text-white border-slate-700 shadow-sm"      : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50";
+              return (
+                <button key={f} onClick={() => setStatusFilter(f)}
+                  className={`rounded-xl px-3 py-1.5 text-xs font-bold border transition-all ${colors}`}>
+                  {f === "all" ? "📋 الكل" : f === "completed" ? "✅ المكتملة" : "❌ الملغية"}
+                  <span className="mr-1 opacity-75">({count})</span>
+                </button>
+              );
+            })}
+            <button
+              onClick={() => printInvoices(tableRows, range, statusFilter)}
+              className="flex items-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-4 py-1.5 border border-indigo-600 transition-colors shadow-sm print:hidden">
+              🖨️ طباعة ({tableRows.length})
+            </button>
+          </div>
         </div>
       </section>
 
@@ -322,33 +348,6 @@ export function TabAccounting({ today, week, month, year, orders, loading }: Pro
             <span>🧾</span>
             فواتير {range.label}
           </h3>
-          {/* Print button */}
-          <button
-            onClick={() => printInvoices(tableRows, range, statusFilter)}
-            className="flex items-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-4 py-2 transition-colors print:hidden">
-            🖨️ طباعة ({tableRows.length})
-          </button>
-        </div>
-
-        {/* ── Status filter tabs ─────────────────────────────────────── */}
-        <div className="flex gap-2 mb-4 flex-wrap print:hidden">
-          {(["all", "completed", "cancelled"] as StatusFilter[]).map(f => {
-            const count = f === "all" ? filtered.length
-                        : f === "completed" ? filtered.filter(o => o.status !== "cancelled").length
-                        : filtered.filter(o => o.status === "cancelled").length;
-            const active = statusFilter === f;
-            const colors =
-              f === "completed" ? active ? "bg-emerald-600 text-white border-emerald-600" : "text-emerald-700 border-emerald-200 hover:bg-emerald-50"
-            : f === "cancelled" ? active ? "bg-red-600 text-white border-red-600"         : "text-red-700 border-red-200 hover:bg-red-50"
-            :                     active ? "bg-slate-700 text-white border-slate-700"      : "text-slate-700 border-slate-200 hover:bg-slate-50";
-            return (
-              <button key={f} onClick={() => setStatusFilter(f)}
-                className={`rounded-xl px-4 py-1.5 text-xs font-bold border transition-all ${colors}`}>
-                {f === "all" ? "📋 الكل" : f === "completed" ? "✅ المكتملة" : "❌ الملغية"}
-                <span className="mr-1.5 opacity-75">({count})</span>
-              </button>
-            );
-          })}
         </div>
 
         {tableRows.length === 0 ? (
