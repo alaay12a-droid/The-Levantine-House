@@ -97,21 +97,21 @@ export async function seedDashboardAdmin(): Promise<void> {
   const existing = await db
     .select({ id: dashboardUsersTable.id })
     .from(dashboardUsersTable)
-    .where(eq(dashboardUsersTable.username, "admin"))
+    .where(eq(dashboardUsersTable.role, "admin"))
     .limit(1);
 
   if (existing.length > 0) {
-    logger.info("Dashboard admin already seeded");
+    logger.info("Dashboard admin already exists, skipping seed");
     return;
   }
 
-  const passwordHash = await bcrypt.hash("rawabi2024", 12);
+  const passwordHash = await bcrypt.hash("Aa@123456", 12);
   await db.insert(dashboardUsersTable).values({
-    username: "admin",
+    username: "rwabi-almndi",
     passwordHash,
     role: "admin",
   });
-  logger.info("Dashboard admin seeded (username: admin, password: rawabi2024)");
+  logger.info("Dashboard admin seeded (username: rwabi-almndi)");
 }
 
 export default router;
