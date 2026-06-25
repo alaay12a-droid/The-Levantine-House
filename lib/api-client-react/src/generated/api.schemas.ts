@@ -128,6 +128,14 @@ export interface TopItem {
   revenue: number;
 }
 
+export interface LiveRevenueData {
+  lastHour: RevenueAggregate;
+  last30min: RevenueAggregate;
+  uniqueCustomerCount: number;
+  totalItemsSold: number;
+  totalDiscounts: number;
+}
+
 export interface RevenueData {
   today: RevenueAggregate;
   week: RevenueAggregate;

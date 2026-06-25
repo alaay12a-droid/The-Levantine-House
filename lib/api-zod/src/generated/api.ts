@@ -247,6 +247,45 @@ export const GetRevenueResponse = zod.object({
 });
 
 /**
+ * @summary Live revenue stats (last hour, last 30 min, today extras)
+ */
+export const GetLiveRevenueResponse = zod.object({
+  lastHour: zod.object({
+    totalRevenue: zod.number(),
+    deliveryRevenue: zod.number(),
+    itemsRevenue: zod.number(),
+    orderCount: zod.number(),
+    taxAmount: zod.number(),
+    netRevenue: zod.number(),
+    cancelledCount: zod.number(),
+    cancelledValue: zod.number(),
+    pendingCount: zod.number(),
+    cashCount: zod.number(),
+    onlineCount: zod.number(),
+    cashRevenue: zod.number(),
+    onlineRevenue: zod.number(),
+  }),
+  last30min: zod.object({
+    totalRevenue: zod.number(),
+    deliveryRevenue: zod.number(),
+    itemsRevenue: zod.number(),
+    orderCount: zod.number(),
+    taxAmount: zod.number(),
+    netRevenue: zod.number(),
+    cancelledCount: zod.number(),
+    cancelledValue: zod.number(),
+    pendingCount: zod.number(),
+    cashCount: zod.number(),
+    onlineCount: zod.number(),
+    cashRevenue: zod.number(),
+    onlineRevenue: zod.number(),
+  }),
+  uniqueCustomerCount: zod.number(),
+  totalItemsSold: zod.number(),
+  totalDiscounts: zod.number(),
+});
+
+/**
  * @summary Get revenue for a date range
  */
 export const GetRevenueRangeQueryParams = zod.object({

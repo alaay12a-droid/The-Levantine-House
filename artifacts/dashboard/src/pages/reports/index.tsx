@@ -1,111 +1,188 @@
+import { useState } from "react";
 import {
-  useGetRevenue, useListOrders, useGetDriverDailySummaries,
-  getGetRevenueQueryKey, getListOrdersQueryKey, getGetDriverDailySummariesQueryKey,
+  useGetRevenue, useListOrders, useGetLiveRevenue,
+  getGetRevenueQueryKey, getListOrdersQueryKey, getGetLiveRevenueQueryKey,
 } from "@workspace/api-client-react";
-import { Printer, RefreshCw, BarChart2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
-import { TodayKpis }     from "./today-kpis";
-import { TodayItems }    from "./today-items";
-import { TodayOrders }   from "./today-orders";
-import { TodayDrivers }  from "./today-drivers";
-import { PeriodSummary } from "./period-summary";
-import { filterToday, aggregateItems } from "./utils";
+import { TabOverview }   from "./tab-overview";
+import { TabProducts }   from "./tab-products";
+import { TabCustomers }  from "./tab-customers";
+import { TabAccounting } from "./tab-accounting";
+import { TabExport }     from "./tab-export";
 
-export default function SalesReports() {
-  const { data: revenue, isLoading: revLoading, refetch: refetchRevenue } =
-    useGetRevenue({ query: { queryKey: getGetRevenueQueryKey(), refetchInterval: 60000 } });
+const TABS = [
+  { id: "overview",   icon: "📊", label: "نظرة عامة"  },
+  { id: "products",   icon: "📦", label: "الأصناف"     },
+  { id: "customers",  icon: "👥", label: "العملاء"     },
+  { id: "accounting", icon: "🧾", label: "المحاسبة"    },
+  { id: "export",     icon: "📥", label: "التصدير"     },
+] as const;
+type TabId = typeof TABS[number]["id"];
 
-  const ordersParams = { limit: 300 };
-  const { data: ordersRaw, isLoading: ordersLoading, refetch: refetchOrders } =
-    useListOrders(ordersParams, { query: { queryKey: getListOrdersQueryKey(ordersParams), refetchInterval: 30000 } });
+export default function ReportsPage() {
+  const [tab, setTab] = useState<TabId>("overview");
 
-  const { data: driverSummaries, isLoading: driversLoading, refetch: refetchDrivers } =
-    useGetDriverDailySummaries({ query: { queryKey: getGetDriverDailySummariesQueryKey(), refetchInterval: 60000 } }) as any;
-
-  const todayOrders = filterToday(ordersRaw ?? []);
-  const itemsSold   = aggregateItems(todayOrders);
-  const loading     = revLoading || ordersLoading;
-
-  function refresh() { refetchRevenue(); refetchOrders(); refetchDrivers(); }
-
-  const now = new Date();
-  const dateLabel = now.toLocaleDateString("ar-SA", {
-    weekday: "long", year: "numeric", month: "long", day: "numeric", timeZone: "Asia/Riyadh",
+  const { data: revenue, isLoading: revLoading } = useGetRevenue({
+    query: { queryKey: getGetRevenueQueryKey(), refetchInterval: 30_000 },
   });
-  const timeLabel = now.toLocaleTimeString("ar-SA", {
-    hour: "2-digit", minute: "2-digit", timeZone: "Asia/Riyadh",
+  const { data: liveData, isLoading: liveLoading } = useGetLiveRevenue({
+    query: { queryKey: getGetLiveRevenueQueryKey(), refetchInterval: 30_000 },
+  });
+  const ordersParams = { limit: 500 };
+  const { data: orders = [], isLoading: ordersLoading } = useListOrders(
+    ordersParams,
+    { query: { queryKey: getListOrdersQueryKey(ordersParams), refetchInterval: 30_000 } },
+  );
+
+  const loading = revLoading || ordersLoading || liveLoading;
+
+  const now    = new Date();
+  const dateAR = now.toLocaleDateString("ar-SA", {
+    timeZone: "Asia/Riyadh", weekday: "long", year: "numeric", month: "long", day: "numeric",
+  });
+  const timeAR = now.toLocaleTimeString("ar-SA", {
+    timeZone: "Asia/Riyadh", hour: "2-digit", minute: "2-digit",
   });
 
   return (
-    <div className="space-y-6 report-page">
+    <div dir="rtl">
 
-      {/* ── Print Header (only visible when printing) ── */}
-      <div className="hidden print:block print:mb-6 border-b pb-4">
+      {/* ── Print Header ── */}
+      <div className="hidden print:block border-b pb-4 mb-6">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold">روابي المندي للمذاق فن وأصول</h1>
-            <p className="text-sm text-gray-600">تبوك - حي الروضة | 0530707042</p>
+            <p className="text-sm text-gray-500">تبوك — حي الروضة | 0530707042</p>
           </div>
-          <div className="text-left text-sm text-gray-600">
-            <p className="font-bold text-base">تقرير المبيعات اليومي</p>
-            <p>{dateLabel}</p>
-            <p>طُبع الساعة {timeLabel}</p>
+          <div className="text-xs text-gray-500 text-left">
+            <p className="font-bold text-sm">تقرير المبيعات اليومي</p>
+            <p>{dateAR}</p>
+            <p>وقت الطباعة: {timeAR}</p>
           </div>
+        </div>
+        <div className="mt-3 grid grid-cols-4 gap-3 text-xs border-t pt-3">
+          <div><span className="font-semibold">إجمالي المبيعات: </span>{revenue?.today.totalRevenue?.toLocaleString("ar-SA")} ر.س</div>
+          <div><span className="font-semibold">صافي الإيرادات: </span>{revenue?.today.netRevenue?.toLocaleString("ar-SA")} ر.س</div>
+          <div><span className="font-semibold">ضريبة 15%: </span>{revenue?.today.taxAmount?.toLocaleString("ar-SA")} ر.س</div>
+          <div><span className="font-semibold">عدد الفواتير: </span>{revenue?.today.orderCount}</div>
         </div>
       </div>
 
       {/* ── Screen Header ── */}
-      <div className="print:hidden flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="print:hidden flex items-center justify-between flex-wrap gap-3 mb-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <BarChart2 className="h-6 w-6 text-primary" />
-            تقرير المبيعات اليومي
+          <h1 className="text-xl font-bold flex items-center gap-2">
+            <span>📊</span> لوحة المبيعات والتقارير
           </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">{dateLabel} · {timeLabel}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">{dateAR} · الساعة {timeAR}</p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={refresh} disabled={loading} className="gap-1.5">
-            <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
-            {loading ? "جارٍ..." : "تحديث"}
-          </Button>
-          <Button size="sm" onClick={() => window.print()} className="gap-1.5 bg-primary hover:bg-primary/90">
-            <Printer className="h-3.5 w-3.5" />
-            طباعة التقرير
-          </Button>
+        <div className="flex items-center gap-2">
+          {loading && (
+            <span className="text-xs text-muted-foreground flex items-center gap-1">
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-ping inline-block" />
+              جاري التحديث…
+            </span>
+          )}
+          <button
+            onClick={() => window.print()}
+            className="flex items-center gap-1.5 text-xs border rounded-lg px-3 py-1.5 bg-background hover:bg-muted transition-colors font-medium"
+          >
+            🖨️ طباعة / PDF
+          </button>
         </div>
       </div>
 
-      <Separator className="print:hidden" />
+      {/* ── Tabs ── */}
+      <div className="print:hidden border-b mb-6">
+        <div className="flex gap-0 overflow-x-auto">
+          {TABS.map(t => (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className={`flex items-center gap-1.5 px-5 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                tab === t.id
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/30"
+              }`}
+            >
+              <span>{t.icon}</span>
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
 
-      {/* ── Section 1: Today KPIs ── */}
+      {/* ── Content ── */}
       <div>
-        <h2 className="text-sm font-bold mb-3 flex items-center gap-1.5 print:text-xs">
-          <span>📊</span> مؤشرات اليوم
-        </h2>
-        <TodayKpis today={revenue?.today} loading={revLoading} />
+
+        {/* Screen: active tab only */}
+        <div className="print:hidden">
+          {tab === "overview" && (
+            <TabOverview
+              today={revenue?.today}
+              live={liveData}
+              daily={revenue?.dailyBreakdown ?? []}
+              loading={loading}
+            />
+          )}
+          {tab === "products" && (
+            <TabProducts orders={orders} loading={ordersLoading} />
+          )}
+          {tab === "customers" && (
+            <TabCustomers orders={orders} loading={ordersLoading} />
+          )}
+          {tab === "accounting" && (
+            <TabAccounting
+              today={revenue?.today}
+              week={revenue?.week}
+              month={revenue?.month}
+              year={revenue?.year}
+              orders={orders}
+              loading={loading}
+            />
+          )}
+          {tab === "export" && (
+            <TabExport
+              today={revenue?.today}
+              year={revenue?.year}
+              orders={orders}
+            />
+          )}
+        </div>
+
+        {/* Print: all sections at once */}
+        <div className="hidden print:block space-y-10">
+          <TabOverview
+            today={revenue?.today}
+            live={liveData}
+            daily={revenue?.dailyBreakdown ?? []}
+            loading={false}
+          />
+          <div className="border-t pt-8">
+            <h2 className="text-lg font-bold mb-4">تقرير الأصناف</h2>
+            <TabProducts orders={orders} loading={false} />
+          </div>
+          <div className="border-t pt-8">
+            <h2 className="text-lg font-bold mb-4">تقرير العملاء</h2>
+            <TabCustomers orders={orders} loading={false} />
+          </div>
+          <div className="border-t pt-8">
+            <h2 className="text-lg font-bold mb-4">الحسابات والمطابقة</h2>
+            <TabAccounting
+              today={revenue?.today}
+              week={revenue?.week}
+              month={revenue?.month}
+              year={revenue?.year}
+              orders={orders}
+              loading={false}
+            />
+          </div>
+        </div>
       </div>
-
-      {/* ── Section 2: Items Sold Today ── */}
-      <TodayItems items={itemsSold} loading={ordersLoading} />
-
-      {/* ── Section 3: Today's Orders Table ── */}
-      <TodayOrders orders={todayOrders} loading={ordersLoading} />
-
-      {/* ── Section 4: Driver Stats ── */}
-      <TodayDrivers summaries={driverSummaries} loading={driversLoading} />
-
-      {/* ── Section 5: Period Comparison ── */}
-      <PeriodSummary
-        week={revenue?.week}
-        month={revenue?.month}
-        year={revenue?.year}
-        loading={revLoading}
-      />
 
       {/* ── Print Footer ── */}
-      <div className="hidden print:block border-t pt-4 mt-6 text-center text-xs text-gray-500">
-        <p>نظام إدارة مطعم روابي المندي — تقرير آلي · جميع المبالغ بالريال السعودي (ر.س) شاملة ضريبة القيمة المضافة 15%</p>
+      <div className="hidden print:block border-t mt-8 pt-4 text-center text-xs text-gray-400 px-4">
+        <p>روابي المندي للمذاق فن وأصول — جميع المبالغ بالريال السعودي شاملة ضريبة القيمة المضافة 15%</p>
+        <p>طُبع بتاريخ {dateAR} الساعة {timeAR}</p>
       </div>
     </div>
   );

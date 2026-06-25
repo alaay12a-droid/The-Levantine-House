@@ -24,6 +24,7 @@ import type {
   GetRevenueRangeParams,
   HealthStatus,
   ListOrdersParams,
+  LiveRevenueData,
   MenuItem,
   MenuItemUpdate,
   Order,
@@ -688,6 +689,81 @@ export function useGetRevenue<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetRevenueQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Live revenue stats (last hour, last 30 min, today extras)
+ */
+export const getGetLiveRevenueUrl = () => {
+  return `/api/revenue/live`;
+};
+
+export const getLiveRevenue = async (
+  options?: RequestInit,
+): Promise<LiveRevenueData> => {
+  return customFetch<LiveRevenueData>(getGetLiveRevenueUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetLiveRevenueQueryKey = () => {
+  return [`/api/revenue/live`] as const;
+};
+
+export const getGetLiveRevenueQueryOptions = <
+  TData = Awaited<ReturnType<typeof getLiveRevenue>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getLiveRevenue>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetLiveRevenueQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getLiveRevenue>>> = ({
+    signal,
+  }) => getLiveRevenue({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getLiveRevenue>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetLiveRevenueQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getLiveRevenue>>
+>;
+export type GetLiveRevenueQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Live revenue stats (last hour, last 30 min, today extras)
+ */
+
+export function useGetLiveRevenue<
+  TData = Awaited<ReturnType<typeof getLiveRevenue>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getLiveRevenue>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetLiveRevenueQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

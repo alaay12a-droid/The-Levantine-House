@@ -171,6 +171,49 @@ router.get("/revenue", async (_req, res) => {
   res.json({ today, week, month, year, dailyBreakdown, monthlyBreakdown, topItems });
 });
 
+// ── GET /revenue/live — last-hour, last-30min, today extras ──────────────────
+router.get("/revenue/live", async (_req, res) => {
+  const now = new Date();
+  const oneHourAgo    = new Date(now.getTime() - 60 * 60 * 1000);
+  const thirtyMinsAgo = new Date(now.getTime() - 30 * 60 * 1000);
+
+  const nl = nowLocal();
+  const y = nl.getUTCFullYear(), m = nl.getUTCMonth(), d = nl.getUTCDate();
+  const todayStart    = toLocalMidnight(y, m, d);
+  const tomorrowStart = toLocalMidnight(y, m, d + 1);
+
+  const [lastHour, last30min] = await Promise.all([
+    aggregate(oneHourAgo, now),
+    aggregate(thirtyMinsAgo, now),
+  ]);
+
+  // unique customers today (non-cancelled)
+  const phones = await db
+    .select({ phone: ordersTable.customerPhone })
+    .from(ordersTable)
+    .where(and(gte(ordersTable.createdAt, todayStart), lt(ordersTable.createdAt, tomorrowStart), ne(ordersTable.status, "cancelled")));
+  const uniqueCustomerCount = new Set(phones.map(r => r.phone)).size;
+
+  // total items sold today (done orders)
+  const doneItemRows = await db
+    .select({ items: ordersTable.items })
+    .from(ordersTable)
+    .where(and(gte(ordersTable.createdAt, todayStart), lt(ordersTable.createdAt, tomorrowStart), eq(ordersTable.status, "done")));
+  let totalItemsSold = 0;
+  for (const row of doneItemRows) {
+    for (const it of (row.items as Array<{ quantity: number }>)) totalItemsSold += it.quantity;
+  }
+
+  // total discounts applied today
+  const discountRows = await db
+    .select({ total: sql<number>`coalesce(sum(${ordersTable.discountAmount}), 0)` })
+    .from(ordersTable)
+    .where(and(gte(ordersTable.createdAt, todayStart), lt(ordersTable.createdAt, tomorrowStart), ne(ordersTable.status, "cancelled")));
+  const totalDiscounts = Number(discountRows[0]?.total ?? 0) / 100;
+
+  res.json({ lastHour, last30min, uniqueCustomerCount, totalItemsSold, totalDiscounts });
+});
+
 router.get("/revenue/range", async (req, res) => {
   const { from, to } = req.query as { from?: string; to?: string };
   if (!from || !to) { res.status(400).json({ error: "from and to required (YYYY-MM-DD)" }); return; }

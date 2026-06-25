@@ -16,6 +16,7 @@ export * from "./getRevenueRangeParams";
 export * from "./healthStatus";
 export * from "./listOrdersParams";
 export * from "./listOrdersStatus";
+export * from "./liveRevenueData";
 export * from "./menuItem";
 export * from "./menuItemUpdate";
 export * from "./monthlyBreakdown";
