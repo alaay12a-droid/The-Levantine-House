@@ -1,170 +1,168 @@
 import { useGetRevenue, useListOrders, getGetRevenueQueryKey, getListOrdersQueryKey } from "@workspace/api-client-react";
 import { formatCurrency, formatEasternNumber } from "@/lib/format";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Banknote, ShoppingBag, TrendingUp, Clock, Package } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
-import { Button } from "@/components/ui/button";
+import { ListOrdered, Users, UtensilsCrossed, BarChart2, ChevronLeft, ShoppingBag, Banknote, TrendingUp } from "lucide-react";
 
 export default function Home() {
   const { data: revenue, isLoading: isRevenueLoading } = useGetRevenue({
     query: { queryKey: getGetRevenueQueryKey() }
   });
-  const ordersParams = { limit: 10 };
-  const { data: orders, isLoading: isOrdersLoading } = useListOrders(
+  const ordersParams = { limit: 5, status: "pending" as const };
+  const { data: pendingOrders, isLoading: isOrdersLoading } = useListOrders(
     ordersParams,
     { query: { refetchInterval: 15000, queryKey: getListOrdersQueryKey(ordersParams) } }
   );
 
   const today = revenue?.today;
+  const pendingCount = pendingOrders?.length ?? 0;
+
+  const now = new Date();
+  const dateStr = now.toLocaleDateString("ar-SA", {
+    timeZone: "Asia/Riyadh", weekday: "long", year: "numeric", month: "long", day: "numeric",
+  });
+
+  // ── KPI quick stats ───────────────────────────────────────────────────────
+  const kpis = [
+    {
+      icon: Banknote,
+      label: "مبيعات اليوم",
+      value: isRevenueLoading
+        ? null
+        : formatEasternNumber(formatCurrency((today?.totalRevenue ?? 0) * 100)),
+      color: "text-emerald-600",
+      bg: "bg-emerald-50 border-emerald-100",
+    },
+    {
+      icon: ShoppingBag,
+      label: "طلبات اليوم",
+      value: isRevenueLoading ? null : formatEasternNumber(today?.orderCount ?? 0),
+      color: "text-blue-600",
+      bg: "bg-blue-50 border-blue-100",
+    },
+    {
+      icon: TrendingUp,
+      label: "متوسط الطلب",
+      value: isRevenueLoading
+        ? null
+        : today && today.orderCount > 0
+          ? formatEasternNumber(formatCurrency((today.totalRevenue / today.orderCount) * 100))
+          : "—",
+      color: "text-violet-600",
+      bg: "bg-violet-50 border-violet-100",
+    },
+  ];
+
+  // ── Navigation cards ──────────────────────────────────────────────────────
+  const navCards = [
+    {
+      href: "/orders",
+      icon: ListOrdered,
+      title: "الطلبات",
+      desc: "عرض وإدارة طلبات العملاء وتتبع حالتها",
+      accent: "from-blue-500 to-blue-600",
+      bg: "bg-blue-50 hover:bg-blue-100 border-blue-200",
+      iconBg: "bg-blue-500",
+      badge: isOrdersLoading ? null : pendingCount > 0 ? `${pendingCount} في الانتظار` : null,
+      badgeColor: "bg-orange-100 text-orange-700 border-orange-200",
+    },
+    {
+      href: "/drivers",
+      icon: Users,
+      title: "المناديب",
+      desc: "إدارة فريق التوصيل ومتابعة أدائهم",
+      accent: "from-emerald-500 to-emerald-600",
+      bg: "bg-emerald-50 hover:bg-emerald-100 border-emerald-200",
+      iconBg: "bg-emerald-500",
+      badge: null,
+      badgeColor: "",
+    },
+    {
+      href: "/menu",
+      icon: UtensilsCrossed,
+      title: "القائمة",
+      desc: "إضافة وتعديل الأصناف وإدارة التوفر",
+      accent: "from-amber-500 to-orange-500",
+      bg: "bg-amber-50 hover:bg-amber-100 border-amber-200",
+      iconBg: "bg-amber-500",
+      badge: null,
+      badgeColor: "",
+    },
+    {
+      href: "/reports",
+      icon: BarChart2,
+      title: "تقارير المبيعات",
+      desc: "تحليل الإيرادات والعملاء وطباعة الفواتير",
+      accent: "from-violet-500 to-purple-600",
+      bg: "bg-violet-50 hover:bg-violet-100 border-violet-200",
+      iconBg: "bg-violet-500",
+      badge: null,
+      badgeColor: "",
+    },
+  ];
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">نظرة عامة</h1>
-        <p className="text-muted-foreground font-medium">مؤشرات الأداء لليوم</p>
+
+      {/* ── Header ─────────────────────────────────────────────────────────── */}
+      <div className="flex flex-col gap-1">
+        <h1 className="text-2xl font-bold tracking-tight">مرحباً 👋</h1>
+        <p className="text-muted-foreground text-sm">{dateStr}</p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card className="shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">المبيعات اليوم</CardTitle>
-            <div className="rounded-full bg-primary/10 p-2">
-              <Banknote className="h-4 w-4 text-primary" />
+      {/* ── KPI strip ──────────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-3 gap-3">
+        {kpis.map(kpi => (
+          <div key={kpi.label} className={`rounded-2xl border ${kpi.bg} p-4 flex flex-col gap-2`}>
+            <div className="flex items-center gap-2">
+              <kpi.icon className={`h-4 w-4 ${kpi.color}`} />
+              <p className="text-xs text-muted-foreground">{kpi.label}</p>
             </div>
-          </CardHeader>
-          <CardContent>
-            {isRevenueLoading ? <Skeleton className="h-8 w-24" /> : (
-              <div className="text-3xl font-bold text-foreground">
-                {formatEasternNumber(formatCurrency((today?.totalRevenue ?? 0) * 100))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">عدد الطلبات</CardTitle>
-            <div className="rounded-full bg-primary/10 p-2">
-              <ShoppingBag className="h-4 w-4 text-primary" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            {isRevenueLoading ? <Skeleton className="h-8 w-16" /> : (
-              <div className="text-3xl font-bold text-foreground">
-                {formatEasternNumber(today?.orderCount ?? 0)}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">متوسط قيمة الطلب</CardTitle>
-            <div className="rounded-full bg-primary/10 p-2">
-              <TrendingUp className="h-4 w-4 text-primary" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            {isRevenueLoading ? <Skeleton className="h-8 w-24" /> : (
-              <div className="text-3xl font-bold text-foreground">
-                {today && today.orderCount > 0
-                  ? formatEasternNumber(formatCurrency((today.totalRevenue / today.orderCount) * 100))
-                  : "٠ ر.س"}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid gap-6 md:grid-cols-2">
-        <Card className="shadow-sm flex flex-col">
-          <CardHeader className="border-b bg-muted/20">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Clock className="h-5 w-5 text-primary" />
-                أحدث الطلبات
-              </CardTitle>
-              <Link href="/orders">
-                <Button variant="link" className="text-primary p-0">عرض الكل</Button>
-              </Link>
-            </div>
-          </CardHeader>
-          <CardContent className="p-0 flex-1 overflow-auto max-h-[400px]">
-            {isOrdersLoading ? (
-              <div className="p-4 space-y-4">{[1,2,3,4].map(i => <Skeleton key={i} className="h-16 w-full" />)}</div>
-            ) : !orders?.length ? (
-              <div className="flex flex-col items-center justify-center p-8 text-center text-muted-foreground h-full min-h-[200px]">
-                <Package className="h-12 w-12 mb-3 text-muted-foreground/50" />
-                <p>لا توجد طلبات حديثة</p>
-              </div>
+            {kpi.value === null ? (
+              <Skeleton className="h-7 w-24" />
             ) : (
-              <div className="divide-y">
-                {orders.slice(0, 10).map(order => (
-                  <div key={order.id} className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors">
-                    <div className="flex flex-col gap-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-lg">#{formatEasternNumber(order.dailyNumber)}</span>
-                        <span className="text-sm font-medium">{order.customerName || "عميل"}</span>
-                      </div>
-                      <div className="text-xs text-muted-foreground flex gap-2">
-                        <span>{formatEasternNumber(formatCurrency(order.totalPrice))}</span>
-                        <span>•</span>
-                        <span>{order.paymentMethod === "cash" ? "نقدي" : "إلكتروني"}</span>
-                      </div>
-                    </div>
-                    <Badge variant="outline" className={`
-                      ${order.status === "pending"   ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/20" : ""}
-                      ${order.status === "preparing" ? "bg-blue-500/10 text-blue-600 border-blue-500/20"   : ""}
-                      ${order.status === "ready"     ? "bg-green-500/10 text-green-600 border-green-500/20" : ""}
-                      ${order.status === "done"      ? "bg-gray-500/10 text-gray-600 border-gray-500/20"   : ""}
-                      ${order.status === "cancelled" ? "bg-red-500/10 text-red-600 border-red-500/20"     : ""}
-                    `}>
-                      {{ pending:"قيد الانتظار", preparing:"يُحضَّر", ready:"جاهز", done:"مكتمل", cancelled:"ملغي" }[order.status]}
-                    </Badge>
-                  </div>
-                ))}
-              </div>
+              <p className={`text-2xl font-bold ${kpi.color}`}>{kpi.value}</p>
             )}
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-sm flex flex-col">
-          <CardHeader className="border-b bg-muted/20">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <TrendingUp className="h-5 w-5 text-primary" />
-              الأصناف الأكثر مبيعاً
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0 flex-1">
-            {isRevenueLoading ? (
-              <div className="p-4 space-y-4">{[1,2,3].map(i => <Skeleton key={i} className="h-12 w-full" />)}</div>
-            ) : revenue?.topItems?.length ? (
-              <div className="divide-y">
-                {revenue.topItems.map((item, index) => (
-                  <div key={item.id} className="flex items-center justify-between p-4">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted font-bold text-muted-foreground text-sm">
-                        {formatEasternNumber(index + 1)}
-                      </div>
-                      <span className="font-medium">{item.name}</span>
-                    </div>
-                    <div className="flex flex-col items-end gap-1">
-                      <span className="text-sm font-bold text-primary">{formatEasternNumber(item.qty)} قطعة</span>
-                      <span className="text-xs text-muted-foreground">{formatEasternNumber(formatCurrency(item.revenue * 100))}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center p-8 text-center text-muted-foreground h-full min-h-[200px]">
-                <p>لا توجد بيانات متاحة</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+          </div>
+        ))}
       </div>
+
+      {/* ── Navigation cards ───────────────────────────────────────────────── */}
+      <div>
+        <h2 className="text-sm font-semibold text-muted-foreground mb-4 flex items-center gap-2">
+          <span className="h-px flex-1 bg-border" />
+          الأقسام الرئيسية
+          <span className="h-px flex-1 bg-border" />
+        </h2>
+        <div className="grid grid-cols-2 gap-4">
+          {navCards.map(card => (
+            <Link key={card.href} href={card.href}>
+              <div className={`group rounded-2xl border ${card.bg} p-5 cursor-pointer transition-all duration-200 active:scale-95 shadow-sm hover:shadow-md flex flex-col gap-4 h-full`}>
+                {/* Icon + badge row */}
+                <div className="flex items-start justify-between">
+                  <div className={`h-12 w-12 rounded-2xl ${card.iconBg} flex items-center justify-center shadow-sm`}>
+                    <card.icon className="h-6 w-6 text-white" />
+                  </div>
+                  <div className="flex flex-col items-end gap-1">
+                    {card.badge && (
+                      <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold ${card.badgeColor}`}>
+                        {card.badge}
+                      </span>
+                    )}
+                    <ChevronLeft className="h-5 w-5 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors mt-1" />
+                  </div>
+                </div>
+                {/* Text */}
+                <div>
+                  <p className="font-bold text-base text-foreground">{card.title}</p>
+                  <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{card.desc}</p>
+                </div>
+              </div>
+            </Link>
+          ))}
+        </div>
+      </div>
+
     </div>
   );
 }
