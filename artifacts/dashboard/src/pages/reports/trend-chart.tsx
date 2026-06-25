@@ -1,66 +1,36 @@
 import { useState } from "react";
-import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
-} from "recharts";
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { SaleRecord, buildHourlySales, buildDailySales, buildMonthlySales, buildYearlySales, TODAY } from "./mock-data";
-
-function sarK(v: number) {
-  if (v >= 100000) return (v / 100000).toFixed(1) + "K";
-  return (v / 100).toFixed(0);
-}
+import { RevenueData } from "@workspace/api-client-react";
 
 const TABS = [
-  { key: "today",   label: "اليوم" },
-  { key: "week",    label: "الأسبوع" },
-  { key: "month",   label: "الشهر" },
-  { key: "year",    label: "السنة" },
+  { key: "daily",   label: "آخر 30 يوم" },
+  { key: "monthly", label: "الشهور"    },
 ] as const;
-
 type Tab = typeof TABS[number]["key"];
 
-interface Props { sales: SaleRecord[]; }
+interface Props { revenue: RevenueData | undefined; loading: boolean; }
 
-export function TrendChart({ sales }: Props) {
-  const [tab, setTab]         = useState<Tab>("month");
+export function TrendChart({ revenue, loading }: Props) {
+  const [tab, setTab]           = useState<Tab>("daily");
   const [collapsed, setCollapsed] = useState(false);
 
-  const data = (() => {
-    if (tab === "today") {
-      return buildHourlySales(sales, TODAY).map(d => ({
-        label: d.hour, sales: d.sales, profit: 0, count: d.count
-      }));
-    }
-    if (tab === "week") {
-      return buildDailySales(sales).slice(-7).map(d => ({
-        label: d.date, sales: d.sales, profit: d.profit
-      }));
-    }
-    if (tab === "month") {
-      return buildDailySales(sales).slice(-30).map(d => ({
-        label: d.date, sales: d.sales, profit: d.profit
-      }));
-    }
-    return buildYearlySales(sales).map(d => ({
-      label: d.year, sales: d.sales, profit: d.profit
-    }));
-  })();
+  const data = tab === "daily"
+    ? (revenue?.dailyBreakdown ?? []).map(d => ({ label: d.date, sales: d.total, net: d.net }))
+    : (revenue?.monthlyBreakdown ?? []).map(d => ({ label: d.month, sales: d.total, net: d.net }));
 
-  const totalSales  = data.reduce((a, d) => a + d.sales, 0);
-  const totalProfit = data.reduce((a, d) => a + ("profit" in d ? d.profit : 0), 0);
+  const totalSales = data.reduce((a, d) => a + d.sales, 0);
+  const hasData    = data.some(d => d.sales > 0);
 
   return (
-    <div className="rounded-2xl border bg-card shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md">
+    <div className="rounded-2xl border bg-card shadow-sm overflow-hidden hover:shadow-md transition-all duration-200">
       <div className="flex items-center justify-between px-6 py-4 border-b">
-        <div className="flex items-center gap-4">
-          <div>
-            <h3 className="font-semibold text-base">تحليل المبيعات والأرباح</h3>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {(totalSales / 100).toLocaleString("ar-SA")} ر.س إجمالي مبيعات
-              {totalProfit > 0 && ` · ${(totalProfit / 100).toLocaleString("ar-SA")} ر.س أرباح`}
-            </p>
-          </div>
+        <div>
+          <h3 className="font-semibold text-base">تحليل المبيعات</h3>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {hasData ? `${totalSales.toLocaleString("ar-SA")} ر.س إجمالي` : "لا توجد بيانات"}
+          </p>
         </div>
         <div className="flex items-center gap-3">
           <div className="flex rounded-xl bg-muted p-1 gap-1">
@@ -70,13 +40,9 @@ export function TrendChart({ sales }: Props) {
                 onClick={() => setTab(t.key)}
                 className={cn(
                   "rounded-lg px-3 py-1.5 text-xs font-medium transition-all",
-                  tab === t.key
-                    ? "bg-white dark:bg-card shadow-sm text-foreground"
-                    : "text-muted-foreground hover:text-foreground"
+                  tab === t.key ? "bg-white dark:bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
                 )}
-              >
-                {t.label}
-              </button>
+              >{t.label}</button>
             ))}
           </div>
           <button onClick={() => setCollapsed(c => !c)} className="text-muted-foreground hover:text-foreground transition-colors">
@@ -87,34 +53,46 @@ export function TrendChart({ sales }: Props) {
 
       {!collapsed && (
         <div className="p-6">
-          <ResponsiveContainer width="100%" height={300}>
-            <AreaChart data={data} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-              <defs>
-                <linearGradient id="gradSales" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%"  stopColor="#0c48ab" stopOpacity={0.15} />
-                  <stop offset="95%" stopColor="#0c48ab" stopOpacity={0} />
-                </linearGradient>
-                <linearGradient id="gradProfit" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%"  stopColor="#22c55e" stopOpacity={0.15} />
-                  <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="currentColor" strokeOpacity={0.06} />
-              <XAxis dataKey="label" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
-              <YAxis tickFormatter={sarK} tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
-              <Tooltip
-                formatter={(v: number, name: string) =>
-                  [`${(v / 100).toLocaleString("ar-SA")} ر.س`, name === "sales" ? "المبيعات" : "الأرباح"]
-                }
-                contentStyle={{ borderRadius: 12, border: "1px solid hsl(var(--border))", fontSize: 12 }}
-              />
-              <Legend formatter={n => n === "sales" ? "المبيعات" : "الأرباح"} />
-              <Area type="monotone" dataKey="sales"  stroke="#0c48ab" strokeWidth={2} fill="url(#gradSales)"  dot={false} name="sales" />
-              {tab !== "today" && (
-                <Area type="monotone" dataKey="profit" stroke="#22c55e" strokeWidth={2} fill="url(#gradProfit)" dot={false} name="profit" />
-              )}
-            </AreaChart>
-          </ResponsiveContainer>
+          {loading ? (
+            <div className="h-[300px] flex items-center justify-center">
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            </div>
+          ) : !hasData ? (
+            <div className="h-[300px] flex flex-col items-center justify-center text-muted-foreground gap-2">
+              <span className="text-4xl">📊</span>
+              <p className="font-medium">لا توجد بيانات مبيعات بعد</p>
+              <p className="text-sm">ستظهر الرسوم البيانية عند اكتمال أول طلب</p>
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={300}>
+              <AreaChart data={data} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                <defs>
+                  <linearGradient id="gradSales" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%"  stopColor="#0c48ab" stopOpacity={0.15} />
+                    <stop offset="95%" stopColor="#0c48ab" stopOpacity={0}    />
+                  </linearGradient>
+                  <linearGradient id="gradNet" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%"  stopColor="#22c55e" stopOpacity={0.15} />
+                    <stop offset="95%" stopColor="#22c55e" stopOpacity={0}    />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="currentColor" strokeOpacity={0.06} />
+                <XAxis dataKey="label" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
+                <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false}
+                  tickFormatter={v => v > 999 ? (v/1000).toFixed(1)+"K" : v} />
+                <Tooltip
+                  formatter={(v: number, name: string) => [
+                    `${v.toLocaleString("ar-SA")} ر.س`,
+                    name === "sales" ? "المبيعات الإجمالية" : "صافي الإيرادات"
+                  ]}
+                  contentStyle={{ borderRadius: 12, border: "1px solid hsl(var(--border))", fontSize: 12 }}
+                />
+                <Legend formatter={n => n === "sales" ? "المبيعات الإجمالية" : "صافي الإيرادات"} />
+                <Area type="monotone" dataKey="sales" stroke="#0c48ab" strokeWidth={2} fill="url(#gradSales)" dot={false} name="sales" />
+                <Area type="monotone" dataKey="net"   stroke="#22c55e" strokeWidth={2} fill="url(#gradNet)"   dot={false} name="net"   />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
         </div>
       )}
     </div>

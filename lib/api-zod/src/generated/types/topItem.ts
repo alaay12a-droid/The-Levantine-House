@@ -7,7 +7,8 @@
  */
 
 export interface TopItem {
+  id: string;
   name: string;
-  count: number;
-  total: number;
+  qty: number;
+  revenue: number;
 }

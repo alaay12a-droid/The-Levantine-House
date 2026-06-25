@@ -6,7 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export * from "./dailyRevenue";
+export * from "./dailyBreakdown";
 export * from "./dashboardCredentials";
 export * from "./dashboardUser";
 export * from "./dashboardUserRole";
@@ -18,10 +18,12 @@ export * from "./listOrdersParams";
 export * from "./listOrdersStatus";
 export * from "./menuItem";
 export * from "./menuItemUpdate";
+export * from "./monthlyBreakdown";
 export * from "./order";
 export * from "./orderItem";
 export * from "./orderStatus";
 export * from "./orderStatusUpdate";
 export * from "./orderStatusUpdateStatus";
+export * from "./revenueAggregate";
 export * from "./revenueData";
 export * from "./topItem";

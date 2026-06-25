@@ -1,14 +1,9 @@
 import { useState } from "react";
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend
-} from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend } from "recharts";
 import { ChevronDown, ChevronUp } from "lucide-react";
-import { SaleRecord, topBy, paymentBreakdown } from "./mock-data";
+import { RevenueData } from "@workspace/api-client-react";
 
-function sarK(v: number) { return (v / 100000).toFixed(1) + "K"; }
-
-const PIE_COLORS = ["#0c48ab","#E8920C","#22c55e","#ec4899","#8b5cf6","#14b8a6"];
+const PIE_COLORS = ["#0c48ab","#E8920C","#22c55e","#ec4899"];
 
 function InsightCard({ title, icon, children }: { title: string; icon: string; children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
@@ -28,120 +23,159 @@ function InsightCard({ title, icon, children }: { title: string; icon: string; c
   );
 }
 
-interface Props { sales: SaleRecord[]; }
+function Empty() {
+  return (
+    <div className="flex flex-col items-center justify-center h-40 text-muted-foreground gap-2">
+      <span className="text-3xl">📭</span>
+      <p className="text-sm">لا توجد بيانات</p>
+    </div>
+  );
+}
 
-export function InsightGrid({ sales }: Props) {
-  const topProducts  = topBy(sales, "product",  10);
-  const topCustomers = topBy(sales, "customer",  8);
-  const topEmployees = topBy(sales, "employee",  8);
-  const payBreak     = paymentBreakdown(sales);
+interface Props { revenue: RevenueData | undefined; loading: boolean; }
+
+export function InsightGrid({ revenue, loading }: Props) {
+  const topItems   = revenue?.topItems ?? [];
+  const daily      = revenue?.dailyBreakdown ?? [];
+
+  const cashTotal   = daily.reduce((a, d) => a + d.cashCount,   0);
+  const onlineTotal = daily.reduce((a, d) => a + d.onlineCount, 0);
+  const payBreak = [
+    { name: "نقدي",      value: cashTotal },
+    { name: "إلكتروني", value: onlineTotal },
+  ].filter(p => p.value > 0);
+
+  const cancelledTotal = daily.reduce((a, d) => a + d.cancelledCount, 0);
+  const doneTotal      = daily.reduce((a, d) => a + d.orders, 0);
+  const statusBreak = [
+    { name: "مكتمل",  value: doneTotal },
+    { name: "ملغي",   value: cancelledTotal },
+  ].filter(p => p.value > 0);
+
+  if (loading) {
+    return (
+      <div className="grid gap-5 md:grid-cols-2">
+        {[1,2,3,4].map(i => (
+          <div key={i} className="rounded-2xl border bg-card p-6 animate-pulse">
+            <div className="h-5 w-40 bg-muted rounded mb-4" />
+            <div className="h-48 bg-muted rounded" />
+          </div>
+        ))}
+      </div>
+    );
+  }
 
   return (
     <div className="grid gap-5 md:grid-cols-2">
 
-      {/* أكثر 10 أصناف مبيعاً */}
-      <InsightCard title="أكثر 10 أصناف مبيعاً" icon="📦">
-        <ResponsiveContainer width="100%" height={260}>
-          <BarChart data={topProducts} layout="vertical" margin={{ right: 8, left: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="currentColor" strokeOpacity={0.06} horizontal={false} />
-            <XAxis type="number" tickFormatter={sarK} tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
-            <YAxis type="category" dataKey="name" width={130} tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
-            <Tooltip formatter={(v: number) => [`${(v / 100).toLocaleString("ar-SA")} ر.س`, "المبيعات"]} contentStyle={{ borderRadius: 10, fontSize: 11 }} />
-            <Bar dataKey="sales" fill="#0c48ab" radius={[0, 6, 6, 0]} maxBarSize={18}>
-              {topProducts.map((_, i) => (
-                <Cell key={i} fill={`hsl(${220 + i * 5}, 70%, ${55 - i * 2}%)`} />
-              ))}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-      </InsightCard>
-
-      {/* أفضل العملاء */}
-      <InsightCard title="أفضل العملاء" icon="👥">
-        <div className="space-y-2.5">
-          {topCustomers.map((c, i) => {
-            const maxSales = topCustomers[0].sales;
-            const pct = (c.sales / maxSales) * 100;
-            return (
-              <div key={c.name} className="group">
-                <div className="flex items-center justify-between mb-1">
-                  <div className="flex items-center gap-2">
-                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-muted text-[10px] font-bold text-muted-foreground">{i + 1}</span>
-                    <span className="text-sm font-medium">{c.name}</span>
-                  </div>
-                  <span className="text-xs font-semibold text-primary">{(c.sales / 100).toLocaleString("ar-SA")} ر.س</span>
-                </div>
-                <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                  <div
-                    className="h-full rounded-full bg-gradient-to-l from-blue-600 to-indigo-500 transition-all duration-700"
-                    style={{ width: `${pct}%` }}
-                  />
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </InsightCard>
-
-      {/* أفضل الموظفين */}
-      <InsightCard title="أفضل الموظفين مبيعاً" icon="🏆">
-        <div className="space-y-2.5">
-          {topEmployees.map((e, i) => {
-            const maxSales = topEmployees[0].sales;
-            const pct = (e.sales / maxSales) * 100;
-            const medals = ["🥇","🥈","🥉"];
-            return (
-              <div key={e.name}>
-                <div className="flex items-center justify-between mb-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-base">{medals[i] ?? `${i + 1}`}</span>
-                    <span className="text-sm font-medium">{e.name}</span>
-                    <span className="text-[10px] text-muted-foreground bg-muted rounded-full px-1.5 py-0.5">{e.count} فاتورة</span>
-                  </div>
-                  <span className="text-xs font-semibold text-amber-600">{(e.sales / 100).toLocaleString("ar-SA")} ر.س</span>
-                </div>
-                <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                  <div
-                    className="h-full rounded-full bg-gradient-to-l from-amber-500 to-orange-400 transition-all duration-700"
-                    style={{ width: `${pct}%` }}
-                  />
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </InsightCard>
-
-      {/* طرق الدفع */}
-      <InsightCard title="المبيعات حسب طريقة الدفع" icon="💳">
-        <div className="flex items-center gap-4">
-          <ResponsiveContainer width="55%" height={220}>
-            <PieChart>
-              <Pie data={payBreak} dataKey="value" cx="50%" cy="50%" outerRadius={85} innerRadius={40} paddingAngle={3}>
-                {payBreak.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
-              </Pie>
-              <Tooltip formatter={(v: number) => [`${(v / 100).toLocaleString("ar-SA")} ر.س`]} contentStyle={{ borderRadius: 10, fontSize: 11 }} />
-            </PieChart>
+      {/* أكثر 10 أصناف */}
+      <InsightCard title="أكثر 10 أصناف مبيعاً هذا العام" icon="📦">
+        {topItems.length === 0 ? <Empty /> : (
+          <ResponsiveContainer width="100%" height={260}>
+            <BarChart data={topItems} layout="vertical" margin={{ right: 8, left: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="currentColor" strokeOpacity={0.06} horizontal={false} />
+              <XAxis type="number" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
+              <YAxis type="category" dataKey="name" width={130} tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
+              <Tooltip formatter={(v: number, name: string) => [v, name === "qty" ? "قطعة" : "ر.س"]}
+                contentStyle={{ borderRadius: 10, fontSize: 11 }} />
+              <Bar dataKey="qty" name="qty" radius={[0, 6, 6, 0]} maxBarSize={18}>
+                {topItems.map((_, i) => <Cell key={i} fill={`hsl(${220 + i * 5}, 70%, ${55 - i * 2}%)`} />)}
+              </Bar>
+            </BarChart>
           </ResponsiveContainer>
-          <div className="flex-1 space-y-3">
-            {payBreak.map((p, i) => {
-              const total = payBreak.reduce((a, x) => a + x.value, 0);
-              const pct = total ? Math.round((p.value / total) * 100) : 0;
-              return (
-                <div key={p.name} className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="h-2.5 w-2.5 rounded-full" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }} />
-                    <span className="text-xs font-medium">{p.name}</span>
+        )}
+      </InsightCard>
+
+      {/* مبيعات حسب الأيام */}
+      <InsightCard title="المبيعات اليومية (آخر 30 يوم)" icon="📅">
+        {daily.every(d => d.total === 0) ? <Empty /> : (
+          <ResponsiveContainer width="100%" height={260}>
+            <BarChart data={daily.slice(-14)} margin={{ right: 8 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="currentColor" strokeOpacity={0.06} />
+              <XAxis dataKey="date" tick={{ fontSize: 9 }} tickLine={false} axisLine={false} />
+              <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false}
+                tickFormatter={v => v > 999 ? (v/1000).toFixed(1)+"K" : v} />
+              <Tooltip formatter={(v: number) => [`${v.toLocaleString("ar-SA")} ر.س`]}
+                contentStyle={{ borderRadius: 10, fontSize: 11 }} />
+              <Bar dataKey="total" name="المبيعات" fill="#0c48ab" radius={[4, 4, 0, 0]} maxBarSize={20} />
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+      </InsightCard>
+
+      {/* طريقة الدفع */}
+      <InsightCard title="توزيع طرق الدفع" icon="💳">
+        {payBreak.length === 0 ? <Empty /> : (
+          <div className="flex items-center gap-4">
+            <ResponsiveContainer width="55%" height={200}>
+              <PieChart>
+                <Pie data={payBreak} dataKey="value" cx="50%" cy="50%" outerRadius={80} innerRadius={35} paddingAngle={3}>
+                  {payBreak.map((_, i) => <Cell key={i} fill={PIE_COLORS[i]} />)}
+                </Pie>
+                <Tooltip formatter={(v: number) => [`${v} طلب`]} contentStyle={{ borderRadius: 10, fontSize: 11 }} />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="flex-1 space-y-4">
+              {payBreak.map((p, i) => {
+                const total = payBreak.reduce((a, x) => a + x.value, 0);
+                const pct   = total ? Math.round((p.value / total) * 100) : 0;
+                return (
+                  <div key={p.name}>
+                    <div className="flex justify-between text-sm mb-1">
+                      <div className="flex items-center gap-2">
+                        <div className="h-2.5 w-2.5 rounded-full" style={{ background: PIE_COLORS[i] }} />
+                        <span className="font-medium">{p.name}</span>
+                      </div>
+                      <span className="font-bold">{pct}%</span>
+                    </div>
+                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                      <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: PIE_COLORS[i] }} />
+                    </div>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">{p.value} طلب</p>
                   </div>
-                  <div className="text-left">
-                    <span className="text-xs font-bold">{pct}%</span>
-                    <div className="text-[10px] text-muted-foreground">{(p.value / 100).toLocaleString("ar-SA")} ر.س</div>
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
-        </div>
+        )}
+      </InsightCard>
+
+      {/* حالة الطلبات */}
+      <InsightCard title="توزيع حالة الطلبات" icon="📋">
+        {statusBreak.length === 0 ? <Empty /> : (
+          <div className="flex items-center gap-4">
+            <ResponsiveContainer width="55%" height={200}>
+              <PieChart>
+                <Pie data={statusBreak} dataKey="value" cx="50%" cy="50%" outerRadius={80} innerRadius={35} paddingAngle={3}>
+                  {statusBreak.map((_, i) => <Cell key={i} fill={["#22c55e","#ef4444","#f59e0b","#6366f1"][i]} />)}
+                </Pie>
+                <Tooltip formatter={(v: number) => [`${v} طلب`]} contentStyle={{ borderRadius: 10, fontSize: 11 }} />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="flex-1 space-y-4">
+              {statusBreak.map((s, i) => {
+                const total = statusBreak.reduce((a, x) => a + x.value, 0);
+                const pct   = total ? Math.round((s.value / total) * 100) : 0;
+                const colors = ["#22c55e","#ef4444","#f59e0b","#6366f1"];
+                return (
+                  <div key={s.name}>
+                    <div className="flex justify-between text-sm mb-1">
+                      <div className="flex items-center gap-2">
+                        <div className="h-2.5 w-2.5 rounded-full" style={{ background: colors[i] }} />
+                        <span className="font-medium">{s.name}</span>
+                      </div>
+                      <span className="font-bold">{pct}%</span>
+                    </div>
+                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                      <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: colors[i] }} />
+                    </div>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">{s.value} طلب</p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </InsightCard>
 
     </div>

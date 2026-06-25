@@ -5,13 +5,17 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-import type { DailyRevenue } from "./dailyRevenue";
+import type { DailyBreakdown } from "./dailyBreakdown";
+import type { MonthlyBreakdown } from "./monthlyBreakdown";
+import type { RevenueAggregate } from "./revenueAggregate";
 import type { TopItem } from "./topItem";
 
 export interface RevenueData {
-  totalRevenue: number;
-  orderCount: number;
-  averageOrderValue: number;
-  daily: DailyRevenue[];
+  today: RevenueAggregate;
+  week: RevenueAggregate;
+  month: RevenueAggregate;
+  year: RevenueAggregate;
+  dailyBreakdown: DailyBreakdown[];
+  monthlyBreakdown: MonthlyBreakdown[];
   topItems: TopItem[];
 }

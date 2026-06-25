@@ -77,23 +77,64 @@ export interface OrderStatusUpdate {
   status: OrderStatusUpdateStatus;
 }
 
-export interface DailyRevenue {
+export interface RevenueAggregate {
+  totalRevenue: number;
+  deliveryRevenue: number;
+  itemsRevenue: number;
+  orderCount: number;
+  taxAmount: number;
+  netRevenue: number;
+  cancelledCount: number;
+  cancelledValue: number;
+  pendingCount: number;
+  cashCount: number;
+  onlineCount: number;
+  cashRevenue: number;
+  onlineRevenue: number;
+}
+
+export interface DailyBreakdown {
   date: string;
   total: number;
-  count: number;
+  delivery: number;
+  items: number;
+  orders: number;
+  tax: number;
+  net: number;
+  cancelledCount: number;
+  cancelledValue: number;
+  cashCount: number;
+  onlineCount: number;
+}
+
+export interface MonthlyBreakdown {
+  month: string;
+  total: number;
+  delivery: number;
+  items: number;
+  orders: number;
+  tax: number;
+  net: number;
+  cancelledCount: number;
+  cancelledValue: number;
+  cashCount: number;
+  onlineCount: number;
 }
 
 export interface TopItem {
+  id: string;
   name: string;
-  count: number;
-  total: number;
+  qty: number;
+  revenue: number;
 }
 
 export interface RevenueData {
-  totalRevenue: number;
-  orderCount: number;
-  averageOrderValue: number;
-  daily: DailyRevenue[];
+  today: RevenueAggregate;
+  week: RevenueAggregate;
+  month: RevenueAggregate;
+  year: RevenueAggregate;
+  dailyBreakdown: DailyBreakdown[];
+  monthlyBreakdown: MonthlyBreakdown[];
   topItems: TopItem[];
 }
 

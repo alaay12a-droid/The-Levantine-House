@@ -394,46 +394,86 @@ components:
       required: [status]
 
     # ── Revenue ───────────────────────────────────────────────────────
-    DailyRevenue:
+    RevenueAggregate:
       type: object
       properties:
-        date:
-          type: string
-        total:
-          type: integer
-        count:
-          type: integer
-      required: [date, total, count]
+        totalRevenue:    { type: number }
+        deliveryRevenue: { type: number }
+        itemsRevenue:    { type: number }
+        orderCount:      { type: integer }
+        taxAmount:       { type: number }
+        netRevenue:      { type: number }
+        cancelledCount:  { type: integer }
+        cancelledValue:  { type: number }
+        pendingCount:    { type: integer }
+        cashCount:       { type: integer }
+        onlineCount:     { type: integer }
+        cashRevenue:     { type: number }
+        onlineRevenue:   { type: number }
+      required: [totalRevenue, deliveryRevenue, itemsRevenue, orderCount, taxAmount,
+                 netRevenue, cancelledCount, cancelledValue, pendingCount,
+                 cashCount, onlineCount, cashRevenue, onlineRevenue]
+
+    DailyBreakdown:
+      type: object
+      properties:
+        date:           { type: string }
+        total:          { type: number }
+        delivery:       { type: number }
+        items:          { type: number }
+        orders:         { type: integer }
+        tax:            { type: number }
+        net:            { type: number }
+        cancelledCount: { type: integer }
+        cancelledValue: { type: number }
+        cashCount:      { type: integer }
+        onlineCount:    { type: integer }
+      required: [date, total, delivery, items, orders, tax, net,
+                 cancelledCount, cancelledValue, cashCount, onlineCount]
+
+    MonthlyBreakdown:
+      type: object
+      properties:
+        month:          { type: string }
+        total:          { type: number }
+        delivery:       { type: number }
+        items:          { type: number }
+        orders:         { type: integer }
+        tax:            { type: number }
+        net:            { type: number }
+        cancelledCount: { type: integer }
+        cancelledValue: { type: number }
+        cashCount:      { type: integer }
+        onlineCount:    { type: integer }
+      required: [month, total, delivery, items, orders, tax, net,
+                 cancelledCount, cancelledValue, cashCount, onlineCount]
 
     TopItem:
       type: object
       properties:
-        name:
-          type: string
-        count:
-          type: integer
-        total:
-          type: integer
-      required: [name, count, total]
+        id:      { type: string }
+        name:    { type: string }
+        qty:     { type: integer }
+        revenue: { type: number }
+      required: [id, name, qty, revenue]
 
     RevenueData:
       type: object
       properties:
-        totalRevenue:
-          type: integer
-        orderCount:
-          type: integer
-        averageOrderValue:
-          type: integer
-        daily:
+        today:            { $ref: "#/components/schemas/RevenueAggregate" }
+        week:             { $ref: "#/components/schemas/RevenueAggregate" }
+        month:            { $ref: "#/components/schemas/RevenueAggregate" }
+        year:             { $ref: "#/components/schemas/RevenueAggregate" }
+        dailyBreakdown:
           type: array
-          items:
-            $ref: "#/components/schemas/DailyRevenue"
+          items: { $ref: "#/components/schemas/DailyBreakdown" }
+        monthlyBreakdown:
+          type: array
+          items: { $ref: "#/components/schemas/MonthlyBreakdown" }
         topItems:
           type: array
-          items:
-            $ref: "#/components/schemas/TopItem"
-      required: [totalRevenue, orderCount, averageOrderValue, daily, topItems]
+          items: { $ref: "#/components/schemas/TopItem" }
+      required: [today, week, month, year, dailyBreakdown, monthlyBreakdown, topItems]
 
     # ── Menu ──────────────────────────────────────────────────────────
     MenuItem:

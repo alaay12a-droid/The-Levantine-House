@@ -1,19 +1,12 @@
-import { SaleRecord, filterByLastMinutes, TODAY, filterByDate, YESTERDAY } from "./mock-data";
+import { RevenueData } from "@workspace/api-client-react";
 
-function sar(h: number) {
-  return (h / 100).toLocaleString("ar-SA", { minimumFractionDigits: 0 }) + " ر.س";
+function sar(v: number) {
+  return v.toLocaleString("ar-SA", { minimumFractionDigits: 0 }) + " ر.س";
 }
 
-interface SmartCardProps {
-  icon: string;
-  label: string;
-  value: string;
-  sub?: string;
-  accent: string;
-  bg: string;
-}
+interface CardProps { icon: string; label: string; value: string; sub?: string; accent: string; bg: string; }
 
-function SmartCard({ icon, label, value, sub, accent, bg }: SmartCardProps) {
+function SmartCard({ icon, label, value, sub, accent, bg }: CardProps) {
   return (
     <div className={`rounded-2xl border ${bg} p-4 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5`}>
       <div className="flex items-start gap-3">
@@ -28,140 +21,106 @@ function SmartCard({ icon, label, value, sub, accent, bg }: SmartCardProps) {
   );
 }
 
-interface Props { allSales: SaleRecord[]; }
+interface Props { revenue: RevenueData | undefined; loading: boolean; }
 
-function topProductToday(sales: SaleRecord[]) {
-  const today = filterByDate(sales, TODAY);
-  const map: Record<string, { count: number; sales: number }> = {};
-  for (const s of today) {
-    if (!map[s.product]) map[s.product] = { count: 0, sales: 0 };
-    map[s.product].count += s.quantity;
-    map[s.product].sales += s.total;
+export function SmartCards({ revenue, loading }: Props) {
+  if (loading) {
+    return (
+      <div>
+        <h2 className="text-base font-semibold mb-4 flex items-center gap-2">
+          <span className="text-xl">🧠</span> مؤشرات ذكية
+        </h2>
+        <div className="grid gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+          {Array.from({ length: 10 }).map((_, i) => (
+            <div key={i} className="rounded-2xl border bg-muted/30 p-4 animate-pulse h-24" />
+          ))}
+        </div>
+      </div>
+    );
   }
-  const sorted = Object.entries(map).sort(([,a],[,b]) => b.count - a.count);
-  return sorted[0] ?? null;
-}
 
-function lowestProduct(sales: SaleRecord[]) {
-  const done = sales.filter(s => s.status === "done");
-  const map: Record<string, number> = {};
-  for (const s of done) { map[s.product] = (map[s.product] ?? 0) + s.quantity; }
-  const sorted = Object.entries(map).sort(([,a],[,b]) => a - b);
-  return sorted[0] ?? null;
-}
+  const today  = revenue?.today;
+  const week   = revenue?.week;
+  const month  = revenue?.month;
+  const year   = revenue?.year;
+  const top    = revenue?.topItems?.[0];
+  const daily  = revenue?.dailyBreakdown ?? [];
 
-function lowSellingProducts(sales: SaleRecord[], threshold = 5) {
-  const done = sales.filter(s => s.status === "done" && s.date === TODAY);
-  const map: Record<string, number> = {};
-  for (const s of done) { map[s.product] = (map[s.product] ?? 0) + s.quantity; }
-  return Object.entries(map).filter(([,v]) => v <= threshold).map(([k]) => k);
-}
+  const todayAvg     = today && today.orderCount > 0 ? today.totalRevenue / today.orderCount : 0;
+  const monthAvg     = month && month.orderCount > 0 ? month.totalRevenue / month.orderCount : 0;
+  const cancRate     = year ? (year.cancelledCount / Math.max(1, year.cancelledCount + year.orderCount) * 100).toFixed(1) : "0";
+  const bestDay      = [...daily].sort((a, b) => b.total - a.total)[0];
+  const taxToday     = today?.taxAmount ?? 0;
 
-function highestProfitProduct(sales: SaleRecord[]) {
-  const done = sales.filter(s => s.status === "done");
-  const map: Record<string, number> = {};
-  for (const s of done) { map[s.product] = (map[s.product] ?? 0) + s.profit; }
-  const sorted = Object.entries(map).sort(([,a],[,b]) => b - a);
-  return sorted[0] ?? null;
-}
+  const empty = "لا توجد بيانات";
 
-export function SmartCards({ allSales }: Props) {
-  const todaySales   = filterByDate(allSales, TODAY);
-  const last60       = filterByLastMinutes(allSales, 60);
-  const last30       = filterByLastMinutes(allSales, 30);
-
-  const todayRevenue = todaySales.reduce((a, s) => a + s.total, 0);
-  const todayProfit  = todaySales.reduce((a, s) => a + s.profit, 0);
-  const todayQty     = todaySales.reduce((a, s) => a + s.quantity, 0);
-  const last60Rev    = last60.reduce((a, s) => a + s.total, 0);
-  const last30Rev    = last30.reduce((a, s) => a + s.total, 0);
-
-  const topToday     = topProductToday(allSales);
-  const topProfitP   = highestProfitProduct(allSales);
-  const lowSales     = lowSellingProducts(allSales);
-  const lowestP      = lowestProduct(allSales);
-
-  const bestCustomer = (() => {
-    const done = filterByDate(allSales, TODAY);
-    const map: Record<string, number> = {};
-    for (const s of done) { map[s.customer] = (map[s.customer] ?? 0) + s.total; }
-    const sorted = Object.entries(map).sort(([,a],[,b]) => b - a);
-    return sorted[0] ?? null;
-  })();
-
-  const bestEmployee = (() => {
-    const done = filterByDate(allSales, TODAY);
-    const map: Record<string, number> = {};
-    for (const s of done) { map[s.employee] = (map[s.employee] ?? 0) + s.total; }
-    const sorted = Object.entries(map).sort(([,a],[,b]) => b - a);
-    return sorted[0] ?? null;
-  })();
-
-  const cards: SmartCardProps[] = [
+  const cards: CardProps[] = [
     {
-      icon: "🕐", label: "مبيعات آخر ساعة",
-      value: sar(last60Rev), sub: `${last60.length} فاتورة`,
-      accent: "text-blue-600", bg: "bg-blue-50/50 dark:bg-blue-950/20",
+      icon: "📅", label: "مبيعات هذا الأسبوع",
+      value: week ? sar(week.totalRevenue) : "٠ ر.س",
+      sub: week ? `${week.orderCount} طلب` : undefined,
+      accent: "text-blue-600", bg: "bg-blue-50/50",
     },
     {
-      icon: "⚡", label: "مبيعات آخر 30 دقيقة",
-      value: sar(last30Rev), sub: `${last30.length} فاتورة`,
-      accent: "text-indigo-600", bg: "bg-indigo-50/50 dark:bg-indigo-950/20",
+      icon: "📆", label: "مبيعات هذا الشهر",
+      value: month ? sar(month.totalRevenue) : "٠ ر.س",
+      sub: month ? `${month.orderCount} طلب` : undefined,
+      accent: "text-indigo-600", bg: "bg-indigo-50/50",
     },
     {
-      icon: "🔥", label: "أكثر صنف مبيعاً اليوم",
-      value: topToday ? topToday[0] : "—",
-      sub: topToday ? `${topToday[1].count} قطعة · ${sar(topToday[1].sales)}` : undefined,
-      accent: "text-orange-600", bg: "bg-orange-50/50 dark:bg-orange-950/20",
+      icon: "🔥", label: "الصنف الأكثر مبيعاً",
+      value: top ? top.name : empty,
+      sub: top ? `${top.qty} قطعة · ${sar(top.revenue)}` : undefined,
+      accent: "text-orange-600", bg: "bg-orange-50/50",
     },
     {
-      icon: "📦", label: "إجمالي القطع المباعة",
-      value: String(todayQty) + " قطعة",
-      sub: `من ${todaySales.length} فاتورة اليوم`,
-      accent: "text-teal-600", bg: "bg-teal-50/50 dark:bg-teal-950/20",
+      icon: "📊", label: "متوسط الطلب اليوم",
+      value: today && today.orderCount > 0 ? sar(todayAvg) : "لا طلبات اليوم",
+      sub: today ? `من ${today.orderCount} طلب` : undefined,
+      accent: "text-teal-600", bg: "bg-teal-50/50",
     },
     {
-      icon: "⭐", label: "الصنف الأعلى ربحاً",
-      value: topProfitP ? topProfitP[0] : "—",
-      sub: topProfitP ? sar(topProfitP[1]) : undefined,
-      accent: "text-amber-600", bg: "bg-amber-50/50 dark:bg-amber-950/20",
+      icon: "💹", label: "متوسط الطلب الشهري",
+      value: month && month.orderCount > 0 ? sar(monthAvg) : "لا طلبات",
+      sub: month ? `${month.orderCount} طلب هذا الشهر` : undefined,
+      accent: "text-amber-600", bg: "bg-amber-50/50",
     },
     {
-      icon: "💰", label: "الأرباح المباشرة اليوم",
-      value: sar(todayProfit),
-      sub: `${Math.round((todayProfit / (todayRevenue || 1)) * 100)}% هامش ربح`,
-      accent: "text-emerald-600", bg: "bg-emerald-50/50 dark:bg-emerald-950/20",
+      icon: "🏆", label: "أعلى يوم مبيعات",
+      value: bestDay && bestDay.total > 0 ? sar(bestDay.total) : empty,
+      sub: bestDay && bestDay.total > 0 ? bestDay.date : undefined,
+      accent: "text-emerald-600", bg: "bg-emerald-50/50",
     },
     {
-      icon: "⚠️", label: "أصناف قليلة المبيعات",
-      value: lowSales.length > 0 ? `${lowSales.length} صنف` : "لا يوجد",
-      sub: lowSales.slice(0, 2).join(" · ") || undefined,
-      accent: "text-yellow-600", bg: "bg-yellow-50/50 dark:bg-yellow-950/20",
+      icon: "⚠️", label: "نسبة الإلغاء",
+      value: `${cancRate}%`,
+      sub: year ? `${year.cancelledCount} طلب ملغي هذا العام` : undefined,
+      accent: "text-yellow-600", bg: "bg-yellow-50/50",
     },
     {
-      icon: "📉", label: "أقل صنف مبيعاً",
-      value: lowestP ? lowestP[0] : "—",
-      sub: lowestP ? `${lowestP[1]} قطعة فقط` : undefined,
-      accent: "text-red-600", bg: "bg-red-50/50 dark:bg-red-950/20",
+      icon: "🧾", label: "الضريبة المستحقة اليوم",
+      value: today ? sar(taxToday) : "٠ ر.س",
+      sub: "ضريبة القيمة المضافة 15%",
+      accent: "text-red-600", bg: "bg-red-50/50",
     },
     {
-      icon: "👑", label: "أفضل عميل اليوم",
-      value: bestCustomer ? bestCustomer[0] : "—",
-      sub: bestCustomer ? sar(bestCustomer[1]) : undefined,
-      accent: "text-violet-600", bg: "bg-violet-50/50 dark:bg-violet-950/20",
+      icon: "🚚", label: "إيرادات التوصيل اليوم",
+      value: today ? sar(today.deliveryRevenue) : "٠ ر.س",
+      sub: "رسوم التوصيل",
+      accent: "text-violet-600", bg: "bg-violet-50/50",
     },
     {
-      icon: "🏅", label: "أفضل موظف اليوم",
-      value: bestEmployee ? bestEmployee[0] : "—",
-      sub: bestEmployee ? sar(bestEmployee[1]) : undefined,
-      accent: "text-pink-600", bg: "bg-pink-50/50 dark:bg-pink-950/20",
+      icon: "📈", label: "مبيعات هذا العام",
+      value: year ? sar(year.totalRevenue) : "٠ ر.س",
+      sub: year ? `${year.orderCount} طلب مكتمل` : undefined,
+      accent: "text-pink-600", bg: "bg-pink-50/50",
     },
   ];
 
   return (
     <div>
       <h2 className="text-base font-semibold mb-4 flex items-center gap-2">
-        <span className="text-xl">🧠</span> ذكاء المبيعات — لحظي
+        <span className="text-xl">🧠</span> مؤشرات ذكية
       </h2>
       <div className="grid gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
         {cards.map(c => <SmartCard key={c.label} {...c} />)}
