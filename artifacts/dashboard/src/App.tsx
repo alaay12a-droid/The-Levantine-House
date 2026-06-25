@@ -9,6 +9,7 @@ import Orders from "@/pages/orders";
 import Login from "@/pages/login";
 import Drivers from "@/pages/drivers";
 import MenuManagement from "@/pages/menu-management";
+import SalesReports from "@/pages/reports";
 
 const queryClient = new QueryClient();
 
@@ -34,6 +35,11 @@ function Router() {
       <Route path="/menu">
         <Layout>
           <MenuManagement />
+        </Layout>
+      </Route>
+      <Route path="/reports">
+        <Layout>
+          <SalesReports />
         </Layout>
       </Route>
       <Route component={NotFound} />
