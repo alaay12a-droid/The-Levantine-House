@@ -30,6 +30,7 @@ import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import { useAppTexts } from "@/hooks/useAppTexts";
 import { MenuItemCard } from "@/components/MenuItemCard";
+import { ProductDetailSheet } from "@/components/ProductDetailSheet";
 import { CartBar } from "@/components/CartBar";
 import { useMenu } from "@/hooks/useMenu";
 import { useOccasions } from "@/hooks/useOccasions";
@@ -67,9 +68,11 @@ const MenuItemRow = React.memo(function MenuItemRow({
     () => cartItems.find((c) => c.item.id === item.id)?.quantity ?? 0,
     [cartItems, item.id]
   );
+  const [detailVisible, setDetailVisible] = React.useState(false);
   return (
     <View style={{ paddingHorizontal: 14, paddingTop: 6 }}>
-      <MenuItemCard item={item} quantity={quantity} />
+      <MenuItemCard item={item} quantity={quantity} onPress={() => setDetailVisible(true)} />
+      <ProductDetailSheet item={item} visible={detailVisible} onClose={() => setDetailVisible(false)} />
     </View>
   );
 });

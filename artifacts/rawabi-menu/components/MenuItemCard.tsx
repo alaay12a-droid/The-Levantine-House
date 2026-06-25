@@ -27,9 +27,10 @@ const F = {
 interface Props {
   item: MenuItem & { available?: boolean; nameEn?: string; descriptionEn?: string };
   quantity: number;
+  onPress?: () => void;
 }
 
-function MenuItemCardInner({ item, quantity }: Props) {
+function MenuItemCardInner({ item, quantity, onPress }: Props) {
   const colors = useColors();
   const { addItem, updateQuantity } = useCartActions();
 
@@ -76,7 +77,9 @@ function MenuItemCardInner({ item, quantity }: Props) {
   const priceStr = item.price % 1 === 0 ? item.price.toString() : item.price.toFixed(1);
 
   return (
-    <View
+    <TouchableOpacity
+      activeOpacity={onPress ? 0.85 : 1}
+      onPress={isUnavailable ? undefined : onPress}
       style={[
         styles.card,
         {
@@ -206,7 +209,7 @@ function MenuItemCardInner({ item, quantity }: Props) {
           </View>
         </View>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 }
 
