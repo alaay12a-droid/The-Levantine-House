@@ -70,12 +70,16 @@ export function Layout({ children }: LayoutProps) {
           )}
           {/* Logo / brand */}
           <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground font-bold text-sm">
-              ر
-            </div>
-            <span className="font-bold text-primary text-base tracking-tight">
-              {isHome ? "روابي المندي" : pageTitle}
-            </span>
+            <img
+              src={`${import.meta.env.BASE_URL}logo.png`}
+              alt="روابي المندي"
+              className="h-9 w-auto object-contain"
+            />
+            {!isHome && (
+              <span className="font-bold text-primary text-base tracking-tight">
+                {pageTitle}
+              </span>
+            )}
           </div>
         </div>
 

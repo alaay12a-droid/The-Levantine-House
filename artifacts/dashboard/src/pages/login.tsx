@@ -63,11 +63,12 @@ export default function Login() {
       
       <Card className="w-full max-w-md z-10 shadow-2xl border-primary/20">
         <CardHeader className="space-y-3 text-center pt-8">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg">
-            <span className="text-3xl font-bold">ر</span>
-          </div>
-          <CardTitle className="text-3xl font-bold">روابي المندي</CardTitle>
-          <CardDescription className="text-base">لوحة تحكم المطعم</CardDescription>
+          <img
+            src={`${import.meta.env.BASE_URL}logo.png`}
+            alt="روابي المندي"
+            className="mx-auto h-24 w-auto object-contain"
+          />
+          <CardTitle className="text-2xl font-bold">لوحة تحكم المطعم</CardTitle>
         </CardHeader>
         <CardContent className="pb-8">
           <Form {...form}>
