@@ -3,82 +3,28 @@ import { Link, useLocation } from "wouter";
 import { useDashboardMe, useDashboardLogout } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getDashboardMeQueryKey } from "@workspace/api-client-react";
-import { LayoutDashboard, ListOrdered, LogOut, Loader2, Menu, Users, UtensilsCrossed, BarChart2 } from "lucide-react";
+import { Loader2, ChevronRight, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
 interface LayoutProps {
   children: ReactNode;
 }
 
-function SidebarContent({ currentLocation, onNavigate }: { currentLocation: string, onNavigate?: () => void }) {
-  const { mutate: logout } = useDashboardLogout();
-  const queryClient = useQueryClient();
-  const [, setLocation] = useLocation();
-
-  const handleLogout = () => {
-    logout(undefined, {
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: getDashboardMeQueryKey() });
-        setLocation("/login");
-      }
-    });
-  };
-
-  const navItems = [
-    { href: "/", label: "الرئيسية", icon: LayoutDashboard },
-    { href: "/orders", label: "الطلبات", icon: ListOrdered },
-    { href: "/drivers", label: "المناديب", icon: Users },
-    { href: "/menu", label: "القائمة", icon: UtensilsCrossed },
-    { href: "/reports", label: "تقارير المبيعات", icon: BarChart2 },
-  ];
-
-  return (
-    <div className="flex h-full flex-col">
-      <div className="flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6">
-        <div className="flex items-center gap-2 font-semibold text-primary">
-          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
-            ر
-          </div>
-          <span className="text-xl font-bold tracking-tight">روابي المندي</span>
-        </div>
-      </div>
-      <div className="flex-1 overflow-auto py-2">
-        <nav className="grid items-start px-2 text-sm font-medium lg:px-4">
-          {navItems.map((item) => {
-            const isActive = currentLocation === item.href;
-            return (
-              <Link key={item.href} href={item.href} onClick={onNavigate}>
-                <div
-                  className={`flex items-center gap-3 rounded-lg px-3 py-2.5 transition-all hover:text-primary ${
-                    isActive ? "bg-muted text-primary" : "text-muted-foreground hover:bg-muted"
-                  }`}
-                >
-                  <item.icon className="h-5 w-5" />
-                  {item.label}
-                </div>
-              </Link>
-            );
-          })}
-        </nav>
-      </div>
-      <div className="mt-auto p-4 border-t">
-        <Button variant="outline" className="w-full justify-start gap-3" onClick={handleLogout}>
-          <LogOut className="h-5 w-5" />
-          تسجيل الخروج
-        </Button>
-      </div>
-    </div>
-  );
-}
+const PAGE_TITLES: Record<string, string> = {
+  "/":        "الرئيسية",
+  "/orders":  "الطلبات",
+  "/drivers": "المناديب",
+  "/menu":    "القائمة",
+  "/reports": "تقارير المبيعات",
+};
 
 export function Layout({ children }: LayoutProps) {
   const [location, setLocation] = useLocation();
+  const { mutate: logout } = useDashboardLogout();
+  const queryClient = useQueryClient();
+
   const { data: user, isLoading, isError } = useDashboardMe({
-    query: {
-      retry: false,
-      queryKey: getDashboardMeQueryKey(),
-    }
+    query: { retry: false, queryKey: getDashboardMeQueryKey() }
   });
 
   useEffect(() => {
@@ -95,34 +41,59 @@ export function Layout({ children }: LayoutProps) {
     );
   }
 
+  const isHome = location === "/";
+  const pageTitle = PAGE_TITLES[location] ?? "";
+
+  const handleLogout = () => {
+    logout(undefined, {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getDashboardMeQueryKey() });
+        setLocation("/login");
+      }
+    });
+  };
+
   return (
-    <div className="grid min-h-screen w-full md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr]">
-      <div className="hidden border-l bg-card md:block">
-        <SidebarContent currentLocation={location} />
-      </div>
-      <div className="flex flex-col">
-        <header className="flex h-14 items-center gap-4 border-b bg-card px-4 lg:h-[60px] lg:px-6 md:hidden">
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button variant="outline" size="icon" className="shrink-0 md:hidden">
-                <Menu className="h-5 w-5" />
-                <span className="sr-only">Toggle navigation menu</span>
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="right" className="flex flex-col p-0">
-              <SidebarContent currentLocation={location} />
-            </SheetContent>
-          </Sheet>
-          <div className="flex items-center gap-2 font-semibold text-primary">
-            <span className="text-lg font-bold tracking-tight">روابي المندي</span>
+    <div className="min-h-screen flex flex-col bg-background">
+
+      {/* ── Top header ─────────────────────────────────────────────────────── */}
+      <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b bg-card px-4 lg:px-6 shadow-sm">
+        <div className="flex items-center gap-3">
+          {/* Back button on inner pages */}
+          {!isHome && (
+            <Link href="/">
+              <button className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
+                <ChevronRight className="h-4 w-4" />
+                <span className="hidden sm:inline">رئيسية</span>
+              </button>
+            </Link>
+          )}
+          {/* Logo / brand */}
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground font-bold text-sm">
+              ر
+            </div>
+            <span className="font-bold text-primary text-base tracking-tight">
+              {isHome ? "روابي المندي" : pageTitle}
+            </span>
           </div>
-        </header>
-        <main className="flex-1 p-4 lg:p-6 lg:p-8 bg-background overflow-auto">
-          <div className="mx-auto w-full max-w-6xl">
-            {children}
-          </div>
-        </main>
-      </div>
+        </div>
+
+        {/* Logout */}
+        <Button variant="ghost" size="sm" onClick={handleLogout}
+          className="gap-2 text-muted-foreground hover:text-foreground text-xs">
+          <LogOut className="h-4 w-4" />
+          <span className="hidden sm:inline">خروج</span>
+        </Button>
+      </header>
+
+      {/* ── Main content ───────────────────────────────────────────────────── */}
+      <main className="flex-1 p-4 lg:p-6 overflow-auto">
+        <div className="mx-auto w-full max-w-5xl">
+          {children}
+        </div>
+      </main>
+
     </div>
   );
 }
