@@ -231,3 +231,13 @@ export const deliveryZonesTable = pgTable("delivery_zones", {
 });
 
 export type DeliveryZone = typeof deliveryZonesTable.$inferSelect;
+
+export const dashboardUsersTable = pgTable("dashboard_users", {
+  id: serial("id").primaryKey(),
+  username: text("username").notNull().unique(),
+  passwordHash: text("password_hash").notNull(),
+  role: text("role").notNull().default("employee"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type DashboardUser = typeof dashboardUsersTable.$inferSelect;

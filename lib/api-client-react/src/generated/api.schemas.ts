@@ -8,3 +8,156 @@
 export interface HealthStatus {
   status: string;
 }
+
+export interface DashboardCredentials {
+  username: string;
+  password: string;
+}
+
+export type DashboardUserRole =
+  (typeof DashboardUserRole)[keyof typeof DashboardUserRole];
+
+export const DashboardUserRole = {
+  admin: "admin",
+  employee: "employee",
+} as const;
+
+export interface DashboardUser {
+  id: number;
+  username: string;
+  role: DashboardUserRole;
+}
+
+export interface OrderItem {
+  id: string;
+  name: string;
+  price: number;
+  quantity: number;
+}
+
+export type OrderStatus = (typeof OrderStatus)[keyof typeof OrderStatus];
+
+export const OrderStatus = {
+  pending: "pending",
+  preparing: "preparing",
+  ready: "ready",
+  done: "done",
+  cancelled: "cancelled",
+} as const;
+
+export interface Order {
+  id: number;
+  dailyNumber: number;
+  customerName: string;
+  customerPhone: string;
+  customerAddress: string;
+  items: OrderItem[];
+  totalPrice: number;
+  deliveryFee: number;
+  discountCode?: string | null;
+  discountAmount?: number | null;
+  status: OrderStatus;
+  paymentMethod: string;
+  notes?: string | null;
+  createdAt: string;
+}
+
+export type OrderStatusUpdateStatus =
+  (typeof OrderStatusUpdateStatus)[keyof typeof OrderStatusUpdateStatus];
+
+export const OrderStatusUpdateStatus = {
+  pending: "pending",
+  preparing: "preparing",
+  ready: "ready",
+  done: "done",
+  cancelled: "cancelled",
+} as const;
+
+export interface OrderStatusUpdate {
+  status: OrderStatusUpdateStatus;
+}
+
+export interface DailyRevenue {
+  date: string;
+  total: number;
+  count: number;
+}
+
+export interface TopItem {
+  name: string;
+  count: number;
+  total: number;
+}
+
+export interface RevenueData {
+  totalRevenue: number;
+  orderCount: number;
+  averageOrderValue: number;
+  daily: DailyRevenue[];
+  topItems: TopItem[];
+}
+
+export interface MenuItem {
+  id: number;
+  itemId: string;
+  name: string;
+  nameEn?: string | null;
+  category: string;
+  price: number;
+  available: boolean;
+  imageKey?: string | null;
+  imageUrl?: string | null;
+  stock?: number | null;
+  sortOrder: number;
+}
+
+export interface MenuItemUpdate {
+  name?: string;
+  nameEn?: string;
+  price?: number;
+  available?: boolean;
+  stock?: number | null;
+  imageUrl?: string | null;
+  imageKey?: string | null;
+}
+
+export interface Driver {
+  id: number;
+  name: string;
+  phone: string;
+  active: boolean;
+  photoUrl?: string | null;
+}
+
+export interface DriverDailySummary {
+  driverId: number;
+  name: string;
+  orderCount: number;
+  cashTotal: number;
+  electronicTotal: number;
+}
+
+export type ListOrdersParams = {
+  status?: ListOrdersStatus;
+  phone?: string;
+  search?: string;
+  from?: string;
+  to?: string;
+  limit?: number;
+};
+
+export type ListOrdersStatus =
+  (typeof ListOrdersStatus)[keyof typeof ListOrdersStatus];
+
+export const ListOrdersStatus = {
+  pending: "pending",
+  preparing: "preparing",
+  ready: "ready",
+  done: "done",
+  cancelled: "cancelled",
+} as const;
+
+export type GetRevenueRangeParams = {
+  from: string;
+  to: string;
+};

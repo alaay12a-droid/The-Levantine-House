@@ -1,3 +1,5 @@
 - [Storage upload API pattern](storage-upload-api.md) — correct endpoint is /storage/uploads/request-url; response field is uploadURL (capital URL), not uploadUrl
 - [Global sound settings architecture](global-sounds.md) — sounds pushed to /settings/sounds server-side; AppConfigContext loads on startup and writes to AsyncStorage so useAppSound picks them up without any hook changes
 - [Production deploy flow](production-deploy-flow.md) — user must click Republish in Replit UI then Approve DB migrations; suggest_deploy only shows the button, cannot trigger programmatically
+- [Dashboard auth architecture](dashboard-auth.md) — JWT httpOnly cookie at /api/dashboard/auth/*; admin seeded on server start (admin/rawabi2024); dashboard_users table created via executeSql (not drizzle push, which is interactive)
+- [OpenAPI TS2308 collision rule](openapi-ts2308.md) — body component names must be entity-shaped (NoteInput not CreateNoteBody) to avoid Orval collision; queryKey required in all query options or TS fails

@@ -4,6 +4,7 @@ import { logger } from "./lib/logger";
 import { seedMenu } from "./routes/menu";
 import { seedOccasions } from "./routes/occasions";
 import { cleanupExpiredDiscountCodes } from "./routes/discounts";
+import { seedDashboardAdmin } from "./routes/dashboard-auth";
 
 const rawPort = process.env["PORT"];
 
@@ -29,6 +30,7 @@ app.listen(port, "0.0.0.0", (err) => {
 
   seedMenu().catch((e) => logger.error({ err: e }, "Menu seed failed"));
   seedOccasions().catch((e) => logger.error({ err: e }, "Occasions seed failed"));
+  seedDashboardAdmin().catch((e) => logger.error({ err: e }, "Dashboard admin seed failed"));
 
   schedule(
     "0 0 * * *",

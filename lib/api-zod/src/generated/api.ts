@@ -8,9 +8,269 @@
 import * as zod from "zod";
 
 /**
- * Returns server health status
  * @summary Health check
  */
 export const HealthCheckResponse = zod.object({
   status: zod.string(),
 });
+
+/**
+ * @summary Login to dashboard
+ */
+export const DashboardLoginBody = zod.object({
+  username: zod.string(),
+  password: zod.string(),
+});
+
+export const DashboardLoginResponse = zod.object({
+  id: zod.number(),
+  username: zod.string(),
+  role: zod.enum(["admin", "employee"]),
+});
+
+/**
+ * @summary Get current dashboard user
+ */
+export const DashboardMeResponse = zod.object({
+  id: zod.number(),
+  username: zod.string(),
+  role: zod.enum(["admin", "employee"]),
+});
+
+/**
+ * @summary List orders
+ */
+export const ListOrdersQueryParams = zod.object({
+  status: zod
+    .enum(["pending", "preparing", "ready", "done", "cancelled"])
+    .optional(),
+  phone: zod.coerce.string().optional(),
+  search: zod.coerce.string().optional(),
+  from: zod.coerce.string().optional(),
+  to: zod.coerce.string().optional(),
+  limit: zod.coerce.number().optional(),
+});
+
+export const ListOrdersResponseItem = zod.object({
+  id: zod.number(),
+  dailyNumber: zod.number(),
+  customerName: zod.string(),
+  customerPhone: zod.string(),
+  customerAddress: zod.string(),
+  items: zod.array(
+    zod.object({
+      id: zod.string(),
+      name: zod.string(),
+      price: zod.number(),
+      quantity: zod.number(),
+    }),
+  ),
+  totalPrice: zod.number(),
+  deliveryFee: zod.number(),
+  discountCode: zod.string().nullish(),
+  discountAmount: zod.number().nullish(),
+  status: zod.enum(["pending", "preparing", "ready", "done", "cancelled"]),
+  paymentMethod: zod.string(),
+  notes: zod.string().nullish(),
+  createdAt: zod.string(),
+});
+export const ListOrdersResponse = zod.array(ListOrdersResponseItem);
+
+/**
+ * @summary Get order by ID
+ */
+export const GetOrderParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetOrderResponse = zod.object({
+  id: zod.number(),
+  dailyNumber: zod.number(),
+  customerName: zod.string(),
+  customerPhone: zod.string(),
+  customerAddress: zod.string(),
+  items: zod.array(
+    zod.object({
+      id: zod.string(),
+      name: zod.string(),
+      price: zod.number(),
+      quantity: zod.number(),
+    }),
+  ),
+  totalPrice: zod.number(),
+  deliveryFee: zod.number(),
+  discountCode: zod.string().nullish(),
+  discountAmount: zod.number().nullish(),
+  status: zod.enum(["pending", "preparing", "ready", "done", "cancelled"]),
+  paymentMethod: zod.string(),
+  notes: zod.string().nullish(),
+  createdAt: zod.string(),
+});
+
+/**
+ * @summary Update order status
+ */
+export const UpdateOrderStatusParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateOrderStatusBody = zod.object({
+  status: zod.enum(["pending", "preparing", "ready", "done", "cancelled"]),
+});
+
+export const UpdateOrderStatusResponse = zod.object({
+  id: zod.number(),
+  dailyNumber: zod.number(),
+  customerName: zod.string(),
+  customerPhone: zod.string(),
+  customerAddress: zod.string(),
+  items: zod.array(
+    zod.object({
+      id: zod.string(),
+      name: zod.string(),
+      price: zod.number(),
+      quantity: zod.number(),
+    }),
+  ),
+  totalPrice: zod.number(),
+  deliveryFee: zod.number(),
+  discountCode: zod.string().nullish(),
+  discountAmount: zod.number().nullish(),
+  status: zod.enum(["pending", "preparing", "ready", "done", "cancelled"]),
+  paymentMethod: zod.string(),
+  notes: zod.string().nullish(),
+  createdAt: zod.string(),
+});
+
+/**
+ * @summary Get revenue summary (today)
+ */
+export const GetRevenueResponse = zod.object({
+  totalRevenue: zod.number(),
+  orderCount: zod.number(),
+  averageOrderValue: zod.number(),
+  daily: zod.array(
+    zod.object({
+      date: zod.string(),
+      total: zod.number(),
+      count: zod.number(),
+    }),
+  ),
+  topItems: zod.array(
+    zod.object({
+      name: zod.string(),
+      count: zod.number(),
+      total: zod.number(),
+    }),
+  ),
+});
+
+/**
+ * @summary Get revenue for a date range
+ */
+export const GetRevenueRangeQueryParams = zod.object({
+  from: zod.coerce.string(),
+  to: zod.coerce.string(),
+});
+
+export const GetRevenueRangeResponse = zod.object({
+  totalRevenue: zod.number(),
+  orderCount: zod.number(),
+  averageOrderValue: zod.number(),
+  daily: zod.array(
+    zod.object({
+      date: zod.string(),
+      total: zod.number(),
+      count: zod.number(),
+    }),
+  ),
+  topItems: zod.array(
+    zod.object({
+      name: zod.string(),
+      count: zod.number(),
+      total: zod.number(),
+    }),
+  ),
+});
+
+/**
+ * @summary List all menu items
+ */
+export const ListMenuItemsResponseItem = zod.object({
+  id: zod.number(),
+  itemId: zod.string(),
+  name: zod.string(),
+  nameEn: zod.string().nullish(),
+  category: zod.string(),
+  price: zod.number(),
+  available: zod.boolean(),
+  imageKey: zod.string().nullish(),
+  imageUrl: zod.string().nullish(),
+  stock: zod.number().nullish(),
+  sortOrder: zod.number(),
+});
+export const ListMenuItemsResponse = zod.array(ListMenuItemsResponseItem);
+
+/**
+ * @summary Update menu item
+ */
+export const UpdateMenuItemParams = zod.object({
+  itemId: zod.coerce.string(),
+});
+
+export const UpdateMenuItemBody = zod.object({
+  name: zod.string().optional(),
+  nameEn: zod.string().optional(),
+  price: zod.number().optional(),
+  available: zod.boolean().optional(),
+  stock: zod.number().nullish(),
+  imageUrl: zod.string().nullish(),
+  imageKey: zod.string().nullish(),
+});
+
+export const UpdateMenuItemResponse = zod.object({
+  id: zod.number(),
+  itemId: zod.string(),
+  name: zod.string(),
+  nameEn: zod.string().nullish(),
+  category: zod.string(),
+  price: zod.number(),
+  available: zod.boolean(),
+  imageKey: zod.string().nullish(),
+  imageUrl: zod.string().nullish(),
+  stock: zod.number().nullish(),
+  sortOrder: zod.number(),
+});
+
+/**
+ * @summary Delete menu item
+ */
+export const DeleteMenuItemParams = zod.object({
+  itemId: zod.coerce.string(),
+});
+
+/**
+ * @summary List all drivers
+ */
+export const ListDriversResponseItem = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  phone: zod.string(),
+  active: zod.boolean(),
+  photoUrl: zod.string().nullish(),
+});
+export const ListDriversResponse = zod.array(ListDriversResponseItem);
+
+/**
+ * @summary Get daily summaries for all drivers
+ */
+export const GetDriverDailySummariesResponseItem = zod.object({
+  driverId: zod.number(),
+  name: zod.string(),
+  orderCount: zod.number(),
+  cashTotal: zod.number(),
+  electronicTotal: zod.number(),
+});
+export const GetDriverDailySummariesResponse = zod.array(
+  GetDriverDailySummariesResponseItem,
+);
