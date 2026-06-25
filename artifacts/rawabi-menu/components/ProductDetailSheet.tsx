@@ -7,6 +7,7 @@ import {
   ScrollView,
   StyleSheet,
 } from "react-native";
+import { Image } from "expo-image";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useColors } from "@/hooks/useColors";
@@ -204,6 +205,16 @@ export function ProductDetailSheet({ item, visible, onClose }: Props) {
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
+            {/* ── Item image (only when uploaded) ── */}
+            {item.imageUrl ? (
+              <Image
+                source={{ uri: item.imageUrl }}
+                style={styles.heroImg}
+                contentFit="cover"
+                transition={200}
+              />
+            ) : null}
+
             {/* ── Title ── */}
             <View style={{ gap: 4 }}>
               <Text style={{ color: colors.foreground, fontFamily: F.extra, fontSize: 20, textAlign: "right" }}>
@@ -420,6 +431,11 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     overflow: "hidden",
     maxHeight: "88%",
+  },
+  heroImg: {
+    width: "100%",
+    height: 200,
+    borderRadius: 16,
   },
   closeRow: {
     flexDirection: "row",
