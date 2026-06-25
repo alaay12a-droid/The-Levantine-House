@@ -72,11 +72,21 @@ function computeRange(preset: Preset, fromStr: string, toStr: string): DateRange
 }
 
 // ── Invoice print helper ─────────────────────────────────────────────────────
-function printInvoices(filtered: Order[], range: DateRange) {
+type StatusFilter = "all" | "completed" | "cancelled";
+
+const STATUS_FILTER_AR: Record<StatusFilter, string> = {
+  all:       "جميع الفواتير",
+  completed: "المكتملة فقط",
+  cancelled: "الملغية فقط",
+};
+
+function printInvoices(filtered: Order[], range: DateRange, statusFilter: StatusFilter = "all") {
   const nonCancelled = filtered.filter(o => o.status !== "cancelled");
   const total = nonCancelled.reduce((a, o) => a + o.totalPrice / 100, 0);
   const tax   = +(total * 15 / 115).toFixed(2);
   const net   = +(total - tax).toFixed(2);
+
+  const filterLabel = statusFilter !== "all" ? ` — ${STATUS_FILTER_AR[statusFilter]}` : "";
 
   const rows = filtered
     .map((o, i) => {
@@ -102,7 +112,7 @@ function printInvoices(filtered: Order[], range: DateRange) {
 <html dir="rtl" lang="ar">
 <head>
 <meta charset="utf-8"/>
-<title>تقرير الفواتير — ${range.label}</title>
+<title>تقرير الفواتير — ${range.label}${filterLabel}</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -124,7 +134,7 @@ function printInvoices(filtered: Order[], range: DateRange) {
 </style>
 </head>
 <body>
-<h1>🧾 تقرير الفواتير — ${range.label}</h1>
+<h1>🧾 تقرير الفواتير — ${range.label}${filterLabel}</h1>
 <p class="subtitle">مطبوع بتاريخ: ${new Date().toLocaleString("ar-SA", { timeZone: "Asia/Riyadh" })}</p>
 <div class="summary">
   <div class="summary-card"><div class="num">${filtered.length}</div><div class="lbl">إجمالي الفواتير</div></div>
@@ -177,14 +187,16 @@ const PRESETS: { key: Preset; label: string }[] = [
 ];
 
 export function TabAccounting({ today, week, month, year, orders, loading }: Props) {
-  const [preset,    setPreset]    = useState<Preset>("today");
-  const [fromStr,   setFromStr]   = useState("");
-  const [toStr,     setToStr]     = useState("");
-  const [cashInput, setCashInput] = useState("");
+  const [preset,       setPreset]       = useState<Preset>("today");
+  const [fromStr,      setFromStr]      = useState("");
+  const [toStr,        setToStr]        = useState("");
+  const [cashInput,    setCashInput]    = useState("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const invoiceRef = useRef<HTMLDivElement>(null);
 
   const range = useMemo(() => computeRange(preset, fromStr, toStr), [preset, fromStr, toStr]);
 
+  // All orders in the date range (used for KPIs)
   const filtered = useMemo(() =>
     orders.filter(o => {
       const d = new Date(o.createdAt);
@@ -192,6 +204,13 @@ export function TabAccounting({ today, week, month, year, orders, loading }: Pro
     }),
     [orders, range]
   );
+
+  // Table rows after status filter
+  const tableRows = useMemo(() => {
+    if (statusFilter === "completed") return filtered.filter(o => o.status !== "cancelled");
+    if (statusFilter === "cancelled") return filtered.filter(o => o.status === "cancelled");
+    return filtered;
+  }, [filtered, statusFilter]);
 
   const kpis = useMemo(() => {
     const nonCancelled = filtered.filter(o => o.status !== "cancelled");
@@ -273,11 +292,6 @@ export function TabAccounting({ today, week, month, year, orders, loading }: Pro
               {new Date(range.end.getTime() - 1000).toLocaleDateString("ar-SA", { timeZone: "Asia/Riyadh" })})
             </span>
           </p>
-          <button
-            onClick={() => printInvoices(filtered, range)}
-            className="flex items-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-4 py-2 transition-colors print:hidden">
-            🖨️ طباعة الفواتير ({filtered.length})
-          </button>
         </div>
       </section>
 
@@ -307,16 +321,37 @@ export function TabAccounting({ today, week, month, year, orders, loading }: Pro
           <h3 className="font-bold text-sm flex items-center gap-2">
             <span>🧾</span>
             فواتير {range.label}
-            <span className="text-xs font-normal text-muted-foreground">({filtered.length} فاتورة)</span>
           </h3>
-          {kpis.cancelled > 0 && (
-            <span className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-2 py-1">
-              {kpis.cancelled} فاتورة ملغاة
-            </span>
-          )}
+          {/* Print button */}
+          <button
+            onClick={() => printInvoices(tableRows, range, statusFilter)}
+            className="flex items-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-4 py-2 transition-colors print:hidden">
+            🖨️ طباعة ({tableRows.length})
+          </button>
         </div>
 
-        {filtered.length === 0 ? (
+        {/* ── Status filter tabs ─────────────────────────────────────── */}
+        <div className="flex gap-2 mb-4 flex-wrap print:hidden">
+          {(["all", "completed", "cancelled"] as StatusFilter[]).map(f => {
+            const count = f === "all" ? filtered.length
+                        : f === "completed" ? filtered.filter(o => o.status !== "cancelled").length
+                        : filtered.filter(o => o.status === "cancelled").length;
+            const active = statusFilter === f;
+            const colors =
+              f === "completed" ? active ? "bg-emerald-600 text-white border-emerald-600" : "text-emerald-700 border-emerald-200 hover:bg-emerald-50"
+            : f === "cancelled" ? active ? "bg-red-600 text-white border-red-600"         : "text-red-700 border-red-200 hover:bg-red-50"
+            :                     active ? "bg-slate-700 text-white border-slate-700"      : "text-slate-700 border-slate-200 hover:bg-slate-50";
+            return (
+              <button key={f} onClick={() => setStatusFilter(f)}
+                className={`rounded-xl px-4 py-1.5 text-xs font-bold border transition-all ${colors}`}>
+                {f === "all" ? "📋 الكل" : f === "completed" ? "✅ المكتملة" : "❌ الملغية"}
+                <span className="mr-1.5 opacity-75">({count})</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {tableRows.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-3">
             <span className="text-4xl">📭</span>
             <p className="text-sm">لا توجد فواتير في هذه الفترة</p>
@@ -332,7 +367,7 @@ export function TabAccounting({ today, week, month, year, orders, loading }: Pro
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((o, i) => {
+                {tableRows.map((o, i) => {
                   const isCancelled = o.status === "cancelled";
                   return (
                     <tr key={o.id} className={`border-b last:border-0 ${isCancelled ? "opacity-50 bg-red-50/30" : "hover:bg-muted/20"}`}>
@@ -386,13 +421,17 @@ export function TabAccounting({ today, week, month, year, orders, loading }: Pro
               <tfoot>
                 <tr className="border-t-2 border-muted bg-muted/20">
                   <td colSpan={5} className="py-2.5 px-3 text-xs font-bold text-right">
-                    المجموع ({kpis.nonCancelled} فاتورة مكتملة)
+                    {statusFilter === "cancelled"
+                      ? `${tableRows.length} فاتورة ملغاة`
+                      : statusFilter === "completed"
+                        ? `${tableRows.length} فاتورة مكتملة`
+                        : `${kpis.nonCancelled} مكتملة · ${kpis.cancelled} ملغاة`}
                   </td>
                   <td className="py-2.5 px-3 font-bold text-emerald-700 whitespace-nowrap text-base">
-                    {sar(kpis.total)}
+                    {sar(tableRows.filter(o => o.status !== "cancelled").reduce((a, o) => a + o.totalPrice / 100, 0))}
                   </td>
                   <td colSpan={2} className="py-2.5 px-3 text-xs text-muted-foreground">
-                    نقدي: {sarShort(kpis.cash)} · إلكتروني: {sarShort(kpis.online)}
+                    {statusFilter !== "cancelled" && <>نقدي: {sarShort(tableRows.filter(o => o.status !== "cancelled" && o.paymentMethod === "cash").reduce((a, o) => a + o.totalPrice / 100, 0))} · إلكتروني: {sarShort(tableRows.filter(o => o.status !== "cancelled" && o.paymentMethod !== "cash").reduce((a, o) => a + o.totalPrice / 100, 0))}</>}
                   </td>
                 </tr>
               </tfoot>
