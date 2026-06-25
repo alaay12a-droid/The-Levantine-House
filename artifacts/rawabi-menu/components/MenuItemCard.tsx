@@ -6,6 +6,7 @@ import {
   StyleSheet,
   Linking,
 } from "react-native";
+import { Image } from "expo-image";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useColors } from "@/hooks/useColors";
@@ -102,6 +103,16 @@ function MenuItemCardInner({ item, quantity }: Props) {
       )}
 
       <View style={styles.inner}>
+        {/* Item image — only shown when imageUrl is set */}
+        {item.imageUrl ? (
+          <Image
+            source={{ uri: item.imageUrl }}
+            style={styles.itemImg}
+            contentFit="cover"
+            transition={200}
+          />
+        ) : null}
+
         {/* Info */}
         <View style={[styles.infoBlock, { alignItems: isEn ? "flex-start" : "flex-end" }]}>
           <View style={{ flexDirection: isEn ? "row" : "row-reverse", alignItems: "flex-start", justifyContent: "space-between", width: "100%" }}>
@@ -211,6 +222,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     padding: 14,
+    gap: 12,
+  },
+  itemImg: {
+    width: 80,
+    height: 80,
+    borderRadius: 12,
+    flexShrink: 0,
   },
   heartBtn: {
     width: 28,
