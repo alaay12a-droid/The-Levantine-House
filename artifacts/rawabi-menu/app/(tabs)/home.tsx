@@ -2,13 +2,13 @@ import React, { useState, useMemo, useRef, useCallback, useEffect } from "react"
 import {
   View,
   Text,
-  ScrollView,
   TextInput,
   TouchableOpacity,
   StyleSheet,
   Linking,
   StatusBar,
 } from "react-native";
+import { FlashList } from "@shopify/flash-list";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
@@ -24,6 +24,7 @@ import { MenuItemCard } from "@/components/MenuItemCard";
 import { BannerCarousel } from "@/components/BannerCarousel";
 import { CartBar } from "@/components/CartBar";
 import { useCartState } from "@/context/CartContext";
+import type { MenuItem } from "@/constants/menu";
 
 const F = {
   regular: "Cairo_400Regular",
@@ -36,6 +37,41 @@ const BRANCH_ADDRESS = "تبوك — حي الروضة";
 const BRANCH_MAPS_URL = "https://maps.google.com/?q=تبوك+حي+الروضة+روابي+المندي";
 
 type OrderMode = "delivery" | "pickup";
+type RawItem = MenuItem & { available?: boolean; nameEn?: string; descriptionEn?: string; stock?: number | null };
+
+// ── Flat list entry types for virtualization ──────────────────────────────
+type ListEntry =
+  | { _t: "favHeader" }
+  | { _t: "item"; item: RawItem }
+  | { _t: "catHeader"; name: string; icon: string; count: number }
+  | { _t: "searchResult"; item: RawItem };
+
+// ── HomeItemRow: zero context subscriptions — quantity passed as prop ─────
+const HomeItemRow = React.memo(function HomeItemRow({
+  item, quantity, isEn, whatsapp, isFavoriteFn, onToggleFav,
+}: {
+  item: RawItem;
+  quantity: number;
+  isEn: boolean;
+  whatsapp: string;
+  isFavoriteFn: (id: string) => boolean;
+  onToggleFav: (id: string) => void;
+}) {
+  const isFav = isFavoriteFn(item.id);
+  const handleToggle = useCallback(() => onToggleFav(item.id), [onToggleFav, item.id]);
+  return (
+    <View style={{ paddingHorizontal: 16, paddingTop: 6 }}>
+      <MenuItemCard
+        item={item}
+        quantity={quantity}
+        isEn={isEn}
+        isFavorite={isFav}
+        onToggleFavorite={handleToggle}
+        whatsapp={whatsapp}
+      />
+    </View>
+  );
+});
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
@@ -49,11 +85,17 @@ export default function HomeScreen() {
   const { categories, refresh: refreshMenu } = useMenu();
   const { banners, refresh: refreshBanners } = useBanners();
   const { items: cartItems } = useCartState();
+
+  // qtyMap: parent is the only CartContext subscriber — rows get quantity as prop
   const qtyMap = useMemo(() => {
     const m = new Map<string, number>();
     for (const ci of cartItems) m.set(ci.item.id, ci.quantity);
     return m;
   }, [cartItems]);
+
+  // Stable ref so renderItem stays stable (not in its dep array)
+  const qtyMapRef = useRef(qtyMap);
+  qtyMapRef.current = qtyMap;
 
   const [orderMode, setOrderMode] = useState<OrderMode>("delivery");
   const [search, setSearch] = useState("");
@@ -62,32 +104,6 @@ export default function HomeScreen() {
   useFocusEffect(useCallback(() => { refreshMenu(); }, [refreshMenu]));
   useEffect(() => { refreshBanners(); }, [refreshBanners]);
 
-  const allItems = useMemo(
-    () => categories.flatMap((c) => c.items.filter((i) => !c.isDelivery && !c.isDhabiha && !c.isOccasions)),
-    [categories]
-  );
-
-  const searchResults = useMemo(() => {
-    const q = search.trim();
-    if (!q) return [];
-    return allItems.filter(
-      (item) =>
-        item.name.includes(q) ||
-        (item.nameEn ?? "").toLowerCase().includes(q.toLowerCase()) ||
-        (item.description ?? "").includes(q)
-    );
-  }, [search, allItems]);
-
-  const favoriteItems = useMemo(
-    () => allItems.filter((item) => favorites.includes(item.id)),
-    [allItems, favorites]
-  );
-
-  const regularCats = useMemo(
-    () => categories.filter((c) => !c.isDelivery && !c.isDhabiha && !c.isOccasions),
-    [categories]
-  );
-
   const greeting = useMemo(() => {
     const h = new Date().getHours();
     if (h >= 5 && h < 12) return "صباح الخير";
@@ -95,13 +111,109 @@ export default function HomeScreen() {
     return "أهلاً بك";
   }, []);
 
-  const locationText =
-    orderMode === "delivery"
-      ? user?.address ?? "حدد موقعك"
-      : BRANCH_ADDRESS;
+  const regularCats = useMemo(
+    () => categories.filter((c) => !c.isDelivery && !c.isDhabiha && !c.isOccasions),
+    [categories]
+  );
 
-  const locationLabel =
-    orderMode === "delivery" ? "التوصيل" : "الاستلام";
+  const allItems = useMemo(
+    () => regularCats.flatMap((c) => c.items),
+    [regularCats]
+  );
+
+  const favoriteItems = useMemo(
+    () => allItems.filter((item) => favorites.includes(item.id)),
+    [allItems, favorites]
+  );
+
+  // ── Build virtualized flat list ────────────────────────────────────────
+  // Search mode: just search results (no section headers)
+  // Normal mode: fav section + all categories — virtualized
+  const listData = useMemo<ListEntry[]>(() => {
+    const q = search.trim();
+    if (q.length > 0) {
+      const results = allItems.filter(
+        (item) =>
+          item.name.includes(q) ||
+          (item.nameEn ?? "").toLowerCase().includes(q.toLowerCase()) ||
+          (item.description ?? "").includes(q)
+      );
+      return results.map((item) => ({ _t: "searchResult", item }));
+    }
+
+    const data: ListEntry[] = [];
+    if (favoriteItems.length > 0) {
+      data.push({ _t: "favHeader" });
+      for (const item of favoriteItems) data.push({ _t: "item", item });
+    }
+    for (const cat of regularCats) {
+      if (cat.items.length === 0) continue;
+      data.push({ _t: "catHeader", name: isEn ? (cat.nameEn ?? cat.name) : cat.name, icon: cat.icon, count: cat.items.length });
+      for (const item of cat.items) data.push({ _t: "item", item });
+    }
+    return data;
+  }, [search, allItems, favoriteItems, regularCats, isEn]);
+
+  // ── Stable banner header ───────────────────────────────────────────────
+  const activeBanners = useMemo(() => banners.filter((b) => b.active), [banners]);
+  const renderHeader = useCallback(() => {
+    if (activeBanners.length === 0) return null;
+    return (
+      <View style={{ paddingHorizontal: 16, paddingTop: 16 }}>
+        <BannerCarousel banners={activeBanners} />
+      </View>
+    );
+  }, [activeBanners]);
+
+  // ── renderItem: stable — reads qtyMapRef, no cart subscription per row ─
+  const renderItem = useCallback(({ item }: { item: ListEntry }) => {
+    if (item._t === "favHeader") {
+      return (
+        <View style={[styles.sectionHeader, { paddingTop: 18 }]}>
+          <Feather name="heart" size={14} color="#C8171A" />
+          <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: F.bold }]}>
+            المفضلة
+          </Text>
+        </View>
+      );
+    }
+    if (item._t === "catHeader") {
+      return (
+        <View style={[styles.sectionHeader, { paddingTop: 18 }]}>
+          <Text style={{ fontSize: 18 }}>{item.icon}</Text>
+          <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: F.bold }]}>
+            {item.name}
+          </Text>
+          <Text style={[styles.sectionCount, { color: colors.mutedForeground, fontFamily: F.regular }]}>
+            {item.count} صنف
+          </Text>
+        </View>
+      );
+    }
+    // _t === "item" or "searchResult"
+    const rowItem = item.item;
+    return (
+      <HomeItemRow
+        item={rowItem}
+        quantity={qtyMapRef.current.get(rowItem.id) ?? 0}
+        isEn={isEn}
+        whatsapp={info.whatsapp}
+        isFavoriteFn={isFavoriteFn}
+        onToggleFav={toggleFavorite}
+      />
+    );
+  }, [colors, isEn, info.whatsapp, isFavoriteFn, toggleFavorite, qtyMapRef]);
+
+  const keyExtractor = useCallback((item: ListEntry, i: number) => {
+    if (item._t === "favHeader") return "fav-header";
+    if (item._t === "catHeader") return `cat-${item.name}`;
+    return `item-${item.item.id}-${i}`;
+  }, []);
+
+  const getItemType = useCallback((item: ListEntry) => item._t, []);
+
+  const locationText = orderMode === "delivery" ? (user?.address ?? "حدد موقعك") : BRANCH_ADDRESS;
+  const locationLabel = orderMode === "delivery" ? "التوصيل" : "الاستلام";
 
   const handleLocationPress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -111,6 +223,9 @@ export default function HomeScreen() {
       Linking.openURL(BRANCH_MAPS_URL);
     }
   };
+
+  // Empty state for search
+  const searchEmpty = search.trim().length > 0 && listData.length === 0;
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
@@ -182,10 +297,7 @@ export default function HomeScreen() {
             <Text style={[styles.locationLabel, { color: colors.gold, fontFamily: F.bold }]}>
               {locationLabel}
             </Text>
-            <Text
-              style={[styles.locationValue, { color: colors.foreground, fontFamily: F.regular }]}
-              numberOfLines={1}
-            >
+            <Text style={[styles.locationValue, { color: colors.foreground, fontFamily: F.regular }]} numberOfLines={1}>
               {locationText}
             </Text>
           </View>
@@ -215,104 +327,29 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      {/* ── SCROLLABLE CONTENT ── */}
-      <ScrollView
-        contentContainerStyle={{ paddingBottom: insets.bottom + 90 }}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
-        {/* ── SEARCH RESULTS ── */}
-        {search.trim().length > 0 ? (
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionCount, { color: colors.mutedForeground, fontFamily: F.regular }]}>
-                {searchResults.length} نتيجة
-              </Text>
-              <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: F.bold }]}>
-                نتائج البحث
-              </Text>
-            </View>
-            {searchResults.length === 0 ? (
-              <View style={[styles.emptyBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <Text style={{ fontSize: 40 }}>🔍</Text>
-                <Text style={[styles.emptyText, { color: colors.mutedForeground, fontFamily: F.regular }]}>
-                  لا توجد نتائج لـ "{search}"
-                </Text>
-              </View>
-            ) : (
-              searchResults.map((item) => (
-                <MenuItemCard
-                  key={item.id}
-                  item={item}
-                  quantity={qtyMap.get(item.id) ?? 0}
-                  isEn={isEn}
-                  isFavorite={isFavoriteFn(item.id)}
-                  onToggleFavorite={() => toggleFavorite(item.id)}
-                  whatsapp={info.whatsapp}
-                />
-              ))
-            )}
-          </View>
-        ) : (
-          <>
-            {/* ── BANNERS ── */}
-            {banners.filter((b) => b.active).length > 0 && (
-              <View style={{ paddingTop: 16, paddingHorizontal: 16 }}>
-                <BannerCarousel banners={banners} />
-              </View>
-            )}
-
-            {/* ── FAVORITES ── */}
-            {favoriteItems.length > 0 && (
-              <View style={styles.section}>
-                <View style={styles.sectionHeader}>
-                  <Feather name="heart" size={14} color="#C8171A" />
-                  <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: F.bold }]}>
-                    المفضلة
-                  </Text>
-                </View>
-                {favoriteItems.map((item) => (
-                  <MenuItemCard
-                    key={item.id}
-                    item={item}
-                    quantity={qtyMap.get(item.id) ?? 0}
-                    isEn={isEn}
-                    isFavorite={isFavoriteFn(item.id)}
-                    onToggleFavorite={() => toggleFavorite(item.id)}
-                    whatsapp={info.whatsapp}
-                  />
-                ))}
-              </View>
-            )}
-
-            {/* ── ALL CATEGORIES ── */}
-            {regularCats.map((cat) => (
-              <View key={cat.id} style={styles.section}>
-                <View style={styles.sectionHeader}>
-                  <Text style={{ fontSize: 18 }}>{cat.icon}</Text>
-                  <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: F.bold }]}>
-                    {cat.name}
-                  </Text>
-                  <Text style={[styles.sectionCount, { color: colors.mutedForeground, fontFamily: F.regular }]}>
-                    {cat.items.length} صنف
-                  </Text>
-                </View>
-                {cat.items.map((item) => (
-                  <MenuItemCard
-                    key={item.id}
-                    item={item}
-                    quantity={qtyMap.get(item.id) ?? 0}
-                    isEn={isEn}
-                    isFavorite={isFavoriteFn(item.id)}
-                    onToggleFavorite={() => toggleFavorite(item.id)}
-                    whatsapp={info.whatsapp}
-                  />
-                ))}
-              </View>
-            ))}
-          </>
-        )}
-      </ScrollView>
+      {/* ── EMPTY SEARCH STATE ── */}
+      {searchEmpty ? (
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 12 }}>
+          <Text style={{ fontSize: 40 }}>🔍</Text>
+          <Text style={{ fontFamily: F.regular, fontSize: 14, color: colors.mutedForeground, textAlign: "center" }}>
+            لا توجد نتائج لـ "{search}"
+          </Text>
+        </View>
+      ) : (
+        /* ── VIRTUALIZED LIST (FlashList) ── */
+        <FlashList
+          data={listData}
+          renderItem={renderItem}
+          keyExtractor={keyExtractor}
+          getItemType={getItemType}
+          extraData={qtyMap}
+          ListHeaderComponent={renderHeader}
+          ListFooterComponent={<View style={{ height: insets.bottom + 100 }} />}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+        />
+      )}
 
       <CartBar />
     </View>
@@ -362,12 +399,8 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
     gap: 1,
   },
-  greetName: {
-    fontSize: 17,
-  },
-  greetSub: {
-    fontSize: 13,
-  },
+  greetName: { fontSize: 17 },
+  greetSub: { fontSize: 13 },
   toggleWrap: {
     flexDirection: "row",
     borderRadius: 30,
@@ -389,9 +422,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     elevation: 3,
   },
-  toggleText: {
-    fontSize: 15,
-  },
+  toggleText: { fontSize: 15 },
   locationCard: {
     flexDirection: "row",
     alignItems: "center",
@@ -406,13 +437,8 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
     gap: 2,
   },
-  locationLabel: {
-    fontSize: 12,
-  },
-  locationValue: {
-    fontSize: 14,
-    textAlign: "right",
-  },
+  locationLabel: { fontSize: 12 },
+  locationValue: { fontSize: 14, textAlign: "right" },
   locationDot: {
     width: 38,
     height: 38,
@@ -433,34 +459,17 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
     paddingHorizontal: 8,
   },
-  section: {
-    paddingHorizontal: 16,
-    paddingTop: 18,
-    gap: 10,
-  },
   sectionHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "flex-end",
     gap: 6,
-    marginBottom: 2,
+    paddingHorizontal: 16,
+    paddingBottom: 4,
   },
-  sectionTitle: {
-    fontSize: 16,
-  },
+  sectionTitle: { fontSize: 16 },
   sectionCount: {
     fontSize: 12,
     marginRight: "auto",
-  },
-  emptyBox: {
-    borderRadius: 16,
-    borderWidth: 1,
-    alignItems: "center",
-    paddingVertical: 36,
-    gap: 10,
-  },
-  emptyText: {
-    fontSize: 14,
-    textAlign: "center",
   },
 });
