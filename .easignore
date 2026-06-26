@@ -1,0 +1,12 @@
+**/node_modules/
+**/.expo/
+**/android/
+**/ios/
+**/*.log
+**/*.lock
+.git/
+artifacts/dashboard/
+artifacts/mockup-sandbox/
+artifacts/rawabi-menu/
+lib/
+scripts/
