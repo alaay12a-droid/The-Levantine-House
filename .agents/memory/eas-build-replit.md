@@ -16,9 +16,11 @@ Run it from a **standalone copy in `/tmp/`** that has no `pnpm-workspace.yaml` a
 ```bash
 # 1. Create a standalone copy (no node_modules)
 mkdir /tmp/rawabi-standalone
-cp -r artifacts/rawabi-driver/{app,assets,components,app.json,eas.json,package.json,babel.config.js,metro.config.js,tsconfig.json} /tmp/rawabi-standalone/
-# IMPORTANT: also copy google-services.json (not tracked by git but required by EAS)
-cp artifacts/rawabi-menu/google-services.json /tmp/rawabi-standalone/ 2>/dev/null || true
+# Copy ALL source folders — missing any causes Metro bundler to fail
+cp -r artifacts/rawabi-menu/{app,assets,components,constants,context,hooks,utils,config,scripts} /tmp/rawabi-standalone/
+cp artifacts/rawabi-menu/{app.json,eas.json,package.json,babel.config.js,metro.config.js,tsconfig.json,expo-env.d.ts} /tmp/rawabi-standalone/
+# IMPORTANT: google-services.json is not git-tracked but required by EAS
+cp artifacts/rawabi-menu/google-services.json /tmp/rawabi-standalone/
 echo "node_modules/" > /tmp/rawabi-standalone/.easignore
 
 # 2. Install dependencies (pnpm outside workspace = no symlinks to workspace root)
