@@ -26,6 +26,10 @@ author = "agent"
 task = "workflow.run"
 args = "Start Backend"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "artifacts/rawabi-driver: expo"
+
 [[workflows.workflow]]
 name = "Start Backend"
 author = "agent"
@@ -36,6 +40,17 @@ args = "cd /home/runner/workspace/artifacts/api-server && PORT=8080 node --enabl
 
 [workflows.workflow.metadata]
 outputType = "console"
+
+[[workflows.workflow]]
+name = "artifacts/rawabi-driver: expo"
+author = "agent"
+
+[workflows.workflow.metadata]
+outputType = "webview"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "PORT=8099 pnpm --filter @workspace/rawabi-driver run dev"
 
 [agent]
 stack = "PNPM_WORKSPACE"

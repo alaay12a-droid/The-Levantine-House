@@ -5,6 +5,8 @@
 **/*.log
 **/*.lock
 .git/
+.local/
+attached_assets/
 artifacts/dashboard/
 artifacts/mockup-sandbox/
 artifacts/rawabi-menu/

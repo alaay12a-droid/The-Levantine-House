@@ -7,7 +7,7 @@
     "icon": "./assets/images/adaptive_icon.png",
     "scheme": "rawabi-driver",
     "userInterfaceStyle": "dark",
-    "newArchEnabled": false,
+    "newArchEnabled": true,
     "splash": {
       "image": "./assets/images/adaptive_icon.png",
       "resizeMode": "contain",
