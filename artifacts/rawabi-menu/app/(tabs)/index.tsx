@@ -53,8 +53,10 @@ import {
 
 // ── Fix #1: per-item quantity reader — keeps menuFlatChildren stable on cart changes ──
 // Defined at module level so React doesn't recreate the class on each MenuScreen render.
+// onSelect moved to parent so only ONE ProductDetailSheet exists (not one per item).
 const MenuItemRow = React.memo(function MenuItemRow({
   item,
+  onSelect,
 }: {
   item: import("@/constants/menu").MenuItem & {
     available?: boolean;
@@ -62,17 +64,17 @@ const MenuItemRow = React.memo(function MenuItemRow({
     descriptionEn?: string;
     stock?: number | null;
   };
+  onSelect: (item: import("@/constants/menu").MenuItem & { available?: boolean; nameEn?: string; descriptionEn?: string; stock?: number | null }) => void;
 }) {
   const { items: cartItems } = useCartState();
   const quantity = useMemo(
     () => cartItems.find((c) => c.item.id === item.id)?.quantity ?? 0,
     [cartItems, item.id]
   );
-  const [detailVisible, setDetailVisible] = React.useState(false);
+  const handlePress = useCallback(() => onSelect(item), [onSelect, item]);
   return (
     <View style={{ paddingHorizontal: 14, paddingTop: 6 }}>
-      <MenuItemCard item={item} quantity={quantity} onPress={() => setDetailVisible(true)} />
-      <ProductDetailSheet item={item} visible={detailVisible} onClose={() => setDetailVisible(false)} />
+      <MenuItemCard item={item} quantity={quantity} onPress={handlePress} />
     </View>
   );
 });
@@ -186,6 +188,8 @@ export default function MenuScreen() {
   const [activeCategory, setActiveCategory] = useState("chicken");
   const [driversEnabled, setDriversEnabled] = useState(false);
   const [showStaffPicker, setShowStaffPicker] = useState(false);
+  // Single shared detail sheet — replaces per-item modals for 50× less memory usage
+  const [selectedItem, setSelectedItem] = useState<RawMenuItem | null>(null);
 
   useEffect(() => {
     apiGet<{ enabled: boolean }>("/settings/drivers-enabled")
@@ -557,6 +561,9 @@ export default function MenuScreen() {
     }
   }, [sections]);
 
+  const handleSelectItem = useCallback((item: RawMenuItem) => setSelectedItem(item), []);
+  const handleCloseDetail = useCallback(() => setSelectedItem(null), []);
+
   // ── renderItem for FlashList ─────────────────────────────────────────
   const renderMenuListItem = useCallback(({ item }: { item: MenuListItem }) => {
     if (item._t === "anchor") {
@@ -582,8 +589,8 @@ export default function MenuScreen() {
       );
     }
     // _t === "row"
-    return <MenuItemRow item={item.item} />;
-  }, [colors, isEn]);
+    return <MenuItemRow item={item.item} onSelect={handleSelectItem} />;
+  }, [colors, isEn, handleSelectItem]);
 
   const menuKeyExtractor = useCallback((item: MenuListItem) => {
     if (item._t === "anchor") return `a-${item.sectionId}`;
@@ -866,6 +873,15 @@ export default function MenuScreen() {
       )}
 
       <CartBar />
+
+      {/* ── Single shared product detail sheet (replaces per-item modals) ── */}
+      {selectedItem && (
+        <ProductDetailSheet
+          item={selectedItem}
+          visible={!!selectedItem}
+          onClose={handleCloseDetail}
+        />
+      )}
 
       {/* ── Staff picker modal ── */}
       <Modal
