@@ -11,11 +11,7 @@ import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useColors } from "@/hooks/useColors";
 import { useCartActions } from "@/context/CartContext";
-
-import { useLanguage } from "@/context/LanguageContext";
-import { useFavorites } from "@/hooks/useFavorites";
 import { MenuItem, FOOD_IMAGES } from "@/constants/menu";
-import { useAppTexts } from "@/hooks/useAppTexts";
 
 const F = {
   regular: "Cairo_400Regular",
@@ -25,24 +21,23 @@ const F = {
 };
 
 interface Props {
-  item: MenuItem & { available?: boolean; nameEn?: string; descriptionEn?: string };
+  item: MenuItem & { available?: boolean; nameEn?: string; descriptionEn?: string; stock?: number | null };
   quantity: number;
   onPress?: () => void;
+  // Lifted props — avoids 3 hook subscriptions per card instance
+  isEn: boolean;
+  isFavorite: boolean;
+  onToggleFavorite: () => void;
+  whatsapp: string;
 }
 
-function MenuItemCardInner({ item, quantity, onPress }: Props) {
+function MenuItemCardInner({ item, quantity, onPress, isEn, isFavorite: faved, onToggleFavorite, whatsapp }: Props) {
   const colors = useColors();
   const { addItem, updateQuantity } = useCartActions();
-
-  const { language } = useLanguage();
-  const { isFavorite, toggleFavorite } = useFavorites();
-  const isEn = language === "en";
-  const info = useAppTexts();
 
   const inCart = quantity > 0;
   const isDhabiha = item.price === 0;
   const isUnavailable = item.available === false;
-  const faved = isFavorite(item.id);
 
   const stockLimit = (item.stock !== null && item.stock !== undefined) ? item.stock : null;
   const atStockLimit = stockLimit !== null && quantity >= stockLimit;
@@ -57,12 +52,12 @@ function MenuItemCardInner({ item, quantity, onPress }: Props) {
       const msg = isEn
         ? `Hello, I would like to inquire about: ${displayName}`
         : `السلام عليكم، أرغب في الاستفسار عن: ${item.name}`;
-      Linking.openURL(`https://wa.me/${info.whatsapp}?text=${encodeURIComponent(msg)}`);
+      Linking.openURL(`https://wa.me/${whatsapp}?text=${encodeURIComponent(msg)}`);
       return;
     }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     addItem(item);
-  }, [isUnavailable, atStockLimit, isDhabiha, isEn, displayName, item, info.whatsapp, addItem]);
+  }, [isUnavailable, atStockLimit, isDhabiha, isEn, displayName, item, whatsapp, addItem]);
 
   const handleDecrease = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -71,8 +66,8 @@ function MenuItemCardInner({ item, quantity, onPress }: Props) {
 
   const handleToggleFav = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    toggleFavorite(item.id);
-  }, [toggleFavorite, item.id]);
+    onToggleFavorite();
+  }, [onToggleFavorite]);
 
   const priceStr = item.price % 1 === 0 ? item.price.toString() : item.price.toFixed(1);
 
@@ -106,7 +101,6 @@ function MenuItemCardInner({ item, quantity, onPress }: Props) {
       )}
 
       <View style={styles.inner}>
-        {/* Item image — prefer uploaded imageUrl, fall back to bundled FOOD_IMAGES by imageKey */}
         {(item.imageUrl || (item.imageKey && FOOD_IMAGES[item.imageKey])) ? (
           <Image
             source={item.imageUrl ? { uri: item.imageUrl } : FOOD_IMAGES[item.imageKey!]}
@@ -116,7 +110,6 @@ function MenuItemCardInner({ item, quantity, onPress }: Props) {
           />
         ) : null}
 
-        {/* Info */}
         <View style={[styles.infoBlock, { alignItems: isEn ? "flex-start" : "flex-end" }]}>
           <View style={{ flexDirection: isEn ? "row" : "row-reverse", alignItems: "flex-start", justifyContent: "space-between", width: "100%" }}>
             <Text
@@ -142,9 +135,7 @@ function MenuItemCardInner({ item, quantity, onPress }: Props) {
             </Text>
           ) : null}
 
-          {/* Price row + add button */}
           <View style={styles.bottomRow}>
-            {/* Add / quantity control */}
             {isUnavailable ? (
               <View style={[styles.addBtn, { backgroundColor: colors.isLight ? "#E0D0C0" : "#3A2A1A" }]}>
                 <Feather name="x" size={16} color={colors.mutedForeground} />
@@ -187,7 +178,6 @@ function MenuItemCardInner({ item, quantity, onPress }: Props) {
               </View>
             )}
 
-            {/* Price */}
             <View style={styles.priceBlock}>
               {isDhabiha ? (
                 <View style={[styles.callBadge, { backgroundColor: "#1DBF4722", borderColor: "#1DBF47" }]}>

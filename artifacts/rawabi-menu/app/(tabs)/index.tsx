@@ -51,30 +51,43 @@ import {
   type OccasionId,
 } from "@/constants/occasions";
 
-// ── Fix #1: per-item quantity reader — keeps menuFlatChildren stable on cart changes ──
-// Defined at module level so React doesn't recreate the class on each MenuScreen render.
-// onSelect moved to parent so only ONE ProductDetailSheet exists (not one per item).
+// ── MenuItemRow: hooks lifted here (not in MenuItemCard) for perf ─────────
+// - quantity: reads only this item's cart entry (stable with memo)
+// - isFavoriteFn / onToggleFav: passed from parent scope, called per-item
+// - isEn / whatsapp: stable scalars from parent
+// This keeps MenuItemCard hook-free (no useState/useEffect per card).
+type _RawItem = import("@/constants/menu").MenuItem & {
+  available?: boolean; nameEn?: string; descriptionEn?: string; stock?: number | null;
+};
 const MenuItemRow = React.memo(function MenuItemRow({
-  item,
-  onSelect,
+  item, onSelect, isEn, whatsapp, isFavoriteFn, onToggleFav,
 }: {
-  item: import("@/constants/menu").MenuItem & {
-    available?: boolean;
-    nameEn?: string;
-    descriptionEn?: string;
-    stock?: number | null;
-  };
-  onSelect: (item: import("@/constants/menu").MenuItem & { available?: boolean; nameEn?: string; descriptionEn?: string; stock?: number | null }) => void;
+  item: _RawItem;
+  onSelect: (item: _RawItem) => void;
+  isEn: boolean;
+  whatsapp: string;
+  isFavoriteFn: (id: string) => boolean;
+  onToggleFav: (id: string) => void;
 }) {
   const { items: cartItems } = useCartState();
   const quantity = useMemo(
     () => cartItems.find((c) => c.item.id === item.id)?.quantity ?? 0,
     [cartItems, item.id]
   );
+  const itemIsFav = isFavoriteFn(item.id);
   const handlePress = useCallback(() => onSelect(item), [onSelect, item]);
+  const handleToggleFav = useCallback(() => onToggleFav(item.id), [onToggleFav, item.id]);
   return (
     <View style={{ paddingHorizontal: 14, paddingTop: 6 }}>
-      <MenuItemCard item={item} quantity={quantity} onPress={handlePress} />
+      <MenuItemCard
+        item={item}
+        quantity={quantity}
+        onPress={handlePress}
+        isEn={isEn}
+        isFavorite={itemIsFav}
+        onToggleFavorite={handleToggleFav}
+        whatsapp={whatsapp}
+      />
     </View>
   );
 });
@@ -137,7 +150,7 @@ export default function MenuScreen() {
   }, [cartItems]);
   const { isOpen, message: closedMessage } = useBranchStatus();
   const { language } = useLanguage();
-  const { favorites } = useFavorites();
+  const { favorites, isFavorite: isFavoriteFn, toggleFavorite } = useFavorites();
   const isEn = language === "en";
   const info = useAppTexts();
   const timeGreeting = getTimeGreeting();
@@ -447,7 +460,7 @@ export default function MenuScreen() {
   const favItems = useMemo(() => allMenuItems.filter((it) => favorites.includes(it.id)), [allMenuItems, favorites]);
   const occ = OCCASION_THEMES[occasionId];
 
-  const listHeader = useMemo(() => (
+  const renderHeader = useCallback(() => (
     <View>
       {occasionId !== "none" && (
         <View style={{ backgroundColor: occ.bg, overflow: "hidden" }}>
@@ -520,7 +533,7 @@ export default function MenuScreen() {
       )}
     </View>
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  ), [occasionId, banners, favItems, availableCombos, isEn, addItem, bannerStyle, bannerH]);
+  ), [occasionId, banners, favItems, availableCombos, isEn, addItem, bannerStyle, bannerH, occ]);
 
   // ── Memoised FlashList data — anchors + sticky headers + rows ──────────
   // No ReactNodes here — only plain data objects. FlashList recycles views
@@ -589,8 +602,17 @@ export default function MenuScreen() {
       );
     }
     // _t === "row"
-    return <MenuItemRow item={item.item} onSelect={handleSelectItem} />;
-  }, [colors, isEn, handleSelectItem]);
+    return (
+      <MenuItemRow
+        item={item.item}
+        onSelect={handleSelectItem}
+        isEn={isEn}
+        whatsapp={info.whatsapp}
+        isFavoriteFn={isFavoriteFn}
+        onToggleFav={toggleFavorite}
+      />
+    );
+  }, [colors, isEn, handleSelectItem, info.whatsapp, isFavoriteFn, toggleFavorite]);
 
   const menuKeyExtractor = useCallback((item: MenuListItem) => {
     if (item._t === "anchor") return `a-${item.sectionId}`;
@@ -713,7 +735,15 @@ export default function MenuScreen() {
                 {searchResults.length} نتيجة
               </Text>
               {searchResults.map((item) => (
-                <MenuItemCard key={item.id} item={item} quantity={qtyMap.get(item.id) ?? 0} />
+                <MenuItemCard
+                  key={item.id}
+                  item={item}
+                  quantity={qtyMap.get(item.id) ?? 0}
+                  isEn={isEn}
+                  isFavorite={isFavoriteFn(item.id)}
+                  onToggleFavorite={() => toggleFavorite(item.id)}
+                  whatsapp={info.whatsapp}
+                />
               ))}
             </>
           )}
@@ -766,7 +796,15 @@ export default function MenuScreen() {
           </View>
 
           {activeCat.items.map((item) => (
-            <MenuItemCard key={item.id} item={item} quantity={qtyMap.get(item.id) ?? 0} />
+            <MenuItemCard
+              key={item.id}
+              item={item}
+              quantity={qtyMap.get(item.id) ?? 0}
+              isEn={isEn}
+              isFavorite={isFavoriteFn(item.id)}
+              onToggleFavorite={() => toggleFavorite(item.id)}
+              whatsapp={info.whatsapp}
+            />
           ))}
 
           <View style={[styles.bookBox, { backgroundColor: "#1F130A", borderColor: "#E8920C" }]}>
@@ -853,7 +891,7 @@ export default function MenuScreen() {
             keyExtractor={menuKeyExtractor}
             estimatedItemSize={96}
             stickyHeaderIndices={menuStickyHeaders}
-            ListHeaderComponent={listHeader}
+            ListHeaderComponent={renderHeader}
             ListFooterComponent={<View style={{ height: Platform.OS === "web" ? 130 : 110 }} />}
             showsVerticalScrollIndicator={false}
             onScroll={scrollHandler}

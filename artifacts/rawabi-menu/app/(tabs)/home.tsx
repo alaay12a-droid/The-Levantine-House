@@ -16,6 +16,8 @@ import * as Haptics from "expo-haptics";
 import { useColors } from "@/hooks/useColors";
 import { useUser } from "@/context/UserContext";
 import { useFavorites } from "@/hooks/useFavorites";
+import { useLanguage } from "@/context/LanguageContext";
+import { useAppTexts } from "@/hooks/useAppTexts";
 import { useMenu } from "@/hooks/useMenu";
 import { useBanners } from "@/hooks/useBanners";
 import { MenuItemCard } from "@/components/MenuItemCard";
@@ -40,7 +42,10 @@ export default function HomeScreen() {
   const colors = useColors();
   const router = useRouter();
   const { user } = useUser();
-  const { favorites } = useFavorites();
+  const { favorites, isFavorite: isFavoriteFn, toggleFavorite } = useFavorites();
+  const { language } = useLanguage();
+  const isEn = language === "en";
+  const info = useAppTexts();
   const { categories, refresh: refreshMenu } = useMenu();
   const { banners, refresh: refreshBanners } = useBanners();
   const { items: cartItems } = useCartState();
@@ -235,7 +240,17 @@ export default function HomeScreen() {
                 </Text>
               </View>
             ) : (
-              searchResults.map((item) => <MenuItemCard key={item.id} item={item} quantity={qtyMap.get(item.id) ?? 0} />)
+              searchResults.map((item) => (
+                <MenuItemCard
+                  key={item.id}
+                  item={item}
+                  quantity={qtyMap.get(item.id) ?? 0}
+                  isEn={isEn}
+                  isFavorite={isFavoriteFn(item.id)}
+                  onToggleFavorite={() => toggleFavorite(item.id)}
+                  whatsapp={info.whatsapp}
+                />
+              ))
             )}
           </View>
         ) : (
@@ -256,7 +271,17 @@ export default function HomeScreen() {
                     المفضلة
                   </Text>
                 </View>
-                {favoriteItems.map((item) => <MenuItemCard key={item.id} item={item} quantity={qtyMap.get(item.id) ?? 0} />)}
+                {favoriteItems.map((item) => (
+                  <MenuItemCard
+                    key={item.id}
+                    item={item}
+                    quantity={qtyMap.get(item.id) ?? 0}
+                    isEn={isEn}
+                    isFavorite={isFavoriteFn(item.id)}
+                    onToggleFavorite={() => toggleFavorite(item.id)}
+                    whatsapp={info.whatsapp}
+                  />
+                ))}
               </View>
             )}
 
@@ -272,7 +297,17 @@ export default function HomeScreen() {
                     {cat.items.length} صنف
                   </Text>
                 </View>
-                {cat.items.map((item) => <MenuItemCard key={item.id} item={item} quantity={qtyMap.get(item.id) ?? 0} />)}
+                {cat.items.map((item) => (
+                  <MenuItemCard
+                    key={item.id}
+                    item={item}
+                    quantity={qtyMap.get(item.id) ?? 0}
+                    isEn={isEn}
+                    isFavorite={isFavoriteFn(item.id)}
+                    onToggleFavorite={() => toggleFavorite(item.id)}
+                    whatsapp={info.whatsapp}
+                  />
+                ))}
               </View>
             ))}
           </>
