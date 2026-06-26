@@ -1,11 +1,9 @@
 services:
   - type: web
     name: mandi-menu-1
-    runtime: node
+    runtime: docker
     region: oregon
     plan: free
-    buildCommand: npm install -g pnpm@9 && pnpm install --frozen-lockfile && pnpm --filter @workspace/api-server run build
-    startCommand: node --enable-source-maps artifacts/api-server/dist/index.mjs
     healthCheckPath: /api/healthz
     envVars:
       - key: NODE_ENV
@@ -16,3 +14,11 @@ services:
         value: skip
       - key: PUBLIC_OBJECT_SEARCH_PATHS
         value: skip
+      - key: DATABASE_URL
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_USER
+        sync: false
+      - key: EMAIL_PASS
+        sync: false
