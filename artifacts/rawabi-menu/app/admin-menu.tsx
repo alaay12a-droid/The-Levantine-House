@@ -798,7 +798,43 @@ ${kpiBlock}${payBlock}${sumBlock}
   const [editDriverPhotoUploading, setEditDriverPhotoUploading] = useState(false);
   const [editDriverSaving, setEditDriverSaving] = useState(false);
 
+  // ── اختيار جودة الصورة قبل الرفع ──────────────────────────────────────
+  // يعرض خيارات المقاس ويرجع قيمة الجودة (0-1) أو null إذا ألغى المستخدم
+  const askImageQuality = (): Promise<number | null> =>
+    new Promise((resolve) => {
+      Alert.alert(
+        "حجم الصورة",
+        "اختر مقاس الصورة قبل الرفع",
+        [
+          {
+            text: "🔹 صغير  (سريع التحميل)",
+            onPress: () => resolve(0.3),
+          },
+          {
+            text: "🔷 متوسط  (مُوصى به)",
+            onPress: () => resolve(0.6),
+          },
+          {
+            text: "🔶 كبير  (جودة عالية)",
+            onPress: () => resolve(0.9),
+          },
+          {
+            text: "⭕ أصلي  (بدون ضغط)",
+            onPress: () => resolve(1.0),
+          },
+          {
+            text: "إلغاء",
+            style: "cancel",
+            onPress: () => resolve(null),
+          },
+        ],
+        { cancelable: true, onDismiss: () => resolve(null) }
+      );
+    });
+
   const handlePickDriverPhoto = async () => {
+    const quality = await askImageQuality();
+    if (quality === null) return;
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
       Alert.alert("الإذن مطلوب", "يرجى السماح بالوصول إلى الصور في الإعدادات");
@@ -808,7 +844,7 @@ ${kpiBlock}${payBlock}${sumBlock}
       mediaTypes: ["images"],
       allowsEditing: true,
       aspect: [1, 1],
-      quality: 0.85,
+      quality,
     });
     if (result.canceled || !result.assets.length) return;
     const asset = result.assets[0];
@@ -870,9 +906,11 @@ ${kpiBlock}${payBlock}${sumBlock}
   };
 
   const handlePickEditDriverPhoto = async () => {
+    const quality = await askImageQuality();
+    if (quality === null) return;
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) { Alert.alert("الإذن مرفوض", "يرجى السماح بالوصول للمعرض"); return; }
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], allowsEditing: true, aspect: [1, 1], quality: 0.7 });
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], allowsEditing: true, aspect: [1, 1], quality });
     if (result.canceled || !result.assets.length) return;
     const asset = result.assets[0];
     const ext = (asset.uri.split(".").pop() ?? "jpg").replace("jpeg", "jpg");
@@ -1075,6 +1113,8 @@ ${kpiBlock}${payBlock}${sumBlock}
   const [occImageUploading, setOccImageUploading] = useState(false);
 
   const handlePickMenuImage = async () => {
+    const quality = await askImageQuality();
+    if (quality === null) return;
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
       Alert.alert("الإذن مطلوب", "يرجى السماح بالوصول إلى الصور في الإعدادات");
@@ -1083,7 +1123,7 @@ ${kpiBlock}${payBlock}${sumBlock}
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
       allowsEditing: true,
-      quality: 0.85,
+      quality,
     });
     if (result.canceled || !result.assets.length) return;
     const asset = result.assets[0];
@@ -1108,6 +1148,8 @@ ${kpiBlock}${payBlock}${sumBlock}
   };
 
   const handlePickImage = async () => {
+    const quality = await askImageQuality();
+    if (quality === null) return;
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
       Alert.alert("الإذن مطلوب", "يرجى السماح بالوصول إلى الصور في الإعدادات");
@@ -1116,7 +1158,7 @@ ${kpiBlock}${payBlock}${sumBlock}
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
       allowsEditing: true,
-      quality: 0.85,
+      quality,
     });
     if (result.canceled || !result.assets.length) return;
     const asset = result.assets[0];
@@ -1368,9 +1410,11 @@ ${kpiBlock}${payBlock}${sumBlock}
   };
 
   const handlePickBannerImage = async () => {
+    const quality = await askImageQuality();
+    if (quality === null) return;
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) { Alert.alert("الإذن مطلوب", "يرجى السماح بالوصول إلى الصور في الإعدادات"); return; }
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], allowsEditing: true, aspect: [16, 9], quality: 0.85 });
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], allowsEditing: true, aspect: [16, 9], quality });
     if (result.canceled || !result.assets.length) return;
     const asset = result.assets[0];
     setBannerUploading(true);
