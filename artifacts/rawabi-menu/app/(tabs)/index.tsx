@@ -51,29 +51,23 @@ import {
   type OccasionId,
 } from "@/constants/occasions";
 
-// ── MenuItemRow: hooks lifted here (not in MenuItemCard) for perf ─────────
-// - quantity: reads only this item's cart entry (stable with memo)
-// - isFavoriteFn / onToggleFav: passed from parent scope, called per-item
-// - isEn / whatsapp: stable scalars from parent
-// This keeps MenuItemCard hook-free (no useState/useEffect per card).
+// ── MenuItemRow: fully prop-driven — zero context subscriptions ───────────
+// quantity is passed from parent's qtyMapRef so this component NEVER
+// subscribes to CartContext.  Only the parent (MenuScreen) subscribes once.
 type _RawItem = import("@/constants/menu").MenuItem & {
   available?: boolean; nameEn?: string; descriptionEn?: string; stock?: number | null;
 };
 const MenuItemRow = React.memo(function MenuItemRow({
-  item, onSelect, isEn, whatsapp, isFavoriteFn, onToggleFav,
+  item, quantity, onSelect, isEn, whatsapp, isFavoriteFn, onToggleFav,
 }: {
   item: _RawItem;
+  quantity: number;
   onSelect: (item: _RawItem) => void;
   isEn: boolean;
   whatsapp: string;
   isFavoriteFn: (id: string) => boolean;
   onToggleFav: (id: string) => void;
 }) {
-  const { items: cartItems } = useCartState();
-  const quantity = useMemo(
-    () => cartItems.find((c) => c.item.id === item.id)?.quantity ?? 0,
-    [cartItems, item.id]
-  );
   const itemIsFav = isFavoriteFn(item.id);
   const handlePress = useCallback(() => onSelect(item), [onSelect, item]);
   const handleToggleFav = useCallback(() => onToggleFav(item.id), [onToggleFav, item.id]);
@@ -148,6 +142,10 @@ export default function MenuScreen() {
     for (const ci of cartItems) m.set(ci.item.id, ci.quantity);
     return m;
   }, [cartItems]);
+  // Stable ref — updated every render so renderMenuListItem reads fresh quantities
+  // without needing qtyMap in its dependency array (keeps the callback stable).
+  const qtyMapRef = useRef(qtyMap);
+  qtyMapRef.current = qtyMap;
   const { isOpen, message: closedMessage } = useBranchStatus();
   const { language } = useLanguage();
   const { favorites, isFavorite: isFavoriteFn, toggleFavorite } = useFavorites();
@@ -605,6 +603,7 @@ export default function MenuScreen() {
     return (
       <MenuItemRow
         item={item.item}
+        quantity={qtyMapRef.current.get(item.item.id) ?? 0}
         onSelect={handleSelectItem}
         isEn={isEn}
         whatsapp={info.whatsapp}
@@ -612,7 +611,7 @@ export default function MenuScreen() {
         onToggleFav={toggleFavorite}
       />
     );
-  }, [colors, isEn, handleSelectItem, info.whatsapp, isFavoriteFn, toggleFavorite]);
+  }, [colors, isEn, handleSelectItem, info.whatsapp, isFavoriteFn, toggleFavorite, qtyMapRef]);
 
   const menuKeyExtractor = useCallback((item: MenuListItem) => {
     if (item._t === "anchor") return `a-${item.sectionId}`;
@@ -889,6 +888,7 @@ export default function MenuScreen() {
             data={menuData}
             renderItem={renderMenuListItem}
             keyExtractor={menuKeyExtractor}
+            extraData={qtyMap}
             estimatedItemSize={96}
             stickyHeaderIndices={menuStickyHeaders}
             ListHeaderComponent={renderHeader}
