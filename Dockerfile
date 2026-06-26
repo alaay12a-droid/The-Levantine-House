@@ -2,7 +2,7 @@ FROM node:24-slim
 
 WORKDIR /app
 
-RUN npm install -g pnpm@9
+RUN npm install -g pnpm@10
 
 COPY . .
 
