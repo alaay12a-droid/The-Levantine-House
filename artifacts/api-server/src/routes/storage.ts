@@ -119,25 +119,24 @@ router.get("/storage/objects/*path", async (req: Request, res: Response) => {
   try {
     const raw = req.params.path;
     const wildcardPath = Array.isArray(raw) ? raw.join("/") : raw;
-    const cacheKey = `object:${wildcardPath}`;
-
-    // Check cache first — avoids file.exists() + signObjectURL GCS round-trips on cache hit
-    const cached = signedUrlCache.get(cacheKey);
-    if (cached && cached.expiresAt > Date.now()) {
-      res.redirect(302, cached.url);
-      return;
-    }
 
     const objectPath = `/objects/${wildcardPath}`;
     const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
 
-    const signedUrl = await getCachedSignedUrl(cacheKey, () =>
-      objectStorageService.getSignedReadUrl(objectFile, SIGNED_URL_SIGN_SEC)
-    );
-    // Prevent clients/proxies from caching the redirect — they must always
-    // re-request so we can serve a fresh signed URL when content changes.
-    res.setHeader("Cache-Control", "no-store");
-    res.redirect(302, signedUrl);
+    const [metadata] = await objectFile.getMetadata();
+    const contentType = (metadata.contentType as string) || "application/octet-stream";
+    const size = metadata.size ? Number(metadata.size) : undefined;
+
+    res.setHeader("Content-Type", contentType);
+    res.setHeader("Cache-Control", "public, max-age=3600");
+    if (size) res.setHeader("Content-Length", String(size));
+
+    const readStream = objectFile.createReadStream();
+    readStream.on("error", (err) => {
+      req.log.error({ err }, "Error streaming object");
+      if (!res.headersSent) res.status(500).json({ error: "Failed to serve object" });
+    });
+    readStream.pipe(res);
   } catch (error) {
     if (error instanceof ObjectNotFoundError) {
       req.log.warn({ err: error }, "Object not found");

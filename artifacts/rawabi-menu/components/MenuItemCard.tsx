@@ -14,7 +14,7 @@ import { useCartActions } from "@/context/CartContext";
 
 import { useLanguage } from "@/context/LanguageContext";
 import { useFavorites } from "@/hooks/useFavorites";
-import { MenuItem } from "@/constants/menu";
+import { MenuItem, FOOD_IMAGES } from "@/constants/menu";
 import { useAppTexts } from "@/hooks/useAppTexts";
 
 const F = {
@@ -106,10 +106,10 @@ function MenuItemCardInner({ item, quantity, onPress }: Props) {
       )}
 
       <View style={styles.inner}>
-        {/* Item image — only shown when imageUrl is set */}
-        {item.imageUrl ? (
+        {/* Item image — prefer uploaded imageUrl, fall back to bundled FOOD_IMAGES by imageKey */}
+        {(item.imageUrl || (item.imageKey && FOOD_IMAGES[item.imageKey])) ? (
           <Image
-            source={{ uri: item.imageUrl }}
+            source={item.imageUrl ? { uri: item.imageUrl } : FOOD_IMAGES[item.imageKey!]}
             style={styles.itemImg}
             contentFit="cover"
             transition={200}
