@@ -70,8 +70,9 @@ export default function Login() {
 
   async function handleForgotPassword() {
     setSendingOtp(true);
+    const apiBase = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "";
     try {
-      const res = await fetch("/api/dashboard/auth/forgot-password", { method: "POST" });
+      const res = await fetch(`${apiBase}/api/dashboard/auth/forgot-password`, { method: "POST" });
       if (!res.ok) throw new Error();
       setStep("otp");
       toast({ title: "تم الإرسال", description: "تحقق من بريدك الإلكتروني للحصول على الرمز" });
@@ -84,8 +85,9 @@ export default function Login() {
 
   async function onReset(values: z.infer<typeof resetSchema>) {
     setResettingPw(true);
+    const apiBase = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "";
     try {
-      const res = await fetch("/api/dashboard/auth/reset-password", {
+      const res = await fetch(`${apiBase}/api/dashboard/auth/reset-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(values),
