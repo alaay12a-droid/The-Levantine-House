@@ -170,17 +170,6 @@ router.post("/dashboard/auth/reset-password", async (req, res) => {
 });
 
 export async function seedDashboardAdmin(): Promise<void> {
-  const [existing] = await db
-    .select({ id: dashboardUsersTable.id })
-    .from(dashboardUsersTable)
-    .where(eq(dashboardUsersTable.role, "admin"))
-    .limit(1);
-
-  if (existing) {
-    logger.info("Dashboard admin already exists — skipping seed");
-    return;
-  }
-
   const adminUsername = process.env["ADMIN_USERNAME"];
   const adminPassword = process.env["ADMIN_PASSWORD"];
   if (!adminUsername || !adminPassword) {
@@ -188,7 +177,23 @@ export async function seedDashboardAdmin(): Promise<void> {
     return;
   }
 
+  const [existing] = await db
+    .select({ id: dashboardUsersTable.id })
+    .from(dashboardUsersTable)
+    .where(eq(dashboardUsersTable.role, "admin"))
+    .limit(1);
+
   const passwordHash = await bcrypt.hash(adminPassword, 12);
+
+  if (existing) {
+    await db
+      .update(dashboardUsersTable)
+      .set({ username: adminUsername, passwordHash })
+      .where(eq(dashboardUsersTable.id, existing.id));
+    logger.info({ username: adminUsername }, "Dashboard admin credentials updated");
+    return;
+  }
+
   await db.insert(dashboardUsersTable).values({
     username: adminUsername,
     passwordHash,
