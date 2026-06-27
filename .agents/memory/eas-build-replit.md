@@ -4,31 +4,29 @@ description: How to submit EAS builds from within the Replit pnpm monorepo envir
 ---
 
 ## The rule
-Never run `eas build` directly from an artifact inside the pnpm workspace.
-Run it from a **standalone copy in `/tmp/`** that has no `pnpm-workspace.yaml` above it.
+Run `eas build` from **inside the artifact directory** using `EAS_PROJECT_ROOT=$(pwd)`.
+Do NOT use the /tmp/ standalone approach — npm/pnpm/yarn install all fail in Replit due to OOM.
 
-## Why the direct approach fails
-1. **Git mode blocked**: `git rev-parse` and archive creation require index-lock writes, which are blocked in the main Replit agent.
-2. **EAS_NO_VCS=1 + pnpm symlinks = 293 MB archive**: EAS follows workspace symlinks in `node_modules/` out to the global `.pnpm` store, inflating the archive from ~6 MB to ~293 MB. `.easignore` at workspace root does NOT help reliably.
-3. **EDQUOT (-122) error**: Home directory filesystem has a quota; compressing 293 MB hits it. `TMPDIR=/tmp` partially fixes this but compression still hangs.
+## Why EAS_PROJECT_ROOT works
+Without it, EAS uses `git rev-parse --show-toplevel` → workspace root → archives the entire pnpm store (269 MB).
+With `EAS_PROJECT_ROOT=$(pwd)`, EAS uses the artifact dir as root → .easignore excludes node_modules → ~52 MB archive.
 
-## How to apply — step-by-step
+## How to apply — one command
 ```bash
-# 1. Create a standalone copy (no node_modules)
-mkdir /tmp/rawabi-standalone
-# Copy ALL source folders — missing any causes Metro bundler to fail
-cp -r artifacts/rawabi-menu/{app,assets,components,constants,context,hooks,utils,config,scripts} /tmp/rawabi-standalone/
-cp artifacts/rawabi-menu/{app.json,eas.json,package.json,babel.config.js,metro.config.js,tsconfig.json,expo-env.d.ts} /tmp/rawabi-standalone/
-# IMPORTANT: google-services.json is not git-tracked but required by EAS
-cp artifacts/rawabi-menu/google-services.json /tmp/rawabi-standalone/
-echo "node_modules/" > /tmp/rawabi-standalone/.easignore
-
-# 2. Install dependencies (pnpm outside workspace = no symlinks to workspace root)
-cd /tmp/rawabi-standalone && pnpm install --no-frozen-lockfile
-
-# 3. Submit build (archive = ~5 MB, uploads in 2s)
-TMPDIR=/tmp EAS_NO_VCS=1 eas build --platform android --profile preview --non-interactive
+cd artifacts/rawabi-menu
+EAS_PROJECT_ROOT=$(pwd) TMPDIR=/tmp EAS_NO_VCS=1 EAS_BUILD_NO_EXPO_GO_WARNING=true \
+  eas build --platform android --profile production --non-interactive
 ```
+- Archive: ~51.6 MB (source + assets only)
+- Upload: ~6 seconds
+- Build runs on EAS servers (~20 min for Android)
+- Use `eas build:view <build-id>` to poll status
+
+## Why the /tmp/ standalone approach fails
+npm/pnpm/yarn install in /tmp/ all exit with code -1 (OOM, no output). Replit doesn't have enough memory for full package installation outside the workspace.
+
+## .easignore location
+Must be in `artifacts/rawabi-menu/.easignore` (already exists). Key entries: `node_modules/`, `dist/`, `server/`, `.expo/`.
 
 ## SDK 54 correct package versions (from expo install --check)
 | Package | Correct version |
