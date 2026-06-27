@@ -11,6 +11,10 @@ import Drivers from "@/pages/drivers";
 import MenuManagement from "@/pages/menu-management";
 import SalesReports from "@/pages/reports";
 import MandoobPortal from "@/pages/mandoob";
+import { setBaseUrl } from "@workspace/api-client-react";
+
+const apiBase = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "";
+if (apiBase) setBaseUrl(apiBase);
 
 const queryClient = new QueryClient();
 
