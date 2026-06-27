@@ -149,34 +149,36 @@ export default function ReportsPage() {
           )}
         </div>
 
-        {/* Print: all sections at once */}
-        <div className="hidden print:block space-y-10">
-          <TabOverview
-            today={revenue?.today}
-            live={liveData}
-            daily={revenue?.dailyBreakdown ?? []}
-            loading={false}
-          />
-          <div className="border-t pt-8">
-            <h2 className="text-lg font-bold mb-4">تقرير الأصناف</h2>
-            <TabProducts orders={orders} loading={false} />
-          </div>
-          <div className="border-t pt-8">
-            <h2 className="text-lg font-bold mb-4">تقرير العملاء</h2>
-            <TabCustomers orders={orders} loading={false} />
-          </div>
-          <div className="border-t pt-8">
-            <h2 className="text-lg font-bold mb-4">الحسابات والمطابقة</h2>
-            <TabAccounting
+        {/* Print: all sections at once — only rendered after data loads */}
+        {!loading && (
+          <div className="hidden print:block space-y-10">
+            <TabOverview
               today={revenue?.today}
-              week={revenue?.week}
-              month={revenue?.month}
-              year={revenue?.year}
-              orders={orders}
+              live={liveData}
+              daily={revenue?.dailyBreakdown ?? []}
               loading={false}
             />
+            <div className="border-t pt-8">
+              <h2 className="text-lg font-bold mb-4">تقرير الأصناف</h2>
+              <TabProducts orders={orders} loading={false} />
+            </div>
+            <div className="border-t pt-8">
+              <h2 className="text-lg font-bold mb-4">تقرير العملاء</h2>
+              <TabCustomers orders={orders} loading={false} />
+            </div>
+            <div className="border-t pt-8">
+              <h2 className="text-lg font-bold mb-4">الحسابات والمطابقة</h2>
+              <TabAccounting
+                today={revenue?.today}
+                week={revenue?.week}
+                month={revenue?.month}
+                year={revenue?.year}
+                orders={orders}
+                loading={false}
+              />
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* ── Print Footer ── */}
