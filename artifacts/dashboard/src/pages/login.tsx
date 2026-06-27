@@ -71,13 +71,18 @@ export default function Login() {
   async function handleForgotPassword() {
     setSendingOtp(true);
     const apiBase = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "";
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 30000);
     try {
-      const res = await fetch(`${apiBase}/api/dashboard/auth/forgot-password`, { method: "POST" });
+      const res = await fetch(`${apiBase}/api/dashboard/auth/forgot-password`, { method: "POST", signal: controller.signal });
+      clearTimeout(timer);
       if (!res.ok) throw new Error();
       setStep("otp");
       toast({ title: "تم الإرسال", description: "تحقق من بريدك الإلكتروني للحصول على الرمز" });
-    } catch {
-      toast({ title: "فشل الإرسال", description: "حاول مرة أخرى", variant: "destructive" });
+    } catch (err) {
+      clearTimeout(timer);
+      const msg = err instanceof Error && err.name === "AbortError" ? "انتهت مهلة الاتصال، حاول مرة أخرى" : "حاول مرة أخرى";
+      toast({ title: "فشل الإرسال", description: msg, variant: "destructive" });
     } finally {
       setSendingOtp(false);
     }
