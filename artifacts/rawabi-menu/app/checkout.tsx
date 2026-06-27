@@ -475,6 +475,16 @@ export default function CheckoutScreen() {
     if (!user) return;
     if (items.length === 0) return;
 
+    // ── الحد الأدنى للطلب ──────────────────────────────────────────────────────
+    if (totalPrice < 15) {
+      Alert.alert(
+        isEn ? "Minimum Order" : "الحد الأدنى للطلب",
+        isEn ? "Minimum order amount is 15 SAR." : "الحد الأدنى للطلب 15 ر.س.",
+        [{ text: isEn ? "OK" : "حسناً" }],
+      );
+      return;
+    }
+
     // ── تحقق من صحة رقم الجوال قبل المتابعة ─────────────────────────────────
     if (!isPhoneValid(user.phone)) {
       setPhoneInput("");
