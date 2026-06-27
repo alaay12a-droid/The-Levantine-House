@@ -2,7 +2,7 @@
 - [Global sound settings architecture](global-sounds.md) — sounds pushed to /settings/sounds server-side; AppConfigContext loads on startup and writes to AsyncStorage so useAppSound picks them up without any hook changes
 - [Production deploy flow](production-deploy-flow.md) — user must click Republish in Replit UI then Approve DB migrations; suggest_deploy only shows the button, cannot trigger programmatically
 - [Dashboard auth architecture](dashboard-auth.md) — JWT httpOnly cookie at /api/dashboard/auth/*; admin seeded on server start via env vars; dashboard_users table created via executeSql (not drizzle push, which is interactive)
-- [EAS build in Replit agent](eas-build-replit.md) — git ops blocked; EAS_NO_VCS=1 alone causes 293MB upload (pnpm symlinks followed); run from /tmp standalone copy instead
+- [EAS build in Replit agent](eas-build-replit.md) — use EAS_PROJECT_ROOT=$(pwd) from artifact dir; /tmp standalone fails (OOM on npm install); EAS_NO_VCS=1 alone causes 269MB (git root archived)
 - [reanimated v4 EAS build fixes](reanimated-v4-eas.md) — SDK54 requires worklets package + correct peer versions; yarn doesn't auto-install peers
 - [OpenAPI TS2308 collision rule](openapi-ts2308.md) — body component names must be entity-shaped (NoteInput not CreateNoteBody) to avoid Orval collision; queryKey required in all query options or TS fails
 - [Mobile artifact deployment fix](deploy-healthcheck.md) — remove [services.production] from mobile artifact.toml or Replit deployment crashes with ERR_PNPM_RECURSIVE_RUN_FIRST_

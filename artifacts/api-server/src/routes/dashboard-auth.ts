@@ -7,7 +7,10 @@ import { eq } from "drizzle-orm";
 import { logger } from "../lib/logger";
 import { sendPinOtpEmail } from "../lib/sendEmail";
 
-const otpStore = new Map<string, { code: string; expiry: number }>();
+interface OtpEntry { code: string; expiry: number; attempts: number; lastRequest: number; }
+const otpStore = new Map<string, OtpEntry>();
+const OTP_RATE_LIMIT_MS = 60_000;
+const OTP_MAX_ATTEMPTS = 5;
 
 function generateOtp(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -103,8 +106,14 @@ router.post("/dashboard/auth/logout", (req, res) => {
 });
 
 router.post("/dashboard/auth/forgot-password", async (req, res) => {
+  const key = "admin-reset";
+  const existing = otpStore.get(key);
+  if (existing && Date.now() - existing.lastRequest < OTP_RATE_LIMIT_MS) {
+    res.status(429).json({ error: "انتظر دقيقة قبل طلب رمز جديد" });
+    return;
+  }
   const code = generateOtp();
-  otpStore.set("admin-reset", { code, expiry: Date.now() + 10 * 60 * 1000 });
+  otpStore.set(key, { code, expiry: Date.now() + 10 * 60 * 1000, attempts: 0, lastRequest: Date.now() });
   try {
     await sendPinOtpEmail(code);
     res.json({ ok: true });
@@ -122,8 +131,18 @@ router.post("/dashboard/auth/reset-password", async (req, res) => {
   }
 
   const entry = otpStore.get("admin-reset");
-  if (!entry || entry.code !== code || Date.now() > entry.expiry) {
+  if (!entry || Date.now() > entry.expiry) {
     res.status(400).json({ error: "الرمز غير صحيح أو منتهي الصلاحية" });
+    return;
+  }
+  if (entry.attempts >= OTP_MAX_ATTEMPTS) {
+    otpStore.delete("admin-reset");
+    res.status(400).json({ error: "تم تجاوز عدد المحاولات، اطلب رمزاً جديداً" });
+    return;
+  }
+  if (entry.code !== code) {
+    entry.attempts++;
+    res.status(400).json({ error: "الرمز غير صحيح" });
     return;
   }
 
@@ -151,10 +170,6 @@ router.post("/dashboard/auth/reset-password", async (req, res) => {
 });
 
 export async function seedDashboardAdmin(): Promise<void> {
-  const adminUsername = process.env["ADMIN_USERNAME"] ?? "rawabi-almandi";
-  const adminPassword = process.env["ADMIN_PASSWORD"] ?? "Aa@123456";
-  const passwordHash = await bcrypt.hash(adminPassword, 12);
-
   const [existing] = await db
     .select({ id: dashboardUsersTable.id })
     .from(dashboardUsersTable)
@@ -162,19 +177,24 @@ export async function seedDashboardAdmin(): Promise<void> {
     .limit(1);
 
   if (existing) {
-    await db
-      .update(dashboardUsersTable)
-      .set({ username: adminUsername, passwordHash })
-      .where(eq(dashboardUsersTable.id, existing.id));
-    logger.info({ username: adminUsername }, "Dashboard admin updated");
-  } else {
-    await db.insert(dashboardUsersTable).values({
-      username: adminUsername,
-      passwordHash,
-      role: "admin",
-    });
-    logger.info({ username: adminUsername }, "Dashboard admin seeded");
+    logger.info("Dashboard admin already exists — skipping seed");
+    return;
   }
+
+  const adminUsername = process.env["ADMIN_USERNAME"];
+  const adminPassword = process.env["ADMIN_PASSWORD"];
+  if (!adminUsername || !adminPassword) {
+    logger.warn("ADMIN_USERNAME / ADMIN_PASSWORD not set — skipping admin seed");
+    return;
+  }
+
+  const passwordHash = await bcrypt.hash(adminPassword, 12);
+  await db.insert(dashboardUsersTable).values({
+    username: adminUsername,
+    passwordHash,
+    role: "admin",
+  });
+  logger.info({ username: adminUsername }, "Dashboard admin seeded");
 }
 
 export default router;
