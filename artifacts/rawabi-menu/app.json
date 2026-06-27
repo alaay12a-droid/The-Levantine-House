@@ -43,6 +43,7 @@
         "android.permission.POST_NOTIFICATIONS"
       ]
     },
+    "platforms": ["android", "ios"],
     "web": {
       "favicon": "./assets/images/icon.png"
     },
