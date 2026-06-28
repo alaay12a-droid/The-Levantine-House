@@ -21,6 +21,7 @@ import { useAppTexts } from "@/hooks/useAppTexts";
 import { useMenu } from "@/hooks/useMenu";
 import { useBanners } from "@/hooks/useBanners";
 import { MenuItemCard } from "@/components/MenuItemCard";
+import { ProductDetailSheet } from "@/components/ProductDetailSheet";
 import { BannerCarousel } from "@/components/BannerCarousel";
 import { CartBar } from "@/components/CartBar";
 import { useCartState } from "@/context/CartContext";
@@ -48,7 +49,7 @@ type ListEntry =
 
 // ── HomeItemRow: zero context subscriptions — quantity passed as prop ─────
 const HomeItemRow = React.memo(function HomeItemRow({
-  item, quantity, isEn, whatsapp, isFavoriteFn, onToggleFav,
+  item, quantity, isEn, whatsapp, isFavoriteFn, onToggleFav, onSelect,
 }: {
   item: RawItem;
   quantity: number;
@@ -56,14 +57,17 @@ const HomeItemRow = React.memo(function HomeItemRow({
   whatsapp: string;
   isFavoriteFn: (id: string) => boolean;
   onToggleFav: (id: string) => void;
+  onSelect: (item: RawItem) => void;
 }) {
   const isFav = isFavoriteFn(item.id);
   const handleToggle = useCallback(() => onToggleFav(item.id), [onToggleFav, item.id]);
+  const handlePress = useCallback(() => onSelect(item), [onSelect, item]);
   return (
     <View style={{ paddingHorizontal: 16, paddingTop: 6 }}>
       <MenuItemCard
         item={item}
         quantity={quantity}
+        onPress={handlePress}
         isEn={isEn}
         isFavorite={isFav}
         onToggleFavorite={handleToggle}
@@ -99,6 +103,9 @@ export default function HomeScreen() {
 
   const [orderMode, setOrderMode] = useState<OrderMode>("delivery");
   const [search, setSearch] = useState("");
+  const [selectedItem, setSelectedItem] = useState<RawItem | null>(null);
+  const handleSelectItem = useCallback((item: RawItem) => setSelectedItem(item), []);
+  const handleCloseDetail = useCallback(() => setSelectedItem(null), []);
   const searchRef = useRef<TextInput>(null);
 
   useFocusEffect(useCallback(() => { refreshMenu(); }, [refreshMenu]));
@@ -200,9 +207,10 @@ export default function HomeScreen() {
         whatsapp={info.whatsapp}
         isFavoriteFn={isFavoriteFn}
         onToggleFav={toggleFavorite}
+        onSelect={handleSelectItem}
       />
     );
-  }, [colors, isEn, info.whatsapp, isFavoriteFn, toggleFavorite, qtyMapRef]);
+  }, [colors, isEn, info.whatsapp, isFavoriteFn, toggleFavorite, qtyMapRef, handleSelectItem]);
 
   const keyExtractor = useCallback((item: ListEntry, i: number) => {
     if (item._t === "favHeader") return "fav-header";
@@ -352,6 +360,14 @@ export default function HomeScreen() {
       )}
 
       <CartBar />
+
+      {selectedItem && (
+        <ProductDetailSheet
+          item={selectedItem}
+          visible={!!selectedItem}
+          onClose={handleCloseDetail}
+        />
+      )}
     </View>
   );
 }

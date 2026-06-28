@@ -738,6 +738,7 @@ export default function MenuScreen() {
                   key={item.id}
                   item={item}
                   quantity={qtyMap.get(item.id) ?? 0}
+                  onPress={() => handleSelectItem(item)}
                   isEn={isEn}
                   isFavorite={isFavoriteFn(item.id)}
                   onToggleFavorite={() => toggleFavorite(item.id)}
@@ -799,6 +800,7 @@ export default function MenuScreen() {
               key={item.id}
               item={item}
               quantity={qtyMap.get(item.id) ?? 0}
+              onPress={() => handleSelectItem(item)}
               isEn={isEn}
               isFavorite={isFavoriteFn(item.id)}
               onToggleFavorite={() => toggleFavorite(item.id)}
