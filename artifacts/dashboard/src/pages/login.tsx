@@ -191,6 +191,8 @@ export default function Login() {
                         <Input
                           placeholder="000000"
                           maxLength={6}
+                          inputMode="numeric"
+                          type="text"
                           className="h-12 text-center text-xl tracking-widest"
                           {...field}
                         />
