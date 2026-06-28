@@ -141,7 +141,15 @@ export default function Login() {
                     <FormItem>
                       <FormLabel>اسم المستخدم</FormLabel>
                       <FormControl>
-                        <Input placeholder="أدخل اسم المستخدم" {...field} className="h-12" />
+                        <Input
+                          placeholder="أدخل اسم المستخدم"
+                          autoCapitalize="none"
+                          autoCorrect="off"
+                          autoComplete="username"
+                          spellCheck={false}
+                          {...field}
+                          className="h-12"
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
