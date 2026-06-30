@@ -33,11 +33,15 @@ export function aggregateItems(orders: Order[]): ItemStat[] {
   for (const order of orders) {
     if (order.status === "cancelled") continue;
     for (const item of order.items) {
-      const cur = map.get(item.id) ?? { id: item.id, name: item.name, qty: 0, unitPrice: item.price, total: 0 };
-      cur.qty    += item.quantity;
-      cur.total  += item.price * item.quantity;
+      const cur = map.get(item.id) ?? { id: item.id, name: item.name, qty: 0, unitPrice: 0, total: 0 };
+      cur.qty   += item.quantity;
+      cur.total += item.price * item.quantity;
       map.set(item.id, cur);
     }
+  }
+  // Derive unit price as average (total ÷ qty) so unitPrice × qty always equals total
+  for (const stat of map.values()) {
+    stat.unitPrice = stat.qty > 0 ? +(stat.total / stat.qty).toFixed(2) : 0;
   }
   return Array.from(map.values()).sort((a, b) => b.qty - a.qty);
 }
