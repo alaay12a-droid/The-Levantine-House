@@ -201,8 +201,18 @@ export default function Login() {
                           maxLength={6}
                           inputMode="numeric"
                           type="text"
-                          className="h-12 text-center text-xl tracking-widest"
-                          {...field}
+                          autoComplete="one-time-code"
+                          dir="ltr"
+                          pattern="[0-9]*"
+                          className="h-12 text-center text-xl tracking-widest ltr"
+                          onChange={(e) => {
+                            const val = e.target.value.replace(/\D/g, "").slice(0, 6);
+                            field.onChange(val);
+                          }}
+                          value={field.value}
+                          onBlur={field.onBlur}
+                          name={field.name}
+                          ref={field.ref}
                         />
                       </FormControl>
                       <FormMessage />
