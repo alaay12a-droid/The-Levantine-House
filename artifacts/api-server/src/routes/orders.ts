@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { db, ordersTable, menuItemsTable, appSettingsTable, orderDriverAssignmentsTable } from "@workspace/db";
-import { eq, desc, gte, lt, count, and } from "drizzle-orm";
+import { db, ordersTable, menuItemsTable, appSettingsTable, orderDriverAssignmentsTable, deliveryDriversTable } from "@workspace/db";
+import { eq, desc, gte, lt, count, and, ne } from "drizzle-orm";
 import { sendPushToAll } from "../lib/sendPushNotification.js";
 import { sendSms } from "../lib/sendSms.js";
 import { z } from "zod";
@@ -139,6 +139,25 @@ router.post("/orders", async (req, res) => {
     sound: "default",
     data: { orderId: order.id },
   });
+});
+
+// ── GET /orders/assignments  (batch — all active assignments) ─────────────────
+router.get("/orders/assignments", async (_req, res) => {
+  const rows = await db
+    .select({ assignment: orderDriverAssignmentsTable, driver: deliveryDriversTable })
+    .from(orderDriverAssignmentsTable)
+    .leftJoin(deliveryDriversTable, eq(orderDriverAssignmentsTable.driverId, deliveryDriversTable.id))
+    .where(ne(orderDriverAssignmentsTable.status, "delivered"));
+
+  const result: Record<number, { driverId: number; driverName: string; status: string }> = {};
+  for (const r of rows) {
+    result[r.assignment.orderId] = {
+      driverId: r.assignment.driverId,
+      driverName: r.driver?.name ?? "مندوب",
+      status: r.assignment.status,
+    };
+  }
+  res.json(result);
 });
 
 router.get("/orders/:id", async (req, res) => {

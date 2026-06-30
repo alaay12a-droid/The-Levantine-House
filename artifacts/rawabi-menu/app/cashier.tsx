@@ -539,26 +539,10 @@ export default function CashierScreen() {
 
       setOrders(data);
 
-      // Load assignments for all delivery orders (have an address)
-      const deliveryOrders = data.filter(
-        (o) => !!o.customerAddress || o.notes?.includes("توصيل")
-      );
-      if (deliveryOrders.length > 0) {
-        Promise.allSettled(
-          deliveryOrders.map((o) =>
-            apiGet<{ assignment: { driverId: number; status: string }; driver: { name: string } } | null>(
-              `/orders/${o.id}/assignment`
-            ).then((row) => {
-              if (row) {
-                setAssignments((prev) => ({
-                  ...prev,
-                  [o.id]: { driverId: row.assignment.driverId, driverName: row.driver?.name ?? "مندوب", status: row.assignment.status },
-                }));
-              }
-            })
-          )
-        );
-      }
+      // Load all active assignments in a single batch request
+      apiGet<Record<number, { driverId: number; driverName: string; status: string }>>("/orders/assignments")
+        .then((batch) => { setAssignments(batch); })
+        .catch(() => { /* silent */ });
     } catch {
       /* silent */
     } finally {
