@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { useLocation } from "wouter";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
@@ -33,93 +33,42 @@ const resetSchema = z.object({
 type Step = "login" | "otp";
 
 function OtpInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const digits = (value + "      ").slice(0, 6).split("");
-  const refs = [
-    useRef<HTMLInputElement>(null),
-    useRef<HTMLInputElement>(null),
-    useRef<HTMLInputElement>(null),
-    useRef<HTMLInputElement>(null),
-    useRef<HTMLInputElement>(null),
-    useRef<HTMLInputElement>(null),
-  ];
-
-  function focus(i: number) {
-    refs[i]?.current?.focus();
-    refs[i]?.current?.select();
-  }
-
-  function handleChange(i: number, raw: string) {
-    const digit = raw.replace(/\D/g, "").slice(-1);
-    const arr = (value + "      ").slice(0, 6).split("");
-    arr[i] = digit || " ";
-    const next = arr.join("").trimEnd();
-    onChange(next.replace(/ /g, ""));
-    if (digit && i < 5) focus(i + 1);
-  }
-
-  function handleKeyDown(i: number, e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === "Backspace") {
-      if (digits[i].trim() === "" && i > 0) {
-        const arr = (value + "      ").slice(0, 6).split("");
-        arr[i - 1] = " ";
-        onChange(arr.join("").trimEnd().replace(/ /g, ""));
-        focus(i - 1);
-      } else {
-        const arr = (value + "      ").slice(0, 6).split("");
-        arr[i] = " ";
-        onChange(arr.join("").trimEnd().replace(/ /g, ""));
-      }
-    } else if (e.key === "ArrowLeft" && i > 0) {
-      focus(i - 1);
-    } else if (e.key === "ArrowRight" && i < 5) {
-      focus(i + 1);
-    }
-  }
-
-  function handlePaste(e: React.ClipboardEvent) {
-    e.preventDefault();
-    const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
-    onChange(pasted);
-    const next = Math.min(pasted.length, 5);
-    focus(next);
-  }
-
   return (
-    <div dir="ltr" className="flex gap-2 justify-center" onPaste={handlePaste}>
-      {[0, 1, 2, 3, 4, 5].map((i) => (
-        <input
-          key={i}
-          ref={refs[i]}
-          type="tel"
-          inputMode="numeric"
-          maxLength={1}
-          value={digits[i].trim()}
-          onChange={(e) => handleChange(i, e.target.value)}
-          onKeyDown={(e) => handleKeyDown(i, e)}
-          onClick={() => focus(i)}
-          autoComplete={i === 0 ? "one-time-code" : "off"}
-          style={{
-            width: 44,
-            height: 52,
-            textAlign: "center",
-            fontSize: 22,
-            fontWeight: 700,
-            border: "1.5px solid #d1d5db",
-            borderRadius: 8,
-            outline: "none",
-            background: "#fff",
-            caretColor: "transparent",
-          }}
-          onFocus={(e) => {
-            e.target.style.borderColor = "#C8171A";
-            e.target.style.boxShadow = "0 0 0 2px rgba(200,23,26,0.15)";
-          }}
-          onBlur={(e) => {
-            e.target.style.borderColor = "#d1d5db";
-            e.target.style.boxShadow = "none";
-          }}
-        />
-      ))}
+    <div dir="ltr">
+      <input
+        type="tel"
+        inputMode="numeric"
+        autoComplete="one-time-code"
+        maxLength={6}
+        value={value}
+        onChange={(e) => {
+          const digits = e.target.value.replace(/\D/g, "").slice(0, 6);
+          onChange(digits);
+        }}
+        placeholder="000000"
+        style={{
+          display: "block",
+          width: "100%",
+          height: 60,
+          textAlign: "center",
+          fontSize: 28,
+          fontWeight: 700,
+          letterSpacing: 12,
+          border: "2px solid #d1d5db",
+          borderRadius: 12,
+          outline: "none",
+          background: "#fff",
+          fontFamily: "monospace",
+        }}
+        onFocus={(e) => {
+          e.target.style.borderColor = "#C8171A";
+          e.target.style.boxShadow = "0 0 0 3px rgba(200,23,26,0.15)";
+        }}
+        onBlur={(e) => {
+          e.target.style.borderColor = "#d1d5db";
+          e.target.style.boxShadow = "none";
+        }}
+      />
     </div>
   );
 }
