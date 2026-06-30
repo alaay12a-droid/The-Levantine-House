@@ -177,8 +177,6 @@ export async function seedDashboardAdmin(): Promise<void> {
     return;
   }
 
-  const passwordHash = await bcrypt.hash(adminPassword, 12);
-
   const [existing] = await db
     .select({ id: dashboardUsersTable.id })
     .from(dashboardUsersTable)
@@ -186,19 +184,18 @@ export async function seedDashboardAdmin(): Promise<void> {
     .limit(1);
 
   if (existing) {
-    await db
-      .update(dashboardUsersTable)
-      .set({ username: adminUsername, passwordHash })
-      .where(eq(dashboardUsersTable.id, existing.id));
-    logger.info({ username: adminUsername }, "Dashboard admin credentials updated");
-  } else {
-    await db.insert(dashboardUsersTable).values({
-      username: adminUsername,
-      passwordHash,
-      role: "admin",
-    });
-    logger.info({ username: adminUsername }, "Dashboard admin seeded");
+    // Admin already exists — do NOT overwrite password so manual resets are preserved
+    logger.info({ username: adminUsername }, "Dashboard admin already exists, skipping seed");
+    return;
   }
+
+  const passwordHash = await bcrypt.hash(adminPassword, 12);
+  await db.insert(dashboardUsersTable).values({
+    username: adminUsername,
+    passwordHash,
+    role: "admin",
+  });
+  logger.info({ username: adminUsername }, "Dashboard admin seeded");
 }
 
 export default router;
