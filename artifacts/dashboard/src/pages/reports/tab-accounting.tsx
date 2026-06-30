@@ -270,7 +270,7 @@ export function TabAccounting({ today, week, month, year, orders, loading }: Pro
         const cat = categoryMap.get(item.id) ?? "أخرى";
         const cur = map.get(cat) ?? { qty: 0, total: 0 };
         cur.qty   += item.quantity;
-        cur.total += (item.price ?? 0) * item.quantity / 100;
+        cur.total += (item.price ?? 0) * item.quantity;
         map.set(cat, cur);
       });
     });
@@ -354,7 +354,7 @@ export function TabAccounting({ today, week, month, year, orders, loading }: Pro
         "الترتيب": idx + 1,
         "اسم الصنف": item.name,
         "الكمية المباعة": item.qty,
-        "سعر الوحدة (ر.س)": (item.unitPrice / 100).toFixed(2),
+        "سعر الوحدة (ر.س)": item.unitPrice.toFixed(2),
         "إجمالي المبيعات (ر.س)": item.total.toFixed(2),
       })),
       `أصناف_${range.label}.csv`,
@@ -386,7 +386,7 @@ export function TabAccounting({ today, week, month, year, orders, loading }: Pro
         <td>${i + 1}</td>
         <td>${item.name}</td>
         <td>${item.qty}</td>
-        <td>${(item.unitPrice / 100).toFixed(2)} ر.س</td>
+        <td>${item.unitPrice.toFixed(2)} ر.س</td>
         <td>${item.total.toFixed(2)} ر.س</td>
       </tr>`).join("");
     const catRows = categorySales.map((c, i) => `
