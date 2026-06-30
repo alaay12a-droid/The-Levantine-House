@@ -1,15 +1,6 @@
 import { db, pushTokensTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { logger } from "./logger.js";
-import {
-  initializeApp,
-  getApps,
-  getApp,
-  cert,
-  type App,
-  type ServiceAccount,
-} from "firebase-admin/app";
-import { getMessaging } from "firebase-admin/messaging";
 
 interface PushMessage {
   title: string;
@@ -19,65 +10,88 @@ interface PushMessage {
   channelId?: string;
 }
 
-function getFirebaseApp(): App {
-  if (getApps().length > 0) return getApp();
-  const raw = process.env["FIREBASE_SERVICE_ACCOUNT"];
-  if (!raw) throw new Error("FIREBASE_SERVICE_ACCOUNT not configured");
-  const serviceAccount = JSON.parse(raw) as ServiceAccount;
-  return initializeApp({ credential: cert(serviceAccount) });
+interface ExpoTicket {
+  status: "ok" | "error";
+  id?: string;
+  message?: string;
+  details?: { error?: string };
 }
 
-async function sendViaFCM(tokens: string[], msg: PushMessage): Promise<string[]> {
-  if (tokens.length === 0) return [];
-  const messaging = getMessaging(getFirebaseApp());
+interface ExpoResponse {
+  data: ExpoTicket[];
+}
+
+const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
+const CHUNK_SIZE = 100;
+
+async function sendViaExpo(
+  expoTokens: string[],
+  msg: PushMessage,
+): Promise<string[]> {
+  if (expoTokens.length === 0) return [];
   const invalidTokens: string[] = [];
 
-  for (let i = 0; i < tokens.length; i += 500) {
-    const chunk = tokens.slice(i, i + 500);
+  for (let i = 0; i < expoTokens.length; i += CHUNK_SIZE) {
+    const chunk = expoTokens.slice(i, i + CHUNK_SIZE);
+    const messages = chunk.map((to) => ({
+      to,
+      title: msg.title,
+      body: msg.body,
+      sound: msg.sound ?? "default",
+      channelId: msg.channelId ?? "order-status",
+      data: msg.data ?? {},
+      priority: "high",
+    }));
+
     try {
-      const response = await messaging.sendEachForMulticast({
-        tokens: chunk,
-        notification: { title: msg.title, body: msg.body },
-        android: {
-          priority: "high",
-          notification: {
-            channelId: msg.channelId ?? "orders",
-            sound: msg.sound ?? "default",
-            defaultVibrateTimings: true,
-          },
+      const resp = await fetch(EXPO_PUSH_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
         },
-        data: msg.data ?? {},
+        body: JSON.stringify(messages),
       });
-      response.responses.forEach((r, idx) => {
-        if (!r.success) {
-          const code = r.error?.code ?? "";
-          if (
-            code === "messaging/invalid-registration-token" ||
-            code === "messaging/registration-token-not-registered"
-          ) {
+
+      if (!resp.ok) {
+        logger.error({ status: resp.status }, "Expo Push API HTTP error");
+        continue;
+      }
+
+      const json = (await resp.json()) as ExpoResponse;
+      json.data.forEach((ticket, idx) => {
+        if (ticket.status === "error") {
+          const errCode = ticket.details?.error ?? "";
+          logger.warn(
+            { errCode, token: chunk[idx] },
+            "Expo push failed for token",
+          );
+          if (errCode === "DeviceNotRegistered") {
             invalidTokens.push(chunk[idx]!);
           }
-          logger.warn({ code, token: chunk[idx] }, "FCM send failed for token");
         }
       });
-      logger.info({ success: response.successCount, fail: response.failureCount }, "FCM multicast sent");
+
+      const ok = json.data.filter((t) => t.status === "ok").length;
+      const fail = json.data.filter((t) => t.status === "error").length;
+      logger.info({ ok, fail, chunk: chunk.length }, "Expo push chunk sent");
     } catch (err) {
-      logger.error({ err }, "FCM multicast error");
+      logger.error({ err }, "Expo push fetch error");
     }
   }
+
   return invalidTokens;
 }
 
-async function removeStaleTokens(fcmTokens: string[]): Promise<void> {
-  for (const fcmToken of fcmTokens) {
-    try {
-      await db
-        .update(pushTokensTable)
-        .set({ fcmToken: null })
-        .where(eq(pushTokensTable.fcmToken, fcmToken));
-    } catch (err) {
-      logger.warn({ err, fcmToken }, "Failed to remove stale FCM token");
-    }
+async function removeStaleExpoTokens(expoTokens: string[]): Promise<void> {
+  if (expoTokens.length === 0) return;
+  try {
+    await db
+      .delete(pushTokensTable)
+      .where(inArray(pushTokensTable.token, expoTokens));
+    logger.info({ count: expoTokens.length }, "Removed stale Expo tokens");
+  } catch (err) {
+    logger.warn({ err }, "Failed to remove stale Expo tokens");
   }
 }
 
@@ -87,34 +101,40 @@ export async function sendPushToAll(msg: PushMessage): Promise<void> {
       .select()
       .from(pushTokensTable)
       .where(eq(pushTokensTable.role, "customer"));
-    if (rows.length === 0) return;
-    const fcmTokens = rows.map((r) => r.fcmToken).filter((t): t is string => !!t);
-    if (fcmTokens.length === 0) {
-      logger.warn("No FCM tokens registered — broadcast skipped");
+
+    if (rows.length === 0) {
+      logger.warn("No customer push tokens registered — broadcast skipped");
       return;
     }
-    const stale = await sendViaFCM(fcmTokens, msg);
-    await removeStaleTokens(stale);
+
+    const expoTokens = rows
+      .map((r) => r.token)
+      .filter((t): t is string => !!t && t.startsWith("ExponentPushToken["));
+
+    if (expoTokens.length === 0) {
+      logger.warn("No valid Expo tokens found — broadcast skipped");
+      return;
+    }
+
+    logger.info({ count: expoTokens.length }, "Sending broadcast via Expo Push");
+    const stale = await sendViaExpo(expoTokens, msg);
+    await removeStaleExpoTokens(stale);
   } catch (err) {
     logger.error({ err }, "Error in sendPushToAll");
   }
 }
 
-export async function sendPushToToken(expoToken: string, msg: PushMessage): Promise<void> {
-  if (!expoToken) return;
+export async function sendPushToToken(
+  expoToken: string,
+  msg: PushMessage,
+): Promise<void> {
+  if (!expoToken || !expoToken.startsWith("ExponentPushToken[")) {
+    logger.warn({ expoToken }, "Invalid Expo token format — skipping");
+    return;
+  }
   try {
-    const [row] = await db
-      .select()
-      .from(pushTokensTable)
-      .where(eq(pushTokensTable.token, expoToken))
-      .limit(1);
-    const fcmToken = row?.fcmToken;
-    if (!fcmToken) {
-      logger.warn({ expoToken }, "No FCM token for device — skipping");
-      return;
-    }
-    const stale = await sendViaFCM([fcmToken], msg);
-    await removeStaleTokens(stale);
+    const stale = await sendViaExpo([expoToken], msg);
+    await removeStaleExpoTokens(stale);
   } catch (err) {
     logger.error({ err }, "Error in sendPushToToken");
   }
