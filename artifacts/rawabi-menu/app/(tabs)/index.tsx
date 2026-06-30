@@ -389,18 +389,7 @@ export default function MenuScreen() {
     scrollToSection(sectionIdx, catId);
     setTimeout(() => {
       isScrollingProgrammatically.current = false;
-      const landedY    = lastY.value;
-      const freshTargetY = sectionYs.current[catId];
-      if (freshTargetY !== undefined && Math.abs(landedY - freshTargetY) > 80) {
-        isScrollingProgrammatically.current = true;
-        (menuFlashListRef.current as any)?.scrollToOffset({ offset: Math.max(0, freshTargetY), animated: true });
-        setTimeout(() => {
-          isScrollingProgrammatically.current = false;
-          updateActiveCategoryFromScroll(lastY.value, true);
-        }, 500);
-      } else {
-        updateActiveCategoryFromScroll(landedY, true);
-      }
+      updateActiveCategoryFromScroll(lastY.value, true);
     }, 750);
   }, [categories, sections, scrollToSection, updateActiveCategoryFromScroll, lastY]);
 
