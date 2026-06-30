@@ -32,47 +32,6 @@ const resetSchema = z.object({
 
 type Step = "login" | "otp";
 
-function OtpInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  return (
-    <div dir="ltr">
-      <input
-        type="tel"
-        inputMode="numeric"
-        autoComplete="one-time-code"
-        maxLength={6}
-        value={value}
-        onChange={(e) => {
-          const digits = e.target.value.replace(/\D/g, "").slice(0, 6);
-          onChange(digits);
-        }}
-        placeholder="000000"
-        style={{
-          display: "block",
-          width: "100%",
-          height: 60,
-          textAlign: "center",
-          fontSize: 28,
-          fontWeight: 700,
-          letterSpacing: 12,
-          border: "2px solid #d1d5db",
-          borderRadius: 12,
-          outline: "none",
-          background: "#fff",
-          fontFamily: "monospace",
-        }}
-        onFocus={(e) => {
-          e.target.style.borderColor = "#C8171A";
-          e.target.style.boxShadow = "0 0 0 3px rgba(200,23,26,0.15)";
-        }}
-        onBlur={(e) => {
-          e.target.style.borderColor = "#d1d5db";
-          e.target.style.boxShadow = "none";
-        }}
-      />
-    </div>
-  );
-}
-
 export default function Login() {
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
@@ -80,6 +39,10 @@ export default function Login() {
   const [step, setStep] = useState<Step>("login");
   const [sendingOtp, setSendingOtp] = useState(false);
   const [resettingPw, setResettingPw] = useState(false);
+
+  // Local state for OTP code — completely independent from FormControl/Slot
+  const [codeInput, setCodeInput] = useState("");
+  const [codeError, setCodeError] = useState("");
 
   const { mutate: login, isPending } = useDashboardLogin();
 
@@ -115,33 +78,55 @@ export default function Login() {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 30000);
     try {
-      const res = await fetch(`${apiBase}/api/dashboard/auth/forgot-password`, { method: "POST", signal: controller.signal });
+      const res = await fetch(`${apiBase}/api/dashboard/auth/forgot-password`, {
+        method: "POST",
+        signal: controller.signal,
+      });
       clearTimeout(timer);
       if (!res.ok) throw new Error();
       setStep("otp");
+      setCodeInput("");
+      setCodeError("");
       toast({ title: "تم الإرسال", description: "تحقق من بريدك الإلكتروني للحصول على الرمز" });
     } catch (err) {
       clearTimeout(timer);
-      const msg = err instanceof Error && err.name === "AbortError" ? "انتهت مهلة الاتصال، حاول مرة أخرى" : "حاول مرة أخرى";
+      const msg =
+        err instanceof Error && err.name === "AbortError"
+          ? "انتهت مهلة الاتصال، حاول مرة أخرى"
+          : "حاول مرة أخرى";
       toast({ title: "فشل الإرسال", description: msg, variant: "destructive" });
     } finally {
       setSendingOtp(false);
     }
   }
 
-  async function onReset(values: z.infer<typeof resetSchema>) {
+  async function handleReset() {
+    // Validate locally
+    if (codeInput.length !== 6) {
+      setCodeError("الرمز 6 أرقام");
+      return;
+    }
+    setCodeError("");
+
+    const newPassword = resetForm.getValues("newPassword");
+    if (newPassword.length < 6) {
+      resetForm.setError("newPassword", { message: "كلمة المرور 6 أحرف على الأقل" });
+      return;
+    }
+
     setResettingPw(true);
     const apiBase = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "";
     try {
       const res = await fetch(`${apiBase}/api/dashboard/auth/reset-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(values),
+        body: JSON.stringify({ code: codeInput, newPassword }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "خطأ");
       toast({ title: "تم تغيير كلمة المرور بنجاح" });
       setStep("login");
+      setCodeInput("");
       resetForm.reset();
     } catch (e: unknown) {
       toast({
@@ -203,14 +188,27 @@ export default function Login() {
                     <FormItem>
                       <FormLabel>كلمة المرور</FormLabel>
                       <FormControl>
-                        <Input type="password" placeholder="أدخل كلمة المرور" {...field} className="h-12" />
+                        <Input
+                          type="password"
+                          placeholder="أدخل كلمة المرور"
+                          {...field}
+                          className="h-12"
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-                <Button type="submit" className="w-full h-12 text-lg font-bold" disabled={isPending}>
-                  {isPending ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : "تسجيل الدخول"}
+                <Button
+                  type="submit"
+                  className="w-full h-12 text-lg font-bold"
+                  disabled={isPending}
+                >
+                  {isPending ? (
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  ) : (
+                    "تسجيل الدخول"
+                  )}
                 </Button>
                 <div className="text-center">
                   <button
@@ -225,52 +223,114 @@ export default function Login() {
               </form>
             </Form>
           ) : (
-            <Form {...resetForm}>
-              <form onSubmit={resetForm.handleSubmit(onReset)} className="space-y-6">
-                <p className="text-sm text-muted-foreground text-center">
-                  أُرسل رمز تحقق من 6 أرقام إلى بريدك الإلكتروني — صالح لمدة 10 دقائق
-                </p>
-                <FormField
-                  control={resetForm.control}
-                  name="code"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-right block">رمز التحقق</FormLabel>
-                      <FormControl>
-                        <OtpInput value={field.value} onChange={field.onChange} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+            <div className="space-y-6">
+              <p className="text-sm text-muted-foreground text-center">
+                أُرسل رمز تحقق من 6 أرقام إلى بريدك الإلكتروني — صالح لمدة 10 دقائق
+              </p>
+
+              {/* OTP field — plain native input, no FormControl/Slot wrapper */}
+              <div className="space-y-2">
+                <label
+                  htmlFor="otp-code"
+                  className="text-sm font-medium text-right block"
+                >
+                  رمز التحقق
+                </label>
+                <input
+                  id="otp-code"
+                  type="tel"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={6}
+                  placeholder="000000"
+                  value={codeInput}
+                  onChange={(e) => {
+                    const v = e.target.value.replace(/\D/g, "").slice(0, 6);
+                    setCodeInput(v);
+                    if (codeError) setCodeError("");
+                  }}
+                  style={{
+                    direction: "ltr",
+                    width: "100%",
+                    height: 52,
+                    textAlign: "center",
+                    fontSize: 26,
+                    fontWeight: 700,
+                    letterSpacing: 10,
+                    borderRadius: 8,
+                    border: codeError ? "2px solid #ef4444" : "1px solid #e2e8f0",
+                    outline: "none",
+                    background: "#fff",
+                    boxSizing: "border-box",
+                    padding: "0 12px",
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = "#C8171A";
+                    e.target.style.boxShadow = "0 0 0 3px rgba(200,23,26,0.15)";
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = codeError ? "#ef4444" : "#e2e8f0";
+                    e.target.style.boxShadow = "none";
+                  }}
                 />
-                <FormField
-                  control={resetForm.control}
-                  name="newPassword"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>كلمة المرور الجديدة</FormLabel>
-                      <FormControl>
-                        <Input type="password" placeholder="أدخل كلمة المرور الجديدة" {...field} className="h-12" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <Button type="submit" className="w-full h-12 text-lg font-bold" disabled={resettingPw}>
-                  {resettingPw ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : "تغيير كلمة المرور"}
-                </Button>
-                <div className="text-center">
-                  <button
+                {codeError && (
+                  <p className="text-sm font-medium text-destructive text-right">
+                    {codeError}
+                  </p>
+                )}
+              </div>
+
+              {/* Password field via react-hook-form */}
+              <Form {...resetForm}>
+                <div className="space-y-6">
+                  <FormField
+                    control={resetForm.control}
+                    name="newPassword"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>كلمة المرور الجديدة</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="password"
+                            placeholder="أدخل كلمة المرور الجديدة"
+                            {...field}
+                            className="h-12"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <Button
                     type="button"
-                    onClick={() => setStep("login")}
-                    className="text-sm text-muted-foreground hover:text-primary transition-colors flex items-center gap-1 mx-auto"
+                    onClick={handleReset}
+                    className="w-full h-12 text-lg font-bold"
+                    disabled={resettingPw}
                   >
-                    <ArrowRight className="h-4 w-4" />
-                    العودة لتسجيل الدخول
-                  </button>
+                    {resettingPw ? (
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    ) : (
+                      "تغيير كلمة المرور"
+                    )}
+                  </Button>
                 </div>
-              </form>
-            </Form>
+              </Form>
+
+              <div className="text-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStep("login");
+                    setCodeInput("");
+                    setCodeError("");
+                  }}
+                  className="text-sm text-muted-foreground hover:text-primary transition-colors flex items-center gap-1 mx-auto"
+                >
+                  <ArrowRight className="h-4 w-4" />
+                  العودة لتسجيل الدخول
+                </button>
+              </div>
+            </div>
           )}
         </CardContent>
       </Card>
