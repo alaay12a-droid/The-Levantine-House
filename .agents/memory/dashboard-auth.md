@@ -17,8 +17,7 @@ description: How the web dashboard authentication works — JWT cookies, admin s
 - `seedDashboardAdmin()` called in `artifacts/api-server/src/index.ts` on startup
 - **Current behavior: only seeds on first run (INSERT if no admin exists). Skips if admin already exists.**
 - Old behavior was: ALWAYS update password from env var on every restart → erased OTP resets
-- Credentials source: `ADMIN_USERNAME` / `ADMIN_PASSWORD` in `.replit` [userenv.shared]
-- Current values: username `rawabi-mandi`, password `rawabi2025` (initial seed only)
+- Credentials source: `ADMIN_USERNAME` / `ADMIN_PASSWORD` env vars — values managed outside memory
 
 **Why this matters:** The old overwrite behavior created an unbreakable loop — user resets password via OTP, server restarts, password reverts to env var value. Fix: seed is now insert-only.
 
@@ -38,6 +37,6 @@ description: How the web dashboard authentication works — JWT cookies, admin s
 - **Fix**: use plain native `<input type="tel">` with local `useState` — NO FormControl/Slot/Controller wrapper
 - Validate OTP manually before API call, do not use react-hook-form Controller for OTP field
 
-## Production DB password
+## Resetting production admin password
 - `executeSql` is read-only for production environment — cannot write to prod DB via tool
 - To reset prod admin password: Republish first, then use OTP forgot-password flow in browser
