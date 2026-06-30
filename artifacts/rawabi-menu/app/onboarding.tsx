@@ -1,9 +1,10 @@
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as Location from "expo-location";
-import { useRouter } from "expo-router";
-import React, { useRef, useState } from "react";
+import { useRouter, useLocalSearchParams } from "expo-router";
+import React, { useRef, useState, useEffect } from "react";
 import { MapPickerModal } from "@/components/MapPickerModal";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   ActivityIndicator,
   Alert,
@@ -68,11 +69,23 @@ async function reverseGeocodeArabic(lat: number, lng: number): Promise<string> {
   }
 }
 
+const PENDING_REFERRAL_KEY = "@rawabi_pending_referral";
+
 export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { saveUser } = useUser();
   const cl = useColors();
+  const params = useLocalSearchParams<{ ref?: string }>();
+
+  // Persist referral code from deep link so it survives the onboarding flow
+  useEffect(() => {
+    const ref = params.ref;
+    if (ref) {
+      AsyncStorage.setItem(PENDING_REFERRAL_KEY, ref.toUpperCase()).catch(() => {});
+    }
+  }, [params.ref]);
+
   const C = {
     bg:      cl.background,
     surface: cl.surface,
@@ -234,7 +247,22 @@ export default function OnboardingScreen() {
   };
 
   const handleSave = async () => {
-    await saveUser({ name: name.trim(), phone: phone.trim(), address: address.trim(), lat, lng });
+    const trimmedPhone = phone.trim();
+    const trimmedName = name.trim();
+    await saveUser({ name: trimmedName, phone: trimmedPhone, address: address.trim(), lat, lng });
+
+    // Register pending referral (fire and forget — don't block onboarding)
+    AsyncStorage.getItem(PENDING_REFERRAL_KEY).then((refCode) => {
+      if (refCode) {
+        apiPost("/referrals/register", {
+          referralCode: refCode,
+          referredPhone: trimmedPhone,
+          referredName: trimmedName,
+        }).catch(() => {});
+        AsyncStorage.removeItem(PENDING_REFERRAL_KEY).catch(() => {});
+      }
+    }).catch(() => {});
+
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     router.replace("/(tabs)");
   };

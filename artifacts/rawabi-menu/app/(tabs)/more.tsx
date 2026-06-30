@@ -277,6 +277,24 @@ export default function MoreScreen() {
           </TouchableOpacity>
         )}
 
+        {/* Referral Card */}
+        {user && (
+          <TouchableOpacity
+            onPress={() => router.push("/referral" as any)}
+            style={[styles.walletCard, { backgroundColor: "#0A1F0A", borderColor: "#4CAF5060" }]}
+            activeOpacity={0.85}
+          >
+            <Feather name="chevron-left" size={18} color={colors.mutedForeground} />
+            <View style={{ flex: 1, alignItems: "flex-end", gap: 3 }}>
+              <Text style={{ fontSize: 17, color: "#4CAF50", fontFamily: F.bold }}>برنامج الإحالة 🎁</Text>
+              <Text style={{ fontSize: 12, color: colors.mutedForeground, fontFamily: F.regular }}>شارك التطبيق واكسب مكافآت</Text>
+            </View>
+            <View style={[styles.walletIcon, { backgroundColor: "#4CAF5022" }]}>
+              <Feather name="users" size={24} color="#4CAF50" />
+            </View>
+          </TouchableOpacity>
+        )}
+
         {user && (
           <View style={[styles.profileCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <View style={[styles.avatar, { backgroundColor: colors.secondary }]}>

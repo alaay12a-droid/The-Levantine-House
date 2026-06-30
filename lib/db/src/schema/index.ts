@@ -242,3 +242,22 @@ export const dashboardUsersTable = pgTable("dashboard_users", {
 });
 
 export type DashboardUser = typeof dashboardUsersTable.$inferSelect;
+
+// ── Referrals ─────────────────────────────────────────────────────────────────
+// Each customer gets a unique referral code tied to their phone number.
+// When a referred customer places their first order, a reward is credited
+// to the referrer's wallet.
+export const referralsTable = pgTable("referrals", {
+  id: serial("id").primaryKey(),
+  referrerPhone: text("referrer_phone").notNull(),
+  referrerName: text("referrer_name").notNull().default(""),
+  referredPhone: text("referred_phone").notNull().unique(),
+  referredName: text("referred_name").notNull().default(""),
+  orderId: integer("order_id"),
+  rewardAmount: integer("reward_amount").notNull().default(0),
+  rewarded: boolean("rewarded").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  rewardedAt: timestamp("rewarded_at"),
+});
+
+export type Referral = typeof referralsTable.$inferSelect;

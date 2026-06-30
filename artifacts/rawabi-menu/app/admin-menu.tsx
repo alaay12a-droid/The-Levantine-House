@@ -333,7 +333,27 @@ export default function AdminMenuScreen() {
     loadPins().then((p) => { setPins(p); setPinsLoaded(true); });
   }, []);
 
-  const [activeTab, setActiveTab] = useState<"menu" | "occasions" | "stock" | "settings" | "banners" | "revenue" | "combos" | "zones">("menu");
+  const [activeTab, setActiveTab] = useState<"menu" | "occasions" | "stock" | "settings" | "banners" | "revenue" | "combos" | "zones" | "referrals">("menu");
+
+  // ─── Referrals ─────────────────────────────────────────────
+  const [referralSettings, setReferralSettings] = useState<{ rate: number; enabled: boolean } | null>(null);
+  const [referralRows, setReferralRows] = useState<{ referrerPhone: string; total: number; rewarded: number; totalRewardSAR: number }[]>([]);
+  const [referralRateInput, setReferralRateInput] = useState("");
+  const [referralSaving, setReferralSaving] = useState(false);
+
+  const loadReferrals = useCallback(async () => {
+    try {
+      const [settings, data] = await Promise.all([
+        apiGet<{ rate: number; enabled: boolean }>("/referrals/settings"),
+        apiGet<{ summary: { referrerPhone: string; total: number; rewarded: number; totalRewardSAR: number }[] }>("/referrals/all"),
+      ]);
+      setReferralSettings(settings);
+      setReferralRateInput(String(settings.rate));
+      setReferralRows(data.summary);
+    } catch {}
+  }, []);
+
+  useEffect(() => { if (activeTab === "referrals") loadReferrals(); }, [activeTab, loadReferrals]);
 
   // ─── Delivery Zones ───────────────────────────────────────
   type DeliveryZone = { id: number; name: string; polygon: LatLng[]; deliveryFee: number; minOrder: number; enabled: boolean; sortOrder: number };
@@ -1553,6 +1573,12 @@ ${kpiBlock}${payBlock}${sumBlock}
             style={[styles.tabBtn, { backgroundColor: activeTab === "zones" ? "#0A2A2A" : colors.secondary, borderWidth: 1, borderColor: activeTab === "zones" ? "#26C6DA" : "transparent" }]}
           >
             <Text style={[styles.tabBtnText, { color: activeTab === "zones" ? "#26C6DA" : colors.mutedForeground, fontFamily: F.bold }]}>🗺️ التوصيل</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setActiveTab("referrals")}
+            style={[styles.tabBtn, { backgroundColor: activeTab === "referrals" ? "#0A1F0A" : colors.secondary, borderWidth: 1, borderColor: activeTab === "referrals" ? "#4CAF50" : "transparent" }]}
+          >
+            <Text style={[styles.tabBtnText, { color: activeTab === "referrals" ? "#4CAF50" : colors.mutedForeground, fontFamily: F.bold }]}>🎁 الإحالات</Text>
           </TouchableOpacity>
         </ScrollView>
         <TouchableOpacity
@@ -4911,6 +4937,97 @@ ${kpiBlock}${payBlock}${sumBlock}
                 <Text style={{ color: z.enabled ? "#4CAF50" : colors.mutedForeground, fontFamily: F.semi, fontSize: 11, marginRight: "auto" }}>
                   {z.enabled ? "✅ مفعّلة" : "⏸ معطّلة"}
                 </Text>
+              </View>
+            </View>
+          ))}
+        </ScrollView>
+      )}
+
+      {/* ══ Referrals Tab ══ */}
+      {activeTab === "referrals" && (
+        <ScrollView contentContainerStyle={{ padding: 16, gap: 14 }}>
+          {/* Settings card */}
+          <View style={{ backgroundColor: "#0A1F0A", borderRadius: 16, padding: 16, borderWidth: 1, borderColor: "#4CAF5033", gap: 12 }}>
+            <Text style={{ color: "#4CAF50", fontFamily: F.bold, fontSize: 16, textAlign: "right" }}>⚙️ إعدادات برنامج الإحالة</Text>
+
+            {/* Enable toggle */}
+            {referralSettings && (
+              <View style={{ flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" }}>
+                <Text style={{ color: colors.foreground, fontFamily: F.semi, fontSize: 14 }}>تفعيل البرنامج</Text>
+                <TouchableOpacity
+                  onPress={async () => {
+                    const newEnabled = !referralSettings.enabled;
+                    setReferralSettings({ ...referralSettings, enabled: newEnabled });
+                    try {
+                      await apiPost("/referrals/settings", { rate: referralSettings.rate, enabled: newEnabled });
+                    } catch { loadReferrals(); }
+                  }}
+                  style={{
+                    width: 52, height: 28, borderRadius: 14,
+                    backgroundColor: referralSettings.enabled ? "#4CAF50" : colors.secondary,
+                    justifyContent: "center",
+                    paddingHorizontal: 3,
+                    borderWidth: 1,
+                    borderColor: referralSettings.enabled ? "#4CAF50" : colors.border,
+                  }}
+                >
+                  <View style={{
+                    width: 22, height: 22, borderRadius: 11, backgroundColor: "#fff",
+                    alignSelf: referralSettings.enabled ? "flex-end" : "flex-start",
+                  }} />
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* Rate input */}
+            <View style={{ gap: 6 }}>
+              <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 13, textAlign: "right" }}>مبلغ المكافأة (ر.س) لكل إحالة ناجحة</Text>
+              <View style={{ flexDirection: "row-reverse", gap: 10 }}>
+                <TextInput
+                  value={referralRateInput}
+                  onChangeText={setReferralRateInput}
+                  keyboardType="decimal-pad"
+                  placeholder="مثال: 5.00"
+                  placeholderTextColor={colors.mutedForeground}
+                  style={{ flex: 1, backgroundColor: colors.secondary, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, color: "#4CAF50", fontFamily: F.bold, textAlign: "right", borderWidth: 1, borderColor: "#4CAF5044" }}
+                />
+                <TouchableOpacity
+                  onPress={async () => {
+                    const rate = parseFloat(referralRateInput);
+                    if (isNaN(rate) || rate < 0) return;
+                    setReferralSaving(true);
+                    try {
+                      await apiPost("/referrals/settings", { rate, enabled: referralSettings?.enabled ?? true });
+                      await loadReferrals();
+                    } catch {} finally { setReferralSaving(false); }
+                  }}
+                  disabled={referralSaving}
+                  style={{ backgroundColor: "#4CAF5022", borderRadius: 12, paddingHorizontal: 18, justifyContent: "center", borderWidth: 1, borderColor: "#4CAF50" }}
+                >
+                  {referralSaving
+                    ? <ActivityIndicator color="#4CAF50" />
+                    : <Text style={{ color: "#4CAF50", fontFamily: F.bold }}>حفظ</Text>
+                  }
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+
+          {/* Summary table */}
+          <Text style={{ color: "#4CAF50", fontFamily: F.bold, fontSize: 15, textAlign: "right", marginTop: 4 }}>📋 قائمة المُحيلين</Text>
+          {referralRows.length === 0 && (
+            <View style={{ alignItems: "center", marginTop: 32, gap: 10 }}>
+              <Text style={{ fontSize: 38 }}>🎁</Text>
+              <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, textAlign: "center" }}>لا توجد إحالات بعد</Text>
+            </View>
+          )}
+          {referralRows.map((row, i) => (
+            <View key={i} style={{ backgroundColor: colors.card, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: "#4CAF5033", gap: 6 }}>
+              <Text style={{ color: colors.foreground, fontFamily: F.bold, textAlign: "right", fontSize: 14 }}>{row.referrerPhone}</Text>
+              <View style={{ flexDirection: "row-reverse", gap: 16, flexWrap: "wrap" }}>
+                <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12 }}>الإجمالي: {row.total}</Text>
+                <Text style={{ color: "#4CAF50", fontFamily: F.semi, fontSize: 12 }}>مكافآت: {row.rewarded}</Text>
+                <Text style={{ color: colors.gold, fontFamily: F.bold, fontSize: 12 }}>{row.totalRewardSAR.toFixed(2)} ر.س</Text>
               </View>
             </View>
           ))}

@@ -35,6 +35,24 @@ app.listen(port, "0.0.0.0", (err) => {
     .then(() => logger.info("Migration: push_tokens.fcm_token ensured"))
     .catch((e) => logger.warn({ err: e }, "Migration: push_tokens.fcm_token skipped"));
 
+  // Auto-migrate: create referrals table if missing
+  db.execute(sql`
+    CREATE TABLE IF NOT EXISTS referrals (
+      id SERIAL PRIMARY KEY,
+      referrer_phone TEXT NOT NULL,
+      referrer_name TEXT NOT NULL DEFAULT '',
+      referred_phone TEXT NOT NULL UNIQUE,
+      referred_name TEXT NOT NULL DEFAULT '',
+      order_id INTEGER,
+      reward_amount INTEGER NOT NULL DEFAULT 0,
+      rewarded BOOLEAN NOT NULL DEFAULT FALSE,
+      created_at TIMESTAMP DEFAULT NOW() NOT NULL,
+      rewarded_at TIMESTAMP
+    )
+  `)
+    .then(() => logger.info("Migration: referrals table ensured"))
+    .catch((e) => logger.warn({ err: e }, "Migration: referrals table skipped"));
+
   seedMenu().catch((e) => logger.error({ err: e }, "Menu seed failed"));
   seedOccasions().catch((e) => logger.error({ err: e }, "Occasions seed failed"));
   seedDashboardAdmin().catch((e) => logger.error({ err: e }, "Dashboard admin seed failed"));

@@ -21,6 +21,7 @@ import discountsRouter from "./discounts";
 import appearanceRouter from "./appearance";
 import deliveryZonesRouter from "./delivery-zones";
 import dashboardAuthRouter from "./dashboard-auth";
+import referralsRouter from "./referrals";
 
 const router: IRouter = Router();
 
@@ -46,5 +47,6 @@ router.use(discountsRouter);
 router.use(appearanceRouter);
 router.use(deliveryZonesRouter);
 router.use(dashboardAuthRouter);
+router.use(referralsRouter);
 
 export default router;

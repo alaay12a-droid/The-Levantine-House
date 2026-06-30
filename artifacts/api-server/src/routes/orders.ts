@@ -4,6 +4,7 @@ import { eq, desc, gte, lt, count, and } from "drizzle-orm";
 import { sendPushToAll } from "../lib/sendPushNotification.js";
 import { sendSms } from "../lib/sendSms.js";
 import { z } from "zod";
+import { processReferralReward } from "./referrals.js";
 
 const router = Router();
 
@@ -125,6 +126,10 @@ router.post("/orders", async (req, res) => {
 
   req.log.info({ orderId: order.id }, "New order created");
   res.status(201).json(order);
+
+  // Process referral reward for the referred customer (fire and forget)
+  processReferralReward(data.customerPhone, order.id, data.customerName)
+    .catch((e) => req.log.warn({ err: e }, "Referral reward processing failed"));
 
   // Send push notification to all registered cashier devices (fire and forget)
   const itemsSummary = data.items.map((i) => `${i.quantity}× ${i.name}`).join("، ");
