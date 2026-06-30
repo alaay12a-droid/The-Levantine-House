@@ -218,6 +218,7 @@ export default function MenuScreen() {
   const sectionYs = useRef<Record<string, number>>({});
   // ── Tab positions (x offset) for auto-scrolling the tabs bar ──────
   const tabPositions = useRef<Record<string, number>>({});
+  const listHeaderH = useRef(0);
 
   // ── Scroll tracking ──
   const lastY = useSharedValue(0);
@@ -459,7 +460,19 @@ export default function MenuScreen() {
   const occ = OCCASION_THEMES[occasionId];
 
   const renderHeader = useCallback(() => (
-    <View>
+    <View onLayout={(e) => {
+      const h = e.nativeEvent.layout.height;
+      if (h > 10 && Math.abs(h - listHeaderH.current) > 20) {
+        listHeaderH.current = h;
+        let y = h;
+        for (const section of sectionsRef.current) {
+          sectionYs.current[section.id] = y;
+          y += 6;
+          y += 44;
+          y += section.data.length * 96;
+        }
+      }
+    }}>
       {occasionId !== "none" && (
         <View style={{ backgroundColor: occ.bg, overflow: "hidden" }}>
           <View style={{ height: 3, backgroundColor: occ.textColor + "55" }} />
@@ -562,7 +575,7 @@ export default function MenuScreen() {
   // estimates lets tab-press scrolling work immediately; actual onLayout
   // callbacks will correct the values once each section is rendered.
   useEffect(() => {
-    const TOP_ESTIMATE = 260; // banner + favourites + combos rough height
+    const TOP_ESTIMATE = listHeaderH.current > 10 ? listHeaderH.current : 260;
     let y = TOP_ESTIMATE;
     for (const section of sections) {
       sectionYs.current[section.id] = y;
