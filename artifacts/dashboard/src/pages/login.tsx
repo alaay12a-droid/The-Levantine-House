@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useLocation } from "wouter";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
@@ -16,10 +16,8 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, ArrowRight } from "lucide-react";
-import { REGEXP_ONLY_DIGITS } from "input-otp";
 import { useToast } from "@/hooks/use-toast";
 
 const loginSchema = z.object({
@@ -33,6 +31,98 @@ const resetSchema = z.object({
 });
 
 type Step = "login" | "otp";
+
+function OtpInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const digits = (value + "      ").slice(0, 6).split("");
+  const refs = [
+    useRef<HTMLInputElement>(null),
+    useRef<HTMLInputElement>(null),
+    useRef<HTMLInputElement>(null),
+    useRef<HTMLInputElement>(null),
+    useRef<HTMLInputElement>(null),
+    useRef<HTMLInputElement>(null),
+  ];
+
+  function focus(i: number) {
+    refs[i]?.current?.focus();
+    refs[i]?.current?.select();
+  }
+
+  function handleChange(i: number, raw: string) {
+    const digit = raw.replace(/\D/g, "").slice(-1);
+    const arr = (value + "      ").slice(0, 6).split("");
+    arr[i] = digit || " ";
+    const next = arr.join("").trimEnd();
+    onChange(next.replace(/ /g, ""));
+    if (digit && i < 5) focus(i + 1);
+  }
+
+  function handleKeyDown(i: number, e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Backspace") {
+      if (digits[i].trim() === "" && i > 0) {
+        const arr = (value + "      ").slice(0, 6).split("");
+        arr[i - 1] = " ";
+        onChange(arr.join("").trimEnd().replace(/ /g, ""));
+        focus(i - 1);
+      } else {
+        const arr = (value + "      ").slice(0, 6).split("");
+        arr[i] = " ";
+        onChange(arr.join("").trimEnd().replace(/ /g, ""));
+      }
+    } else if (e.key === "ArrowLeft" && i > 0) {
+      focus(i - 1);
+    } else if (e.key === "ArrowRight" && i < 5) {
+      focus(i + 1);
+    }
+  }
+
+  function handlePaste(e: React.ClipboardEvent) {
+    e.preventDefault();
+    const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
+    onChange(pasted);
+    const next = Math.min(pasted.length, 5);
+    focus(next);
+  }
+
+  return (
+    <div dir="ltr" className="flex gap-2 justify-center" onPaste={handlePaste}>
+      {[0, 1, 2, 3, 4, 5].map((i) => (
+        <input
+          key={i}
+          ref={refs[i]}
+          type="tel"
+          inputMode="numeric"
+          maxLength={1}
+          value={digits[i].trim()}
+          onChange={(e) => handleChange(i, e.target.value)}
+          onKeyDown={(e) => handleKeyDown(i, e)}
+          onClick={() => focus(i)}
+          autoComplete={i === 0 ? "one-time-code" : "off"}
+          style={{
+            width: 44,
+            height: 52,
+            textAlign: "center",
+            fontSize: 22,
+            fontWeight: 700,
+            border: "1.5px solid #d1d5db",
+            borderRadius: 8,
+            outline: "none",
+            background: "#fff",
+            caretColor: "transparent",
+          }}
+          onFocus={(e) => {
+            e.target.style.borderColor = "#C8171A";
+            e.target.style.boxShadow = "0 0 0 2px rgba(200,23,26,0.15)";
+          }}
+          onBlur={(e) => {
+            e.target.style.borderColor = "#d1d5db";
+            e.target.style.boxShadow = "none";
+          }}
+        />
+      ))}
+    </div>
+  );
+}
 
 export default function Login() {
   const [, setLocation] = useLocation();
@@ -196,28 +286,9 @@ export default function Login() {
                   name="code"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>رمز التحقق</FormLabel>
+                      <FormLabel className="text-right block">رمز التحقق</FormLabel>
                       <FormControl>
-                        <div className="flex justify-center">
-                          <InputOTP
-                            maxLength={6}
-                            pattern={REGEXP_ONLY_DIGITS}
-                            value={field.value}
-                            onChange={field.onChange}
-                            onBlur={field.onBlur}
-                            name={field.name}
-                            ref={field.ref}
-                          >
-                            <InputOTPGroup dir="ltr">
-                              <InputOTPSlot index={0} className="h-12 w-12 text-xl" />
-                              <InputOTPSlot index={1} className="h-12 w-12 text-xl" />
-                              <InputOTPSlot index={2} className="h-12 w-12 text-xl" />
-                              <InputOTPSlot index={3} className="h-12 w-12 text-xl" />
-                              <InputOTPSlot index={4} className="h-12 w-12 text-xl" />
-                              <InputOTPSlot index={5} className="h-12 w-12 text-xl" />
-                            </InputOTPGroup>
-                          </InputOTP>
-                        </div>
+                        <OtpInput value={field.value} onChange={field.onChange} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
