@@ -389,9 +389,13 @@ export default function MenuScreen() {
     scrollToSection(sectionIdx, catId);
     setTimeout(() => {
       isScrollingProgrammatically.current = false;
-      updateActiveCategoryFromScroll(lastY.value, true);
+      // Don't call updateActiveCategoryFromScroll here: sectionYs values can be
+      // inaccurate before all anchors have rendered, so re-computing the active
+      // section at this point often overrides the correct catId the user just
+      // tapped. The scroll-event handler will sync the active tab correctly
+      // once the user resumes manual scrolling.
     }, 750);
-  }, [categories, sections, scrollToSection, updateActiveCategoryFromScroll, lastY]);
+  }, [categories, sections, scrollToSection]);
 
   // ── Auto-scroll tabs bar to keep active tab in view ─────────────────
   useEffect(() => {
