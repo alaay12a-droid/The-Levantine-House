@@ -1102,6 +1102,7 @@ ${kpiBlock}${payBlock}${sumBlock}
   const [newCategory, setNewCategory] = useState("chicken");
   const [newImageUrl, setNewImageUrl] = useState("");
   const [menuImageUploading, setMenuImageUploading] = useState(false);
+  const [menuImageDeleting, setMenuImageDeleting] = useState(false);
   const [stockItem, setStockItem] = useState<ApiMenuItem | null>(null);
   const [stockInput, setStockInput] = useState("");
 
@@ -1145,6 +1146,36 @@ ${kpiBlock}${payBlock}${sumBlock}
     } finally {
       setMenuImageUploading(false);
     }
+  };
+
+  const handleDeleteMenuImagePermanently = () => {
+    Alert.alert(
+      "حذف الصورة نهائياً",
+      "سيتم حذف الصورة من التخزين وقاعدة البيانات ولن تُسترجع. هل أنت متأكد؟",
+      [
+        { text: "إلغاء", style: "cancel" },
+        {
+          text: "حذف نهائياً",
+          style: "destructive",
+          onPress: async () => {
+            if (!editItem) {
+              setNewImageUrl("");
+              return;
+            }
+            setMenuImageDeleting(true);
+            try {
+              await apiDelete(`/menu/${editItem.itemId}/image`);
+              setNewImageUrl("");
+              await refresh();
+            } catch {
+              Alert.alert("خطأ", "تعذر حذف الصورة، حاول مرة أخرى");
+            } finally {
+              setMenuImageDeleting(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handlePickImage = async () => {
@@ -5177,15 +5208,36 @@ ${kpiBlock}${payBlock}${sumBlock}
 
             <Text style={[styles.fieldLabel, { color: colors.mutedForeground, fontFamily: F.semi }]}>صورة الصنف (اختياري)</Text>
             {newImageUrl ? (
-              <View style={{ alignItems: "center", marginBottom: 10 }}>
+              <View style={{ marginBottom: 10 }}>
                 <Image
                   source={{ uri: newImageUrl }}
                   style={{ width: "100%", height: 140, borderRadius: 12, backgroundColor: colors.secondary }}
                   resizeMode="cover"
                 />
-                <TouchableOpacity onPress={() => setNewImageUrl("")} style={{ marginTop: 6 }}>
-                  <Text style={{ color: "#ef4444", fontFamily: F.semi, fontSize: 13 }}>✕ إزالة الصورة</Text>
-                </TouchableOpacity>
+                <View style={{ flexDirection: "row-reverse", gap: 8, marginTop: 8 }}>
+                  {/* تغيير الصورة — يمسح المحلي فقط ليتيح رفع صورة جديدة */}
+                  <TouchableOpacity
+                    onPress={() => setNewImageUrl("")}
+                    disabled={menuImageDeleting}
+                    style={{ flex: 1, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: colors.border, alignItems: "center", backgroundColor: colors.secondary }}
+                  >
+                    <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 13 }}>↩ تغيير الصورة</Text>
+                  </TouchableOpacity>
+                  {/* حذف نهائي — يحذف من Storage وقاعدة البيانات */}
+                  <TouchableOpacity
+                    onPress={handleDeleteMenuImagePermanently}
+                    disabled={menuImageDeleting}
+                    style={{ flex: 1, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: "#ef444466", alignItems: "center", backgroundColor: "#1c0606", flexDirection: "row", justifyContent: "center", gap: 6 }}
+                  >
+                    {menuImageDeleting
+                      ? <ActivityIndicator size="small" color="#ef4444" />
+                      : <>
+                          <Feather name="trash-2" size={13} color="#ef4444" />
+                          <Text style={{ color: "#ef4444", fontFamily: F.semi, fontSize: 13 }}>حذف الصورة نهائياً</Text>
+                        </>
+                    }
+                  </TouchableOpacity>
+                </View>
               </View>
             ) : (
               <TouchableOpacity

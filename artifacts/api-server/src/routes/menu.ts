@@ -3,6 +3,9 @@ import { db, menuItemsTable } from "@workspace/db";
 import { eq, asc } from "drizzle-orm";
 import { z } from "zod";
 import { randomUUID } from "crypto";
+import { ObjectStorageService } from "../lib/objectStorage";
+
+const objectStorageService = new ObjectStorageService();
 
 const router = Router();
 
@@ -175,6 +178,40 @@ router.delete("/menu/:itemId", async (req, res) => {
     res.status(404).json({ error: "الصنف غير موجود" });
     return;
   }
+  res.json({ success: true });
+});
+
+// DELETE /menu/:itemId/image — delete uploaded image from storage and clear DB reference
+router.delete("/menu/:itemId/image", async (req, res) => {
+  const { itemId } = req.params;
+  const [item] = await db
+    .select()
+    .from(menuItemsTable)
+    .where(eq(menuItemsTable.itemId, itemId));
+
+  if (!item) {
+    res.status(404).json({ error: "الصنف غير موجود" });
+    return;
+  }
+
+  if (item.imageUrl) {
+    try {
+      const normalizedPath = objectStorageService.normalizeObjectEntityPath(item.imageUrl);
+      if (normalizedPath.startsWith("/objects/")) {
+        const file = await objectStorageService.getObjectEntityFile(normalizedPath);
+        await file.delete();
+        req.log.info({ itemId, normalizedPath }, "Menu item image deleted from storage");
+      }
+    } catch (err) {
+      req.log.warn({ err, itemId }, "Could not delete image from storage — clearing DB reference anyway");
+    }
+  }
+
+  await db
+    .update(menuItemsTable)
+    .set({ imageUrl: null, imageKey: null })
+    .where(eq(menuItemsTable.itemId, itemId));
+
   res.json({ success: true });
 });
 
