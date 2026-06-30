@@ -7,6 +7,7 @@ const router = Router();
 
 const tokenSchema = z.object({
   token: z.string().min(1),
+  fcmToken: z.string().min(1).optional(),
   role: z.enum(["cashier", "customer"]).default("cashier"),
 });
 
@@ -17,10 +18,14 @@ router.post("/push-tokens", async (req, res) => {
     return;
   }
   try {
+    const { token, fcmToken, role } = parsed.data;
     await db
       .insert(pushTokensTable)
-      .values({ token: parsed.data.token, role: parsed.data.role })
-      .onConflictDoNothing();
+      .values({ token, fcmToken: fcmToken ?? null, role })
+      .onConflictDoUpdate({
+        target: pushTokensTable.token,
+        set: { fcmToken: fcmToken ?? null },
+      });
     res.json({ ok: true });
   } catch {
     res.status(500).json({ error: "تعذر حفظ الرمز" });

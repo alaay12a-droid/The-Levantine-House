@@ -46,18 +46,27 @@ export async function registerCustomerNotifications(): Promise<string | null> {
       });
     }
 
-    const cached = await AsyncStorage.getItem(TOKEN_KEY);
-    if (cached) {
-      // Re-register on every app launch so the server always has a fresh entry
-      apiPost("/push-tokens", { token: cached, role: "customer" }).catch(() => {});
-      return cached;
+    // Get Expo push token (used as stable key per device)
+    const { data: expoToken } = await Notifications.getExpoPushTokenAsync({ projectId: PROJECT_ID });
+    await AsyncStorage.setItem(TOKEN_KEY, expoToken);
+
+    // Get native FCM token for direct Firebase Admin SDK delivery
+    let fcmToken: string | null = null;
+    try {
+      const deviceToken = await Notifications.getDevicePushTokenAsync();
+      fcmToken = deviceToken.data as string;
+    } catch {
+      // FCM token unavailable (e.g. emulator without Play Services)
     }
 
-    const { data } = await Notifications.getExpoPushTokenAsync({ projectId: PROJECT_ID });
-    await AsyncStorage.setItem(TOKEN_KEY, data);
-    // Register with server so broadcast notifications can reach this device
-    apiPost("/push-tokens", { token: data, role: "customer" }).catch(() => {});
-    return data;
+    // Register both tokens with server on every launch
+    apiPost("/push-tokens", {
+      token: expoToken,
+      fcmToken: fcmToken ?? undefined,
+      role: "customer",
+    }).catch(() => {});
+
+    return expoToken;
   } catch {
     return null;
   }

@@ -5,6 +5,8 @@ import { seedMenu } from "./routes/menu";
 import { seedOccasions } from "./routes/occasions";
 import { cleanupExpiredDiscountCodes } from "./routes/discounts";
 import { seedDashboardAdmin } from "./routes/dashboard-auth";
+import { sql } from "drizzle-orm";
+import { db } from "@workspace/db";
 
 const rawPort = process.env["PORT"];
 
@@ -27,6 +29,11 @@ app.listen(port, "0.0.0.0", (err) => {
   }
 
   logger.info({ port }, "Server listening");
+
+  // Auto-migrate: add fcm_token column if missing (idempotent)
+  db.execute(sql`ALTER TABLE push_tokens ADD COLUMN IF NOT EXISTS fcm_token TEXT`)
+    .then(() => logger.info("Migration: push_tokens.fcm_token ensured"))
+    .catch((e) => logger.warn({ err: e }, "Migration: push_tokens.fcm_token skipped"));
 
   seedMenu().catch((e) => logger.error({ err: e }, "Menu seed failed"));
   seedOccasions().catch((e) => logger.error({ err: e }, "Occasions seed failed"));
