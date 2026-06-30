@@ -356,39 +356,19 @@ export default function MenuScreen() {
   });
 
   // ── Scroll to section ─────────────────────────────────────────────────
-  // Reads the anchor's current Y from sectionYs (populated by onLayout).
-  // sectionYs is cleared whenever sections change, so if the API hasn't
-  // finished re-measuring we retry: rAF → rAF → 300 ms timeout.
-  //
-  // Banner compensation: when the banner is currently visible and the target
-  // is below Y=8, the banner will collapse during the scroll (scroll handler
-  // fires bannerAnim→0 at Y>8).  This shrinks the content above sections by
-  // bannerH, so we subtract that amount to land at the correct position.
-  const scrollToSection = useCallback((_sectionIdx: number, catId: string, animated = true) => {
-    const doScroll = () => {
-      const storedY = sectionYs.current[catId];
-      if (storedY === undefined) return false;
-
-      // Compensate for banner collapsing during the scroll animation
-      const bannerWillCollapse = bannerH.value > 0 && bannerAnim.value > 0.5 && storedY > 8;
-      const targetY = bannerWillCollapse ? Math.max(0, storedY - bannerH.value) : storedY;
-
-      // FlashList imperative API — no Reanimated scrollTo needed
-      (menuFlashListRef.current as any)?.scrollToOffset({ offset: targetY, animated });
-      return true;
-    };
-
-    // Two rAF passes: first flushes React layout, second gives native layer
-    // a paint cycle.  If sectionYs is still empty (sections just changed and
-    // onLayout hasn't fired yet) fall back to a 300 ms timeout.
+  // Uses FlashList's scrollToIndex so the scroll target is always exact —
+  // no Y-coordinate estimation needed.  The anchor for section[sectionIdx]
+  // sits at a fixed offset inside menuData: 2 items (anchor + head) plus all
+  // rows of every preceding section.
+  const scrollToSection = useCallback((sectionIdx: number, _catId: string, animated = true) => {
+    let anchorDataIdx = 0;
+    for (let i = 0; i < sectionIdx; i++) {
+      anchorDataIdx += 2 + sectionsRef.current[i].data.length; // anchor + head + rows
+    }
     requestAnimationFrame(() => {
-      if (!doScroll()) {
-        requestAnimationFrame(() => {
-          if (!doScroll()) setTimeout(() => { doScroll(); }, 300);
-        });
-      }
+      (menuFlashListRef.current as any)?.scrollToIndex({ index: anchorDataIdx, animated, viewPosition: 0 });
     });
-  }, [bannerH, bannerAnim]);
+  }, []);
 
   // ── Tab press: update active + scroll ───────────────────────────────
   const handleTabPress = useCallback((catId: string) => {
