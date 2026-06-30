@@ -2,7 +2,7 @@ import { useGetRevenue, useListOrders, getGetRevenueQueryKey, getListOrdersQuery
 import { formatCurrency, formatEasternNumber } from "@/lib/format";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
-import { ListOrdered, Users, UtensilsCrossed, BarChart2, ChevronLeft, ShoppingBag, Banknote, TrendingUp } from "lucide-react";
+import { ListOrdered, Users, UtensilsCrossed, BarChart2, ChevronLeft, ShoppingBag, Banknote, TrendingUp, Bell } from "lucide-react";
 
 export default function Home() {
   const { data: revenue, isLoading: isRevenueLoading } = useGetRevenue({
@@ -96,6 +96,17 @@ export default function Home() {
       accent: "from-violet-500 to-purple-600",
       bg: "bg-violet-50 hover:bg-violet-100 border-violet-200",
       iconBg: "bg-violet-500",
+      badge: null,
+      badgeColor: "",
+    },
+    {
+      href: "/broadcast",
+      icon: Bell,
+      title: "إشعار جماعي",
+      desc: "إرسال رسالة لجميع العملاء دفعة واحدة",
+      accent: "from-rose-500 to-pink-600",
+      bg: "bg-rose-50 hover:bg-rose-100 border-rose-200",
+      iconBg: "bg-rose-500",
       badge: null,
       badgeColor: "",
     },

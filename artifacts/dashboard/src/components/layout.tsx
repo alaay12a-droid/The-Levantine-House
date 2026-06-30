@@ -11,11 +11,12 @@ interface LayoutProps {
 }
 
 const PAGE_TITLES: Record<string, string> = {
-  "/":        "الرئيسية",
-  "/orders":  "الطلبات",
-  "/drivers": "المناديب",
-  "/menu":    "القائمة",
-  "/reports": "تقارير المبيعات",
+  "/":           "الرئيسية",
+  "/orders":     "الطلبات",
+  "/drivers":    "المناديب",
+  "/menu":       "القائمة",
+  "/reports":    "تقارير المبيعات",
+  "/broadcast":  "إشعار جماعي",
 };
 
 export function Layout({ children }: LayoutProps) {

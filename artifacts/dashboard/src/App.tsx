@@ -11,6 +11,7 @@ import Drivers from "@/pages/drivers";
 import MenuManagement from "@/pages/menu-management";
 import SalesReports from "@/pages/reports";
 import MandoobPortal from "@/pages/mandoob";
+import Broadcast from "@/pages/broadcast";
 import { setBaseUrl } from "@workspace/api-client-react";
 
 const apiBase = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "";
@@ -42,6 +43,9 @@ function Router() {
         <Layout>
           <MenuManagement />
         </Layout>
+      </Route>
+      <Route path="/broadcast">
+        <Layout><Broadcast /></Layout>
       </Route>
       <Route path="/reports">
         <Layout>
