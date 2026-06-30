@@ -27,7 +27,7 @@
     },
     "android": {
       "package": "com.rwabi.almndi",
-      "versionCode": 19,
+      "versionCode": 20,
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive_icon.png",
