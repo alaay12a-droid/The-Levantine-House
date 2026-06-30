@@ -66,7 +66,7 @@ async function sendViaExpo(
             { errCode, token: chunk[idx] },
             "Expo push failed for token",
           );
-          if (errCode === "DeviceNotRegistered") {
+          if (errCode === "DeviceNotRegistered" || errCode === "InvalidCredentials") {
             invalidTokens.push(chunk[idx]!);
           }
         }
