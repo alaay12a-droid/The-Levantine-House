@@ -54,9 +54,7 @@ function Router() {
           <SalesReports />
         </Layout>
       </Route>
-      <Route path="/cashier">
-        <Layout><Cashier /></Layout>
-      </Route>
+      <Route path="/cashier" component={Cashier} />
       <Route path="/admin">
         <Layout><AdminPanel /></Layout>
       </Route>
