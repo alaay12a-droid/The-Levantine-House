@@ -714,7 +714,7 @@ export default function CashierScreen() {
     if (Platform.OS !== "web" || typeof window === "undefined") return;
     const dateLabel = date.toLocaleDateString("ar-SA", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
     const now = new Date().toLocaleString("ar-SA", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" });
-    const f = (n: number) => (n / 100).toFixed(2);
+    const f = (n: number) => n.toFixed(2);
     const fmtT = (iso: string | null) => iso ? new Date(iso).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" }) : "--:--";
 
     // Group by driver
@@ -1211,8 +1211,8 @@ ${daySections}
         const monthLabel = midDay.toLocaleDateString("ar-SA", { month: "long", year: "numeric" });
 
         // stats for selected day
-        const totalCollected = allDeliveries.reduce((s, r) => s + r.totalPrice / 100, 0);
-        const cashCollected  = allDeliveries.filter(r => r.paymentMethod === "cash").reduce((s, r) => s + r.totalPrice / 100, 0);
+        const totalCollected = allDeliveries.reduce((s, r) => s + r.totalPrice, 0);
+        const cashCollected  = allDeliveries.filter(r => r.paymentMethod === "cash").reduce((s, r) => s + r.totalPrice, 0);
 
         const fmtTime = (iso: string | null) =>
           iso ? new Date(iso).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" }) : "--:--";
@@ -1340,7 +1340,7 @@ ${daySections}
                           <Text style={{ color: "#4CAF50", fontFamily: F.semi, fontSize: 12 }}>🛵 {a.driverName}</Text>
                         </View>
                         <View style={{ alignItems: "flex-end", gap: 3 }}>
-                          <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 15 }}>{(a.totalPrice / 100).toFixed(2)} ر.س</Text>
+                          <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 15 }}>{a.totalPrice.toFixed(2)} ر.س</Text>
                           <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 10 }}>{a.paymentMethod === "cash" ? "💵 نقدي" : "💳 إلكتروني"}</Text>
                         </View>
                       </View>
@@ -1417,8 +1417,8 @@ ${daySections}
                     driverMap.get(key)!.push(r);
                   }
                   const groups = Array.from(driverMap.entries()).map(([name, rows]) => {
-                    const total      = rows.reduce((s, r) => s + r.totalPrice / 100, 0);
-                    const cash       = rows.filter(r => r.paymentMethod === "cash").reduce((s, r) => s + r.totalPrice / 100, 0);
+                    const total      = rows.reduce((s, r) => s + r.totalPrice, 0);
+                    const cash       = rows.filter(r => r.paymentMethod === "cash").reduce((s, r) => s + r.totalPrice, 0);
                     const electronic = total - cash;
                     return { name, rows, total, cash, electronic };
                   });
@@ -1509,7 +1509,7 @@ ${daySections}
                                   </View>
                                   {/* Price */}
                                   <Text style={{ color: isCash ? "#81C784" : "#64B5F6", fontFamily: F.extra, fontSize: 13 }}>
-                                    {(row.totalPrice / 100).toFixed(2)} ر.س
+                                    {row.totalPrice.toFixed(2)} ر.س
                                   </Text>
                                 </View>
                               );
