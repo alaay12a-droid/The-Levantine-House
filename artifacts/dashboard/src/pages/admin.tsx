@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import ZoneMapPicker, { type LatLng } from "@/components/zone-map-picker";
 import { apiGet, apiPost, apiPut, apiDel, apiPatch } from "@/lib/api";
 import { formatCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -20,7 +21,7 @@ interface ApiMenuItem { id: string; name: string; nameEn?: string; category: str
 interface ApiOccasion { id: string; name: string; description?: string; imageUrl?: string; isActive: boolean; }
 interface ApiBanner { id: string; imageUrl: string; title?: string; isVisible: boolean; createdAt: string; }
 interface ApiCombo { id: string; name: string; price: number; description?: string; imageUrl?: string; isAvailable: boolean; components: { name: string; quantity: number }[]; }
-interface ApiZone { id: string; name: string; fee: number; minOrder: number; isActive: boolean; polygon?: unknown[]; }
+interface ApiZone { id: number; name: string; deliveryFee: number; minOrder: number; enabled: boolean; polygon?: LatLng[]; sortOrder?: number; }
 interface ReferralSettings { enabled: boolean; ratePerReferral: number; }
 interface ReferralRow { id: number; referrerName: string; referrerPhone: string; referredPhone: string; rewardAmount: number; createdAt: string; }
 interface BranchHours { dayOfWeek: number; isOpen: boolean; openTime: string; closeTime: string; }
@@ -97,6 +98,7 @@ export default function Admin() {
   const [showZoneForm, setShowZoneForm] = useState(false);
   const [editingZone, setEditingZone] = useState<ApiZone | null>(null);
   const [zoneForm, setZoneForm] = useState({ name: "", fee: "", minOrder: "" });
+  const [zonePolygon, setZonePolygon] = useState<LatLng[]>([]);
   const [zoneSaving, setZoneSaving] = useState(false);
 
   // ── Referrals ──
@@ -350,12 +352,18 @@ export default function Admin() {
   };
 
   // ── Zones ─────────────────────────────────────────────────────────────────
-  const openAddZone = () => { setEditingZone(null); setZoneForm({ name: "", fee: "", minOrder: "" }); setShowZoneForm(true); };
-  const openEditZone = (z: ApiZone) => { setEditingZone(z); setZoneForm({ name: z.name, fee: String(z.fee / 100), minOrder: String(z.minOrder / 100) }); setShowZoneForm(true); };
+  const openAddZone = () => { setEditingZone(null); setZoneForm({ name: "", fee: "", minOrder: "" }); setZonePolygon([]); setShowZoneForm(true); };
+  const openEditZone = (z: ApiZone) => { setEditingZone(z); setZoneForm({ name: z.name, fee: String(z.deliveryFee / 100), minOrder: String(z.minOrder / 100) }); setZonePolygon(z.polygon ?? []); setShowZoneForm(true); };
   const handleSaveZone = async () => {
     if (!zoneForm.name.trim()) return;
+    if (!editingZone && zonePolygon.length < 3) { toast({ title: "ارسم حدود المنطقة على الخريطة (3 نقاط على الأقل)", variant: "destructive" }); return; }
     setZoneSaving(true);
-    const payload = { name: zoneForm.name, fee: Math.round(parseFloat(zoneForm.fee || "0") * 100), minOrder: Math.round(parseFloat(zoneForm.minOrder || "0") * 100) };
+    const payload: Record<string, unknown> = {
+      name: zoneForm.name,
+      deliveryFee: Math.round(parseFloat(zoneForm.fee || "0") * 100),
+      minOrder: Math.round(parseFloat(zoneForm.minOrder || "0") * 100),
+    };
+    if (zonePolygon.length >= 3) payload.polygon = zonePolygon;
     try {
       if (editingZone) { await apiPut(`/delivery-zones/${editingZone.id}`, payload); }
       else { await apiPost("/delivery-zones", payload); }
@@ -364,10 +372,10 @@ export default function Admin() {
     finally { setZoneSaving(false); }
   };
   const handleToggleZone = async (z: ApiZone) => {
-    try { await apiPut(`/delivery-zones/${z.id}`, { isActive: !z.isActive }); setZones(prev => prev.map(x => x.id === z.id ? { ...x, isActive: !x.isActive } : x)); }
+    try { await apiPut(`/delivery-zones/${z.id}`, { enabled: !z.enabled }); setZones(prev => prev.map(x => x.id === z.id ? { ...x, enabled: !x.enabled } : x)); }
     catch { toast({ title: "خطأ", variant: "destructive" }); }
   };
-  const handleDeleteZone = async (id: string) => {
+  const handleDeleteZone = async (id: number) => {
     if (!window.confirm("حذف هذه المنطقة؟")) return;
     try { await apiDel(`/delivery-zones/${id}`); setZones(prev => prev.filter(z => z.id !== id)); toast({ title: "تم الحذف" }); }
     catch { toast({ title: "خطأ", variant: "destructive" }); }
@@ -890,12 +898,13 @@ export default function Admin() {
                   <div className="flex-1">
                     <div className="font-bold text-sm text-foreground">{z.name}</div>
                     <div className="flex gap-3 text-xs text-muted-foreground mt-0.5">
-                      <span>رسوم: {fmtPrice(z.fee / 100)}</span>
+                      <span>رسوم: {fmtPrice(z.deliveryFee / 100)}</span>
                       <span>الحد الأدنى: {fmtPrice(z.minOrder / 100)}</span>
+                      {z.polygon && z.polygon.length > 0 && <span className="text-green-600">✓ {z.polygon.length} نقطة</span>}
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Switch checked={z.isActive} onCheckedChange={() => handleToggleZone(z)} />
+                    <Switch checked={z.enabled} onCheckedChange={() => handleToggleZone(z)} />
                     <button onClick={() => openEditZone(z)} className="h-8 w-8 rounded-lg bg-blue-100 dark:bg-blue-900/20 text-blue-600 flex items-center justify-center hover:bg-blue-200 transition-colors">
                       <Pencil className="h-3.5 w-3.5" />
                     </button>
@@ -1290,14 +1299,39 @@ export default function Admin() {
 
       {/* ── Zone Form Modal ────────────────────────────────────────────────── */}
       <Dialog open={showZoneForm} onOpenChange={setShowZoneForm}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="max-w-xl w-full">
           <DialogHeader><DialogTitle>{editingZone ? "تعديل المنطقة" : "إضافة منطقة توصيل"}</DialogTitle></DialogHeader>
           <div className="space-y-3">
-            <Input placeholder="اسم المنطقة" value={zoneForm.name} onChange={e => setZoneForm(f => ({ ...f, name: e.target.value }))} />
-            <Input type="number" placeholder="رسوم التوصيل (ريال)" value={zoneForm.fee} onChange={e => setZoneForm(f => ({ ...f, fee: e.target.value }))} dir="ltr" />
-            <Input type="number" placeholder="الحد الأدنى للطلب (ريال)" value={zoneForm.minOrder} onChange={e => setZoneForm(f => ({ ...f, minOrder: e.target.value }))} dir="ltr" />
-            <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 text-xs text-amber-700 dark:text-amber-400">
-              ملاحظة: رسم حدود المنطقة على الخريطة متاح في التطبيق فقط
+            <div className="grid grid-cols-2 gap-2">
+              <Input placeholder="اسم المنطقة" value={zoneForm.name} onChange={e => setZoneForm(f => ({ ...f, name: e.target.value }))} className="col-span-2" />
+              <Input type="number" placeholder="رسوم التوصيل (ريال)" value={zoneForm.fee} onChange={e => setZoneForm(f => ({ ...f, fee: e.target.value }))} dir="ltr" />
+              <Input type="number" placeholder="الحد الأدنى للطلب (ريال)" value={zoneForm.minOrder} onChange={e => setZoneForm(f => ({ ...f, minOrder: e.target.value }))} dir="ltr" />
+            </div>
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-xs font-semibold text-muted-foreground">
+                  حدود المنطقة على الخريطة
+                  {zonePolygon.length > 0 && (
+                    <span className="mr-2 text-green-600">{zonePolygon.length} نقطة{zonePolygon.length < 3 ? ` (${3 - zonePolygon.length} متبقية)` : " ✓"}</span>
+                  )}
+                </span>
+                <div className="flex gap-1.5">
+                  {zonePolygon.length > 0 && (
+                    <button onClick={() => setZonePolygon(p => p.slice(0, -1))}
+                      className="text-xs px-2 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-muted-foreground hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors">
+                      ↩ تراجع
+                    </button>
+                  )}
+                  {zonePolygon.length > 0 && (
+                    <button onClick={() => setZonePolygon([])}
+                      className="text-xs px-2 py-1 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors">
+                      مسح الكل
+                    </button>
+                  )}
+                </div>
+              </div>
+              <p className="text-[11px] text-muted-foreground mb-2">انقر على الخريطة لإضافة نقاط المضلع (3 نقاط على الأقل)</p>
+              <ZoneMapPicker points={zonePolygon} onChange={setZonePolygon} />
             </div>
             <Button onClick={handleSaveZone} disabled={zoneSaving || !zoneForm.name.trim()}
               className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold">
