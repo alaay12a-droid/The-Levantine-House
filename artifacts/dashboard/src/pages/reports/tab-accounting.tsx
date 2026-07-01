@@ -218,7 +218,7 @@ export function TabAccounting({ today, week, month, year, orders, loading }: Pro
   // Category map from menu API
   const [categoryMap, setCategoryMap] = useState<Map<string, string>>(new Map());
   useEffect(() => {
-    fetch("/api/menu")
+    fetch(`${(import.meta.env.VITE_API_BASE_URL as string | undefined) ?? ""}/api/menu`)
       .then(r => r.json())
       .then((items: { id: string; name: string; category: string }[]) => {
         const m = new Map<string, string>();

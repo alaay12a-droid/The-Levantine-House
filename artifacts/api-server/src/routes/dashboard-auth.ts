@@ -65,7 +65,7 @@ router.post("/dashboard/auth/login", async (req, res) => {
   res.cookie(COOKIE_NAME, token, {
     httpOnly: true,
     secure: process.env["NODE_ENV"] === "production",
-    sameSite: "lax",
+    sameSite: process.env["NODE_ENV"] === "production" ? "none" : "lax",
     maxAge: COOKIE_MAX_AGE,
   });
 

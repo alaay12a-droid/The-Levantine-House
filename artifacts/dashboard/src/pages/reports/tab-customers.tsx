@@ -57,7 +57,7 @@ function TopCustomerReward({ customer }: { customer: CustomerStat }) {
     setLoading(true); setError(null); setResult(null);
     const code = generateCode();
     try {
-      const res = await fetch("/api/discount-codes", {
+      const res = await fetch(`${(import.meta.env.VITE_API_BASE_URL as string | undefined) ?? ""}/api/discount-codes`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
