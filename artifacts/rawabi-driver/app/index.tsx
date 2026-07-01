@@ -25,7 +25,7 @@ const C = {
 } as const;
 
 // ── API helpers ───────────────────────────────────────────────────────────────
-const PRODUCTION_API = "https://mandi-menu-1.replit.app";
+const PRODUCTION_API = "https://rawabi-mandi-7.onrender.com";
 export const API_BASE: string =
   (process.env.EXPO_PUBLIC_API_BASE_URL as string | undefined) ?? PRODUCTION_API;
 

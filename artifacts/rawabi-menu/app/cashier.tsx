@@ -492,7 +492,7 @@ export default function CashierScreen() {
 
   const customerUrl = Platform.OS === "web"
     ? (typeof window !== "undefined" ? window.location.origin + "/" : "")
-    : (process.env.EXPO_PUBLIC_API_BASE_URL || "https://dc93e0aa-3f78-420b-b841-3af65fe535e6-00-3qwzp8t1i4uai.pike.replit.dev") + "/";
+    : (process.env.EXPO_PUBLIC_API_BASE_URL || "https://rawabi-mandi-7.onrender.com") + "/";
 
   const handleCopyLink = () => {
     if (Platform.OS === "web" && typeof navigator !== "undefined" && navigator.clipboard) {

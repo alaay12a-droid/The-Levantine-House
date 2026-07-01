@@ -58,7 +58,7 @@ export default function ReferralScreen() {
 
   const handleShare = async () => {
     if (!code) return;
-    const appLink = `https://mandi-menu-1.replit.app?ref=${code}`;
+    const appLink = `https://rawabi-mandi-7.onrender.com?ref=${code}`;
     const msg = `🍖 جرّب روابي المندي — أشهى مطعم مندي في تبوك!\n\nحمّل التطبيق الآن واستمتع بتجربة الطلب:\n${appLink}\n\nكود الإحالة الخاص بك: ${code}`;
     try {
       await Share.share({ message: msg, url: appLink });
