@@ -17,6 +17,8 @@ const PAGE_TITLES: Record<string, string> = {
   "/menu":       "القائمة",
   "/reports":    "تقارير المبيعات",
   "/broadcast":  "إشعار جماعي",
+  "/cashier":    "لوحة الكاشير",
+  "/admin":      "لوحة الإدارة",
 };
 
 export function Layout({ children }: LayoutProps) {

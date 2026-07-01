@@ -12,6 +12,8 @@ import MenuManagement from "@/pages/menu-management";
 import SalesReports from "@/pages/reports";
 import MandoobPortal from "@/pages/mandoob";
 import Broadcast from "@/pages/broadcast";
+import Cashier from "@/pages/cashier";
+import AdminPanel from "@/pages/admin";
 import { setBaseUrl } from "@workspace/api-client-react";
 
 const apiBase = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "";
@@ -51,6 +53,12 @@ function Router() {
         <Layout>
           <SalesReports />
         </Layout>
+      </Route>
+      <Route path="/cashier">
+        <Layout><Cashier /></Layout>
+      </Route>
+      <Route path="/admin">
+        <Layout><AdminPanel /></Layout>
       </Route>
       <Route component={NotFound} />
     </Switch>

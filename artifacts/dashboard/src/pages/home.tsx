@@ -2,7 +2,7 @@ import { useGetRevenue, useListOrders, getGetRevenueQueryKey, getListOrdersQuery
 import { formatCurrency, formatEasternNumber } from "@/lib/format";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
-import { ListOrdered, Users, UtensilsCrossed, BarChart2, ChevronLeft, ShoppingBag, Banknote, TrendingUp, Bell } from "lucide-react";
+import { ListOrdered, Users, UtensilsCrossed, BarChart2, ChevronLeft, ShoppingBag, Banknote, TrendingUp, Bell, Monitor, Settings2 } from "lucide-react";
 
 export default function Home() {
   const { data: revenue, isLoading: isRevenueLoading } = useGetRevenue({
@@ -107,6 +107,28 @@ export default function Home() {
       accent: "from-rose-500 to-pink-600",
       bg: "bg-rose-50 hover:bg-rose-100 border-rose-200",
       iconBg: "bg-rose-500",
+      badge: null,
+      badgeColor: "",
+    },
+    {
+      href: "/cashier",
+      icon: Monitor,
+      title: "لوحة الكاشير",
+      desc: "استقبال الطلبات وتتبع المناديب وإدارة التوصيل",
+      accent: "from-amber-500 to-orange-600",
+      bg: "bg-amber-50 hover:bg-amber-100 border-amber-200",
+      iconBg: "bg-amber-500",
+      badge: isOrdersLoading ? null : pendingCount > 0 ? `${pendingCount} جديد` : null,
+      badgeColor: "bg-red-100 text-red-700 border-red-200",
+    },
+    {
+      href: "/admin",
+      icon: Settings2,
+      title: "لوحة الإدارة",
+      desc: "القائمة والمناسبات والبانر والمناطق والإعدادات",
+      accent: "from-zinc-500 to-zinc-700",
+      bg: "bg-zinc-50 hover:bg-zinc-100 border-zinc-200",
+      iconBg: "bg-zinc-600",
       badge: null,
       badgeColor: "",
     },
