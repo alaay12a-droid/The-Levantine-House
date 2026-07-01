@@ -202,6 +202,13 @@ export default function Cashier() {
     } catch {}
   }, []);
 
+  const fetchActiveAssignments = useCallback(async () => {
+    try {
+      const assignments = await apiGet<ActiveAssignment[]>("/drivers/active-assignments");
+      setActiveAssignments(assignments);
+    } catch {}
+  }, []);
+
   const fetchDeliveries = useCallback(async (date: Date) => {
     const dateStr = date.toISOString().slice(0, 10);
     try {
@@ -226,13 +233,14 @@ export default function Cashier() {
     pollRef.current = setInterval(() => {
       fetchOrders(true);
       fetchUnreadCounts();
+      fetchActiveAssignments();
       if (cashierView === "drivers") fetchDeliveries(drvSelectedDate);
     }, 10000);
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
       document.title = "لوحة الإدارة";
     };
-  }, [authenticated, fetchOrders, fetchUnreadCounts, fetchDrivers, fetchDeliveries, cashierView, drvSelectedDate]);
+  }, [authenticated, fetchOrders, fetchUnreadCounts, fetchDrivers, fetchDeliveries, fetchActiveAssignments, cashierView, drvSelectedDate]);
 
   // ── Date change for drivers ────────────────────────────────────────────────
   useEffect(() => {
@@ -437,8 +445,8 @@ export default function Cashier() {
 
   // ── Action button for order ───────────────────────────────────────────────
   const renderOrderActions = (order: Order) => {
-    const isDelivery = !!order.customerAddress?.trim();
     const assignmentInfo = activeAssignments.find(a => a.orderId === order.id);
+    const isActive = order.status !== "done" && order.status !== "cancelled";
 
     return (
       <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-border/50">
@@ -454,23 +462,29 @@ export default function Cashier() {
             <CheckCircle className="h-4 w-4" /> تم التجهيز
           </button>
         )}
-        {order.status === "ready" && !isDelivery && (
+        {order.status === "ready" && !assignmentInfo && (
           <button onClick={() => handleUpdateStatus(order, "done")}
             className="flex-1 min-w-0 bg-green-600 hover:bg-green-700 text-white text-sm font-bold py-2 px-3 rounded-xl flex items-center justify-center gap-1 transition-colors">
             <CheckCircle className="h-4 w-4" /> تم التسليم
           </button>
         )}
-        {order.status === "ready" && isDelivery && !assignmentInfo && (
+        {isActive && !assignmentInfo && order.status !== "pending" && (
           <button onClick={() => setAssigningOrderId(order.id)}
-            className="flex-1 min-w-0 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold py-2 px-3 rounded-xl flex items-center justify-center gap-1 transition-colors">
+            className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold py-2 px-3 rounded-xl flex items-center gap-1 transition-colors">
             <Truck className="h-4 w-4" /> تعيين مندوب
           </button>
         )}
         {assignmentInfo && (
-          <button onClick={() => setTrackingOrderId(order.id)}
-            className="bg-blue-500/10 border border-blue-500/30 text-blue-600 text-sm font-bold py-2 px-3 rounded-xl flex items-center gap-1 hover:bg-blue-500/20 transition-colors">
-            <Navigation className="h-4 w-4" /> تتبع مباشر
-          </button>
+          <>
+            <button onClick={() => setAssigningOrderId(order.id)}
+              className="bg-amber-500/10 border border-amber-500/30 text-amber-600 text-sm font-bold py-2 px-3 rounded-xl flex items-center gap-1 hover:bg-amber-500/20 transition-colors">
+              <Truck className="h-4 w-4" /> {assignmentInfo.driverName}
+            </button>
+            <button onClick={() => setTrackingOrderId(order.id)}
+              className="bg-blue-500/10 border border-blue-500/30 text-blue-600 text-sm font-bold py-2 px-3 rounded-xl flex items-center gap-1 hover:bg-blue-500/20 transition-colors">
+              <Navigation className="h-4 w-4" /> تتبع
+            </button>
+          </>
         )}
         {order.status !== "done" && order.status !== "cancelled" && (
           <button onClick={() => handleCancelOrder(order)}
