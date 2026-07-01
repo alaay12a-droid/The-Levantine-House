@@ -25,7 +25,11 @@ interface ReferralSettings { enabled: boolean; ratePerReferral: number; }
 interface ReferralRow { id: number; referrerName: string; referrerPhone: string; referredPhone: string; rewardAmount: number; createdAt: string; }
 interface BranchHours { dayOfWeek: number; isOpen: boolean; openTime: string; closeTime: string; }
 interface DiscountCode { id: number; code: string; discountType: "percentage" | "fixed"; value: number; minOrder: number | null; description?: string; expiresAt?: string; maxUsages?: number; currentUsages: number; isActive: boolean; }
-interface RevenueData { today: { totalRevenue: number; orderCount: number; cashRevenue: number; electronicRevenue: number }; thisMonth: { totalRevenue: number; orderCount: number }; thisYear: { totalRevenue: number; orderCount: number }; }
+interface RevenuePeriod { totalRevenue: number; deliveryRevenue: number; itemsRevenue: number; orderCount: number; taxAmount: number; netRevenue: number; cancelledCount: number; cancelledValue: number; pendingCount: number; cashCount: number; onlineCount: number; cashRevenue: number; onlineRevenue: number; }
+interface RevenueDayRow { date: string; total: number; delivery: number; items: number; orders: number; tax: number; net: number; cancelledCount: number; cancelledValue: number; cashCount: number; onlineCount: number; }
+interface RevenueMonthRow { month: string; total: number; delivery: number; items: number; orders: number; tax: number; net: number; cancelledCount: number; cancelledValue: number; cashCount: number; onlineCount: number; }
+interface RevenueTopItem { id: string; name: string; qty: number; revenue: number; }
+interface RevenueData { today: RevenuePeriod; week: RevenuePeriod; month: RevenuePeriod; year: RevenuePeriod; dailyBreakdown: RevenueDayRow[]; monthlyBreakdown: RevenueMonthRow[]; topItems: RevenueTopItem[]; }
 
 const CATEGORIES = ["الدجاج", "اللحوم", "المشويات", "المقبلات", "السلطات", "المشروبات", "العصائر", "المناسبات"];
 
@@ -741,7 +745,7 @@ export default function Admin() {
                 <h3 className="font-bold text-sm text-amber-500">اليوم</h3>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="bg-amber-500/10 rounded-xl p-3 text-center">
-                    <div className="font-black text-amber-500 text-xl">{formatCurrency(revenueData.today.totalRevenue * 100)}</div>
+                    <div className="font-black text-amber-500 text-xl">{fmtPrice(revenueData.today.totalRevenue)}</div>
                     <div className="text-[11px] text-muted-foreground">الإجمالي</div>
                   </div>
                   <div className="bg-zinc-500/10 rounded-xl p-3 text-center">
@@ -749,28 +753,70 @@ export default function Admin() {
                     <div className="text-[11px] text-muted-foreground">طلب</div>
                   </div>
                   <div className="bg-green-500/10 rounded-xl p-3 text-center">
-                    <div className="font-black text-green-600 text-lg">{formatCurrency(revenueData.today.cashRevenue * 100)}</div>
+                    <div className="font-black text-green-600 text-lg">{fmtPrice(revenueData.today.cashRevenue)}</div>
                     <div className="text-[11px] text-muted-foreground">نقدي</div>
                   </div>
                   <div className="bg-blue-500/10 rounded-xl p-3 text-center">
-                    <div className="font-black text-blue-600 text-lg">{formatCurrency(revenueData.today.electronicRevenue * 100)}</div>
+                    <div className="font-black text-blue-600 text-lg">{fmtPrice(revenueData.today.onlineRevenue)}</div>
                     <div className="text-[11px] text-muted-foreground">إلكتروني</div>
                   </div>
                 </div>
-              </div>
-              {/* Month & Year */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-card border border-border rounded-2xl p-4 text-center space-y-1">
-                  <div className="text-xs text-muted-foreground">الشهر</div>
-                  <div className="font-black text-amber-500">{formatCurrency(revenueData.thisMonth.totalRevenue * 100)}</div>
-                  <div className="text-xs text-muted-foreground">{revenueData.thisMonth.orderCount} طلب</div>
-                </div>
-                <div className="bg-card border border-border rounded-2xl p-4 text-center space-y-1">
-                  <div className="text-xs text-muted-foreground">السنة</div>
-                  <div className="font-black text-amber-500">{formatCurrency(revenueData.thisYear.totalRevenue * 100)}</div>
-                  <div className="text-xs text-muted-foreground">{revenueData.thisYear.orderCount} طلب</div>
+                <div className="flex justify-between text-xs text-muted-foreground border-t border-border pt-2">
+                  <span>صافي (بعد الضريبة): <span className="text-foreground font-bold">{fmtPrice(revenueData.today.netRevenue)}</span></span>
+                  <span>ضريبة: <span className="text-foreground font-bold">{fmtPrice(revenueData.today.taxAmount)}</span></span>
                 </div>
               </div>
+              {/* Week / Month / Year */}
+              <div className="grid grid-cols-3 gap-2">
+                <div className="bg-card border border-border rounded-2xl p-3 text-center space-y-1">
+                  <div className="text-[11px] text-muted-foreground">الأسبوع</div>
+                  <div className="font-black text-amber-500 text-sm">{fmtPrice(revenueData.week.totalRevenue)}</div>
+                  <div className="text-[11px] text-muted-foreground">{revenueData.week.orderCount} طلب</div>
+                </div>
+                <div className="bg-card border border-border rounded-2xl p-3 text-center space-y-1">
+                  <div className="text-[11px] text-muted-foreground">الشهر</div>
+                  <div className="font-black text-amber-500 text-sm">{fmtPrice(revenueData.month.totalRevenue)}</div>
+                  <div className="text-[11px] text-muted-foreground">{revenueData.month.orderCount} طلب</div>
+                </div>
+                <div className="bg-card border border-border rounded-2xl p-3 text-center space-y-1">
+                  <div className="text-[11px] text-muted-foreground">السنة</div>
+                  <div className="font-black text-amber-500 text-sm">{fmtPrice(revenueData.year.totalRevenue)}</div>
+                  <div className="text-[11px] text-muted-foreground">{revenueData.year.orderCount} طلب</div>
+                </div>
+              </div>
+              {/* Top Items */}
+              {revenueData.topItems.length > 0 && (
+                <div className="bg-card border border-border rounded-2xl p-4 space-y-2">
+                  <h3 className="font-bold text-sm text-amber-500">أعلى الأصناف مبيعاً</h3>
+                  {revenueData.topItems.slice(0, 5).map((item, i) => (
+                    <div key={item.id} className="flex items-center justify-between text-sm py-1 border-b border-border/50 last:border-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground w-4">{i + 1}</span>
+                        <span className="text-foreground">{item.name}</span>
+                      </div>
+                      <div className="flex items-center gap-3 text-xs">
+                        <span className="text-muted-foreground">{item.qty} وحدة</span>
+                        <span className="font-bold text-amber-500">{fmtPrice(item.revenue)}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {/* Daily Breakdown (last 7 days with data) */}
+              {revenueData.dailyBreakdown.filter(d => d.orders > 0).length > 0 && (
+                <div className="bg-card border border-border rounded-2xl p-4 space-y-2">
+                  <h3 className="font-bold text-sm text-amber-500">آخر الأيام النشطة</h3>
+                  {revenueData.dailyBreakdown.filter(d => d.orders > 0).slice(-7).reverse().map(day => (
+                    <div key={day.date} className="flex items-center justify-between text-sm py-1 border-b border-border/50 last:border-0">
+                      <span className="text-muted-foreground text-xs">{day.date}</span>
+                      <div className="flex items-center gap-3 text-xs">
+                        <span className="text-muted-foreground">{day.orders} طلب</span>
+                        <span className="font-bold text-foreground">{fmtPrice(day.total)}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-12 text-muted-foreground gap-2">
