@@ -8,6 +8,8 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      - key: PORT
+        value: 8080
       - key: LOG_LEVEL
         value: info
       - key: PRIVATE_OBJECT_DIR
@@ -16,9 +18,19 @@ services:
         value: skip
       - key: DATABASE_URL
         sync: false
+      - key: DASHBOARD_JWT_SECRET
+        sync: false
+      - key: ADMIN_USERNAME
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
       - key: RESEND_API_KEY
         sync: false
       - key: EMAIL_USER
         sync: false
       - key: EMAIL_PASS
+        sync: false
+      - key: FIREBASE_SERVICE_ACCOUNT
+        sync: false
+      - key: DEFAULT_OBJECT_STORAGE_BUCKET_ID
         sync: false
