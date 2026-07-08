@@ -8,6 +8,8 @@ COPY . .
 
 RUN pnpm install --no-frozen-lockfile
 
+RUN pnpm run typecheck:libs
+
 RUN BASE_PATH=/dashboard/ pnpm --filter @workspace/dashboard run build
 
 RUN pnpm --filter @workspace/api-server run build
