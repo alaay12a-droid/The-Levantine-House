@@ -1,6 +1,5 @@
 node_modules
 **/node_modules
-**/dist
 **/.expo
 **/android
 **/ios
@@ -9,5 +8,4 @@ node_modules
 attached_assets
 artifacts/rawabi-menu
 artifacts/rawabi-driver
-artifacts/dashboard
 artifacts/mockup-sandbox
