@@ -105,6 +105,18 @@ router.post("/dashboard/auth/logout", (req, res) => {
   res.json({ ok: true });
 });
 
+// Temporary: returns admin username for the logged-in user (requires valid JWT cookie)
+router.get("/dashboard/auth/admin-info", async (req, res) => {
+  const token = req.cookies?.[COOKIE_NAME] as string | undefined;
+  if (!token) { res.status(401).json({ error: "غير مصرح" }); return; }
+  const payload = verifyToken(token);
+  if (!payload) { res.status(401).json({ error: "جلسة منتهية" }); return; }
+  const [user] = await db.select({ id: dashboardUsersTable.id, username: dashboardUsersTable.username, role: dashboardUsersTable.role })
+    .from(dashboardUsersTable).where(eq(dashboardUsersTable.id, payload.userId)).limit(1);
+  if (!user) { res.status(404).json({ error: "غير موجود" }); return; }
+  res.json({ username: user.username, role: user.role });
+});
+
 router.post("/dashboard/auth/forgot-password", async (req, res) => {
   const key = "admin-reset";
   const existing = otpStore.get(key);
