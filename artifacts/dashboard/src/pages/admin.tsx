@@ -100,6 +100,10 @@ export default function Admin() {
   const [zoneForm, setZoneForm] = useState({ name: "", fee: "", minOrder: "" });
   const [zonePolygon, setZonePolygon] = useState<LatLng[]>([]);
   const [zoneSaving, setZoneSaving] = useState(false);
+  // ── Free delivery threshold ──
+  const [freeDeliveryEnabled, setFreeDeliveryEnabled]       = useState(false);
+  const [freeDeliveryThresholdInput, setFreeDeliveryThresholdInput] = useState("100");
+  const [freeDeliverySaving, setFreeDeliverySaving]         = useState(false);
 
   // ── Referrals ──
   const [referralSettings, setReferralSettings] = useState<ReferralSettings | null>(null);
@@ -192,8 +196,25 @@ export default function Admin() {
   };
   const loadZones = async () => {
     setZonesLoading(true);
-    try { const d = await apiGet<ApiZone[]>("/delivery-zones"); setZones(d); }
-    catch {} finally { setZonesLoading(false); }
+    try {
+      const [d, app] = await Promise.all([
+        apiGet<ApiZone[]>("/delivery-zones"),
+        apiGet<{ freeDeliveryThreshold: number }>("/settings/appearance"),
+      ]);
+      setZones(d);
+      const thr = app.freeDeliveryThreshold ?? 0;
+      setFreeDeliveryEnabled(thr > 0);
+      setFreeDeliveryThresholdInput(thr > 0 ? String(thr) : "100");
+    } catch {} finally { setZonesLoading(false); }
+  };
+  const handleSaveFreeDelivery = async () => {
+    setFreeDeliverySaving(true);
+    try {
+      const threshold = freeDeliveryEnabled ? (parseFloat(freeDeliveryThresholdInput) || 0) : 0;
+      await apiPut("/settings/appearance", { freeDeliveryThreshold: threshold });
+      toast({ title: "تم الحفظ" });
+    } catch { toast({ title: "خطأ في الحفظ", variant: "destructive" }); }
+    finally { setFreeDeliverySaving(false); }
   };
   const loadReferrals = async () => {
     try {
@@ -882,6 +903,43 @@ export default function Admin() {
          ══════════════════════════════════════════════════════════════════ */}
       {activeTab === "zones" && (
         <div className="space-y-4">
+          {/* ── Free delivery threshold card ── */}
+          <div className="bg-card border border-border rounded-2xl p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">🚗</span>
+                <div>
+                  <div className="font-bold text-sm text-foreground">توصيل مجاني عند حد معين</div>
+                  <div className="text-xs text-muted-foreground">إذا تجاوز الطلب المبلغ المحدد يصبح التوصيل مجانياً</div>
+                </div>
+              </div>
+              <Switch checked={freeDeliveryEnabled} onCheckedChange={setFreeDeliveryEnabled} />
+            </div>
+            {freeDeliveryEnabled && (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground shrink-0">عند تجاوز</span>
+                <Input
+                  type="number"
+                  value={freeDeliveryThresholdInput}
+                  onChange={e => setFreeDeliveryThresholdInput(e.target.value)}
+                  placeholder="100"
+                  dir="ltr"
+                  className="w-32"
+                  min="1"
+                />
+                <span className="text-sm text-muted-foreground shrink-0">ريال</span>
+              </div>
+            )}
+            <Button
+              size="sm"
+              onClick={handleSaveFreeDelivery}
+              disabled={freeDeliverySaving}
+              className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold"
+            >
+              {freeDeliverySaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "حفظ"}
+            </Button>
+          </div>
+
           <div className="flex items-center justify-between">
             <h2 className="font-bold text-base text-foreground">مناطق التوصيل</h2>
             <Button size="sm" onClick={openAddZone} className="bg-amber-500 hover:bg-amber-600 text-white font-bold">

@@ -130,6 +130,7 @@ export interface AppConfig {
   minOrderAmount: number;
   deliveryEnabled: boolean;
   deliveryFee: number;
+  freeDeliveryThreshold: number;
 }
 
 export const DEFAULT_CONFIG: AppConfig = {
@@ -155,6 +156,7 @@ export const DEFAULT_CONFIG: AppConfig = {
   minOrderAmount: 0,
   deliveryEnabled: false,
   deliveryFee: 0,
+  freeDeliveryThreshold: 0,
 };
 
 interface AppConfigContextValue {
@@ -186,13 +188,14 @@ export function AppConfigProvider({ children }: { children: React.ReactNode }) {
 
       // 2. Load appearance (colors + logoBg) from server — overrides local for these keys
       try {
-        const remote = await apiGet<{ bgTheme: string; accentColor: string; logoBg: string; minOrderAmount: number; deliveryEnabled: boolean; deliveryFee: number }>("/settings/appearance");
-        if (remote.bgTheme)                      local.bgTheme        = remote.bgTheme as BgThemeKey;
-        if (remote.accentColor)                  local.accentColor    = remote.accentColor;
-        if (remote.logoBg)                       local.logoBg         = remote.logoBg;
-        if (remote.minOrderAmount !== undefined)  local.minOrderAmount  = remote.minOrderAmount;
-        if (remote.deliveryEnabled !== undefined) local.deliveryEnabled = remote.deliveryEnabled;
-        if (remote.deliveryFee !== undefined)     local.deliveryFee     = remote.deliveryFee;
+        const remote = await apiGet<{ bgTheme: string; accentColor: string; logoBg: string; minOrderAmount: number; deliveryEnabled: boolean; deliveryFee: number; freeDeliveryThreshold: number }>("/settings/appearance");
+        if (remote.bgTheme)                             local.bgTheme                = remote.bgTheme as BgThemeKey;
+        if (remote.accentColor)                         local.accentColor            = remote.accentColor;
+        if (remote.logoBg)                              local.logoBg                 = remote.logoBg;
+        if (remote.minOrderAmount !== undefined)         local.minOrderAmount          = remote.minOrderAmount;
+        if (remote.deliveryEnabled !== undefined)        local.deliveryEnabled         = remote.deliveryEnabled;
+        if (remote.deliveryFee !== undefined)            local.deliveryFee             = remote.deliveryFee;
+        if (remote.freeDeliveryThreshold !== undefined)  local.freeDeliveryThreshold   = remote.freeDeliveryThreshold;
       } catch {}
 
       // 3. Load global sound settings from server → write into AsyncStorage so useAppSound picks them up

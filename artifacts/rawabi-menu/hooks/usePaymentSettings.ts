@@ -10,6 +10,7 @@ export interface PaymentSettings {
   moyasarApplePayIdentifier: string;
   deliveryFee: number;
   deliveryEnabled: boolean;
+  freeDeliveryThreshold: number;
 }
 
 const LOCAL_DEFAULTS = {
@@ -34,6 +35,7 @@ export function usePaymentSettings() {
     ...local,
     deliveryFee: config.deliveryFee,
     deliveryEnabled: config.deliveryEnabled,
+    freeDeliveryThreshold: config.freeDeliveryThreshold,
   };
 
   const saveSettings = useCallback(async (updated: PaymentSettings) => {
