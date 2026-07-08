@@ -24,7 +24,7 @@ router.post("/push-tokens", async (req, res) => {
       .values({ token, fcmToken: fcmToken ?? null, role })
       .onConflictDoUpdate({
         target: pushTokensTable.token,
-        set: { fcmToken: fcmToken ?? null },
+        set: { fcmToken: fcmToken ?? null, role },
       });
     res.json({ ok: true });
   } catch {

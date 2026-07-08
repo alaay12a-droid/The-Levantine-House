@@ -23,7 +23,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import { loadPins, isMasterCode } from "@/hooks/usePins";
-import { useNotifications } from "@/hooks/useNotifications";
 import { apiGet, apiPatch, apiPut, apiPost, apiDelete, API_BASE } from "@/constants/api";
 import { MapWebView } from "@/components/MapWebView";
 import { useChatUnreadAlert } from "@/hooks/useChatSound";
@@ -161,8 +160,6 @@ export default function CashierScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  useNotifications();
-
   const [authenticated, setAuthenticated] = useState(false);
   const [cashierPin, setCashierPin] = useState(CASHIER_PIN_DEFAULT);
   const [pinsLoaded, setPinsLoaded] = useState(false);
