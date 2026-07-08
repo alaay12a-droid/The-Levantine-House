@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { Copy, Check, RefreshCw, LogIn, Wifi, WifiOff, ShieldCheck, ShieldOff, Database, AlertCircle, CheckCircle2, Clock, Send, Eye, EyeOff, Loader2, Terminal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -249,11 +249,15 @@ export default function AuthDiagnostics() {
     setChecksRunning(false);
   }, []);
 
-  // Run checks on mount
-  useEffect(() => { void runChecks(); }, [runChecks]);
+  // Run checks on mount — delayed to avoid insertBefore DOM race on initial render
+  useEffect(() => {
+    const t = setTimeout(() => { void runChecks(); }, 300);
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  // ── Diagnostics data ───────────────────────────────────────────────────────
-  const diag = [
+  // ── Diagnostics data (stable, computed once after mount) ───────────────────
+  const diag = useMemo(() => [
     { label: "عنوان الواجهة الأمامية",   value: window.location.origin },
     { label: "مسار الصفحة الحالي",        value: window.location.pathname },
     { label: "VITE_API_BASE_URL",          value: (import.meta.env.VITE_API_BASE_URL as string | undefined) || "(فارغ — مسارات نسبية)" },
@@ -262,7 +266,7 @@ export default function AuthDiagnostics() {
     { label: "بيئة التشغيل (MODE)",        value: import.meta.env.MODE },
     { label: "Cookies مفعّلة",            value: navigator.cookieEnabled ? "نعم ✓" : "لا ✗" },
     { label: "المتصفح",                   value: navigator.userAgent.slice(0, 80) },
-  ];
+  ], []);
 
   // ─── Render ────────────────────────────────────────────────────────────────
   return (
