@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, ArrowRight } from "lucide-react";
+import { Loader2, ArrowRight, Eye, EyeOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const loginSchema = z.object({
@@ -39,6 +39,8 @@ export default function Login() {
   const [step, setStep] = useState<Step>("login");
   const [sendingOtp, setSendingOtp] = useState(false);
   const [resettingPw, setResettingPw] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
 
   // Local state for OTP code — completely independent from FormControl/Slot
   const [codeInput, setCodeInput] = useState("");
@@ -191,12 +193,22 @@ export default function Login() {
                     <FormItem>
                       <FormLabel>كلمة المرور</FormLabel>
                       <FormControl>
-                        <Input
-                          type="password"
-                          placeholder="أدخل كلمة المرور"
-                          {...field}
-                          className="h-12"
-                        />
+                        <div className="relative">
+                          <Input
+                            type={showPassword ? "text" : "password"}
+                            placeholder="أدخل كلمة المرور"
+                            {...field}
+                            className="h-12 pr-12"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword(v => !v)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                            tabIndex={-1}
+                          >
+                            {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                          </button>
+                        </div>
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -293,12 +305,22 @@ export default function Login() {
                       <FormItem>
                         <FormLabel>كلمة المرور الجديدة</FormLabel>
                         <FormControl>
-                          <Input
-                            type="password"
-                            placeholder="أدخل كلمة المرور الجديدة"
-                            {...field}
-                            className="h-12"
-                          />
+                          <div className="relative">
+                            <Input
+                              type={showNewPassword ? "text" : "password"}
+                              placeholder="أدخل كلمة المرور الجديدة"
+                              {...field}
+                              className="h-12 pr-12"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowNewPassword(v => !v)}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                              tabIndex={-1}
+                            >
+                              {showNewPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                            </button>
+                          </div>
                         </FormControl>
                         <FormMessage />
                       </FormItem>
