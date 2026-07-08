@@ -1,4 +1,17 @@
 services:
+  - type: static
+    name: mandi-dashboard
+    buildCommand: pnpm install --frozen-lockfile && BASE_PATH=/ pnpm --filter @workspace/dashboard run build
+    staticPublishPath: artifacts/dashboard/dist/public
+    pullRequestPreviewsEnabled: false
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_BASE_URL
+        value: https://mandi-menu-1-640o.onrender.com
+
   - type: web
     name: mandi-menu-1
     runtime: docker
