@@ -548,16 +548,41 @@ export default function AuthDiagnostics() {
         </div>
 
         {/* CORS / Cookie note */}
-        <div className="mt-4 rounded-xl bg-amber-50 border border-amber-200 p-3 space-y-1.5">
+        <div className="mt-4 rounded-xl bg-amber-50 border border-amber-200 p-3 space-y-2">
           <p className="text-xs font-semibold text-amber-800 flex items-center gap-1.5">
             <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-            ملاحظات CORS وCookies
+            لماذا يفشل اختبار Render من Preview؟
           </p>
-          <ul className="text-xs text-amber-700 space-y-1 list-disc list-inside">
-            <li>الإنتاج (Render): السيرفر والواجهة على نفس النطاق — لا توجد مشكلة CORS.</li>
-            <li>التطوير (Preview): الواجهة على Replit والـ API على Render — مطلوب <code className="bg-amber-100 px-1 rounded">credentials: include</code> وإعداد <code className="bg-amber-100 px-1 rounded">SameSite=None; Secure</code> في الكوكيز.</li>
-            <li>إذا فشل الدخول بـ 401 فالمشكلة في بيانات الاعتماد. إذا فشل بـ 502 فالخادم نائم (خطة مجانية).</li>
+          <ul className="text-xs text-amber-700 space-y-1.5 list-disc list-inside">
+            <li><strong>هذا طبيعي تماماً</strong> — عند الاختبار من Replit Preview إلى Render، المتصفح أو شبكة الجوال قد تمنع الطلب cross-origin مع credentials.</li>
+            <li>الإنتاج يعمل بشكل صحيح — السيرفر يرد بـ HTTP 200 على curl مباشرة.</li>
+            <li>للاختبار الحقيقي: افتح لوحة التحكم <strong>من Render مباشرة</strong> (نفس النطاق = لا CORS).</li>
+            <li>إذا فشل بـ 401 → بيانات الدخول خاطئة. إذا فشل بـ 502 → الخادم نائم (خطة مجانية، انتظر 30 ثانية).</li>
           </ul>
+          <a
+            href="https://mandi-menu-1-640o.onrender.com/dashboard/auth-diagnostics"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-800 underline underline-offset-2 hover:text-amber-900 mt-1"
+          >
+            ↗ افتح صفحة التشخيص على Render مباشرة
+          </a>
+        </div>
+
+        {/* Quick render test box */}
+        <div className="mt-3 rounded-xl bg-blue-50 border border-blue-200 p-3 space-y-1.5">
+          <p className="text-xs font-semibold text-blue-800">بيانات الدخول على Render (الإنتاج)</p>
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <div>
+              <p className="text-blue-600 mb-0.5">اسم المستخدم</p>
+              <code className="bg-white rounded px-2 py-1 block font-mono font-bold">rawabi-almandi</code>
+            </div>
+            <div>
+              <p className="text-blue-600 mb-0.5">كلمة المرور</p>
+              <code className="bg-white rounded px-2 py-1 block font-mono font-bold">Aa@123456</code>
+            </div>
+          </div>
+          <p className="text-[11px] text-blue-600">ملاحظة: اسم المستخدم على Render يختلف عن Preview (<code>rawabi-mandi</code>)</p>
         </div>
       </SectionCard>
 
