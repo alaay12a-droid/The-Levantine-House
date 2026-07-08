@@ -14,6 +14,7 @@ import MandoobPortal from "@/pages/mandoob";
 import Broadcast from "@/pages/broadcast";
 import Cashier from "@/pages/cashier";
 import AdminPanel from "@/pages/admin";
+import AuthDiagnostics from "@/pages/auth-diagnostics";
 import { setBaseUrl } from "@workspace/api-client-react";
 
 const apiBase = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "";
@@ -57,6 +58,9 @@ function Router() {
       <Route path="/cashier" component={Cashier} />
       <Route path="/admin">
         <Layout><AdminPanel /></Layout>
+      </Route>
+      <Route path="/auth-diagnostics">
+        <Layout><AuthDiagnostics /></Layout>
       </Route>
       <Route component={NotFound} />
     </Switch>

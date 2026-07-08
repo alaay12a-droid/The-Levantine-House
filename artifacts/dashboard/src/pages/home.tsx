@@ -2,7 +2,7 @@ import { useGetRevenue, useListOrders, getGetRevenueQueryKey, getListOrdersQuery
 import { formatCurrency, formatEasternNumber } from "@/lib/format";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
-import { ListOrdered, Users, UtensilsCrossed, BarChart2, ChevronLeft, ShoppingBag, Banknote, TrendingUp, Bell, Monitor, Settings2 } from "lucide-react";
+import { ListOrdered, Users, UtensilsCrossed, BarChart2, ChevronLeft, ShoppingBag, Banknote, TrendingUp, Bell, Monitor, Settings2, ShieldCheck } from "lucide-react";
 
 export default function Home() {
   const { data: revenue, isLoading: isRevenueLoading } = useGetRevenue({
@@ -129,6 +129,17 @@ export default function Home() {
       accent: "from-zinc-500 to-zinc-700",
       bg: "bg-zinc-50 hover:bg-zinc-100 border-zinc-200",
       iconBg: "bg-zinc-600",
+      badge: null,
+      badgeColor: "",
+    },
+    {
+      href: "/auth-diagnostics",
+      icon: ShieldCheck,
+      title: "تشخيص المصادقة",
+      desc: "فحص الاتصال واختبار الدخول وعرض معلومات التشخيص",
+      accent: "from-cyan-500 to-teal-600",
+      bg: "bg-cyan-50 hover:bg-cyan-100 border-cyan-200",
+      iconBg: "bg-cyan-600",
       badge: null,
       badgeColor: "",
     },
