@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db, ordersTable, menuItemsTable, appSettingsTable, orderDriverAssignmentsTable, deliveryDriversTable } from "@workspace/db";
 import { eq, desc, gte, lt, count, and, ne } from "drizzle-orm";
-import { sendPushToAll } from "../lib/sendPushNotification.js";
+import { sendPushToAll, sendPushToToken } from "../lib/sendPushNotification.js";
 import { sendSms } from "../lib/sendSms.js";
 import { z } from "zod";
 import { processReferralReward } from "./referrals.js";
@@ -245,18 +245,13 @@ router.patch("/orders/:id/status", async (req, res) => {
       if (driverRow) shouldSend = false;
     }
     if (shouldSend) {
-      fetch("https://exp.host/--/api/v2/push/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          to: order.customerPushToken,
-          title: customerMsg.title,
-          body: customerMsg.body,
-          sound: "default",
-          data: { orderId: order.id, status },
-          channelId: "order-status",
-        }),
-      }).catch(() => {});
+      sendPushToToken(order.customerPushToken, {
+        title: customerMsg.title,
+        body: customerMsg.body,
+        sound: "default",
+        data: { orderId: String(order.id), status },
+        channelId: "order-status",
+      }).catch((err) => req.log.warn({ err, orderId: order.id }, "Customer status push failed"));
     }
   }
 

@@ -347,15 +347,32 @@ router.post("/orders/:id/assign-driver", async (req, res) => {
   if (isNaN(orderId)) { res.status(400).json({ error: "معرّف غير صحيح" }); return; }
   const { driverId } = req.body;
   if (!driverId) { res.status(400).json({ error: "اختر مندوباً" }); return; }
+  const driverIdInt = parseInt(driverId);
   const [assignment] = await db
     .insert(orderDriverAssignmentsTable)
-    .values({ orderId, driverId: parseInt(driverId), status: "assigned" })
+    .values({ orderId, driverId: driverIdInt, status: "assigned" })
     .onConflictDoUpdate({
       target: orderDriverAssignmentsTable.orderId,
-      set: { driverId: parseInt(driverId), status: "assigned", assignedAt: new Date() },
+      set: { driverId: driverIdInt, status: "assigned", assignedAt: new Date() },
     })
     .returning();
   res.json(assignment);
+
+  // Notify customer that a driver has been assigned
+  const [order] = await db
+    .select({ customerPushToken: ordersTable.customerPushToken, dailyNumber: ordersTable.dailyNumber })
+    .from(ordersTable)
+    .where(eq(ordersTable.id, orderId))
+    .limit(1);
+  if (order?.customerPushToken) {
+    sendPushToToken(order.customerPushToken, {
+      title: "🛵 تم تعيين مندوب لطلبك",
+      body: `جاري تجهيز طلبك رقم #${order.dailyNumber} وسيصل إليك قريباً`,
+      sound: "default",
+      data: { orderId: String(orderId), driverStatus: "assigned" },
+      channelId: "order-status",
+    }).catch(() => {});
+  }
 });
 
 // ── DELETE /orders/:id/assign-driver ─────────────────────────────────────────
@@ -396,7 +413,7 @@ router.put("/orders/:id/driver-status", async (req, res) => {
         title: "🛵 المندوب في الطريق إليك",
         body: "المندوب استلم طلبك وهو الآن في الطريق إليك",
         sound: "default",
-        data: { orderId, driverStatus: "picked_up" },
+        data: { orderId: String(orderId), driverStatus: "picked_up" },
         channelId: "order-status",
       }).catch(() => {});
     } else if (status === "delivered") {
@@ -404,7 +421,7 @@ router.put("/orders/:id/driver-status", async (req, res) => {
         title: "✅ طلبك وصل! 🎉",
         body: "تم تسليم طلبك — نتمنى تكون استمتعت بوجبتك 🙏",
         sound: "default",
-        data: { orderId, driverStatus: "delivered" },
+        data: { orderId: String(orderId), driverStatus: "delivered" },
         channelId: "order-status",
       }).catch(() => {});
     }

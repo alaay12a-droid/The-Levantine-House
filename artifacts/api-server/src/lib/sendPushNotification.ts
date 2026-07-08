@@ -23,6 +23,12 @@ async function sendViaFCM(fcmTokens: string[], msg: PushMessage): Promise<string
 
   for (let i = 0; i < fcmTokens.length; i += CHUNK) {
     const chunk = fcmTokens.slice(i, i + CHUNK);
+    // FCM requires all data values to be strings — coerce defensively
+    const stringData: Record<string, string> = {};
+    for (const [k, v] of Object.entries(msg.data ?? {})) {
+      stringData[k] = String(v);
+    }
+
     try {
       const res = await messaging.sendEachForMulticast({
         tokens: chunk,
@@ -35,7 +41,7 @@ async function sendViaFCM(fcmTokens: string[], msg: PushMessage): Promise<string
             color: "#E8920C",
           },
         },
-        data: msg.data ?? {},
+        data: stringData,
       });
 
       res.responses.forEach((r, idx) => {
