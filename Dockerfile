@@ -8,6 +8,8 @@ COPY . .
 
 RUN pnpm install --frozen-lockfile
 
+RUN BASE_PATH=/dashboard/ pnpm --filter @workspace/dashboard run build
+
 RUN pnpm --filter @workspace/api-server run build
 
 EXPOSE 8080
