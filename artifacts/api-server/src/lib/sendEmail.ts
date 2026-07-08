@@ -1,16 +1,12 @@
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
 
 const ADMIN_EMAIL = "alaay12a@gmail.com";
 
 export async function sendPinOtpEmail(code: string): Promise<void> {
-  const user = process.env.EMAIL_USER;
-  const pass = process.env.EMAIL_PASS;
-  if (!user || !pass) throw new Error("EMAIL_USER / EMAIL_PASS غير مضبوطان");
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey || apiKey === "none") throw new Error("RESEND_API_KEY غير مضبوط");
 
-  const transporter = nodemailer.createTransport({
-    service: "gmail",
-    auth: { user, pass },
-  });
+  const resend = new Resend(apiKey);
 
   const html = `
     <div dir="rtl" style="font-family:Arial,sans-serif;max-width:480px;margin:auto;padding:24px;background:#1A0A00;border-radius:12px;color:#F5E6D0">
@@ -25,10 +21,12 @@ export async function sendPinOtpEmail(code: string): Promise<void> {
     </div>
   `;
 
-  await transporter.sendMail({
-    from: `"روابي المندي" <${user}>`,
+  const { error } = await resend.emails.send({
+    from: "روابي المندي <onboarding@resend.dev>",
     to: ADMIN_EMAIL,
     subject: `${code} — رمز تغيير كلمة المرور | روابي المندي`,
     html,
   });
+
+  if (error) throw new Error(error.message);
 }
