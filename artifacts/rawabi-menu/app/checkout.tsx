@@ -84,6 +84,7 @@ export default function CheckoutScreen() {
   const [manualLat, setManualLat] = useState<number | undefined>();
   const [manualLng, setManualLng] = useState<number | undefined>();
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
+  const [paymentPickerVisible, setPaymentPickerVisible] = useState(false);
 
   // ─── Delivery Zone check ────────────────────────────────────────────────────
   type ZoneCheckResult = { found: boolean; zone: { id: number; name: string; deliveryFee: number; minOrder: number } | null; hasZones: boolean };
@@ -922,14 +923,36 @@ export default function CheckoutScreen() {
               </View>
             </View>
           ) : (
-            <TouchableOpacity style={[styles.listRow, dyn.row]} onPress={() => setPromoExpanded(!promoExpanded)} activeOpacity={0.7}>
-              <Feather name={promoExpanded ? "chevron-up" : "chevron-left"} size={16} color={promoExpanded ? GOLD : colors.mutedForeground} />
-              <View style={styles.rowLeft}>
-                <Feather name="tag" size={16} color={promoExpanded ? GOLD : colors.mutedForeground} />
-                <Text style={[styles.rowLabel, dyn.lbl, { color: promoExpanded ? GOLD : colors.mutedForeground, fontFamily: promoExpanded ? F.bold : F.regular }]}>
-                  {isEn ? "Promo Code" : "كود الخصم"}
-                </Text>
-              </View>
+            <TouchableOpacity
+              onPress={() => setPromoExpanded(!promoExpanded)}
+              activeOpacity={0.75}
+              style={{ marginHorizontal: 14, marginVertical: 12 }}
+            >
+              {promoExpanded ? (
+                <View style={[styles.listRow, { paddingHorizontal: 0, paddingVertical: 4 }]}>
+                  <Feather name="chevron-up" size={16} color={GOLD} />
+                  <View style={styles.rowLeft}>
+                    <Feather name="tag" size={16} color={GOLD} />
+                    <Text style={[styles.rowLabel, dyn.lbl, { color: GOLD, fontFamily: F.bold }]}>
+                      {isEn ? "Promo Code" : "كود الخصم"}
+                    </Text>
+                  </View>
+                </View>
+              ) : (
+                <View style={{
+                  borderWidth: 1.5,
+                  borderStyle: "dashed",
+                  borderColor: GOLD,
+                  borderRadius: 12,
+                  paddingVertical: 13,
+                  paddingHorizontal: 16,
+                  alignItems: "center",
+                }}>
+                  <Text style={{ color: GOLD, fontFamily: F.semi, fontSize: 14 }}>
+                    {isEn ? "Add Promo or Coupon Code" : "إضافة كود خصم أو كوبون"}
+                  </Text>
+                </View>
+              )}
             </TouchableOpacity>
           )}
           {promoExpanded && appliedDiscount === 0 && (
@@ -993,182 +1016,132 @@ export default function CheckoutScreen() {
             );
           })}
 
-          {/* Delivery fee */}
-          {paymentSettings.deliveryEnabled && (
-            <>
-              <View style={[styles.rowDivider, { backgroundColor: colors.border }]} />
-              <View style={[styles.listRow, dyn.row]}>
-                {deliveryFee > 0 ? (
-                  <Text style={[styles.rowValue, dyn.val, { color: colors.mutedForeground, fontFamily: F.bold }]}>
-                    {deliveryFeeStr} {isEn ? "SAR" : "ر.س"}
-                  </Text>
-                ) : (
-                  <Text style={[styles.rowValue, dyn.val, { color: "#4CAF50", fontFamily: F.bold }]}>
-                    {isEn ? "Free" : "مجاني"}
-                  </Text>
-                )}
-                <Text style={[styles.rowLabel, dyn.lbl, { color: colors.foreground, fontFamily: F.semi }]}>
-                  {orderType === "delivery"
-                    ? (isEn ? "🚗 Delivery" : "🚗 رسوم التوصيل")
-                    : (isEn ? "🏪 Branch Pickup" : "🏪 استلام")}
-                </Text>
-              </View>
-            </>
-          )}
+          {/* ── VAT breakdown ── */}
+          <View style={[styles.totalLine, { backgroundColor: colors.border }]} />
 
-          {/* Discount row */}
+          {/* مبلغ الطلب بدون الضريبة */}
+          <View style={[styles.listRow, dyn.row]}>
+            <Text style={[styles.rowValue, dyn.val, { color: colors.mutedForeground, fontFamily: F.bold }]}>
+              {(totalPrice / 1.15).toFixed(2)} {isEn ? "SAR" : "ر.س"}
+            </Text>
+            <Text style={[styles.rowLabel, dyn.lbl, { color: colors.foreground, fontFamily: F.semi }]}>
+              {isEn ? "Subtotal (excl. VAT)" : "مبلغ الطلب بدون الضريبة"}
+            </Text>
+          </View>
+
+          {/* رسوم التوصيل بدون الضريبة */}
+          <View style={[styles.listRow, { paddingHorizontal: dyn.row.paddingHorizontal, paddingVertical: 6 }]}>
+            <Text style={[styles.rowValue, dyn.val, { color: deliveryFee > 0 ? colors.mutedForeground : "#4CAF50", fontFamily: F.bold }]}>
+              {deliveryFee > 0 ? (deliveryFee / 1.15).toFixed(2) : "0"} {isEn ? "SAR" : "ر.س"}
+            </Text>
+            <Text style={[styles.rowLabel, dyn.lbl, { color: colors.foreground, fontFamily: F.semi }]}>
+              {isEn ? "Delivery (excl. VAT)" : "رسوم التوصيل بدون الضريبة"}
+            </Text>
+          </View>
+
+          {/* خصم الكود */}
           {appliedDiscount > 0 && (
-            <>
-              <View style={[styles.rowDivider, { backgroundColor: colors.border }]} />
-              <View style={[styles.listRow, dyn.row]}>
-                <Text style={[styles.rowValue, dyn.val, { color: "#22C55E", fontFamily: F.bold }]}>
-                  -{appliedDiscount % 1 === 0 ? appliedDiscount : appliedDiscount.toFixed(2)} {isEn ? "SAR" : "ر.س"}
-                </Text>
-                <Text style={[styles.rowLabel, dyn.lbl, { color: "#22C55E", fontFamily: F.semi }]}>
-                  🏷️ {isEn ? "Discount" : "خصم الكود"}
-                </Text>
-              </View>
-            </>
+            <View style={[styles.listRow, { paddingHorizontal: dyn.row.paddingHorizontal, paddingVertical: 6 }]}>
+              <Text style={[styles.rowValue, dyn.val, { color: "#22C55E", fontFamily: F.bold }]}>
+                -{appliedDiscount % 1 === 0 ? appliedDiscount : appliedDiscount.toFixed(2)} {isEn ? "SAR" : "ر.س"}
+              </Text>
+              <Text style={[styles.rowLabel, dyn.lbl, { color: "#22C55E", fontFamily: F.semi }]}>
+                🏷️ {isEn ? "Discount" : "خصم الكود"}
+              </Text>
+            </View>
           )}
 
-          {/* Total */}
+          {/* الضريبة 15% */}
+          <View style={[styles.listRow, { paddingHorizontal: dyn.row.paddingHorizontal, paddingVertical: 6 }]}>
+            <Text style={[styles.rowValue, dyn.val, { color: colors.mutedForeground, fontFamily: F.bold }]}>
+              {(grandTotal - grandTotal / 1.15).toFixed(2)} {isEn ? "SAR" : "ر.س"}
+            </Text>
+            <Text style={[styles.rowLabel, dyn.lbl, { color: colors.foreground, fontFamily: F.semi }]}>
+              {isEn ? "VAT 15% ∨" : "الضريبة 15% ∨"}
+            </Text>
+          </View>
+
+          {/* المجموع الضريبة مشمولة */}
           <View style={[styles.totalLine, { backgroundColor: colors.border }]} />
           <View style={[styles.listRow, dyn.row]}>
             <Text style={[styles.grandTotal, { color: GOLD, fontFamily: F.extra }]}>
               {grandTotalStr} {isEn ? "SAR" : "ر.س"}
             </Text>
             <Text style={[styles.rowLabel, dyn.lbl, { color: colors.foreground, fontFamily: F.bold }]}>
-              {isEn ? "Total (VAT incl.)" : "المجموع شامل الضريبة"}
+              {isEn ? "Total (VAT incl.)" : "المجموع الضريبة مشمولة"}
             </Text>
           </View>
         </View>
 
-        {/* ── Payment method ── */}
-        <View style={[styles.listCard, dyn.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Text style={[styles.sectionLabel, dyn.sec, { color: colors.mutedForeground, fontFamily: F.semi }]}>
-            {t("paymentMethod")}
-          </Text>
-
-          {/* Cash */}
-          <View style={[styles.rowDivider, { backgroundColor: colors.border }]} />
-          <TouchableOpacity style={[styles.listRow, dyn.row]} onPress={() => setPaymentMethod("cash")} activeOpacity={0.7}>
-            <View style={styles.radioOuter}>
-              <View style={[styles.radioInner, { borderColor: paymentMethod === "cash" ? GOLD : colors.border }]}>
-                {paymentMethod === "cash" && <View style={[styles.radioDot, { backgroundColor: GOLD }]} />}
-              </View>
+        {/* ── Payment method selector row ── */}
+        <TouchableOpacity
+          style={[styles.listCard, dyn.card, { backgroundColor: colors.card, borderColor: colors.border }]}
+          onPress={() => setPaymentPickerVisible(true)}
+          activeOpacity={0.7}
+        >
+          <View style={[styles.listRow, dyn.row]}>
+            <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6 }}>
+              <Feather name="chevron-left" size={16} color={colors.mutedForeground} />
+              <Text style={{ color: colors.foreground, fontFamily: F.semi, fontSize: 14 }}>
+                {paymentMethod === "cash"
+                  ? (isEn ? "Cash on Delivery" : "الدفع عند الاستلام")
+                  : paymentMethod === "wallet"
+                    ? (isEn ? "Wallet" : "المحفظة الإلكترونية")
+                    : (isEn ? "Credit Card" : "بطاقة إئتمانية")}
+              </Text>
             </View>
             <View style={styles.rowLeft}>
-              <Feather name="dollar-sign" size={16} color={colors.mutedForeground} />
-              <View>
-                <Text style={[styles.rowLabel, dyn.lbl, { color: colors.foreground, fontFamily: F.bold }]}>
-                  {t("cash")}
-                </Text>
-                <Text style={[{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }]}>
-                  {t("cashDesc")}
-                </Text>
-              </View>
+              <Feather name="credit-card" size={16} color={colors.mutedForeground} />
+              <Text style={[styles.rowLabel, dyn.lbl, { color: colors.mutedForeground, fontFamily: F.regular }]}>
+                {isEn ? "Payment Method" : "اختيار طريقة الدفع"}
+              </Text>
             </View>
-          </TouchableOpacity>
-
-          {/* Wallet */}
-          {walletBalance !== null && walletBalance > 0 && (
-            <>
-              <View style={[styles.rowDivider, { backgroundColor: colors.border }]} />
-              <TouchableOpacity style={[styles.listRow, dyn.row]} onPress={() => setPaymentMethod("wallet")} activeOpacity={0.7}>
-                <View style={styles.radioOuter}>
-                  <View style={[styles.radioInner, { borderColor: paymentMethod === "wallet" ? GOLD : colors.border }]}>
-                    {paymentMethod === "wallet" && <View style={[styles.radioDot, { backgroundColor: GOLD }]} />}
-                  </View>
-                </View>
-                <View style={styles.rowLeft}>
-                  <Feather name="credit-card" size={16} color={colors.mutedForeground} />
-                  <View>
-                    <Text style={[styles.rowLabel, dyn.lbl, { color: colors.foreground, fontFamily: F.bold }]}>
-                      {t("payWallet")}
-                    </Text>
-                    <Text style={[{ color: walletBalance >= grandTotal ? "#22C55E" : "#E53935", fontFamily: F.regular, fontSize: 11 }]}>
-                      {t("walletBalance")}: {walletBalance} {t("sar")}
-                      {walletBalance < grandTotal ? ` (${t("insufficientBalance")})` : ""}
-                    </Text>
-                  </View>
-                </View>
-              </TouchableOpacity>
-            </>
-          )}
-
-          {/* Online / Apple Pay */}
-          <View style={[styles.rowDivider, { backgroundColor: colors.border }]} />
-          {paymentSettings.applePayEnabled ? (
-            <TouchableOpacity style={[styles.listRow, dyn.row]} onPress={() => setPaymentMethod("moyasar")} activeOpacity={0.7}>
-              <View style={styles.radioOuter}>
-                <View style={[styles.radioInner, { borderColor: paymentMethod === "moyasar" ? GOLD : colors.border }]}>
-                  {paymentMethod === "moyasar" && <View style={[styles.radioDot, { backgroundColor: GOLD }]} />}
-                </View>
-              </View>
-              <View style={styles.rowLeft}>
-                <Feather name="smartphone" size={16} color={colors.mutedForeground} />
-                <View>
-                  <Text style={[styles.rowLabel, dyn.lbl, { color: colors.foreground, fontFamily: F.bold }]}>Apple Pay</Text>
-                  <Text style={[{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }]}>
-                    {isEn ? "Pay easily with Apple Pay" : "ادفع بسهولة عبر Apple Pay"}
-                  </Text>
-                </View>
-              </View>
-            </TouchableOpacity>
-          ) : (
-            <View style={[styles.listRow, dyn.row, { opacity: 0.4 }]}>
-              <View style={styles.radioOuter}>
-                <View style={[styles.radioInner, { borderColor: colors.border }]} />
-              </View>
-              <View style={styles.rowLeft}>
-                <Feather name="credit-card" size={16} color={colors.mutedForeground} />
-                <View>
-                  <Text style={[styles.rowLabel, dyn.lbl, { color: colors.foreground, fontFamily: F.bold }]}>
-                    💳 {isEn ? "Online Payment (Coming Soon)" : "دفع إلكتروني (قريباً)"}
-                  </Text>
-                  <Text style={[{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }]}>
-                    Mada • Visa • Apple Pay • STC Pay
-                  </Text>
-                </View>
-              </View>
-            </View>
-          )}
-        </View>
+          </View>
+        </TouchableOpacity>
       </ScrollView>
 
       {/* ── Bottom submit bar ── */}
-      <View style={[styles.bottomBar, { backgroundColor: colors.card, borderTopColor: colors.border, paddingBottom: bottomInset + 16 }]}>
+      <View style={[styles.bottomBar, { backgroundColor: colors.card, borderTopColor: colors.border, paddingBottom: bottomInset + 8 }]}>
         {cooldownSeconds > 0 ? (
           <View style={[styles.submitBtn, { backgroundColor: "#1A2A1A", alignItems: "center", justifyContent: "center", gap: 4 }]}>
-            <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 15, textAlign: "center" }}>
-              ✅ {isEn ? "Your order is pending!" : "طلبك السابق قيد الانتظار"}
+            <Text style={{ color: "#4CAF50", fontFamily: F.extra, fontSize: 14, textAlign: "center" }}>
+              ✅ {isEn ? "Order pending!" : "طلبك السابق قيد الانتظار"}
             </Text>
             <Text style={{ color: "#7A9A7A", fontFamily: F.regular, fontSize: 12, textAlign: "center" }}>
-              {isEn ? `You can reorder in ${cooldownSeconds}s` : `يمكنك الطلب مجدداً خلال ${cooldownSeconds} ث`}
+              {isEn ? `Reorder in ${cooldownSeconds}s` : `متاح بعد ${cooldownSeconds} ث`}
             </Text>
           </View>
         ) : (
-          <TouchableOpacity
-            onPress={handlePlaceOrder}
-            disabled={loading}
-            style={[styles.submitBtn, { backgroundColor: GOLD, opacity: loading ? 0.7 : 1 }]}
-            activeOpacity={0.85}
-          >
-            {loading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <View style={styles.submitBtnInner}>
-                <Text style={[styles.submitTotal, { fontFamily: F.extra }]}>
-                  {grandTotalStr} {isEn ? "SAR" : "ر.س"}
-                </Text>
-                <Text style={[styles.submitText, { fontFamily: F.bold }]}>
+          <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 12 }}>
+            <TouchableOpacity
+              onPress={handlePlaceOrder}
+              disabled={loading}
+              style={[styles.submitBtn, { flex: 1, backgroundColor: GOLD, opacity: loading ? 0.7 : 1 }]}
+              activeOpacity={0.85}
+            >
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={[styles.submitText, { fontFamily: F.bold, textAlign: "center" }]}>
                   {isEn ? "Place Order" : "إرسال الطلب"}
                 </Text>
-                <Feather name="check-circle" size={20} color="#fff" />
-              </View>
-            )}
-          </TouchableOpacity>
+              )}
+            </TouchableOpacity>
+            <View style={{ alignItems: "center" }}>
+              <Text style={{ color: GOLD, fontFamily: F.extra, fontSize: 18 }}>
+                {grandTotalStr}
+              </Text>
+              <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 11 }}>
+                {isEn ? "SAR" : "ر.س"}
+              </Text>
+            </View>
+          </View>
         )}
+        <TouchableOpacity style={{ alignItems: "center", paddingTop: 8 }} activeOpacity={0.7}>
+          <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12 }}>
+            {isEn ? "Cancellation Policy" : "سياسة الإلغاء"}
+          </Text>
+        </TouchableOpacity>
       </View>
 
       {/* ── Closed-hours toast ── */}
@@ -1336,6 +1309,94 @@ export default function CheckoutScreen() {
         </View>
       )}
 
+      {/* ── Payment Method Picker Sheet ── */}
+      {paymentPickerVisible && (
+        <View style={styles.otpOverlay}>
+          <TouchableOpacity style={StyleSheet.absoluteFillObject} onPress={() => setPaymentPickerVisible(false)} activeOpacity={1} />
+          <View style={[styles.otpSheet, { backgroundColor: colors.card, gap: 0, paddingTop: 14 }]}>
+            <View style={[styles.sheetHandle, { backgroundColor: colors.border, alignSelf: "center" }]} />
+            <Text style={{ color: colors.foreground, fontFamily: F.extra, fontSize: 18, textAlign: "center", paddingVertical: 14, paddingHorizontal: 20 }}>
+              {isEn ? "Payment Method" : "طريقة الدفع"}
+            </Text>
+
+            {/* Cash */}
+            <TouchableOpacity
+              style={[styles.payPickerRow, { borderTopWidth: 1, borderColor: colors.border }, paymentMethod === "cash" && { backgroundColor: GOLD + "18" }]}
+              onPress={() => { setPaymentMethod("cash"); setPaymentPickerVisible(false); }}
+              activeOpacity={0.75}
+            >
+              <View style={[styles.radioInner, { borderColor: paymentMethod === "cash" ? GOLD : colors.border }]}>
+                {paymentMethod === "cash" && <View style={[styles.radioDot, { backgroundColor: GOLD }]} />}
+              </View>
+              <View style={{ flex: 1, alignItems: "flex-end", gap: 2 }}>
+                <Text style={{ color: colors.foreground, fontFamily: F.bold, fontSize: 14 }}>
+                  {isEn ? "Cash on Delivery" : "الدفع عند الاستلام"}
+                </Text>
+                <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12 }}>
+                  {isEn ? "Pay when your order arrives" : "ادفع عند وصول طلبك"}
+                </Text>
+              </View>
+              <Feather name="dollar-sign" size={20} color={paymentMethod === "cash" ? GOLD : colors.mutedForeground} />
+            </TouchableOpacity>
+
+            {/* Wallet (if available) */}
+            {walletBalance !== null && walletBalance > 0 && (
+              <TouchableOpacity
+                style={[styles.payPickerRow, { borderTopWidth: 1, borderColor: colors.border }, paymentMethod === "wallet" && { backgroundColor: GOLD + "18" }]}
+                onPress={() => { setPaymentMethod("wallet"); setPaymentPickerVisible(false); }}
+                activeOpacity={0.75}
+              >
+                <View style={[styles.radioInner, { borderColor: paymentMethod === "wallet" ? GOLD : colors.border }]}>
+                  {paymentMethod === "wallet" && <View style={[styles.radioDot, { backgroundColor: GOLD }]} />}
+                </View>
+                <View style={{ flex: 1, alignItems: "flex-end", gap: 2 }}>
+                  <Text style={{ color: colors.foreground, fontFamily: F.bold, fontSize: 14 }}>
+                    {isEn ? "Wallet" : "المحفظة الإلكترونية"}
+                  </Text>
+                  <Text style={{ color: walletBalance >= grandTotal ? "#22C55E" : "#E53935", fontFamily: F.regular, fontSize: 12 }}>
+                    {isEn ? `Balance: ${walletBalance} SAR` : `الرصيد: ${walletBalance} ر.س`}
+                  </Text>
+                </View>
+                <Feather name="credit-card" size={20} color={paymentMethod === "wallet" ? GOLD : colors.mutedForeground} />
+              </TouchableOpacity>
+            )}
+
+            {/* Online / Apple Pay */}
+            {paymentSettings.applePayEnabled ? (
+              <TouchableOpacity
+                style={[styles.payPickerRow, { borderTopWidth: 1, borderColor: colors.border }, paymentMethod === "moyasar" && { backgroundColor: GOLD + "18" }]}
+                onPress={() => { setPaymentMethod("moyasar"); setPaymentPickerVisible(false); }}
+                activeOpacity={0.75}
+              >
+                <View style={[styles.radioInner, { borderColor: paymentMethod === "moyasar" ? GOLD : colors.border }]}>
+                  {paymentMethod === "moyasar" && <View style={[styles.radioDot, { backgroundColor: GOLD }]} />}
+                </View>
+                <View style={{ flex: 1, alignItems: "flex-end", gap: 2 }}>
+                  <Text style={{ color: colors.foreground, fontFamily: F.bold, fontSize: 14 }}>Apple Pay</Text>
+                  <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12 }}>
+                    {isEn ? "Pay easily with Apple Pay" : "ادفع بسهولة عبر Apple Pay"}
+                  </Text>
+                </View>
+                <Feather name="smartphone" size={20} color={paymentMethod === "moyasar" ? GOLD : colors.mutedForeground} />
+              </TouchableOpacity>
+            ) : (
+              <View style={[styles.payPickerRow, { borderTopWidth: 1, borderColor: colors.border, opacity: 0.4 }]}>
+                <View style={[styles.radioInner, { borderColor: colors.border }]} />
+                <View style={{ flex: 1, alignItems: "flex-end", gap: 2 }}>
+                  <Text style={{ color: colors.foreground, fontFamily: F.bold, fontSize: 14 }}>
+                    {isEn ? "Online Payment (Coming Soon)" : "دفع إلكتروني (قريباً)"}
+                  </Text>
+                  <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12 }}>
+                    Mada • Visa • Apple Pay • STC Pay
+                  </Text>
+                </View>
+                <Feather name="credit-card" size={20} color={colors.mutedForeground} />
+              </View>
+            )}
+          </View>
+        </View>
+      )}
+
       {/* ── Map Picker Modal ── */}
       <MapPickerModal
         visible={mapPickerVisible}
@@ -1464,6 +1525,14 @@ const styles = StyleSheet.create({
   totalLine: { height: 1, marginHorizontal: 16, marginVertical: 4 },
   grandTotal: { fontSize: 20 },
 
+  payPickerRow: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+  },
+  sheetHandle: { width: 40, height: 4, borderRadius: 2, marginBottom: 4 },
   radioOuter: { justifyContent: "center", alignItems: "center" },
   radioInner: {
     width: 22,
