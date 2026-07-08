@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { apiGet, apiPost, apiPut, apiDel } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -10,8 +10,10 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, RefreshCw, Pencil, Trash2, Search, Loader2, PackageX, Package } from "lucide-react";
+import { Plus, RefreshCw, Pencil, Trash2, Search, Loader2, PackageX, Package, ImagePlus } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "";
 
 interface MenuItem {
   itemId: string;
@@ -74,6 +76,38 @@ export default function MenuManagement() {
   const [stockEditId, setStockEditId]   = useState<string | null>(null);
   const [stockVal, setStockVal]         = useState("");
   const [stockSaving, setStockSaving]   = useState(false);
+  const [uploading, setUploading]       = useState(false);
+  const imgFileRef                      = useRef<HTMLInputElement>(null);
+
+  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    const previewUrl = URL.createObjectURL(file);
+    setForm(f => ({ ...f, imageUrl: previewUrl }));
+    try {
+      const ext = file.name.split(".").pop() ?? "jpg";
+      const contentType = file.type || "image/jpeg";
+      const urlRes = await fetch(`${API_BASE}/api/storage/uploads/request-url`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: `menu-${Date.now()}.${ext}`, size: file.size, contentType }),
+      });
+      if (!urlRes.ok) throw new Error("تعذّر الحصول على رابط الرفع");
+      const { uploadURL, objectPath } = await urlRes.json() as { uploadURL: string; objectPath: string };
+      const putRes = await fetch(uploadURL, { method: "PUT", headers: { "Content-Type": contentType }, body: file });
+      if (!putRes.ok) throw new Error("فشل رفع الصورة");
+      const finalUrl = `${API_BASE}/api/storage${objectPath}`;
+      setForm(f => ({ ...f, imageUrl: finalUrl }));
+    } catch {
+      toast({ title: "تعذّر رفع الصورة", variant: "destructive" });
+      setForm(f => ({ ...f, imageUrl: "" }));
+    } finally {
+      setUploading(false);
+      if (imgFileRef.current) imgFileRef.current.value = "";
+    }
+  };
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true); else setRefreshing(true);
@@ -513,14 +547,54 @@ export default function MenuManagement() {
                 placeholder="وصف مختصر للصنف"
               />
             </div>
+            {/* Image upload */}
             <div className="space-y-1.5">
-              <Label>رابط الصورة (اختياري)</Label>
-              <Input
-                value={form.imageUrl}
-                onChange={e => setForm(f => ({ ...f, imageUrl: e.target.value }))}
-                placeholder="https://..."
-                dir="ltr"
-              />
+              <Label>صورة الصنف (اختياري)</Label>
+              <input ref={imgFileRef} type="file" accept="image/*" className="hidden" onChange={handleImageSelect} />
+              <div className="flex gap-3 items-start">
+                {/* Preview */}
+                <div className="relative shrink-0 h-24 w-24 rounded-lg border overflow-hidden bg-muted flex items-center justify-center">
+                  {uploading ? (
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  ) : form.imageUrl ? (
+                    <img src={form.imageUrl} alt="preview" className="h-full w-full object-cover" />
+                  ) : (
+                    <ImagePlus className="h-8 w-8 text-muted-foreground/50" />
+                  )}
+                </div>
+                {/* Controls */}
+                <div className="flex-1 flex flex-col gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-2 w-full"
+                    disabled={uploading}
+                    onClick={() => imgFileRef.current?.click()}
+                  >
+                    {uploading
+                      ? <><Loader2 className="h-4 w-4 animate-spin" /> جاري الرفع...</>
+                      : <><ImagePlus className="h-4 w-4" /> {form.imageUrl ? "تغيير الصورة" : "رفع صورة"}</>
+                    }
+                  </Button>
+                  <Input
+                    value={form.imageUrl}
+                    onChange={e => setForm(f => ({ ...f, imageUrl: e.target.value }))}
+                    placeholder="أو الصق رابط صورة..."
+                    dir="ltr"
+                    className="text-xs h-8"
+                  />
+                  {form.imageUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setForm(f => ({ ...f, imageUrl: "" }))}
+                      className="text-xs text-destructive hover:underline text-right"
+                    >
+                      ✕ حذف الصورة
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
