@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { apiGet, apiPost, apiPut, apiDel } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -9,8 +9,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Plus, RefreshCw, Pencil, Trash2, Phone, Users, TrendingUp, Loader2 } from "lucide-react";
+import { Plus, RefreshCw, Pencil, Trash2, Phone, Users, TrendingUp, Loader2, Camera } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "";
 
 interface Driver {
   id: number;
@@ -32,25 +34,34 @@ interface DriverForm {
   phone: string;
   pin: string;
   active: boolean;
+  photoUrl: string | null;
+  photoKey: string | null;
+  photoPreview: string | null;
 }
 
-const emptyForm = (): DriverForm => ({ name: "", phone: "", pin: "", active: true });
+const emptyForm = (): DriverForm => ({
+  name: "", phone: "", pin: "", active: true,
+  photoUrl: null, photoKey: null, photoPreview: null,
+});
 
 export default function Drivers() {
   const { toast } = useToast();
-  const [drivers, setDrivers]     = useState<Driver[]>([]);
-  const [summaries, setSummaries] = useState<DrvSummary[]>([]);
-  const [loading, setLoading]     = useState(true);
+  const [drivers, setDrivers]       = useState<Driver[]>([]);
+  const [summaries, setSummaries]   = useState<DrvSummary[]>([]);
+  const [loading, setLoading]       = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const [dialogOpen, setDialogOpen]   = useState(false);
-  const [form, setForm]               = useState<DriverForm>(emptyForm());
-  const [saving, setSaving]           = useState(false);
-  const [formError, setFormError]     = useState("");
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [form, setForm]             = useState<DriverForm>(emptyForm());
+  const [saving, setSaving]         = useState(false);
+  const [formError, setFormError]   = useState("");
+  const [uploading, setUploading]   = useState(false);
 
-  const [deleteId, setDeleteId]       = useState<number | null>(null);
-  const [deleting, setDeleting]       = useState(false);
-  const [togglingId, setTogglingId]   = useState<number | null>(null);
+  const [deleteId, setDeleteId]     = useState<number | null>(null);
+  const [deleting, setDeleting]     = useState(false);
+  const [togglingId, setTogglingId] = useState<number | null>(null);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true); else setRefreshing(true);
@@ -78,9 +89,51 @@ export default function Drivers() {
   };
 
   const openEdit = (d: Driver) => {
-    setForm({ id: d.id, name: d.name, phone: d.phone, pin: "", active: d.active });
+    setForm({
+      id: d.id, name: d.name, phone: d.phone, pin: "", active: d.active,
+      photoUrl: d.photoUrl, photoKey: null, photoPreview: d.photoUrl,
+    });
     setFormError("");
     setDialogOpen(true);
+  };
+
+  const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const preview = URL.createObjectURL(file);
+    setForm(f => ({ ...f, photoPreview: preview }));
+
+    setUploading(true);
+    try {
+      const ext = file.name.split(".").pop() ?? "jpg";
+      const contentType = file.type || "image/jpeg";
+
+      const urlRes = await fetch(`${API_BASE}/api/storage/uploads/request-url`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: `driver-${Date.now()}.${ext}`, size: file.size, contentType }),
+      });
+      if (!urlRes.ok) throw new Error("تعذّر الحصول على رابط الرفع");
+      const { uploadURL, objectPath } = await urlRes.json() as { uploadURL: string; objectPath: string };
+
+      const putRes = await fetch(uploadURL, {
+        method: "PUT",
+        headers: { "Content-Type": contentType },
+        body: file,
+      });
+      if (!putRes.ok) throw new Error("فشل رفع الصورة");
+
+      const finalUrl = `${API_BASE}/api/storage${objectPath}`;
+      setForm(f => ({ ...f, photoUrl: finalUrl, photoKey: objectPath, photoPreview: finalUrl }));
+    } catch {
+      toast({ title: "تعذّر رفع الصورة", variant: "destructive" });
+      setForm(f => ({ ...f, photoPreview: f.photoUrl }));
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
   };
 
   const handleSave = async () => {
@@ -99,6 +152,8 @@ export default function Drivers() {
         name: form.name.trim(),
         phone: form.phone.trim(),
         active: form.active,
+        photoUrl: form.photoUrl ?? null,
+        photoKey: form.photoKey ?? null,
       };
       if (form.pin.trim()) body.pin = form.pin.trim();
 
@@ -258,9 +313,17 @@ export default function Drivers() {
                     >
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
-                          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-sm shrink-0">
-                            {driver.name.charAt(0)}
-                          </div>
+                          {driver.photoUrl ? (
+                            <img
+                              src={driver.photoUrl}
+                              alt={driver.name}
+                              className="h-9 w-9 rounded-full object-cover shrink-0 border border-border"
+                            />
+                          ) : (
+                            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-sm shrink-0">
+                              {driver.name.charAt(0)}
+                            </div>
+                          )}
                           <span className="font-medium">{driver.name}</span>
                         </div>
                       </td>
@@ -328,6 +391,43 @@ export default function Drivers() {
             <DialogTitle>{form.id ? "تعديل بيانات المندوب" : "إضافة مندوب جديد"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
+
+            {/* Photo picker */}
+            <div className="flex flex-col items-center gap-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handlePhotoSelect}
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="relative group focus:outline-none"
+                title="انقر لرفع صورة"
+              >
+                <div className="h-20 w-20 rounded-full overflow-hidden border-2 border-dashed border-border group-hover:border-primary transition-colors bg-muted flex items-center justify-center">
+                  {uploading ? (
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  ) : form.photoPreview ? (
+                    <img src={form.photoPreview} alt="preview" className="h-full w-full object-cover" />
+                  ) : (
+                    <Camera className="h-7 w-7 text-muted-foreground group-hover:text-primary transition-colors" />
+                  )}
+                </div>
+                {!uploading && (
+                  <div className="absolute bottom-0 left-0 h-6 w-6 rounded-full bg-primary flex items-center justify-center border-2 border-background">
+                    <Camera className="h-3 w-3 text-primary-foreground" />
+                  </div>
+                )}
+              </button>
+              <p className="text-xs text-muted-foreground">
+                {uploading ? "جاري رفع الصورة..." : "انقر لإضافة صورة (اختياري)"}
+              </p>
+            </div>
+
             <div className="space-y-1.5">
               <Label>الاسم</Label>
               <Input
@@ -368,7 +468,7 @@ export default function Drivers() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>إلغاء</Button>
-            <Button onClick={handleSave} disabled={saving}>
+            <Button onClick={handleSave} disabled={saving || uploading}>
               {saving ? <Loader2 className="h-4 w-4 animate-spin ml-2" /> : null}
               {form.id ? "حفظ التعديلات" : "إضافة"}
             </Button>
