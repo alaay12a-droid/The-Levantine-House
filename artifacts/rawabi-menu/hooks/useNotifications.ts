@@ -20,8 +20,8 @@ try {
   // Not supported in this environment — safe to ignore
 }
 
-async function registerForPushNotifications(): Promise<string | null> {
-  if (Platform.OS === "web") return null;
+async function registerForPushNotifications(): Promise<void> {
+  if (Platform.OS === "web") return;
 
   try {
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
@@ -32,7 +32,7 @@ async function registerForPushNotifications(): Promise<string | null> {
       finalStatus = status;
     }
 
-    if (finalStatus !== "granted") return null;
+    if (finalStatus !== "granted") return;
 
     if (Platform.OS === "android") {
       await Notifications.setNotificationChannelAsync("orders", {
@@ -46,10 +46,25 @@ async function registerForPushNotifications(): Promise<string | null> {
       });
     }
 
-    const tokenData = await Notifications.getExpoPushTokenAsync({ projectId: PROJECT_ID });
-    return tokenData.data;
+    // Get Expo push token (used as stable key per device)
+    const { data: expoToken } = await Notifications.getExpoPushTokenAsync({ projectId: PROJECT_ID });
+
+    // Get native FCM token for direct Firebase Admin SDK delivery
+    let fcmToken: string | null = null;
+    try {
+      const deviceToken = await Notifications.getDevicePushTokenAsync();
+      fcmToken = deviceToken.data as string;
+    } catch {
+      // FCM token unavailable (e.g. emulator without Play Services)
+    }
+
+    // Register with server (cashier role = default)
+    apiPost("/push-tokens", {
+      token: expoToken,
+      fcmToken: fcmToken ?? undefined,
+    }).catch(() => {});
   } catch {
-    return null;
+    // Silently ignore — notifications are non-critical for cashier flow
   }
 }
 
@@ -58,12 +73,8 @@ export function useNotifications() {
   const responseListener = useRef<Notifications.EventSubscription | null>(null);
 
   useEffect(() => {
-    registerForPushNotifications().then(async (token) => {
-      if (!token) return;
-      try {
-        await apiPost("/push-tokens", { token });
-      } catch {}
-    });
+    // Register on every mount so FCM token stays fresh on every session
+    registerForPushNotifications();
 
     try {
       notificationListener.current = Notifications.addNotificationReceivedListener(() => {});

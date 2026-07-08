@@ -59,7 +59,7 @@ export async function registerCustomerNotifications(): Promise<string | null> {
       // FCM token unavailable (e.g. emulator without Play Services)
     }
 
-    // Register both tokens with server on every launch
+    // Always register with server on every launch — keeps FCM token current
     apiPost("/push-tokens", {
       token: expoToken,
       fcmToken: fcmToken ?? undefined,
@@ -76,12 +76,16 @@ export function useCustomerPushToken() {
   const [token, setToken] = useState<string | null>(null);
 
   useEffect(() => {
+    // Serve cached Expo token immediately so checkout screen has it right away
     AsyncStorage.getItem(TOKEN_KEY).then((cached) => {
-      if (cached) {
-        setToken(cached);
-      } else {
-        registerCustomerNotifications().then(setToken);
-      }
+      if (cached) setToken(cached);
+    });
+
+    // Always refresh in background on every launch:
+    // - refreshes the FCM token stored in the DB (FCM tokens can rotate)
+    // - updates the server with the latest token pair
+    registerCustomerNotifications().then((fresh) => {
+      if (fresh) setToken(fresh);
     });
   }, []);
 
