@@ -106,6 +106,206 @@ export function TabErp({ orders, loading }: Props) {
     setPage(1);
   }
 
+  function handlePrint() {
+    const periodLabel =
+      applied.dateFrom === applied.dateTo
+        ? `${applied.dateFrom}  ${applied.timeFrom} – ${applied.timeTo}`
+        : `${applied.dateFrom} ${applied.timeFrom}  إلى  ${applied.dateTo} ${applied.timeTo}`;
+
+    const payLabel =
+      applied.payment === "cash" ? "نقداً" :
+      applied.payment === "moyasar" ? "إلكتروني" : "الكل";
+
+    const subtypeLabel =
+      subtype === "groups" ? "مجموعات الوجبات" :
+      subtype === "items"  ? "الوجبات" : "تاريخ";
+
+    const viewLabel = viewMode === "summary" ? "إجمالي حسب الوجبة" : "تفصيل حسب الفاتورة";
+
+    /* ── Build table HTML ── */
+    let tableHtml = "";
+
+    if (viewMode === "summary") {
+      // Group items by category (all items, no pagination)
+      const catMap = new Map<string, ItemRow[]>();
+      for (const r of flatItems) {
+        const arr = catMap.get(r.category) ?? [];
+        arr.push(r);
+        catMap.set(r.category, arr);
+      }
+      const cats = CATEGORY_ORDER.filter(c => catMap.has(c));
+
+      tableHtml = `
+        <table>
+          <thead>
+            <tr class="header-row">
+              <th>اسم الصنف</th>
+              <th>المجموعة</th>
+              <th>السعر</th>
+              <th>الكمية</th>
+              <th>الإجمالي</th>
+              <th>الضريبة 15%</th>
+              <th>الخصم</th>
+              <th>الصافي</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="totals-row">
+              <td colspan="2"><strong>الإجمالي الكلي</strong></td>
+              <td></td>
+              <td><strong>${fmt0(totals.qty)}</strong></td>
+              <td><strong>${fmt2(totals.revenue)}</strong></td>
+              <td><strong>${fmt2(totals.tax)}</strong></td>
+              <td><strong>${fmt2(totals.discount)}</strong></td>
+              <td><strong>${fmt2(totals.net)}</strong></td>
+            </tr>
+            ${cats.map(cat => {
+              const rows = catMap.get(cat)!;
+              const catRev = rows.reduce((s,r)=>s+r.revenue,0);
+              const catQty = rows.reduce((s,r)=>s+r.qty,0);
+              const catTax = rows.reduce((s,r)=>s+r.tax,0);
+              const catNet = rows.reduce((s,r)=>s+r.net,0);
+              const label  = CATEGORY_AR[cat] || cat;
+              return `
+                <tr class="group-row">
+                  <td colspan="2"><strong>${label}</strong></td>
+                  <td></td>
+                  <td>${fmt0(catQty)}</td>
+                  <td>${fmt2(catRev)}</td>
+                  <td>${fmt2(catTax)}</td>
+                  <td>0.00</td>
+                  <td><strong>${fmt2(catNet)}</strong></td>
+                </tr>
+                ${rows.map(r => `
+                  <tr class="item-row">
+                    <td class="indent">${r.name}</td>
+                    <td>${label}</td>
+                    <td>${fmt2(r.unitPrice)}</td>
+                    <td>${r.qty}</td>
+                    <td>${fmt2(r.revenue)}</td>
+                    <td>${fmt2(r.tax)}</td>
+                    <td>0.00</td>
+                    <td>${fmt2(r.net)}</td>
+                  </tr>
+                `).join("")}
+              `;
+            }).join("")}
+          </tbody>
+        </table>`;
+    } else {
+      tableHtml = `
+        <table>
+          <thead>
+            <tr class="header-row">
+              <th>رقم الفاتورة</th>
+              <th>التاريخ</th>
+              <th>الوقت</th>
+              <th>العميل</th>
+              <th>طريقة الدفع</th>
+              <th>الأصناف</th>
+              <th>الإجمالي</th>
+              <th>الخصم</th>
+              <th>الضريبة 15%</th>
+              <th>الصافي</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="totals-row">
+              <td colspan="6"><strong>الإجمالي الكلي (${fmt0(filteredInvoices.length)} فاتورة)</strong></td>
+              <td><strong>${fmt2(invTotals.revenue)}</strong></td>
+              <td><strong>${fmt2(invTotals.discount)}</strong></td>
+              <td><strong>${fmt2(invTotals.tax)}</strong></td>
+              <td><strong>${fmt2(invTotals.net)}</strong></td>
+            </tr>
+            ${filteredInvoices.map(r => `
+              <tr>
+                <td>#${r.ref}</td>
+                <td>${r.date}</td>
+                <td>${r.time}</td>
+                <td>${r.customer}</td>
+                <td>${r.paymentMethod}</td>
+                <td>${r.itemCount}</td>
+                <td>${fmt2(r.revenue)}</td>
+                <td>${r.discount > 0 ? fmt2(r.discount) : "—"}</td>
+                <td>${fmt2(r.tax)}</td>
+                <td>${fmt2(r.net)}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>`;
+    }
+
+    const html = `<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8"/>
+  <title>تقرير المبيعات</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap');
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Cairo', Arial, sans-serif; font-size: 11px; color: #111; background: #fff; direction: rtl; }
+    .page { padding: 16mm 12mm; }
+    /* Header */
+    .header { display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid #C8171A; padding-bottom: 8px; margin-bottom: 10px; }
+    .restaurant-name { font-size: 16px; font-weight: 800; color: #C8171A; }
+    .restaurant-sub  { font-size: 10px; color: #555; margin-top: 2px; }
+    .report-meta { text-align: left; font-size: 10px; color: #444; }
+    .report-meta strong { color: #111; }
+    /* Info bar */
+    .info-bar { display: flex; flex-wrap: wrap; gap: 16px; background: #f8f8f8; border: 1px solid #e0e0e0; border-radius: 6px; padding: 8px 12px; margin-bottom: 12px; font-size: 10.5px; }
+    .info-item { display: flex; gap: 4px; }
+    .info-label { color: #777; }
+    .info-value { font-weight: 700; color: #111; }
+    /* Table */
+    table { width: 100%; border-collapse: collapse; font-size: 10.5px; }
+    th, td { padding: 5px 8px; text-align: right; border: 1px solid #ddd; white-space: nowrap; }
+    .header-row th { background: #1a2e1a; color: #E8920C; font-weight: 700; font-size: 10px; }
+    .totals-row td { background: #fff8e1; font-weight: 700; color: #7a5c00; }
+    .group-row td { background: #f5f5f5; font-weight: 600; }
+    .item-row td { background: #fff; }
+    .indent { padding-right: 20px !important; }
+    tr:nth-child(even):not(.totals-row):not(.group-row) { background: #fafafa; }
+    /* Footer */
+    .footer { margin-top: 12px; border-top: 1px solid #ddd; padding-top: 8px; display: flex; justify-content: space-between; font-size: 9.5px; color: #777; }
+    @media print {
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .no-print { display: none; }
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+  <div class="header">
+    <div>
+      <div class="restaurant-name">روابي المندي</div>
+      <div class="restaurant-sub">للمذاق فن وأصول — تبوك، حي الروضة</div>
+    </div>
+    <div class="report-meta">
+      <div><strong>تقرير المبيعات</strong> — ${subtypeLabel}</div>
+      <div>${viewLabel}</div>
+      <div>طباعة: ${new Date().toLocaleString("ar-SA",{timeZone:"Asia/Riyadh"})}</div>
+    </div>
+  </div>
+  <div class="info-bar">
+    <div class="info-item"><span class="info-label">الفترة:</span><span class="info-value">${periodLabel}</span></div>
+    <div class="info-item"><span class="info-label">طريقة الدفع:</span><span class="info-value">${payLabel}</span></div>
+    <div class="info-item"><span class="info-label">عدد الفواتير:</span><span class="info-value">${fmt0(filtered.length)}</span></div>
+    <div class="info-item"><span class="info-label">إجمالي الصافي:</span><span class="info-value">${viewMode==="summary" ? fmt2(totals.net) : fmt2(invTotals.net)} ر.س</span></div>
+  </div>
+  ${tableHtml}
+  <div class="footer">
+    <span>روابي المندي للمذاق فن وأصول</span>
+    <span>تقرير آلي — جميع المبالغ بالريال السعودي</span>
+  </div>
+</div>
+<script>window.onload = function(){ window.print(); };<\/script>
+</body>
+</html>`;
+
+    const w = window.open("", "_blank", "width=900,height=700");
+    if (w) { w.document.write(html); w.document.close(); }
+  }
+
   function toggleGroup(cat: string) {
     setExpanded(prev => {
       const next = new Set(prev);
@@ -405,6 +605,10 @@ export function TabErp({ orders, loading }: Props) {
             a.click();
           }} className="flex items-center gap-1.5 text-xs border rounded-md px-3 py-1.5 bg-card hover:bg-muted transition-colors font-medium">
             📊 تصدير CSV
+          </button>
+          <button onClick={handlePrint}
+            className="flex items-center gap-1.5 text-xs border rounded-md px-3 py-1.5 bg-card hover:bg-muted transition-colors font-medium">
+            🖨️ طباعة
           </button>
         </div>
       </div>
