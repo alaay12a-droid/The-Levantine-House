@@ -104,6 +104,9 @@ export default function Admin() {
   const [freeDeliveryEnabled, setFreeDeliveryEnabled]       = useState(false);
   const [freeDeliveryThresholdInput, setFreeDeliveryThresholdInput] = useState("100");
   const [freeDeliverySaving, setFreeDeliverySaving]         = useState(false);
+  // ── Drivers enabled ──
+  const [driversEnabled, setDriversEnabled]   = useState(false);
+  const [driversSaving, setDriversSaving]     = useState(false);
 
   // ── Referrals ──
   const [referralSettings, setReferralSettings] = useState<ReferralSettings | null>(null);
@@ -197,15 +200,26 @@ export default function Admin() {
   const loadZones = async () => {
     setZonesLoading(true);
     try {
-      const [d, app] = await Promise.all([
+      const [d, app, drvEnabled] = await Promise.all([
         apiGet<ApiZone[]>("/delivery-zones"),
         apiGet<{ freeDeliveryThreshold: number }>("/settings/appearance"),
+        apiGet<{ enabled: boolean }>("/settings/drivers-enabled").catch(() => ({ enabled: false })),
       ]);
       setZones(d);
       const thr = app.freeDeliveryThreshold ?? 0;
       setFreeDeliveryEnabled(thr > 0);
       setFreeDeliveryThresholdInput(thr > 0 ? String(thr) : "100");
+      setDriversEnabled(drvEnabled.enabled);
     } catch {} finally { setZonesLoading(false); }
+  };
+  const handleSaveDriversEnabled = async (val: boolean) => {
+    setDriversEnabled(val);
+    setDriversSaving(true);
+    try {
+      await apiPut("/settings/drivers-enabled", { enabled: val });
+      toast({ title: val ? "✅ تم تفعيل خدمة المناديب" : "❌ تم إيقاف خدمة المناديب" });
+    } catch { toast({ title: "خطأ في الحفظ", variant: "destructive" }); }
+    finally { setDriversSaving(false); }
   };
   const handleSaveFreeDelivery = async () => {
     setFreeDeliverySaving(true);
@@ -903,6 +917,22 @@ export default function Admin() {
          ══════════════════════════════════════════════════════════════════ */}
       {activeTab === "zones" && (
         <div className="space-y-4">
+          {/* ── Drivers enabled card ── */}
+          <div className="bg-card border border-border rounded-2xl p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">🛵</span>
+                <div>
+                  <div className="font-bold text-sm text-foreground">خدمة التوصيل بالمناديب</div>
+                  <div className={`text-xs mt-0.5 ${driversEnabled ? "text-green-600" : "text-red-500"}`}>
+                    {driversEnabled ? "✅ مفعّلة — يمكن تعيين مناديب للطلبات" : "❌ موقوفة — يظهر «التوصيل غير مفعّل» في الطلبات"}
+                  </div>
+                </div>
+              </div>
+              <Switch checked={driversEnabled} disabled={driversSaving} onCheckedChange={handleSaveDriversEnabled} />
+            </div>
+          </div>
+
           {/* ── Free delivery threshold card ── */}
           <div className="bg-card border border-border rounded-2xl p-4 space-y-3">
             <div className="flex items-center justify-between">

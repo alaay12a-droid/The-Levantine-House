@@ -100,39 +100,21 @@ export default function Drivers() {
   const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    const preview = URL.createObjectURL(file);
-    setForm(f => ({ ...f, photoPreview: preview }));
+    if (fileInputRef.current) fileInputRef.current.value = "";
 
     setUploading(true);
     try {
-      const ext = file.name.split(".").pop() ?? "jpg";
-      const contentType = file.type || "image/jpeg";
-
-      const urlRes = await fetch(`${API_BASE}/api/storage/uploads/request-url`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: `driver-${Date.now()}.${ext}`, size: file.size, contentType }),
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = () => reject(new Error("قراءة الملف فشلت"));
+        reader.readAsDataURL(file);
       });
-      if (!urlRes.ok) throw new Error("تعذّر الحصول على رابط الرفع");
-      const { uploadURL, objectPath } = await urlRes.json() as { uploadURL: string; objectPath: string };
-
-      const putRes = await fetch(uploadURL, {
-        method: "PUT",
-        headers: { "Content-Type": contentType },
-        body: file,
-      });
-      if (!putRes.ok) throw new Error("فشل رفع الصورة");
-
-      const finalUrl = `${API_BASE}/api/storage${objectPath}`;
-      setForm(f => ({ ...f, photoUrl: finalUrl, photoKey: objectPath, photoPreview: finalUrl }));
+      setForm(f => ({ ...f, photoUrl: dataUrl, photoKey: null, photoPreview: dataUrl }));
     } catch {
-      toast({ title: "تعذّر رفع الصورة", variant: "destructive" });
-      setForm(f => ({ ...f, photoPreview: f.photoUrl }));
+      toast({ title: "تعذّر تحميل الصورة", variant: "destructive" });
     } finally {
       setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
