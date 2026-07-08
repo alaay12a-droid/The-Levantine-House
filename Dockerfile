@@ -6,7 +6,7 @@ RUN npm install -g pnpm@10
 
 COPY . .
 
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --no-frozen-lockfile
 
 RUN BASE_PATH=/dashboard/ pnpm --filter @workspace/dashboard run build
 
