@@ -13,12 +13,18 @@ export interface PushMessage {
 
 // ── FCM (Firebase Admin) — primary delivery path ─────────────────────────────
 
-async function sendViaFCM(fcmTokens: string[], msg: PushMessage): Promise<string[]> {
-  if (fcmTokens.length === 0) return [];
+interface FCMResult {
+  stale: string[];      // invalid/unregistered tokens — remove from DB
+  successCount: number; // how many were delivered successfully
+}
+
+async function sendViaFCM(fcmTokens: string[], msg: PushMessage): Promise<FCMResult> {
+  if (fcmTokens.length === 0) return { stale: [], successCount: 0 };
   const messaging = getFCMMessaging();
-  if (!messaging) return [];
+  if (!messaging) return { stale: [], successCount: 0 };
 
   const stale: string[] = [];
+  let successCount = 0;
   const CHUNK = 500; // FCM multicast limit
 
   for (let i = 0; i < fcmTokens.length; i += CHUNK) {
@@ -44,10 +50,19 @@ async function sendViaFCM(fcmTokens: string[], msg: PushMessage): Promise<string
         data: stringData,
       });
 
+      successCount += res.successCount;
+
       res.responses.forEach((r, idx) => {
         if (r.success) return;
         const code = r.error?.code ?? "";
-        logger.warn({ code, token: chunk[idx] }, "FCM send failed for token");
+        if (code === "messaging/mismatched-credential") {
+          logger.error(
+            { code, hint: "FIREBASE_SERVICE_ACCOUNT project does not match google-services.json — update credentials" },
+            "FCM SENDER_ID_MISMATCH — wrong Firebase project on server",
+          );
+        } else {
+          logger.warn({ code, token: chunk[idx] }, "FCM send failed for token");
+        }
         if (
           code === "messaging/registration-token-not-registered" ||
           code === "messaging/invalid-registration-token"
@@ -65,7 +80,7 @@ async function sendViaFCM(fcmTokens: string[], msg: PushMessage): Promise<string
     }
   }
 
-  return stale;
+  return { stale, successCount };
 }
 
 // ── Expo Push API — fallback for tokens without FCM token ────────────────────
@@ -161,8 +176,9 @@ async function removeStaleByFCMToken(fcmTokens: string[]): Promise<void> {
 
 /**
  * Broadcast to all registered customer devices.
- * - Devices with an FCM token  → Firebase Admin SDK (direct FCM)
- * - Devices without FCM token  → Expo Push API (fallback)
+ * Primary: Firebase Admin SDK (FCM) for tokens with an fcmToken stored.
+ * Fallback: Expo Push API for tokens without an fcmToken, AND for any
+ * tokens whose FCM delivery failed (e.g. wrong Firebase project credentials).
  */
 export async function sendPushToAll(msg: PushMessage): Promise<void> {
   try {
@@ -176,9 +192,8 @@ export async function sendPushToAll(msg: PushMessage): Promise<void> {
       return;
     }
 
-    const fcmTokens = rows
-      .map((r) => r.fcmToken)
-      .filter((t): t is string => !!t);
+    const rowsWithFCM = rows.filter((r) => !!r.fcmToken);
+    const fcmTokens = rowsWithFCM.map((r) => r.fcmToken as string);
 
     const expoOnlyTokens = rows
       .filter((r) => !r.fcmToken)
@@ -190,15 +205,34 @@ export async function sendPushToAll(msg: PushMessage): Promise<void> {
       "Sending broadcast",
     );
 
-    const [staleFCM, staleExpo] = await Promise.all([
+    // Run FCM and Expo-only in parallel
+    const [fcmResult, staleExpoOnly] = await Promise.all([
       sendViaFCM(fcmTokens, msg),
       sendViaExpo(expoOnlyTokens, msg),
     ]);
 
-    await Promise.all([
-      removeStaleByFCMToken(staleFCM),
-      removeStaleExpoTokens(staleExpo),
+    // If FCM failed to deliver any messages (e.g. wrong Firebase project),
+    // fall back to Expo Push API using the associated Expo tokens
+    let expoFallbackTokens: string[] = [];
+    if (fcmResult.successCount < fcmTokens.length) {
+      expoFallbackTokens = rowsWithFCM
+        .map((r) => r.token)
+        .filter((t): t is string => !!t && t.startsWith("ExponentPushToken["));
+      if (expoFallbackTokens.length > 0) {
+        logger.warn(
+          { fcmSent: fcmResult.successCount, fcmTotal: fcmTokens.length, fallback: expoFallbackTokens.length },
+          "FCM partial failure — falling back to Expo Push API",
+        );
+      }
+    }
+
+    const [staleExpoFallback] = await Promise.all([
+      expoFallbackTokens.length > 0 ? sendViaExpo(expoFallbackTokens, msg) : Promise.resolve([]),
+      removeStaleByFCMToken(fcmResult.stale),
+      removeStaleExpoTokens(staleExpoOnly),
     ]);
+
+    await removeStaleExpoTokens(staleExpoFallback);
   } catch (err) {
     logger.error({ err }, "Error in sendPushToAll");
   }
@@ -206,8 +240,8 @@ export async function sendPushToAll(msg: PushMessage): Promise<void> {
 
 /**
  * Send a notification to a specific device identified by its Expo token.
- * Looks up the associated FCM token in the DB and prefers FCM delivery;
- * falls back to Expo Push API when no FCM token is stored.
+ * Primary: Firebase Admin SDK (FCM) if an fcmToken is stored for this device.
+ * Fallback: Expo Push API when FCM is unavailable or fails (e.g. credential mismatch).
  */
 export async function sendPushToToken(
   expoToken: string,
@@ -224,13 +258,21 @@ export async function sendPushToToken(
 
     const fcmToken = rows[0]?.fcmToken ?? null;
 
+    let fcmDelivered = false;
     if (fcmToken) {
-      const stale = await sendViaFCM([fcmToken], msg);
-      await removeStaleByFCMToken(stale);
-    } else if (expoToken.startsWith("ExponentPushToken[")) {
+      const result = await sendViaFCM([fcmToken], msg);
+      await removeStaleByFCMToken(result.stale);
+      fcmDelivered = result.successCount > 0;
+    }
+
+    // Fall back to Expo Push API when FCM is not available or failed
+    if (!fcmDelivered && expoToken.startsWith("ExponentPushToken[")) {
+      if (fcmToken) {
+        logger.warn({ expoToken }, "FCM failed — falling back to Expo Push API");
+      }
       const stale = await sendViaExpo([expoToken], msg);
       await removeStaleExpoTokens(stale);
-    } else {
+    } else if (!fcmDelivered && !expoToken.startsWith("ExponentPushToken[")) {
       logger.warn({ expoToken }, "No valid delivery token — targeted push skipped");
     }
   } catch (err) {
