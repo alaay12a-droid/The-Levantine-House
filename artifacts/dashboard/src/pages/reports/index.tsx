@@ -8,12 +8,14 @@ import { TabProducts }   from "./tab-products";
 import { TabCustomers }  from "./tab-customers";
 import { TabAccounting } from "./tab-accounting";
 import { TabExport }     from "./tab-export";
+import { TabErp }        from "./tab-erp";
 
 const TABS = [
   { id: "overview",   icon: "📊", label: "نظرة عامة"  },
   { id: "products",   icon: "📦", label: "الأصناف"     },
   { id: "customers",  icon: "👥", label: "العملاء"     },
   { id: "accounting", icon: "🧾", label: "المحاسبة"    },
+  { id: "erp",        icon: "🗂️", label: "تقارير ERP"  },
   { id: "export",     icon: "📥", label: "التصدير"     },
 ] as const;
 type TabId = typeof TABS[number]["id"];
@@ -139,6 +141,9 @@ export default function ReportsPage() {
               orders={orders}
               loading={loading}
             />
+          )}
+          {tab === "erp" && (
+            <TabErp orders={orders} loading={ordersLoading} />
           )}
           {tab === "export" && (
             <TabExport
