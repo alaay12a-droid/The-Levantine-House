@@ -47,6 +47,8 @@ async function buildAll() {
       "dtrace-provider",
       "isolated-vm",
       "lightningcss",
+      "drizzle-orm",
+      "drizzle-orm/*",
       "pg-native",
       "oracledb",
       "mongodb-client-encryption",
