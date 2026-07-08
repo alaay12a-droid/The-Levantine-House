@@ -106,7 +106,9 @@ function MenuItemCardInner({ item, quantity, onPress, isEn, isFavorite: faved, o
             source={item.imageUrl ? { uri: item.imageUrl } : FOOD_IMAGES[item.imageKey!]}
             style={styles.itemImg}
             contentFit="cover"
-            transition={200}
+            recyclingKey={item.imageUrl ?? item.imageKey ?? item.id}
+            transition={0}
+            cachePolicy="memory-disk"
           />
         ) : null}
 

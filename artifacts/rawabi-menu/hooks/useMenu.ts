@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
+import { AppState, type AppStateStatus } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { apiGet } from "@/constants/api";
 import { MENU_CATEGORIES, FOOD_IMAGES, type MenuItem } from "@/constants/menu";
 
-const MENU_CACHE_KEY = "@rawabi_menu_cache_v2";
-const MENU_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes — stale data after this triggers silent refresh
+// v3: shorter TTL so image replacements propagate faster
+const MENU_CACHE_KEY = "@rawabi_menu_cache_v3";
+const MENU_CACHE_TTL_MS = 90 * 1000; // 90 seconds — catches image updates quickly
 
 interface MenuCache {
   items: ApiMenuItem[];
@@ -155,6 +157,14 @@ export function useMenu() {
   useEffect(() => {
     fetch();
   }, [fetch]);
+
+  // Silently refresh when the app comes back to the foreground
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (state: AppStateStatus) => {
+      if (state === "active") refreshIfStale();
+    });
+    return () => sub.remove();
+  }, [refreshIfStale]);
 
   return { categories, loading, refresh: fetch, refreshIfStale, apiItems, FOOD_IMAGES };
 }

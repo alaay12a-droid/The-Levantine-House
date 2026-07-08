@@ -128,7 +128,9 @@ router.get("/storage/objects/*path", async (req: Request, res: Response) => {
     const size = metadata.size ? Number(metadata.size) : undefined;
 
     res.setHeader("Content-Type", contentType);
-    res.setHeader("Cache-Control", "public, max-age=3600");
+    // UUID-based paths are content-addressed: same URL → same bytes forever.
+    // Immutable caching lets browsers/native clients skip the request entirely.
+    res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
     if (size) res.setHeader("Content-Length", String(size));
 
     const readStream = objectFile.createReadStream();
