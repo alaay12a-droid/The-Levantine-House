@@ -12,14 +12,17 @@ description: How the web dashboard authentication works — JWT cookies, admin s
 - `POST /api/dashboard/auth/login` — verifies bcrypt hash, sets cookie
 - `GET /api/dashboard/auth/me` — reads cookie, returns DashboardUser
 - `POST /api/dashboard/auth/logout` — clears cookie
+- `GET /api/dashboard/auth/admin-info` — requires valid cookie, returns username + role
+- `POST /api/dashboard/auth/forgot-password` — sends OTP to admin email
+- `POST /api/dashboard/auth/reset-password` — accepts OTP + newPassword, updates hash
 
-## Admin seed (FIXED — do not revert)
+## Admin seed behavior
 - `seedDashboardAdmin()` called in `artifacts/api-server/src/index.ts` on startup
-- **Current behavior: only seeds on first run (INSERT if no admin exists). Skips if admin already exists.**
-- Old behavior was: ALWAYS update password from env var on every restart → erased OTP resets
-- Credentials source: `ADMIN_USERNAME` / `ADMIN_PASSWORD` env vars — values managed outside memory
+- **Current behavior**: always syncs password from `ADMIN_PASSWORD` env var on every startup.
+- This ensures the DB password always matches the env var — predictable and recoverable.
+- Credentials source: `ADMIN_USERNAME` / `ADMIN_PASSWORD` env vars (Replit Secrets or env system)
 
-**Why this matters:** The old overwrite behavior created an unbreakable loop — user resets password via OTP, server restarts, password reverts to env var value. Fix: seed is now insert-only.
+**Why:** If seed was insert-only, a lost/forgotten password had no recovery path without DB access. Syncing from env var lets admins reset by updating the env var and restarting.
 
 ## DB table
 - `dashboard_users` table added to `lib/db/src/schema/index.ts`
@@ -37,6 +40,12 @@ description: How the web dashboard authentication works — JWT cookies, admin s
 - **Fix**: use plain native `<input type="tel">` with local `useState` — NO FormControl/Slot/Controller wrapper
 - Validate OTP manually before API call, do not use react-hook-form Controller for OTP field
 
-## Resetting production admin password
+## Credentials security
+- `ADMIN_PASSWORD` and `DASHBOARD_JWT_SECRET` must be stored as Replit Secrets (not in `.replit` env section)
+- `ADMIN_USERNAME` can be a plain env var
+
+**Why:** Values in `.replit [userenv]` are committed to the repo and visible to anyone with repo access. Secrets are stored separately and not committed.
+
+## Production password reset
 - `executeSql` is read-only for production environment — cannot write to prod DB via tool
-- To reset prod admin password: Republish first, then use OTP forgot-password flow in browser
+- To reset prod admin password: update `ADMIN_PASSWORD` env var in Render → server syncs on next startup
