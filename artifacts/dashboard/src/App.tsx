@@ -69,7 +69,7 @@ function Router() {
 
 function App() {
   return (
-    <div dir="rtl" className="min-h-screen text-right font-sans antialiased bg-background text-foreground">
+    <div dir="rtl" translate="no" className="notranslate min-h-screen text-right font-sans antialiased bg-background text-foreground">
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
           <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
