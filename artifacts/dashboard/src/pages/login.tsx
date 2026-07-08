@@ -64,10 +64,22 @@ export default function Login() {
         queryClient.invalidateQueries({ queryKey: getDashboardMeQueryKey() });
         setLocation("/");
       },
-      onError: () => {
+      onError: (err: unknown) => {
+        const apiErr = err as { status?: number; message?: string } | null;
+        const status = apiErr?.status;
+        let description = "تأكد من صحة اسم المستخدم وكلمة المرور";
+        if (status === 401) {
+          description = "اسم المستخدم أو كلمة المرور غير صحيحة";
+        } else if (status === 502 || status === 503 || status === 504) {
+          description = `السيرفر يستيقظ (${status}) — انتظر 30 ثانية وحاول مجدداً`;
+        } else if (status && status >= 500) {
+          description = `خطأ في السيرفر (${status}) — حاول مجدداً`;
+        } else if (!status) {
+          description = "تعذّر الوصول للسيرفر — تحقق من الاتصال أو انتظر 30 ثانية";
+        }
         toast({
-          title: "فشل تسجيل الدخول",
-          description: "تأكد من صحة اسم المستخدم وكلمة المرور",
+          title: `فشل تسجيل الدخول${status ? ` (${status})` : ""}`,
+          description,
           variant: "destructive",
         });
       }

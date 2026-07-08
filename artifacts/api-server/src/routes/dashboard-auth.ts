@@ -39,37 +39,67 @@ function verifyToken(token: string): { userId: number; role: string } | null {
 
 router.post("/dashboard/auth/login", async (req, res) => {
   const { username, password } = req.body as { username?: string; password?: string };
+
+  req.log.info({ username, ip: req.ip, ua: req.headers["user-agent"] }, "[LOGIN] Attempt received");
+
   if (!username || !password) {
+    req.log.warn({ username }, "[LOGIN] Missing username or password");
     res.status(400).json({ error: "اسم المستخدم وكلمة المرور مطلوبان" });
     return;
   }
 
-  const [user] = await db
-    .select()
-    .from(dashboardUsersTable)
-    .where(eq(dashboardUsersTable.username, username))
-    .limit(1);
+  let user: typeof dashboardUsersTable.$inferSelect | undefined;
+  try {
+    const rows = await db
+      .select()
+      .from(dashboardUsersTable)
+      .where(eq(dashboardUsersTable.username, username))
+      .limit(1);
+    user = rows[0];
+  } catch (dbErr) {
+    req.log.error({ err: dbErr }, "[LOGIN] DB error during user lookup");
+    res.status(500).json({ error: "خطأ في قاعدة البيانات" });
+    return;
+  }
 
   if (!user) {
+    req.log.warn({ username }, "[LOGIN] User not found in DB");
     res.status(401).json({ error: "بيانات الدخول غير صحيحة" });
     return;
   }
 
-  const valid = await bcrypt.compare(password, user.passwordHash);
+  req.log.info({ username, userId: user.id }, "[LOGIN] User found, verifying password");
+
+  let valid = false;
+  try {
+    valid = await bcrypt.compare(password, user.passwordHash);
+  } catch (bcryptErr) {
+    req.log.error({ err: bcryptErr }, "[LOGIN] bcrypt error");
+    res.status(500).json({ error: "خطأ في التحقق من كلمة المرور" });
+    return;
+  }
+
+  req.log.info({ username, userId: user.id, valid }, "[LOGIN] Password verification result");
+
   if (!valid) {
+    req.log.warn({ username }, "[LOGIN] Wrong password");
     res.status(401).json({ error: "بيانات الدخول غير صحيحة" });
     return;
   }
 
   const token = signToken(user.id, user.role);
+  const isProduction = process.env["NODE_ENV"] === "production";
   res.cookie(COOKIE_NAME, token, {
     httpOnly: true,
-    secure: process.env["NODE_ENV"] === "production",
-    sameSite: process.env["NODE_ENV"] === "production" ? "none" : "lax",
+    secure: isProduction,
+    sameSite: isProduction ? "none" : "lax",
     maxAge: COOKIE_MAX_AGE,
   });
 
-  req.log.info({ username: user.username }, "Dashboard login");
+  req.log.info(
+    { username: user.username, userId: user.id, secure: isProduction, sameSite: isProduction ? "none" : "lax" },
+    "[LOGIN] Success — cookie set"
+  );
   res.json({ id: user.id, username: user.username, role: user.role });
 });
 
@@ -193,6 +223,8 @@ export async function seedDashboardAdmin(): Promise<void> {
     return;
   }
 
+  const passwordHash = await bcrypt.hash(adminPassword, 12);
+
   const [existing] = await db
     .select({ id: dashboardUsersTable.id })
     .from(dashboardUsersTable)
@@ -200,12 +232,15 @@ export async function seedDashboardAdmin(): Promise<void> {
     .limit(1);
 
   if (existing) {
-    // Admin already exists — do NOT overwrite password so manual resets are preserved
-    logger.info({ username: adminUsername }, "Dashboard admin already exists, skipping seed");
+    // Admin exists — always sync password from ADMIN_PASSWORD env var so it is predictable
+    await db
+      .update(dashboardUsersTable)
+      .set({ passwordHash, username: adminUsername })
+      .where(eq(dashboardUsersTable.id, existing.id));
+    logger.info({ username: adminUsername }, "Dashboard admin password synced from env var");
     return;
   }
 
-  const passwordHash = await bcrypt.hash(adminPassword, 12);
   await db.insert(dashboardUsersTable).values({
     username: adminUsername,
     passwordHash,
