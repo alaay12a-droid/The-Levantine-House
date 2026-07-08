@@ -116,10 +116,14 @@ router.post("/dashboard/auth/forgot-password", async (req, res) => {
   otpStore.set(key, { code, expiry: Date.now() + 10 * 60 * 1000, attempts: 0, lastRequest: Date.now() });
   try {
     await sendPinOtpEmail(code);
+    req.log.info("Reset OTP email sent successfully");
     res.json({ ok: true });
   } catch (e) {
-    req.log.error({ err: e }, "Failed to send reset OTP");
-    res.status(500).json({ error: "فشل إرسال البريد الإلكتروني" });
+    // Clear the OTP so rate-limit doesn't block the next attempt
+    otpStore.delete(key);
+    const errMsg = e instanceof Error ? e.message : String(e);
+    req.log.error({ err: e, message: errMsg }, "Failed to send reset OTP email");
+    res.status(500).json({ error: `فشل إرسال البريد: ${errMsg}` });
   }
 });
 
