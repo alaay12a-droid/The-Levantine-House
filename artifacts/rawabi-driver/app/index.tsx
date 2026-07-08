@@ -895,10 +895,22 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
                 {/* أزرار الإجراء */}
                 <View style={{ gap: 8, marginTop: 4 }}>
                   {assignment.status === "assigned" && (
-                    <View style={{ backgroundColor: "#1A1208", borderRadius: 12, padding: 14, borderWidth: 1, borderColor: "#FB8C0044", alignItems: "center", gap: 4 }}>
-                      <Text style={{ fontSize: 26 }}>🏠</Text>
-                      <Text style={{ color: "#FB8C00", fontFamily: F.bold, fontSize: 14 }}>بانتظار استلامه من المطعم</Text>
-                      <Text style={{ color: "#FB8C0099", fontFamily: F.regular, fontSize: 11 }}>سيتم إشعارك عند جاهزية التسليم</Text>
+                    <View style={{ gap: 8 }}>
+                      <View style={{ backgroundColor: "#1A1208", borderRadius: 12, padding: 14, borderWidth: 1, borderColor: "#FB8C0044", alignItems: "center", gap: 4 }}>
+                        <Text style={{ fontSize: 26 }}>🏪</Text>
+                        <Text style={{ color: "#FB8C00", fontFamily: F.bold, fontSize: 14 }}>توجّه للمطعم لاستلام الطلب</Text>
+                        <Text style={{ color: "#FB8C0099", fontFamily: F.regular, fontSize: 11 }}>بعد الاستلام اضغط الزر أدناه</Text>
+                      </View>
+                      <TouchableOpacity
+                        onPress={() => updateStatus(assignment.orderId, "picked_up")}
+                        disabled={updating === assignment.orderId}
+                        activeOpacity={0.8}
+                        style={{ backgroundColor: "#2A1A00", borderRadius: 12, paddingVertical: 14, alignItems: "center", borderWidth: 1.5, borderColor: "#FB8C00" }}
+                      >
+                        {updating === assignment.orderId
+                          ? <ActivityIndicator color="#FB8C00" />
+                          : <Text style={{ color: "#FB8C00", fontFamily: F.extra, fontSize: 15 }}>✅ استلمت الطلب من المطعم</Text>}
+                      </TouchableOpacity>
                     </View>
                   )}
 
