@@ -624,7 +624,7 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
 
       {/* ══ تاب: رسائل ══ */}
       {activeView === "messages" && (
-        <ScrollView contentContainerStyle={{ padding: 14, gap: 10, paddingBottom: 60 }}>
+        <ScrollView contentContainerStyle={{ padding: 14, gap: 10, paddingBottom: 60 + insets.bottom }}>
           {driverConvos.length === 0 ? (
             <View style={{ alignItems: "center", paddingTop: 80, gap: 14 }}>
               <Text style={{ fontSize: 52 }}>💬</Text>
@@ -746,7 +746,7 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
 
       {/* ══ تاب: كشف الحساب ══ */}
       {activeView === "statement" && (
-        <ScrollView contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 60 }} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 60 + insets.bottom }} showsVerticalScrollIndicator={false}>
           {summaryLoading && <ActivityIndicator color="#E8920C" style={{ marginTop: 40 }} />}
           {!summaryLoading && !statement && (
             <View style={{ alignItems: "center", paddingTop: 60, gap: 10 }}>
@@ -830,7 +830,7 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
       {activeView === "waiting" && (
         <ScrollView
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadOrders(); }} tintColor={colors.gold} />}
-          contentContainerStyle={{ padding: 14, gap: 14, paddingBottom: 60 }}
+          contentContainerStyle={{ padding: 14, gap: 14, paddingBottom: 60 + insets.bottom }}
         >
           {loading && <ActivityIndicator color="#E8920C" style={{ marginTop: 40 }} />}
           {!loading && waitingRows.length === 0 && (
@@ -1052,7 +1052,7 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
       {activeView === "delivered" && (
         <ScrollView
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadOrders(); }} tintColor={colors.gold} />}
-          contentContainerStyle={{ padding: 14, gap: 12, paddingBottom: 60 }}
+          contentContainerStyle={{ padding: 14, gap: 12, paddingBottom: 60 + insets.bottom }}
         >
           {loading && <ActivityIndicator color="#4CAF50" style={{ marginTop: 40 }} />}
           {!loading && deliveredRows.length === 0 && (

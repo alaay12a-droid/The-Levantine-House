@@ -1,6 +1,7 @@
 import { Tabs } from "expo-router";
 import React from "react";
 import { Platform } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { useOrderBadge } from "@/context/OrderBadgeContext";
 import { useAppConfig } from "@/context/AppConfigContext";
@@ -10,11 +11,13 @@ export default function TabLayout() {
   const { config, loaded } = useAppConfig();
   const { activeCount } = useOrderBadge();
   const colors = useColors();
+  const insets = useSafeAreaInsets();
 
   if (!loaded) return null;
 
-  const h = Platform.OS === "web" ? config.tabHeight : config.tabHeight + 10;
-  const pb = Platform.OS === "web" ? config.tabPaddingBottom : config.tabPaddingBottom + 8;
+  const bottomInset = Platform.OS === "web" ? 0 : insets.bottom;
+  const h = Platform.OS === "web" ? config.tabHeight : config.tabHeight + 10 + bottomInset;
+  const pb = Platform.OS === "web" ? config.tabPaddingBottom : config.tabPaddingBottom + 8 + bottomInset;
 
   return (
     <Tabs
