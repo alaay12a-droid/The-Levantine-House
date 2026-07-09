@@ -151,7 +151,7 @@ export default function MenuManagement() {
         name: form.name.trim(),
         nameAr: form.nameAr.trim() || undefined,
         description: form.description.trim() || undefined,
-        price: Math.round(parseFloat(form.price) * 100),
+        price: parseFloat(form.price),
         category: form.category,
         imageUrl: form.imageUrl.trim() || undefined,
         available: form.available,
