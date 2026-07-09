@@ -15,6 +15,7 @@ import Broadcast from "@/pages/broadcast";
 import Cashier from "@/pages/cashier";
 import AdminPanel from "@/pages/admin";
 import AuthDiagnostics from "@/pages/auth-diagnostics";
+import PrivacyPolicy from "@/pages/privacy-policy";
 import { setBaseUrl } from "@workspace/api-client-react";
 
 const apiBase = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "";
@@ -27,6 +28,7 @@ function Router() {
     <Switch>
       <Route path="/login" component={Login} />
       <Route path="/mandoob" component={MandoobPortal} />
+      <Route path="/privacy-policy" component={PrivacyPolicy} />
       <Route path="/">
         <Layout>
           <Home />
