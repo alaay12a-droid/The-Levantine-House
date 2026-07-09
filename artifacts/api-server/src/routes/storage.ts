@@ -42,13 +42,15 @@ async function getCachedSignedUrl(cacheKey: string, sign: () => Promise<string>)
 router.post("/storage/uploads/request-url", async (req: Request, res: Response) => {
   const parsed = RequestUploadUrlBody.safeParse(req.body);
   if (!parsed.success) {
+    req.log.warn({ body: req.body, issues: parsed.error.issues }, "Upload URL request: invalid body");
     res.status(400).json({ error: "Missing or invalid required fields" });
     return;
   }
 
-  try {
-    const { name, size, contentType } = parsed.data;
+  const { name, size, contentType } = parsed.data;
+  req.log.info({ name, size, contentType }, "Upload URL requested");
 
+  try {
     const uploadURL = await objectStorageService.getObjectEntityUploadURL();
     const objectPath = objectStorageService.normalizeObjectEntityPath(uploadURL);
 
@@ -57,6 +59,7 @@ router.post("/storage/uploads/request-url", async (req: Request, res: Response) 
     const cacheKey = `object:${objectPath.replace(/^\/objects\//, "")}`;
     signedUrlCache.delete(cacheKey);
 
+    req.log.info({ name, objectPath }, "Upload URL generated successfully");
     res.json(
       RequestUploadUrlResponse.parse({
         uploadURL,
@@ -65,8 +68,9 @@ router.post("/storage/uploads/request-url", async (req: Request, res: Response) 
       }),
     );
   } catch (error) {
-    req.log.error({ err: error }, "Error generating upload URL");
-    res.status(500).json({ error: "Failed to generate upload URL" });
+    const message = error instanceof Error ? error.message : String(error);
+    req.log.error({ err: error, name, size, contentType }, "Error generating upload URL");
+    res.status(500).json({ error: `Failed to generate upload URL: ${message}` });
   }
 });
 
@@ -103,8 +107,9 @@ router.get("/storage/public-objects/*filePath", async (req: Request, res: Respon
     res.setHeader("Cache-Control", "no-store");
     res.redirect(302, signedUrl);
   } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
     req.log.error({ err: error }, "Error serving public object");
-    res.status(500).json({ error: "Failed to serve public object" });
+    res.status(500).json({ error: `Failed to serve public object: ${message}` });
   }
 });
 
@@ -145,8 +150,9 @@ router.get("/storage/objects/*path", async (req: Request, res: Response) => {
       res.status(404).json({ error: "Object not found" });
       return;
     }
+    const message = error instanceof Error ? error.message : String(error);
     req.log.error({ err: error }, "Error serving object");
-    res.status(500).json({ error: "Failed to serve object" });
+    res.status(500).json({ error: `Failed to serve object: ${message}` });
   }
 });
 

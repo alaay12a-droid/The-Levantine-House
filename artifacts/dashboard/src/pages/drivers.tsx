@@ -103,16 +103,29 @@ export default function Drivers() {
     if (fileInputRef.current) fileInputRef.current.value = "";
 
     setUploading(true);
+    const previewUrl = URL.createObjectURL(file);
+    setForm(f => ({ ...f, photoPreview: previewUrl }));
     try {
-      const dataUrl = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = () => reject(new Error("قراءة الملف فشلت"));
-        reader.readAsDataURL(file);
+      const ext = file.name.split(".").pop() ?? "jpg";
+      const contentType = file.type || "image/jpeg";
+      const urlRes = await fetch(`${API_BASE}/api/storage/uploads/request-url`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: `driver-${Date.now()}.${ext}`, size: file.size, contentType }),
       });
-      setForm(f => ({ ...f, photoUrl: dataUrl, photoKey: null, photoPreview: dataUrl }));
-    } catch {
-      toast({ title: "تعذّر تحميل الصورة", variant: "destructive" });
+      if (!urlRes.ok) {
+        const err = await urlRes.json().catch(() => ({}));
+        throw new Error((err as { error?: string }).error ?? "تعذّر الحصول على رابط الرفع");
+      }
+      const { uploadURL, objectPath } = await urlRes.json() as { uploadURL: string; objectPath: string };
+      const putRes = await fetch(uploadURL, { method: "PUT", headers: { "Content-Type": contentType }, body: file });
+      if (!putRes.ok) throw new Error("فشل رفع الصورة");
+      const finalUrl = `${API_BASE}/api/storage${objectPath}`;
+      setForm(f => ({ ...f, photoUrl: finalUrl, photoKey: null, photoPreview: finalUrl }));
+    } catch (err) {
+      toast({ title: "تعذّر رفع الصورة", description: err instanceof Error ? err.message : undefined, variant: "destructive" });
+      setForm(f => ({ ...f, photoPreview: f.photoUrl }));
     } finally {
       setUploading(false);
     }
