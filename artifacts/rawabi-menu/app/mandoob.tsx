@@ -13,6 +13,10 @@ import * as Location from "expo-location";
 import * as TaskManager from "expo-task-manager";
 import { Audio } from "expo-av";
 import * as Notifications from "expo-notifications";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { LocationDisclosureModal } from "@/components/LocationDisclosureModal";
+
+const LOCATION_DISCLOSURE_KEY = "driver_location_disclosure_accepted_v1";
 
 // ── Background location task ─────────────────────────────────────────────────
 // Must be defined at module level (top of file), outside any component.
@@ -127,6 +131,16 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
   const [bgPermDenied, setBgPermDenied] = useState(false);
   const [locationSharingEnabled, setLocationSharingEnabled] = useState(true);
   const locationSharingEnabledRef = useRef(true);
+  const [showLocationDisclosure, setShowLocationDisclosure] = useState(false);
+  const locationDisclosureAcceptedRef = useRef(false);
+  const pendingDisclosureOrderIdRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    AsyncStorage.getItem(LOCATION_DISCLOSURE_KEY).then((v) => {
+      locationDisclosureAcceptedRef.current = v === "true";
+    }).catch(() => {});
+  }, []);
+
   const [driverCoords, setDriverCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [pendingDelivery, setPendingDelivery] = useState<{ orderId: number; total: number; customerName: string } | null>(null);
   const [cashConfirmed, setCashConfirmed] = useState(false);
@@ -363,6 +377,13 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
 
   const startGPS = useCallback(async (orderId: number) => {
     if (trackedOrderRef.current === orderId) return;
+
+    if (Platform.OS !== "web" && !locationDisclosureAcceptedRef.current) {
+      pendingDisclosureOrderIdRef.current = orderId;
+      setShowLocationDisclosure(true);
+      return;
+    }
+
     await stopGPS();
     trackedOrderRef.current = orderId;
     setLocationError(false);
@@ -443,6 +464,22 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
       await stopGPS();
     }
   }, [startGPS, stopGPS]);
+
+  const handleDisclosureContinue = useCallback(async () => {
+    locationDisclosureAcceptedRef.current = true;
+    setShowLocationDisclosure(false);
+    try { await AsyncStorage.setItem(LOCATION_DISCLOSURE_KEY, "true"); } catch {}
+    const orderId = pendingDisclosureOrderIdRef.current;
+    pendingDisclosureOrderIdRef.current = null;
+    if (orderId !== null) await startGPS(orderId);
+  }, [startGPS]);
+
+  const handleDisclosureCancel = useCallback(() => {
+    setShowLocationDisclosure(false);
+    pendingDisclosureOrderIdRef.current = null;
+    locationSharingEnabledRef.current = false;
+    setLocationSharingEnabled(false);
+  }, []);
 
   useEffect(() => {
     const pickedUp = rows.find(r => r.assignment.status === "picked_up");
@@ -1446,6 +1483,12 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
           ))}
         </ScrollView>
       )}
+
+      <LocationDisclosureModal
+        visible={showLocationDisclosure}
+        onContinue={handleDisclosureContinue}
+        onCancel={handleDisclosureCancel}
+      />
     </View>
   );
 }
