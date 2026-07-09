@@ -212,7 +212,7 @@ export default function MoreScreen() {
     {
       icon: "lock",
       label: t("privacy"),
-      action: () => Alert.alert("سياسة الخصوصية", "نحرص على حفظ خصوصية بياناتك وعدم مشاركتها مع أطراف ثالثة."),
+      action: () => router.push("/privacy" as any),
     },
     {
       icon: "file-text",
