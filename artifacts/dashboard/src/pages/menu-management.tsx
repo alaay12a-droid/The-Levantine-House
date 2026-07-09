@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, RefreshCw, Pencil, Trash2, Search, Loader2, PackageX, Package, ImagePlus } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { fileToCompressedDataUrl } from "@/lib/imageUpload";
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "";
 
@@ -83,26 +84,11 @@ export default function MenuManagement() {
     const file = e.target.files?.[0];
     if (!file) return;
     setUploading(true);
-    const previewUrl = URL.createObjectURL(file);
-    setForm(f => ({ ...f, imageUrl: previewUrl }));
     try {
-      const ext = file.name.split(".").pop() ?? "jpg";
-      const contentType = file.type || "image/jpeg";
-      const urlRes = await fetch(`${API_BASE}/api/storage/uploads/request-url`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: `menu-${Date.now()}.${ext}`, size: file.size, contentType }),
-      });
-      if (!urlRes.ok) throw new Error("تعذّر الحصول على رابط الرفع");
-      const { uploadURL, objectPath } = await urlRes.json() as { uploadURL: string; objectPath: string };
-      const putRes = await fetch(uploadURL, { method: "PUT", headers: { "Content-Type": contentType }, body: file });
-      if (!putRes.ok) throw new Error("فشل رفع الصورة");
-      const finalUrl = `${API_BASE}/api/storage${objectPath}`;
-      setForm(f => ({ ...f, imageUrl: finalUrl }));
-    } catch {
-      toast({ title: "تعذّر رفع الصورة", variant: "destructive" });
-      setForm(f => ({ ...f, imageUrl: "" }));
+      const dataUrl = await fileToCompressedDataUrl(file);
+      setForm(f => ({ ...f, imageUrl: dataUrl }));
+    } catch (err) {
+      toast({ title: "تعذّر رفع الصورة", description: err instanceof Error ? err.message : undefined, variant: "destructive" });
     } finally {
       setUploading(false);
       if (imgFileRef.current) imgFileRef.current.value = "";

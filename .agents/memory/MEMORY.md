@@ -7,4 +7,5 @@
 - [OpenAPI TS2308 collision rule](openapi-ts2308.md) — body component names must be entity-shaped (NoteInput not CreateNoteBody) to avoid Orval collision; queryKey required in all query options or TS fails
 - [Mobile artifact deployment fix](deploy-healthcheck.md) — remove [services.production] from mobile artifact.toml or Replit deployment crashes with ERR_PNPM_RECURSIVE_RUN_FIRST_
 - [rawabi-driver missing types](rawabi-driver-types.md) — must have @types/react in devDependencies; without it gets 36 TS errors (TS7016/7006/2769) because Expo doesn't bundle @types/react automatically unlike rawabi-menu
+- [Image uploads use base64-in-DB](image-uploads-base64.md) — GCS/Firebase billing blocked; menu/driver photos stored as compressed base64 data URLs in text columns instead
 - [Driver background-location disclosure gate](driver-location-disclosure.md) — gate must live inside startGPS itself since permission requests are triggered by a useEffect, not direct user tap
