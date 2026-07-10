@@ -9,3 +9,4 @@
 - [rawabi-driver missing types](rawabi-driver-types.md) — must have @types/react in devDependencies; without it gets 36 TS errors (TS7016/7006/2769) because Expo doesn't bundle @types/react automatically unlike rawabi-menu
 - [Image uploads use base64-in-DB](image-uploads-base64.md) — GCS/Firebase billing blocked; menu/driver photos stored as compressed base64 data URLs in text columns instead
 - [Driver background-location disclosure gate](driver-location-disclosure.md) — gate must live inside startGPS itself since permission requests are triggered by a useEffect, not direct user tap
+- [EAS FCM V1 SenderId mismatch diagnosis](eas-fcm-sender-mismatch.md) — push works in Expo Go but fails in prod APK if EAS's FCM V1 credential project differs from google-services.json's project
