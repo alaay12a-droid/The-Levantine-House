@@ -174,84 +174,89 @@ async function removeStaleByFCMToken(fcmTokens: string[]): Promise<void> {
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
-async function sendPushToRole(role: "customer" | "cashier", msg: PushMessage): Promise<void> {
-  try {
-    const rows = await db
-      .select()
-      .from(pushTokensTable)
-      .where(eq(pushTokensTable.role, role));
+/**
+   * Send a push to every registered device for a given role.
+   * "customer" = broadcast promos to all customers.
+   * "cashier"  = alert all cashier devices (new orders, customer chat pings).
+   * Never mix these — a "cashier" caller must not accidentally hit customer rows.
+   */
+  async function sendPushToRole(role: "customer" | "cashier", msg: PushMessage): Promise<void> {
+    try {
+      const rows = await db
+        .select()
+        .from(pushTokensTable)
+        .where(eq(pushTokensTable.role, role));
 
-    if (rows.length === 0) {
-      logger.warn({ role }, "No push tokens registered for role — send skipped");
-      return;
-    }
+      logger.info(
+        { role, tokenCount: rows.length, tokens: rows.map((r) => r.token) },
+        "sendPushToRole — resolved target tokens for role",
+      );
 
-    const rowsWithFCM = rows.filter((r) => !!r.fcmToken);
-    const fcmTokens = rowsWithFCM.map((r) => r.fcmToken as string);
+      if (rows.length === 0) {
+        logger.warn({ role }, "No push tokens registered for role — broadcast skipped");
+        return;
+      }
 
-    const expoOnlyTokens = rows
-      .filter((r) => !r.fcmToken)
-      .map((r) => r.token)
-      .filter((t): t is string => !!t && t.startsWith("ExponentPushToken["));
+      const rowsWithFCM = rows.filter((r) => !!r.fcmToken);
+      const fcmTokens = rowsWithFCM.map((r) => r.fcmToken as string);
 
-    logger.info(
-      { role, fcm: fcmTokens.length, expo: expoOnlyTokens.length },
-      "Sending push to role",
-    );
-
-    // Run FCM and Expo-only in parallel
-    const [fcmResult, staleExpoOnly] = await Promise.all([
-      sendViaFCM(fcmTokens, msg),
-      sendViaExpo(expoOnlyTokens, msg),
-    ]);
-
-    // If FCM failed to deliver any messages (e.g. wrong Firebase project),
-    // fall back to Expo Push API using the associated Expo tokens
-    let expoFallbackTokens: string[] = [];
-    if (fcmResult.successCount < fcmTokens.length) {
-      expoFallbackTokens = rowsWithFCM
+      const expoOnlyTokens = rows
+        .filter((r) => !r.fcmToken)
         .map((r) => r.token)
         .filter((t): t is string => !!t && t.startsWith("ExponentPushToken["));
-      if (expoFallbackTokens.length > 0) {
-        logger.warn(
-          { fcmSent: fcmResult.successCount, fcmTotal: fcmTokens.length, fallback: expoFallbackTokens.length },
-          "FCM partial failure — falling back to Expo Push API",
-        );
+
+      logger.info(
+        { role, fcm: fcmTokens.length, expo: expoOnlyTokens.length },
+        "Sending role broadcast",
+      );
+
+      // Run FCM and Expo-only in parallel
+      const [fcmResult, staleExpoOnly] = await Promise.all([
+        sendViaFCM(fcmTokens, msg),
+        sendViaExpo(expoOnlyTokens, msg),
+      ]);
+
+      // If FCM failed to deliver any messages (e.g. wrong Firebase project),
+      // fall back to Expo Push API using the associated Expo tokens
+      let expoFallbackTokens: string[] = [];
+      if (fcmResult.successCount < fcmTokens.length) {
+        expoFallbackTokens = rowsWithFCM
+          .map((r) => r.token)
+          .filter((t): t is string => !!t && t.startsWith("ExponentPushToken["));
+        if (expoFallbackTokens.length > 0) {
+          logger.warn(
+            { role, fcmSent: fcmResult.successCount, fcmTotal: fcmTokens.length, fallback: expoFallbackTokens.length },
+            "FCM partial failure — falling back to Expo Push API",
+          );
+        }
       }
+
+      const [staleExpoFallback] = await Promise.all([
+        expoFallbackTokens.length > 0 ? sendViaExpo(expoFallbackTokens, msg) : Promise.resolve([]),
+        removeStaleByFCMToken(fcmResult.stale),
+        removeStaleExpoTokens(staleExpoOnly),
+      ]);
+
+      await removeStaleExpoTokens(staleExpoFallback);
+    } catch (err) {
+      logger.error({ err, role }, "Error in sendPushToRole");
     }
-
-    const [staleExpoFallback] = await Promise.all([
-      expoFallbackTokens.length > 0 ? sendViaExpo(expoFallbackTokens, msg) : Promise.resolve([]),
-      removeStaleByFCMToken(fcmResult.stale),
-      removeStaleExpoTokens(staleExpoOnly),
-    ]);
-
-    await removeStaleExpoTokens(staleExpoFallback);
-  } catch (err) {
-    logger.error({ err, role }, "Error in sendPushToRole");
   }
-}
 
-/**
- * Broadcast to all registered customer devices.
- * Primary: Firebase Admin SDK (FCM) for tokens with an fcmToken stored.
- * Fallback: Expo Push API for tokens without an fcmToken, AND for any
- * tokens whose FCM delivery failed (e.g. wrong Firebase project credentials).
- *
- * Used for customer-facing broadcasts (promos/announcements) — DO NOT use
- * this for cashier-only alerts, use `sendPushToCashiers` instead.
- */
-export async function sendPushToAll(msg: PushMessage): Promise<void> {
-  return sendPushToRole("customer", msg);
-}
+  /**
+   * Broadcast to all registered customer devices (e.g. promo announcements).
+   */
+  export async function sendPushToAll(msg: PushMessage): Promise<void> {
+    return sendPushToRole("customer", msg);
+  }
 
-/**
- * Send a notification to all registered cashier/dashboard devices only
- * (e.g. "new order" alerts). Never reaches customer devices.
- */
-export async function sendPushToCashiers(msg: PushMessage): Promise<void> {
-  return sendPushToRole("cashier", msg);
-}
+  /**
+   * Broadcast to all registered cashier devices (e.g. new order alerts,
+   * customer -> cashier chat messages when no driver is assigned).
+   */
+  export async function sendPushToCashiers(msg: PushMessage): Promise<void> {
+    return sendPushToRole("cashier", msg);
+  }
 
 /**
  * Send a notification to a specific device identified by its Expo token.
