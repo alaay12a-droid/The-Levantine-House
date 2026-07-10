@@ -2,7 +2,7 @@ import { Router } from "express";
 import { db, messagesTable, ordersTable, orderDriverAssignmentsTable } from "@workspace/db";
 import { eq, desc, and, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
-import { sendPushToAll, sendPushToToken } from "../lib/sendPushNotification.js";
+import { sendPushToCashiers, sendPushToToken } from "../lib/sendPushNotification.js";
 
 const router = Router();
 
@@ -275,7 +275,7 @@ router.post("/messages/order/:orderId", async (req, res) => {
         .select({ dailyNumber: ordersTable.dailyNumber, customerName: ordersTable.customerName })
         .from(ordersTable)
         .where(eq(ordersTable.id, orderId));
-      sendPushToAll({
+      sendPushToCashiers({
         title: `💬 رسالة من عميل — طلب #${order?.dailyNumber ?? orderId}`,
         body: `${order?.customerName ?? ""}: ${parsed.data.text.length > 60 ? parsed.data.text.slice(0, 57) + "…" : parsed.data.text}`,
         sound: "default",
