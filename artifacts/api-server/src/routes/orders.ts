@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db, ordersTable, menuItemsTable, appSettingsTable, orderDriverAssignmentsTable, deliveryDriversTable } from "@workspace/db";
 import { eq, desc, gte, lt, count, and, ne } from "drizzle-orm";
-import { sendPushToAll, sendPushToToken } from "../lib/sendPushNotification.js";
+import { sendPushToCashiers, sendPushToToken } from "../lib/sendPushNotification.js";
 import { sendSms } from "../lib/sendSms.js";
 import { z } from "zod";
 import { processReferralReward } from "./referrals.js";
@@ -131,9 +131,9 @@ router.post("/orders", async (req, res) => {
   processReferralReward(data.customerPhone, order.id, data.customerName)
     .catch((e) => req.log.warn({ err: e }, "Referral reward processing failed"));
 
-  // Send push notification to all registered cashier devices (fire and forget)
+  // Send push notification to all registered cashier devices only (fire and forget)
   const itemsSummary = data.items.map((i) => `${i.quantity}× ${i.name}`).join("، ");
-  sendPushToAll({
+  sendPushToCashiers({
     title: `🔔 طلب جديد #${dailyNumber}`,
     body: `${data.customerName} — ${itemsSummary}`,
     sound: "default",

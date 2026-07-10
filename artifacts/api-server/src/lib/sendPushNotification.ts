@@ -174,21 +174,15 @@ async function removeStaleByFCMToken(fcmTokens: string[]): Promise<void> {
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
-/**
- * Broadcast to all registered customer devices.
- * Primary: Firebase Admin SDK (FCM) for tokens with an fcmToken stored.
- * Fallback: Expo Push API for tokens without an fcmToken, AND for any
- * tokens whose FCM delivery failed (e.g. wrong Firebase project credentials).
- */
-export async function sendPushToAll(msg: PushMessage): Promise<void> {
+async function sendPushToRole(role: "customer" | "cashier", msg: PushMessage): Promise<void> {
   try {
     const rows = await db
       .select()
       .from(pushTokensTable)
-      .where(eq(pushTokensTable.role, "customer"));
+      .where(eq(pushTokensTable.role, role));
 
     if (rows.length === 0) {
-      logger.warn("No customer push tokens registered — broadcast skipped");
+      logger.warn({ role }, "No push tokens registered for role — send skipped");
       return;
     }
 
@@ -201,8 +195,8 @@ export async function sendPushToAll(msg: PushMessage): Promise<void> {
       .filter((t): t is string => !!t && t.startsWith("ExponentPushToken["));
 
     logger.info(
-      { fcm: fcmTokens.length, expo: expoOnlyTokens.length },
-      "Sending broadcast",
+      { role, fcm: fcmTokens.length, expo: expoOnlyTokens.length },
+      "Sending push to role",
     );
 
     // Run FCM and Expo-only in parallel
@@ -234,8 +228,29 @@ export async function sendPushToAll(msg: PushMessage): Promise<void> {
 
     await removeStaleExpoTokens(staleExpoFallback);
   } catch (err) {
-    logger.error({ err }, "Error in sendPushToAll");
+    logger.error({ err, role }, "Error in sendPushToRole");
   }
+}
+
+/**
+ * Broadcast to all registered customer devices.
+ * Primary: Firebase Admin SDK (FCM) for tokens with an fcmToken stored.
+ * Fallback: Expo Push API for tokens without an fcmToken, AND for any
+ * tokens whose FCM delivery failed (e.g. wrong Firebase project credentials).
+ *
+ * Used for customer-facing broadcasts (promos/announcements) — DO NOT use
+ * this for cashier-only alerts, use `sendPushToCashiers` instead.
+ */
+export async function sendPushToAll(msg: PushMessage): Promise<void> {
+  return sendPushToRole("customer", msg);
+}
+
+/**
+ * Send a notification to all registered cashier/dashboard devices only
+ * (e.g. "new order" alerts). Never reaches customer devices.
+ */
+export async function sendPushToCashiers(msg: PushMessage): Promise<void> {
+  return sendPushToRole("cashier", msg);
 }
 
 /**
