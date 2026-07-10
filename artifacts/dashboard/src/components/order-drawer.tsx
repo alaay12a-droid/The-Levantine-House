@@ -14,7 +14,7 @@ import { Loader2, Phone, MapPin, CreditCard, ShoppingBag, ReceiptText, Truck, Me
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
-type OrderStatus = "pending" | "preparing" | "ready" | "done" | "cancelled";
+type OrderStatus = "pending" | "preparing" | "ready" | "out_for_delivery" | "done" | "cancelled";
 interface OrderItem { id: string; name: string; price: number; quantity: number; }
 interface Order {
   id: number; dailyNumber: number | null; customerName: string; customerPhone: string;
@@ -30,6 +30,7 @@ const STATUS_META: Record<OrderStatus, { label: string; color: string; bg: strin
   pending:   { label: "جديد",    color: "text-red-600",    bg: "bg-red-500/10 border-red-500/20" },
   preparing: { label: "يُحضَّر", color: "text-orange-500", bg: "bg-orange-500/10 border-orange-500/20" },
   ready:     { label: "جاهز",   color: "text-green-600",  bg: "bg-green-500/10 border-green-500/20" },
+  out_for_delivery: { label: "قيد التوصيل", color: "text-blue-600", bg: "bg-blue-500/10 border-blue-500/20" },
   done:      { label: "مكتمل",  color: "text-gray-500",   bg: "bg-gray-500/10 border-gray-500/20" },
   cancelled: { label: "ملغي",   color: "text-zinc-400",   bg: "bg-zinc-500/10 border-zinc-500/20" },
 };
@@ -125,7 +126,13 @@ export function OrderDrawer({ order, open, onOpenChange, onOrderUpdated }: Props
     try {
       await apiPost(`/orders/${order.id}/assign-driver`, { driverId });
       await loadAssignment(order.id);
-      toast({ title: "تم التعيين", description: `تم تعيين السائق بنجاح` });
+      // Assigning a driver auto-transitions the order to "قيد التوصيل" server-side; refresh to reflect it.
+      try {
+        const updated = await apiGet<Order>(`/orders/${order.id}`);
+        queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
+        onOrderUpdated?.(updated);
+      } catch {}
+      toast({ title: "تم التعيين", description: `تم تعيين السائق ونقل الطلب إلى "قيد التوصيل"` });
     } catch {
       toast({ title: "خطأ", description: "تعذّر تعيين السائق", variant: "destructive" });
     }
@@ -138,6 +145,11 @@ export function OrderDrawer({ order, open, onOpenChange, onOrderUpdated }: Props
     try {
       await apiDel(`/orders/${order.id}/assign-driver`);
       setAssignment(null);
+      try {
+        const updated = await apiGet<Order>(`/orders/${order.id}`);
+        queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
+        onOrderUpdated?.(updated);
+      } catch {}
       toast({ title: "تم الإلغاء", description: "تم إلغاء تعيين السائق" });
     } catch {
       toast({ title: "خطأ", description: "تعذّر إلغاء التعيين", variant: "destructive" });
@@ -350,6 +362,11 @@ ${order.notes ? `<p style="margin-top:8px;font-size:12px;color:#555;"><strong>م
                   </Button>
                 )}
                 {order.status === "ready" && (
+                  <Button className="bg-gray-700 hover:bg-gray-800 text-white col-span-2" disabled={isUpdating} onClick={() => handleStatusChange("done")}>
+                    تأكيد التسليم — مكتمل ✓
+                  </Button>
+                )}
+                {order.status === "out_for_delivery" && (
                   <Button className="bg-gray-700 hover:bg-gray-800 text-white col-span-2" disabled={isUpdating} onClick={() => handleStatusChange("done")}>
                     تأكيد التسليم — مكتمل ✓
                   </Button>

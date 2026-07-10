@@ -5,6 +5,7 @@ export const orderStatusEnum = pgEnum("order_status", [
   "pending",
   "preparing",
   "ready",
+  "out_for_delivery",
   "done",
   "cancelled",
 ]);
@@ -35,7 +36,7 @@ export const insertOrderSchema = z.object({
   items: z.unknown(),
   totalPrice: z.number().int(),
   deliveryFee: z.number().int().optional(),
-  status: z.enum(["pending", "preparing", "ready", "done", "cancelled"]).optional(),
+  status: z.enum(["pending", "preparing", "ready", "out_for_delivery", "done", "cancelled"]).optional(),
   paymentMethod: z.string().optional(),
   notes: z.string().nullable().optional(),
   customerPushToken: z.string().nullable().optional(),

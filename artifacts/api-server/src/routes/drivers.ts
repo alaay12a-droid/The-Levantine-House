@@ -358,6 +358,13 @@ router.post("/orders/:id/assign-driver", async (req, res) => {
     .returning();
   res.json(assignment);
 
+  // Assigning a driver automatically moves the order to "قيد التوصيل" (out for delivery),
+  // unless it's already finished/cancelled — never downgrade a completed order.
+  await db
+    .update(ordersTable)
+    .set({ status: "out_for_delivery" })
+    .where(and(eq(ordersTable.id, orderId), ne(ordersTable.status, "done"), ne(ordersTable.status, "cancelled")));
+
   // Notify customer that a driver has been assigned
   const [order] = await db
     .select({ customerPushToken: ordersTable.customerPushToken, dailyNumber: ordersTable.dailyNumber })
@@ -380,6 +387,13 @@ router.delete("/orders/:id/assign-driver", async (req, res) => {
   const orderId = parseInt(req.params.id);
   if (isNaN(orderId)) { res.status(400).json({ error: "معرّف غير صحيح" }); return; }
   await db.delete(orderDriverAssignmentsTable).where(eq(orderDriverAssignmentsTable.orderId, orderId));
+
+  // Revert an unassigned order that was "out_for_delivery" back to "ready"
+  await db
+    .update(ordersTable)
+    .set({ status: "ready" })
+    .where(and(eq(ordersTable.id, orderId), eq(ordersTable.status, "out_for_delivery")));
+
   res.json({ ok: true });
 });
 

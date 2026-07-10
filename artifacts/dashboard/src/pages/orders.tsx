@@ -8,10 +8,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { RefreshCw, Search, Bell, Phone, MapPin, Printer, Clock } from "lucide-react";
+import { RefreshCw, Search, Bell, Phone, MapPin, Printer, Clock, Truck } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-type OrderStatus = "pending" | "preparing" | "ready" | "done" | "cancelled";
+type OrderStatus = "pending" | "preparing" | "ready" | "out_for_delivery" | "done" | "cancelled";
 
 interface OrderItem { id: string; name: string; price: number; quantity: number; }
 interface Order {
@@ -25,6 +25,7 @@ const STATUS_META: Record<OrderStatus, { label: string; color: string; bg: strin
   pending:   { label: "جديد",         color: "text-red-600",    bg: "bg-red-500/10 border-red-500/20",    tab: "bg-red-500" },
   preparing: { label: "يُحضَّر",       color: "text-orange-500", bg: "bg-orange-500/10 border-orange-500/20", tab: "bg-orange-500" },
   ready:     { label: "جاهز",         color: "text-green-600",  bg: "bg-green-500/10 border-green-500/20", tab: "bg-green-500" },
+  out_for_delivery: { label: "قيد التوصيل", color: "text-blue-600", bg: "bg-blue-500/10 border-blue-500/20", tab: "bg-blue-500" },
   done:      { label: "مكتمل",        color: "text-gray-500",   bg: "bg-gray-500/10 border-gray-500/20",  tab: "bg-gray-400" },
   cancelled: { label: "ملغي",         color: "text-zinc-400",   bg: "bg-zinc-500/10 border-zinc-500/20",  tab: "bg-zinc-400" },
 };
@@ -40,6 +41,7 @@ export default function Orders() {
   const [search, setSearch]           = useState("");
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [hasNewOrder, setHasNewOrder] = useState(false);
+  const [driverNames, setDriverNames] = useState<Record<number, string>>({});
   const knownIds                       = useRef<Set<number>>(new Set());
   const pollRef                        = useRef<ReturnType<typeof setInterval> | null>(null);
   const isFirst                        = useRef(true);
@@ -67,19 +69,30 @@ export default function Orders() {
     finally { setLoading(false); setFetching(false); }
   }, [queryClient]);
 
+  const fetchDriverAssignments = useCallback(async () => {
+    try {
+      const map = await apiGet<Record<number, { driverId: number; driverName: string; status: string }>>("/orders/assignments");
+      const names: Record<number, string> = {};
+      for (const [orderId, a] of Object.entries(map)) names[Number(orderId)] = a.driverName;
+      setDriverNames(names);
+    } catch { /* silent */ }
+  }, []);
+
   useEffect(() => {
     fetchOrders();
-    pollRef.current = setInterval(() => fetchOrders(true), 10000);
+    fetchDriverAssignments();
+    pollRef.current = setInterval(() => { fetchOrders(true); fetchDriverAssignments(); }, 10000);
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
       document.title = "روابي المندي";
     };
-  }, [fetchOrders]);
+  }, [fetchOrders, fetchDriverAssignments]);
 
   const counts = {
     pending:   orders.filter(o => o.status === "pending").length,
     preparing: orders.filter(o => o.status === "preparing").length,
     ready:     orders.filter(o => o.status === "ready").length,
+    out_for_delivery: orders.filter(o => o.status === "out_for_delivery").length,
     done:      orders.filter(o => o.status === "done").length,
     cancelled: orders.filter(o => o.status === "cancelled").length,
     active:    orders.filter(o => !["done","cancelled"].includes(o.status)).length,
@@ -106,6 +119,7 @@ export default function Orders() {
     { key: "pending",   label: "جديد",       count: counts.pending },
     { key: "preparing", label: "يُحضَّر",    count: counts.preparing },
     { key: "ready",     label: "جاهز",       count: counts.ready },
+    { key: "out_for_delivery", label: "قيد التوصيل", count: counts.out_for_delivery },
     { key: "done",      label: "مكتمل",      count: counts.done },
     { key: "cancelled", label: "ملغي",       count: counts.cancelled },
     { key: "all",       label: "الكل",       count: counts.all },
@@ -239,6 +253,12 @@ export default function Orders() {
                         <span className="font-bold text-base text-primary">
                           #{formatEasternNumber(order.dailyNumber ?? order.id)}
                         </span>
+                        {driverNames[order.id] && (
+                          <div className="flex items-center gap-1 text-[11px] text-blue-600 mt-0.5 font-medium whitespace-nowrap">
+                            <Truck className="w-3 h-3 shrink-0" />
+                            <span className="truncate max-w-[100px]">{driverNames[order.id]}</span>
+                          </div>
+                        )}
                       </td>
                       <td className="px-4 py-3">
                         <div className="font-semibold leading-tight">{order.customerName || "عميل"}</div>

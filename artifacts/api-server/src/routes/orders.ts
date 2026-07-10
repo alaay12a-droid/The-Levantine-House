@@ -191,6 +191,11 @@ function buildCustomerStatusMessage(status: string, dailyNumber: number): { titl
         title: "✅ طلبك جاهز!",
         body: `طلبك رقم #${dailyNumber} من ${RESTAURANT_NAME} أصبح جاهزاً، تفضّل بالاستلام 🎉`,
       };
+    case "out_for_delivery":
+      return {
+        title: "🛵 طلبك قيد التوصيل",
+        body: `طلبك رقم #${dailyNumber} من ${RESTAURANT_NAME} خرج للتوصيل، سيصلك قريباً!`,
+      };
     case "done":
       // pickup orders only (delivery orders notified via driver "delivered" event)
       return {
@@ -214,14 +219,14 @@ router.patch("/orders/:id/status", async (req, res) => {
     return;
   }
   const { status } = req.body as { status: string };
-  const validStatuses = ["pending", "preparing", "ready", "done", "cancelled"];
+  const validStatuses = ["pending", "preparing", "ready", "out_for_delivery", "done", "cancelled"];
   if (!validStatuses.includes(status)) {
     res.status(400).json({ error: "حالة غير صحيحة" });
     return;
   }
   const [order] = await db
     .update(ordersTable)
-    .set({ status: status as "pending" | "preparing" | "ready" | "done" | "cancelled" })
+    .set({ status: status as "pending" | "preparing" | "ready" | "out_for_delivery" | "done" | "cancelled" })
     .where(eq(ordersTable.id, id))
     .returning();
   if (!order) {
