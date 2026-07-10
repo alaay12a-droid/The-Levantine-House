@@ -14,6 +14,7 @@ import {
   Linking,
   Animated,
   I18nManager,
+  KeyboardAvoidingView,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -1191,7 +1192,11 @@ export default function CheckoutScreen() {
 
       {/* ── Phone Confirmation Modal ── */}
       {phoneModalVisible && (
-        <View style={styles.otpOverlay}>
+        <KeyboardAvoidingView
+          style={styles.otpOverlay}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          keyboardVerticalOffset={Platform.OS === "android" ? 24 : 0}
+        >
           <View style={[styles.otpSheet, { backgroundColor: colors.card }]}>
             <Text style={[styles.otpTitle, { color: GOLD, fontFamily: F.extra }]}>
               📱 {isEn ? "Confirm Your Number" : "تأكيد رقم الجوال"}
@@ -1247,12 +1252,16 @@ export default function CheckoutScreen() {
               </Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       )}
 
       {/* OTP Overlay */}
       {otpStep === "sent" && (
-        <View style={styles.otpOverlay}>
+        <KeyboardAvoidingView
+          style={styles.otpOverlay}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          keyboardVerticalOffset={Platform.OS === "android" ? 24 : 0}
+        >
           <View style={[styles.otpSheet, { backgroundColor: colors.card }]}>
             <Text style={[styles.otpTitle, { color: GOLD, fontFamily: F.extra }]}>
               📱 {isEn ? "Verify Your Number" : "التحقق من رقمك"}
@@ -1311,7 +1320,7 @@ export default function CheckoutScreen() {
               </Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       )}
 
       {/* ── Payment Method Picker Sheet ── */}
