@@ -1,12 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getListOrdersQueryKey } from "@workspace/api-client-react";
-import { formatCurrency, formatDateTime } from "@/lib/format";
 import { apiGet, apiPost, apiPatch, apiPut, apiDel } from "@/lib/api";
 import {
   RefreshCw, Bell, Phone, MapPin, Printer, Clock, Truck, ClipboardList,
-  Package, MessageCircle, CheckCircle, X, ChevronRight, ChevronLeft,
-  BarChart2, User, Send, ArrowDown, UserPlus, ShoppingCart,
+  Package, MessageCircle, X, ChevronRight, ChevronLeft,
+  BarChart2, User, Send, ArrowDown, CheckCircle, ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -31,7 +30,7 @@ interface ActiveAssignment {
 }
 interface AllDeliveryRow { orderId: number; dailyNumber: number | null; customerName: string; customerPhone: string; totalPrice: number; paymentMethod: string; driverName: string; deliveredAt: string | null; }
 
-// ─── Constants ────────────────────────────────────────────────────────────────
+// ─── Legacy constants (used by PickupView / DriversView) ──────────────────────
 const GOLD = "#E8920C";
 const STATUS_COLOR: Record<OrderStatus, string> = {
   pending: "#E53935", preparing: "#FB8C00", ready: "#43A047",
@@ -48,9 +47,54 @@ const STATUS_NEXT_LABEL: Partial<Record<OrderStatus, string>> = {
 type CashierView = "orders" | "pickup" | "drivers";
 type FilterKey = OrderStatus | "all";
 
+// ─── New design-system constants (matching mockup) ────────────────────────────
+const SAFFRON     = "#F2994A";
+const SAFFRON_DIM = "rgba(242,153,74,.14)";
+const CLR_READY   = "#3DD68C";
+const CLR_READY_DIM = "rgba(61,214,140,.14)";
+const CLR_DELIVERING     = "#4FA3F7";
+const CLR_DELIVERING_DIM = "rgba(79,163,247,.14)";
+const CLR_CANCELLED      = "#EF5A5A";
+const CLR_CANCELLED_DIM  = "rgba(239,90,90,.14)";
+const CLR_NEW     = "#C7A6FF";
+const CLR_NEW_DIM = "rgba(199,166,255,.14)";
+const BG       = "#14161B";
+const SURFACE  = "#1B1E25";
+const SURFACE2 = "#22252E";
+const LINE     = "#2B2F39";
+const TEXT     = "#EDEEF2";
+const TEXT_DIM   = "#9297A6";
+const TEXT_FAINT = "#5C6170";
+
+const STATUS_CARD_COLOR: Record<OrderStatus, string> = {
+  pending: CLR_NEW, preparing: SAFFRON, ready: CLR_READY,
+  out_for_delivery: CLR_DELIVERING, done: "#9297A6", cancelled: CLR_CANCELLED,
+};
+const STATUS_CARD_DIM: Record<OrderStatus, string> = {
+  pending: CLR_NEW_DIM, preparing: SAFFRON_DIM, ready: CLR_READY_DIM,
+  out_for_delivery: CLR_DELIVERING_DIM, done: "rgba(146,151,166,.14)", cancelled: CLR_CANCELLED_DIM,
+};
+const STATUS_DISPLAY: Record<OrderStatus, string> = {
+  pending: "جديد", preparing: "جاري التجهيز", ready: "جاهز للتسليم",
+  out_for_delivery: "قيد التوصيل", done: "تم التسليم", cancelled: "ملغى",
+};
+const RAIL_ORDER = ["pending","preparing","ready","out_for_delivery","done"];
+const RAIL_STEPS = [
+  { label: "جديد" }, { label: "التجهيز" }, { label: "جاهز" },
+  { label: "التوصيل" }, { label: "تم" },
+];
+const ORDER_FILTERS: { key: FilterKey; label: string }[] = [
+  { key: "all",              label: "الكل" },
+  { key: "pending",          label: "جديد" },
+  { key: "preparing",        label: "جاري التجهيز" },
+  { key: "ready",            label: "جاهز للتسليم" },
+  { key: "out_for_delivery", label: "قيد التوصيل" },
+  { key: "cancelled",        label: "ملغى" },
+];
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-const fmt2 = (n: number) => n % 1 === 0 ? String(n) : n.toFixed(2);
-const sar  = (h: number) => `${fmt2(h / 100)} ر.س`;
+const fmt2  = (n: number) => n % 1 === 0 ? String(n) : n.toFixed(2);
+const sar   = (h: number) => `${fmt2(h / 100)} ر.س`;
 const sarRaw = (h: number) => fmt2(h / 100);
 
 function printReceipt(order: Order) {
@@ -93,56 +137,115 @@ ${order.notes ? `<p style="margin-top:8px;font-size:12px;color:#555"><strong>م�
   if (win) { win.document.write(html); win.document.close(); }
 }
 
+function printBulk(orders: Order[]) {
+  if (orders.length === 0) return;
+  const pages = orders.map(o => {
+    const time = new Date(o.createdAt).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" });
+    const itemsRows = o.items.map(i => `<tr><td style="padding:3px 6px">${i.name} × ${i.quantity}</td><td style="padding:3px 6px;text-align:left">${fmt2(i.price*i.quantity/100)} ر.س</td></tr>`).join("");
+    return `<div style="page-break-after:always;padding:8mm;font-family:Cairo,sans-serif;direction:rtl">
+<h2 style="text-align:center;color:#8B4513;font-size:16px;margin-bottom:4px">روابي المندي</h2>
+<p style="text-align:center;font-size:14px;font-weight:700;margin-bottom:8px">طلب اليوم #${o.dailyNumber ?? o.id} — ${o.customerName}</p>
+<p style="font-size:12px;color:#666;margin-bottom:6px">${time} · ${o.paymentMethod === "cash" ? "نقدي" : "إلكتروني"}</p>
+<table style="width:100%;border-collapse:collapse;font-size:13px">${itemsRows}
+<tr><td colspan="2" style="border-top:1px dashed #ccc;padding-top:6px;font-weight:700;font-size:15px">${fmt2(o.totalPrice/100)} ر.س</td></tr>
+</table></div>`;
+  }).join("");
+  const win = window.open("", "_blank", "width=600,height=800");
+  if (win) {
+    win.document.write(`<!DOCTYPE html><html dir="rtl"><head><meta charset="UTF-8"><link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet"></head><body>${pages}<script>window.onload=function(){window.print()}<\/script></body></html>`);
+    win.document.close();
+  }
+}
+
+// ─── Progress Rail ────────────────────────────────────────────────────────────
+function ProgressRail({ status }: { status: OrderStatus }) {
+  if (status === "cancelled") {
+    return <div style={{ fontSize: 12, color: TEXT_FAINT, textAlign: "center", padding: "8px 0 14px" }}>تم إلغاء هذا الطلب</div>;
+  }
+  const idx = RAIL_ORDER.indexOf(status);
+  return (
+    <div style={{ display: "flex", alignItems: "flex-start", margin: "4px 0 14px", padding: "0 2px" }}>
+      {RAIL_STEPS.map((step, i) => {
+        const done = i < idx;
+        const current = i === idx;
+        const active = done || current;
+        return (
+          <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", position: "relative" }}>
+            {i > 0 && (
+              <div style={{ position: "absolute", top: 7, right: "50%", width: "100%", height: 2, backgroundColor: done ? SAFFRON : LINE, zIndex: 0 }} />
+            )}
+            <div style={{
+              width: 16, height: 16, borderRadius: "50%",
+              backgroundColor: active ? SAFFRON : LINE,
+              border: `2px solid ${BG}`,
+              zIndex: 1, position: "relative",
+              ...(current ? { boxShadow: `0 0 0 4px ${SAFFRON_DIM}` } : {}),
+            }} />
+            <div style={{ fontSize: 10, color: active ? TEXT_DIM : TEXT_FAINT, marginTop: 6, textAlign: "center" }}>{step.label}</div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function Orders() {
   const queryClient = useQueryClient();
 
-  // ── Core order state ───────────────────────────────────────────────────────
+  // ── Core order state ──────────────────────────────────────────────────────
   const [cashierView, setCashierView] = useState<CashierView>("orders");
   const [orders, setOrders]           = useState<Order[]>([]);
   const [loading, setLoading]         = useState(true);
   const [fetching, setFetching]       = useState(false);
   const [filter, setFilter]           = useState<FilterKey>("all");
   const [hasNewOrder, setHasNewOrder] = useState(false);
-  const knownIds                       = useRef<Set<number>>(new Set());
-  const pollRef                        = useRef<ReturnType<typeof setInterval> | null>(null);
-  const isFirst                        = useRef(true);
+  const knownIds  = useRef<Set<number>>(new Set());
+  const pollRef   = useRef<ReturnType<typeof setInterval> | null>(null);
+  const isFirst   = useRef(true);
 
-  // ── Drivers ────────────────────────────────────────────────────────────────
+  // ── UI state (new design) ─────────────────────────────────────────────────
+  const [expandedCards, setExpandedCards] = useState<Set<number>>(new Set());
+  const [searchTerm, setSearchTerm]       = useState("");
+  const [sortNewest, setSortNewest]       = useState(true);
+  const [selectMode, setSelectMode]       = useState(false);
+  const [selectedIds, setSelectedIds]     = useState<Set<number>>(new Set());
+
+  // ── Drivers ───────────────────────────────────────────────────────────────
   const [drivers, setDrivers]               = useState<Driver[]>([]);
   const [driversEnabled, setDriversEnabled] = useState(false);
   const [assignments, setAssignments]       = useState<Record<number, Assignment>>({});
   const [assigningOrderId, setAssigningOrderId] = useState<number | null>(null);
 
-  // ── Active assignments (in-transit) ───────────────────────────────────────
-  const [activeAssignments, setActiveAssignments]   = useState<ActiveAssignment[]>([]);
-  const [activeLoading, setActiveLoading]           = useState(false);
-  const [deliveringOrderId, setDeliveringOrderId]   = useState<number | null>(null);
+  // ── Active assignments ────────────────────────────────────────────────────
+  const [activeAssignments, setActiveAssignments] = useState<ActiveAssignment[]>([]);
+  const [activeLoading, setActiveLoading]         = useState(false);
+  const [deliveringOrderId, setDeliveringOrderId] = useState<number | null>(null);
 
-  // ── All deliveries calendar ────────────────────────────────────────────────
+  // ── All deliveries calendar ───────────────────────────────────────────────
   const [drvSelectedDate, setDrvSelectedDate] = useState<Date>(() => { const d = new Date(); d.setHours(0,0,0,0); return d; });
   const [drvWeekOffset, setDrvWeekOffset]     = useState(0);
   const [allDeliveries, setAllDeliveries]     = useState<AllDeliveryRow[]>([]);
   const [allDeliveriesLoading, setAllDeliveriesLoading] = useState(false);
   const [expandedDrivers, setExpandedDrivers] = useState<Set<string>>(new Set());
 
-  // ── Pickup time filter ─────────────────────────────────────────────────────
+  // ── Pickup time filter ────────────────────────────────────────────────────
   const [pickupFromHour, setPickupFromHour] = useState("00");
   const [pickupToHour,   setPickupToHour]   = useState("23");
   const [pickupFromMin,  setPickupFromMin]  = useState("00");
   const [pickupToMin,    setPickupToMin]    = useState("59");
 
-  // ── Chat ───────────────────────────────────────────────────────────────────
+  // ── Chat ──────────────────────────────────────────────────────────────────
   const [chatOrder, setChatOrder]     = useState<Order | null>(null);
   const [chatMsgs, setChatMsgs]       = useState<ChatMsg[]>([]);
   const [chatInput, setChatInput]     = useState("");
   const [chatSending, setChatSending] = useState(false);
   const [chatLoading, setChatLoading] = useState(false);
   const [unreadByOrder, setUnreadByOrder] = useState<Record<number, number>>({});
-  const chatPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const chatPollRef   = useRef<ReturnType<typeof setInterval> | null>(null);
   const chatBottomRef = useRef<HTMLDivElement>(null);
 
-  // ── Fetch orders ───────────────────────────────────────────────────────────
+  // ── Fetch orders ──────────────────────────────────────────────────────────
   const fetchOrders = useCallback(async (silent = false) => {
     if (!silent) setLoading(true); else setFetching(true);
     try {
@@ -166,7 +269,6 @@ export default function Orders() {
     finally { setLoading(false); setFetching(false); }
   }, [queryClient]);
 
-  // ── Fetch drivers + assignments ────────────────────────────────────────────
   const fetchDriversData = useCallback(async () => {
     try {
       const [drvList, drvEn] = await Promise.all([
@@ -211,7 +313,6 @@ export default function Orders() {
     } catch {}
   }, []);
 
-  // ── Assign / unassign driver ───────────────────────────────────────────────
   const assignDriver = useCallback(async (orderId: number, driverId: number) => {
     try {
       await apiPost(`/orders/${orderId}/assign-driver`, { driverId });
@@ -228,7 +329,6 @@ export default function Orders() {
     } catch {}
   }, []);
 
-  // ── Update order status ────────────────────────────────────────────────────
   const handleUpdateStatus = useCallback(async (order: Order, newStatus: OrderStatus) => {
     try {
       const updated = await apiPatch<Order>(`/orders/${order.id}/status`, { status: newStatus });
@@ -256,7 +356,6 @@ export default function Orders() {
     setDeliveringOrderId(null);
   }, [drvSelectedDate, loadAllDeliveries]);
 
-  // ── Chat ───────────────────────────────────────────────────────────────────
   const openChat = useCallback(async (order: Order) => {
     setChatOrder(order);
     setChatLoading(true);
@@ -281,7 +380,7 @@ export default function Orders() {
     } catch { setChatInput(text); } finally { setChatSending(false); }
   }, [chatOrder, chatInput]);
 
-  // ── Effects ────────────────────────────────────────────────────────────────
+  // ── Effects ───────────────────────────────────────────────────────────────
   useEffect(() => {
     fetchOrders();
     fetchDriversData();
@@ -325,236 +424,281 @@ export default function Orders() {
     chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatMsgs]);
 
-  // ── Derived ────────────────────────────────────────────────────────────────
-  const totalUnread     = Object.values(unreadByOrder).reduce((s, n) => s + n, 0);
-  const pendingCount    = orders.filter(o => o.status === "pending").length;
-  const pickupOrders    = orders.filter(o => o.notes?.includes("استلام من الفرع"));
-  const pickupPending   = pickupOrders.filter(o => !["done","cancelled"].includes(o.status)).length;
+  // ── UI helpers ────────────────────────────────────────────────────────────
+  const toggleCard   = (id: number) => setExpandedCards(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const toggleSelect = (id: number) => setSelectedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
-  const filteredOrders  = filter === "all"
-    ? orders.filter(o => !["done","cancelled"].includes(o.status))
-    : orders.filter(o => o.status === filter);
+  // ── Derived ───────────────────────────────────────────────────────────────
+  const totalUnread   = Object.values(unreadByOrder).reduce((s, n) => s + n, 0);
+  const pendingCount  = orders.filter(o => o.status === "pending").length;
+  const pickupOrders  = orders.filter(o => o.notes?.includes("استلام من الفرع"));
+  const pickupPending = pickupOrders.filter(o => !["done","cancelled"].includes(o.status)).length;
 
-  // ─── TAB NAV ──────────────────────────────────────────────────────────────
-  const tabs = [
-    { key: "orders"  as CashierView, label: "استقبال الطلبات", icon: <ClipboardList size={20}/>, color: GOLD,      badge: pendingCount },
-    { key: "pickup"  as CashierView, label: "تسليم الفرع",     icon: <Package size={20}/>,       color: "#82B1FF",  badge: pickupPending },
-    { key: "drivers" as CashierView, label: "المناديب",         icon: <Truck size={20}/>,         color: "#4CAF50",  badge: activeAssignments.length },
+  const visibleOrders = (() => {
+    let result = filter === "all"
+      ? orders.filter(o => !["done","cancelled"].includes(o.status))
+      : orders.filter(o => o.status === filter);
+    if (searchTerm.trim()) {
+      const q = searchTerm.trim();
+      result = result.filter(o =>
+        o.customerName.includes(q) ||
+        o.customerPhone.includes(q) ||
+        String(o.dailyNumber ?? o.id).includes(q)
+      );
+    }
+    return [...result].sort((a, b) =>
+      sortNewest
+        ? new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        : new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    );
+  })();
+
+  const tabDef = [
+    { key: "orders"  as CashierView, label: "استقبال الطلبات", icon: <ClipboardList size={18}/>, badge: pendingCount },
+    { key: "pickup"  as CashierView, label: "تسليم الفرع",     icon: <Package size={18}/>,       badge: pickupPending },
+    { key: "drivers" as CashierView, label: "المناديب",         icon: <Truck size={18}/>,         badge: activeAssignments.length },
   ];
 
-  // ─── ORDER CARD ───────────────────────────────────────────────────────────
+  // ─── ORDER CARD ────────────────────────────────────────────────────────────
   function OrderCard({ order }: { order: Order }) {
-    const nextStatus   = STATUS_NEXT[order.status];
-    const nextLabel    = STATUS_NEXT_LABEL[order.status];
-    const isPickup     = !!order.notes?.includes("استلام من الفرع");
-    const isDelivery   = !isPickup && (!!order.customerAddress || !!order.notes?.includes("توصيل"));
-    const aRow         = assignments[order.id];
-    const hasAssigned  = order.status === "ready" && aRow?.status === "assigned";
+    const isExpanded = expandedCards.has(order.id);
+    const isSelected = selectedIds.has(order.id);
+    const isPickup   = !!order.notes?.includes("استلام من الفرع");
+    const isDelivery = !isPickup && (!!order.customerAddress || !!order.notes?.includes("توصيل"));
+    const aRow       = assignments[order.id];
+    const hasAssigned = order.status === "ready" && aRow?.status === "assigned";
     const driverPickedUp = aRow?.status === "picked_up";
-    const isGPS        = order.customerAddress?.startsWith("https://");
-    const time = new Date(order.createdAt).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" });
-    const date = new Date(order.createdAt).toLocaleDateString("ar-SA", { day: "numeric", month: "long", year: "numeric" });
-    const color        = STATUS_COLOR[order.status];
-    const unread       = unreadByOrder[order.id] ?? 0;
+    const isGPS    = order.customerAddress?.startsWith("https://");
+    const time     = new Date(order.createdAt).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" });
+    const unread   = unreadByOrder[order.id] ?? 0;
+    const nextStatus = STATUS_NEXT[order.status];
+    const nextLabel  = STATUS_NEXT_LABEL[order.status];
+    const cardColor  = STATUS_CARD_COLOR[order.status];
+    const cardDim    = STATUS_CARD_DIM[order.status];
 
     return (
-      <div dir="rtl" style={{ backgroundColor: "var(--color-card, #1a1008)", border: `1px solid var(--color-border, #2a1a0a)`, borderRadius: 16, overflow: "hidden", marginBottom: 12 }}>
-        {/* Card header */}
-        <div style={{ borderBottom: "1px solid var(--color-border, #2a1a0a)", padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ backgroundColor: color + "22", border: `1px solid ${color}`, borderRadius: 8, padding: "2px 10px", color, fontWeight: 700, fontSize: 13 }}>
-              {STATUS_LABEL[order.status]}
-            </span>
-            {isPickup && (
-              <span style={{ backgroundColor: "#82B1FF22", border: "1px solid #82B1FF55", borderRadius: 8, padding: "2px 8px", color: "#82B1FF", fontSize: 11, fontWeight: 700 }}>🏪 فرع</span>
+      <div style={{
+        background: SURFACE, border: `1px solid ${LINE}`, borderRadius: 14, overflow: "hidden",
+        borderInlineStart: `3px solid ${cardColor}`,
+        opacity: order.status === "cancelled" ? 0.6 : 1,
+      }}>
+        {/* ── Head ── */}
+        <div
+          onClick={() => selectMode ? toggleSelect(order.id) : toggleCard(order.id)}
+          style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", cursor: "pointer", gap: 10 }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+            {selectMode && (
+              <div style={{ width: 18, height: 18, borderRadius: 6, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: isSelected ? SAFFRON : SURFACE2, border: `1.5px solid ${isSelected ? SAFFRON : LINE}` }}>
+                {isSelected && <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#1B1206" strokeWidth="3"><path d="M20 6 9 17l-5-5"/></svg>}
+              </div>
+            )}
+            <span style={{ color: TEXT_FAINT, fontWeight: 700, fontSize: 13, flexShrink: 0 }}>#{order.dailyNumber ?? order.id}</span>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: TEXT, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{order.customerName}</div>
+              <div style={{ fontSize: 11.5, color: TEXT_FAINT, marginTop: 1 }}>{order.customerPhone} · {time}</div>
+            </div>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+            <div style={{ fontFamily: "Cairo, sans-serif", fontWeight: 700, fontSize: 15, color: TEXT }}>
+              {fmt2(order.totalPrice / 100)} <span style={{ fontSize: 11, color: TEXT_FAINT, fontWeight: 500 }}>ر.س</span>
+            </div>
+            <div style={{ fontSize: 11.5, fontWeight: 700, padding: "5px 10px", borderRadius: 8, background: cardDim, color: cardColor, whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 5 }}>
+              <span style={{ width: 6, height: 6, borderRadius: "50%", backgroundColor: cardColor, display: "inline-block", flexShrink: 0 }} />
+              {STATUS_DISPLAY[order.status]}
+            </div>
+            {!selectMode && (
+              <ChevronDown size={16} style={{ color: TEXT_FAINT, transform: isExpanded ? "rotate(180deg)" : "none", transition: "transform .2s", flexShrink: 0 }} />
             )}
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ backgroundColor: GOLD + "22", border: `1px solid ${GOLD}55`, borderRadius: 8, padding: "3px 10px", color: GOLD, fontWeight: 800, fontSize: 14 }}>
-              طلب اليوم #{order.dailyNumber ?? order.id}
-            </span>
-            <div style={{ textAlign: "left", lineHeight: 1.4 }}>
-              <div style={{ color: "var(--color-muted-foreground)", fontSize: 12 }}>{time}</div>
-              <div style={{ color: "var(--color-muted-foreground)", fontSize: 11 }}>{date}</div>
-            </div>
-          </div>
         </div>
 
-        {/* Customer info */}
-        <div style={{ padding: "10px 14px", display: "flex", flexDirection: "column", gap: 5 }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <User size={14} style={{ color: "var(--color-muted-foreground)" }} />
-            <span style={{ color: "var(--color-foreground)", fontWeight: 700, fontSize: 15 }}>{order.customerName}</span>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <Phone size={14} style={{ color: "var(--color-muted-foreground)" }} />
-            <span dir="ltr" style={{ color: "var(--color-muted-foreground)", fontSize: 13, fontWeight: 600 }}>{order.customerPhone}</span>
-          </div>
-          {order.customerAddress && (
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <MapPin size={14} style={{ color: isGPS ? "#4CAF50" : "var(--color-muted-foreground)" }} />
-              {isGPS ? (
-                <a href={order.customerAddress} target="_blank" rel="noreferrer" style={{ color: "#4CAF50", fontSize: 13, fontWeight: 600, textDecoration: "none" }}>
-                  📍 فتح الموقع على الخريطة
-                </a>
-              ) : (
-                <span style={{ color: "var(--color-muted-foreground)", fontSize: 13 }}>{order.customerAddress}</span>
-              )}
+        {/* Driver chip (collapsed) */}
+        {aRow && !isExpanded && (
+          <div style={{ padding: "0 14px 10px" }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: CLR_DELIVERING_DIM, color: "#A6CDFB", fontSize: 11.5, fontWeight: 600, padding: "5px 10px", borderRadius: 8 }}>
+              <User size={12} />
+              المندوب: {aRow.driverName}
             </div>
-          )}
-        </div>
-
-        {/* Items */}
-        <div style={{ borderTop: "1px solid var(--color-border, #2a1a0a)", borderBottom: "1px solid var(--color-border, #2a1a0a)", padding: "8px 14px", display: "flex", flexDirection: "column", gap: 4 }}>
-          {order.items.map((item, i) => (
-            <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <span style={{ color: GOLD, fontWeight: 700, fontSize: 13 }}>{sar(item.price * item.quantity)}</span>
-              <span style={{ color: "var(--color-foreground)", fontWeight: 600, fontSize: 13 }}>{item.name} × {item.quantity}</span>
-            </div>
-          ))}
-        </div>
-
-        {/* Discount */}
-        {order.discountCode && order.discountAmount != null && (
-          <div style={{ backgroundColor: "#1A0A0A", borderBottom: "1px solid #C8171A33", padding: "6px 14px", display: "flex", justifyContent: "space-between" }}>
-            <span style={{ color: "#C8171A", fontWeight: 700, fontSize: 13 }}>- {sar(order.discountAmount)}</span>
-            <span style={{ color: "#E57373", fontWeight: 600, fontSize: 13 }}>🏷️ {order.discountCode}</span>
           </div>
         )}
 
-        {/* Notes */}
-        {order.notes && (
-          <div style={{ backgroundColor: "var(--color-secondary)", padding: "6px 14px", display: "flex", gap: 6 }}>
-            <span style={{ color: GOLD, fontWeight: 700, fontSize: 13 }}>ملاحظة:</span>
-            <span style={{ color: "var(--color-foreground)", fontSize: 13 }}>{order.notes}</span>
-          </div>
-        )}
+        {/* ── Expanded body ── */}
+        {isExpanded && (
+          <div style={{ borderTop: `1px solid ${LINE}` }}>
+            <div style={{ padding: "0 14px 14px" }}>
+              <div style={{ height: 1, background: LINE, margin: "12px 0" }} />
 
-        {/* Footer: total + payment */}
-        <div style={{ padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <span style={{ color: "var(--color-muted-foreground)", fontSize: 13 }}>
-            {order.paymentMethod === "cash" ? "💵 نقدي" : "💳 إلكتروني"}
-          </span>
-          <span style={{ color: GOLD, fontWeight: 800, fontSize: 18 }}>{sar(order.totalPrice)}</span>
-        </div>
+              <ProgressRail status={order.status} />
 
-        {/* Actions */}
-        <div style={{ padding: "0 14px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
-          {/* Advance status: pending→preparing, preparing→ready */}
-          {nextStatus && nextLabel && order.status !== "ready" && (
-            <button onClick={() => handleUpdateStatus(order, nextStatus)} style={{ backgroundColor: STATUS_COLOR[nextStatus], border: "none", borderRadius: 12, padding: "12px", color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer", width: "100%" }}>
-              {nextLabel}
-            </button>
-          )}
-
-          {/* Ready + pickup → direct handoff */}
-          {order.status === "ready" && isPickup && (
-            <button onClick={() => handleUpdateStatus(order, "done")} style={{ backgroundColor: "#0D1F35", border: "1.5px solid #82B1FF", borderRadius: 12, padding: "12px", color: "#82B1FF", fontWeight: 700, fontSize: 14, cursor: "pointer", width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-              <span style={{ fontSize: 18 }}>🏪</span> ✅ تم تسليم الطلب للعميل
-            </button>
-          )}
-
-          {/* Ready + delivery → driver section */}
-          {order.status === "ready" && isDelivery && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {driverPickedUp ? (
-                <div style={{ backgroundColor: "#0A2A0A", borderRadius: 14, padding: 14, border: "1.5px solid #4CAF50", display: "flex", alignItems: "center", gap: 10 }}>
-                  <span style={{ fontSize: 28 }}>🛵</span>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ color: "#4CAF50", fontWeight: 800, fontSize: 15 }}>{aRow!.driverName}</div>
-                    <div style={{ color: "#4CAF50BB", fontSize: 12 }}>في الطريق — بانتظار التسليم للعميل</div>
+              {/* Items box */}
+              <div style={{ background: SURFACE2, borderRadius: 10, padding: "10px 12px", marginBottom: 12 }}>
+                {order.items.map((item, i) => (
+                  <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "3px 0" }}>
+                    <span style={{ color: TEXT_FAINT }}>{fmt2(item.price * item.quantity / 100)} ر.س</span>
+                    <span style={{ color: TEXT }}>{item.name} × {item.quantity}</span>
                   </div>
-                  <span style={{ backgroundColor: "#4CAF5022", borderRadius: 8, padding: "4px 8px", color: "#4CAF50", fontWeight: 700, fontSize: 11 }}>🚗 في الطريق</span>
-                </div>
-              ) : (
-                <>
-                  <button
-                    onClick={hasAssigned ? () => handleUpdateStatus(order, "done") : undefined}
-                    disabled={!hasAssigned}
-                    style={{ backgroundColor: hasAssigned ? "#1A3A1A" : "#1E1E1E", border: hasAssigned ? "1.5px solid #4CAF50" : "1px solid #444", borderRadius: 12, padding: "12px", color: hasAssigned ? "#4CAF50" : "#666", fontWeight: 700, fontSize: 14, cursor: hasAssigned ? "pointer" : "default", width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
-                  >
-                    <span style={{ fontSize: 18 }}>🛵</span>
-                    <div style={{ textAlign: "center" }}>
-                      <div>تسليم الطلب للمندوب</div>
-                      {!hasAssigned && <div style={{ color: "#555", fontSize: 11, fontWeight: 400 }}>عيّن مندوباً أولاً 🔒</div>}
-                      {hasAssigned && <div style={{ color: "#4CAF50AA", fontSize: 11 }}>{aRow!.driverName}</div>}
-                    </div>
-                  </button>
+                ))}
+                {order.discountCode && order.discountAmount != null && (
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "3px 0", borderTop: `1px solid ${LINE}`, marginTop: 6 }}>
+                    <span style={{ color: CLR_CANCELLED }}>- {fmt2(order.discountAmount / 100)} ر.س</span>
+                    <span style={{ color: CLR_CANCELLED }}>🏷️ {order.discountCode}</span>
+                  </div>
+                )}
+              </div>
 
-                  {aRow ? (
-                    <div style={{ backgroundColor: "#0A1F0A", borderRadius: 10, padding: "10px 12px", border: "1px solid #2E7D3244", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                      <button onClick={() => unassignDriver(order.id)} style={{ background: "none", border: "none", cursor: "pointer", padding: 4 }}>
-                        <X size={14} style={{ color: "#9E9E9E" }} />
-                      </button>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <div>
-                          <div style={{ color: "#4CAF50", fontWeight: 700, fontSize: 13 }}>{aRow.driverName}</div>
-                          <div style={{ color: "#4CAF50AA", fontSize: 11 }}>المندوب المعيّن — بانتظار التسليم</div>
-                        </div>
-                        <span style={{ fontSize: 15 }}>🛵</span>
-                      </div>
-                    </div>
+              {/* Info rows */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 13, color: TEXT_DIM, padding: "6px 0" }}>
+                <span style={{ color: TEXT_FAINT }}>طريقة الدفع</span>
+                <span>{order.paymentMethod === "cash" ? "💵 نقدي" : "💳 إلكتروني"}</span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 13, color: TEXT_DIM, padding: "6px 0" }}>
+                <span style={{ color: TEXT_FAINT }}>رقم الجوال</span>
+                <span dir="ltr">{order.customerPhone}</span>
+              </div>
+              {order.customerAddress && (
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 13, color: TEXT_DIM, padding: "6px 0" }}>
+                  <span style={{ color: TEXT_FAINT }}>العنوان</span>
+                  {isGPS ? (
+                    <a href={order.customerAddress} target="_blank" rel="noreferrer" style={{ color: CLR_READY, textDecoration: "none" }}>📍 موقع على الخريطة</a>
                   ) : (
-                    <button onClick={() => setAssigningOrderId(order.id)} style={{ backgroundColor: "#0A1A0A", border: "1px solid #2E7D32", borderRadius: 12, padding: "12px", color: "#4CAF50", fontWeight: 700, fontSize: 14, cursor: "pointer", width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-                      <span style={{ fontSize: 16 }}>➕</span> تعيين مندوب
+                    <span>{order.customerAddress}</span>
+                  )}
+                </div>
+              )}
+              {order.notes && (
+                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", fontSize: 13, color: TEXT_DIM, padding: "6px 0", gap: 8 }}>
+                  <span style={{ color: TEXT_FAINT, flexShrink: 0 }}>ملاحظة</span>
+                  <span style={{ textAlign: "right" }}>{order.notes}</span>
+                </div>
+              )}
+
+              {/* Driver chip (expanded) */}
+              {aRow && (
+                <div style={{ display: "flex", alignItems: "center", gap: 6, background: CLR_DELIVERING_DIM, color: "#A6CDFB", fontSize: 11.5, fontWeight: 600, padding: "8px 10px", borderRadius: 8, marginTop: 10 }}>
+                  <User size={12} />
+                  المندوب: {aRow.driverName}
+                  {driverPickedUp && <span style={{ fontSize: 11, opacity: 0.8 }}>— في الطريق</span>}
+                  {!driverPickedUp && aRow.status === "assigned" && <span style={{ fontSize: 11, opacity: 0.8 }}>— بانتظار الاستلام</span>}
+                </div>
+              )}
+
+              {/* ── Status advancement ── */}
+              {(nextStatus || (order.status === "ready")) && (
+                <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+                  {nextStatus && nextLabel && (
+                    <button
+                      onClick={() => handleUpdateStatus(order, nextStatus)}
+                      style={{ background: STATUS_CARD_COLOR[nextStatus] + "22", border: `1px solid ${STATUS_CARD_COLOR[nextStatus]}55`, borderRadius: 10, padding: "11px", color: STATUS_CARD_COLOR[nextStatus], fontWeight: 700, fontSize: 13.5, cursor: "pointer", width: "100%", fontFamily: "inherit" }}
+                    >
+                      {nextLabel}
                     </button>
                   )}
-                </>
+                  {order.status === "ready" && isPickup && (
+                    <button
+                      onClick={() => handleUpdateStatus(order, "done")}
+                      style={{ background: CLR_DELIVERING_DIM, border: `1px solid ${CLR_DELIVERING}55`, borderRadius: 10, padding: "11px", color: "#A6CDFB", fontWeight: 700, fontSize: 13.5, cursor: "pointer", width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontFamily: "inherit" }}
+                    >
+                      🏪 تم تسليم الطلب للعميل
+                    </button>
+                  )}
+                  {order.status === "ready" && isDelivery && !driverPickedUp && (
+                    <>
+                      <button
+                        onClick={hasAssigned ? () => handleUpdateStatus(order, "done") : undefined}
+                        disabled={!hasAssigned}
+                        style={{ background: hasAssigned ? "rgba(61,214,140,.12)" : SURFACE2, border: `1.5px solid ${hasAssigned ? CLR_READY : LINE}`, borderRadius: 10, padding: "11px", color: hasAssigned ? CLR_READY : TEXT_FAINT, fontWeight: 700, fontSize: 13.5, cursor: hasAssigned ? "pointer" : "default", width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontFamily: "inherit" }}
+                      >
+                        <span>🛵</span>
+                        <div style={{ textAlign: "center" }}>
+                          <div>تسليم الطلب للمندوب</div>
+                          {!hasAssigned && <div style={{ fontSize: 11, color: TEXT_FAINT, fontWeight: 400 }}>عيّن مندوباً أولاً 🔒</div>}
+                        </div>
+                      </button>
+                      {aRow ? (
+                        <div style={{ background: "rgba(61,214,140,.06)", borderRadius: 10, padding: "10px 12px", border: `1px solid ${CLR_READY}33`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                          <button onClick={() => unassignDriver(order.id)} style={{ background: "none", border: "none", cursor: "pointer", padding: 4 }}>
+                            <X size={14} style={{ color: TEXT_DIM }} />
+                          </button>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <div>
+                              <div style={{ color: CLR_READY, fontWeight: 700, fontSize: 13 }}>{aRow.driverName}</div>
+                              <div style={{ color: `${CLR_READY}AA`, fontSize: 11 }}>معيّن — بانتظار التسليم</div>
+                            </div>
+                            <span style={{ fontSize: 16 }}>🛵</span>
+                          </div>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setAssigningOrderId(order.id)}
+                          style={{ background: SURFACE2, border: `1px solid ${LINE}`, borderRadius: 10, padding: "11px", color: CLR_READY, fontWeight: 700, fontSize: 13, cursor: "pointer", width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontFamily: "inherit" }}
+                        >
+                          ➕ تعيين مندوب
+                        </button>
+                      )}
+                      {assigningOrderId === order.id && (
+                        <div style={{ background: "#0A1208", borderRadius: 12, padding: 14, border: `1px solid ${CLR_READY}44`, display: "flex", flexDirection: "column", gap: 8 }}>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                            <button onClick={() => setAssigningOrderId(null)} style={{ background: "none", border: "none", cursor: "pointer", padding: 4 }}>
+                              <X size={16} style={{ color: TEXT_DIM }} />
+                            </button>
+                            <span style={{ color: CLR_READY, fontWeight: 700, fontSize: 13 }}>اختر مندوباً</span>
+                          </div>
+                          {drivers.length === 0 ? (
+                            <p style={{ color: TEXT_FAINT, fontSize: 12, textAlign: "center" }}>لا يوجد مناديب نشطون</p>
+                          ) : drivers.map(d => (
+                            <button key={d.id} onClick={() => assignDriver(order.id, d.id)} style={{ background: SURFACE2, borderRadius: 10, padding: "10px 12px", border: `1px solid ${LINE}`, cursor: "pointer", display: "flex", alignItems: "center", gap: 10, width: "100%", fontFamily: "inherit" }}>
+                              <div style={{ width: 36, height: 36, borderRadius: "50%", background: "#1A2A1A", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>🛵</div>
+                              <div style={{ textAlign: "right" }}>
+                                <div style={{ color: TEXT, fontWeight: 700, fontSize: 13 }}>{d.name}</div>
+                                <div style={{ color: TEXT_FAINT, fontSize: 11 }}>{d.phone}</div>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
               )}
-            </div>
-          )}
 
-          {/* Driver picker inline */}
-          {assigningOrderId === order.id && (
-            <div style={{ backgroundColor: "#0F1A0F", borderRadius: 12, padding: 14, border: "1px solid #2E7D32", display: "flex", flexDirection: "column", gap: 8 }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <button onClick={() => setAssigningOrderId(null)} style={{ background: "none", border: "none", cursor: "pointer", padding: 4 }}>
-                  <X size={16} style={{ color: "#9E9E9E" }} />
+              {/* ── Action buttons: مراسلة / طباعة / إلغاء ── */}
+              <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                <button
+                  onClick={() => openChat(order)}
+                  style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: SAFFRON_DIM, border: "1px solid rgba(242,153,74,.35)", color: "#FFC98F", borderRadius: 10, padding: 10, fontSize: 12.5, fontFamily: "inherit", fontWeight: 500, cursor: "pointer", position: "relative" }}
+                >
+                  <MessageCircle size={15} />
+                  مراسلة
+                  {unread > 0 && (
+                    <span style={{ position: "absolute", top: 3, right: 3, backgroundColor: CLR_CANCELLED, borderRadius: "50%", minWidth: 14, height: 14, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, color: "#fff", fontWeight: 800 }}>{unread}</span>
+                  )}
                 </button>
-                <span style={{ color: "#4CAF50", fontWeight: 700, fontSize: 13 }}>اختر مندوباً للطلب</span>
+                <button
+                  onClick={() => printReceipt(order)}
+                  style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: SURFACE2, border: `1px solid ${LINE}`, color: TEXT_DIM, borderRadius: 10, padding: 10, fontSize: 12.5, fontFamily: "inherit", fontWeight: 500, cursor: "pointer" }}
+                >
+                  <Printer size={15} />
+                  طباعة
+                </button>
+                {!["done","cancelled"].includes(order.status) && !driverPickedUp && (
+                  <button
+                    onClick={() => handleCancelOrder(order)}
+                    style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: SURFACE2, border: `1px solid ${LINE}`, color: "#F7A9A9", borderRadius: 10, padding: 10, fontSize: 12.5, fontFamily: "inherit", fontWeight: 500, cursor: "pointer" }}
+                  >
+                    <X size={15} />
+                    إلغاء
+                  </button>
+                )}
               </div>
-              {drivers.length === 0 ? (
-                <p style={{ color: "#9E9E9E", fontSize: 12, textAlign: "center" }}>لا يوجد مناديب نشطون</p>
-              ) : drivers.map(d => (
-                <button key={d.id} onClick={() => assignDriver(order.id, d.id)} style={{ backgroundColor: "#1A2A1A", borderRadius: 10, padding: "10px 12px", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 10, width: "100%" }}>
-                  <div style={{ width: 36, height: 36, borderRadius: "50%", backgroundColor: "#2A3A2A", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>🛵</div>
-                  <div style={{ textAlign: "right" }}>
-                    <div style={{ color: "#fff", fontWeight: 700, fontSize: 13 }}>{d.name}</div>
-                    <div style={{ color: "#9E9E9E", fontSize: 11 }}>{d.phone}</div>
-                  </div>
-                </button>
-              ))}
             </div>
-          )}
-
-          {/* Cancel */}
-          {!["done","cancelled"].includes(order.status) && !driverPickedUp && (
-            <button onClick={() => handleCancelOrder(order)} style={{ backgroundColor: "transparent", border: "1px solid #9E9E9E", borderRadius: 12, padding: "10px", color: "#9E9E9E", fontWeight: 700, fontSize: 13, cursor: "pointer", width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-              <X size={14}/> إلغاء الطلب
-            </button>
-          )}
-
-          {/* Chat */}
-          <button onClick={() => openChat(order)} style={{ backgroundColor: "#0D2030", border: "1px solid #1E4A6A", borderRadius: 12, padding: "10px", color: "#64B5F6", fontWeight: 700, fontSize: 13, cursor: "pointer", width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-            <div style={{ position: "relative" }}>
-              <MessageCircle size={16} style={{ color: "#64B5F6" }} />
-              {unread > 0 && (
-                <span style={{ position: "absolute", top: -5, right: -5, backgroundColor: "#E53935", borderRadius: "50%", minWidth: 14, height: 14, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, color: "#fff", fontWeight: 700, padding: "0 2px" }}>{unread}</span>
-              )}
-            </div>
-            مراسلة العميل{unread > 0 ? `  •  ${unread} جديدة` : ""}
-          </button>
-
-          {/* Print */}
-          <button onClick={() => printReceipt(order)} style={{ backgroundColor: "#1A2A3A", border: "none", borderRadius: 12, padding: "10px", color: "#64B5F6", fontWeight: 700, fontSize: 13, cursor: "pointer", width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-            <Printer size={15}/> طباعة الإيصال
-          </button>
-        </div>
+          </div>
+        )}
       </div>
     );
   }
 
-  // ─── PICKUP VIEW ─────────────────────────────────────────────────────────
+  // ─── PICKUP VIEW ──────────────────────────────────────────────────────────
   function PickupView() {
     const fromMins   = parseInt(pickupFromHour) * 60 + parseInt(pickupFromMin);
     const toMins     = parseInt(pickupToHour)   * 60 + parseInt(pickupToMin);
@@ -570,31 +714,29 @@ export default function Orders() {
 
     return (
       <div dir="rtl" style={{ padding: 14, display: "flex", flexDirection: "column", gap: 12 }}>
-        {/* Header */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div>
-            <div style={{ color: "var(--color-foreground)", fontWeight: 800, fontSize: 18 }}>🏪 تسليم من الفرع</div>
-            <div style={{ color: "var(--color-muted-foreground)", fontSize: 12, marginTop: 2 }}>
+            <div style={{ color: TEXT, fontWeight: 800, fontSize: 18 }}>🏪 تسليم من الفرع</div>
+            <div style={{ color: TEXT_FAINT, fontSize: 12, marginTop: 2 }}>
               {new Date().toLocaleDateString("ar-SA", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
             </div>
           </div>
-          <div style={{ backgroundColor: "#82B1FF22", borderRadius: 14, padding: "8px 16px", border: "1px solid #82B1FF44", textAlign: "center" }}>
-            <div style={{ color: "#82B1FF", fontWeight: 800, fontSize: 22 }}>{todayPending}</div>
-            <div style={{ color: "#82B1FF", fontSize: 10, fontWeight: 600 }}>بانتظار</div>
+          <div style={{ backgroundColor: CLR_DELIVERING_DIM, borderRadius: 14, padding: "8px 16px", border: `1px solid ${CLR_DELIVERING}44`, textAlign: "center" }}>
+            <div style={{ color: "#A6CDFB", fontWeight: 800, fontSize: 22 }}>{todayPending}</div>
+            <div style={{ color: "#A6CDFB", fontSize: 10, fontWeight: 600 }}>بانتظار</div>
           </div>
         </div>
 
-        {/* Daily summary */}
-        <div style={{ backgroundColor: "var(--color-card)", borderRadius: 16, border: `1px solid ${GOLD}44`, overflow: "hidden" }}>
-          <div style={{ backgroundColor: GOLD + "11", padding: "10px 14px", display: "flex", alignItems: "center", gap: 6 }}>
-            <BarChart2 size={15} style={{ color: GOLD }} />
-            <span style={{ color: GOLD, fontWeight: 700, fontSize: 14 }}>إجمالي المبيعات اليوم</span>
+        <div style={{ backgroundColor: SURFACE, borderRadius: 16, border: `1px solid ${SAFFRON}44`, overflow: "hidden" }}>
+          <div style={{ backgroundColor: SAFFRON + "11", padding: "10px 14px", display: "flex", alignItems: "center", gap: 6 }}>
+            <BarChart2 size={15} style={{ color: SAFFRON }} />
+            <span style={{ color: SAFFRON, fontWeight: 700, fontSize: 14 }}>إجمالي المبيعات اليوم</span>
           </div>
           <div style={{ display: "flex", padding: 14, gap: 10 }}>
             {[
-              { value: todayTotal.toFixed(2), label: "ر.س إجمالي", color: "#4CAF50" },
-              { value: String(todayDone.length), label: "طلب مكتمل", color: "#82B1FF" },
-              { value: String(todayPending), label: "بانتظار", color: GOLD },
+              { value: todayTotal.toFixed(2), label: "ر.س إجمالي", color: CLR_READY },
+              { value: String(todayDone.length), label: "طلب مكتمل", color: "#A6CDFB" },
+              { value: String(todayPending), label: "بانتظار", color: SAFFRON },
             ].map((s, i) => (
               <div key={i} style={{ flex: 1, backgroundColor: s.color + "11", borderRadius: 14, padding: 14, border: `1px solid ${s.color}33`, textAlign: "center" }}>
                 <div style={{ color: s.color, fontWeight: 800, fontSize: 22 }}>{s.value}</div>
@@ -604,101 +746,95 @@ export default function Orders() {
           </div>
         </div>
 
-        {/* Time filter */}
-        <div style={{ backgroundColor: "var(--color-card)", borderRadius: 16, padding: 14, border: "1px solid #82B1FF33", display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{ backgroundColor: SURFACE, borderRadius: 16, padding: 14, border: `1px solid ${CLR_DELIVERING}33`, display: "flex", flexDirection: "column", gap: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <Clock size={15} style={{ color: "#82B1FF" }} />
-            <span style={{ color: "#82B1FF", fontWeight: 700, fontSize: 14 }}>تصفية بالوقت</span>
+            <Clock size={15} style={{ color: "#A6CDFB" }} />
+            <span style={{ color: "#A6CDFB", fontWeight: 700, fontSize: 14 }}>تصفية بالوقت</span>
           </div>
           {(["من","إلى"] as const).map((lbl, idx) => {
             const [h, setH] = idx === 0 ? [pickupFromHour, setPickupFromHour] : [pickupToHour, setPickupToHour];
             const [m, setM] = idx === 0 ? [pickupFromMin, setPickupFromMin] : [pickupToMin, setPickupToMin];
             return (
               <div key={lbl} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                <span style={{ color: "var(--color-muted-foreground)", fontWeight: 600, fontSize: 12, textAlign: "right" }}>{lbl} الساعة</span>
+                <span style={{ color: TEXT_DIM, fontWeight: 600, fontSize: 12, textAlign: "right" }}>{lbl} الساعة</span>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, direction: "rtl" }}>
-                  <input value={h} onChange={e => setH(e.target.value.replace(/\D/g,"").slice(0,2))} maxLength={2} placeholder={idx === 0 ? "00" : "23"} style={{ flex: 1, backgroundColor: "var(--color-secondary)", borderRadius: 12, border: "1px solid #82B1FF44", color: "#82B1FF", fontWeight: 800, fontSize: 22, textAlign: "center", padding: "10px 0", outline: "none" }} />
-                  <span style={{ color: "var(--color-muted-foreground)", fontWeight: 800, fontSize: 20 }}>:</span>
-                  <input value={m} onChange={e => setM(e.target.value.replace(/\D/g,"").slice(0,2))} maxLength={2} placeholder={idx === 0 ? "00" : "59"} style={{ flex: 1, backgroundColor: "var(--color-secondary)", borderRadius: 12, border: "1px solid #82B1FF44", color: "#82B1FF", fontWeight: 800, fontSize: 22, textAlign: "center", padding: "10px 0", outline: "none" }} />
+                  <input value={h} onChange={e => setH(e.target.value.replace(/\D/g,"").slice(0,2))} maxLength={2} placeholder={idx === 0 ? "00" : "23"} style={{ flex: 1, backgroundColor: SURFACE2, borderRadius: 12, border: `1px solid ${CLR_DELIVERING}44`, color: "#A6CDFB", fontWeight: 800, fontSize: 22, textAlign: "center", padding: "10px 0", outline: "none" }} />
+                  <span style={{ color: TEXT_DIM, fontWeight: 800, fontSize: 20 }}>:</span>
+                  <input value={m} onChange={e => setM(e.target.value.replace(/\D/g,"").slice(0,2))} maxLength={2} placeholder={idx === 0 ? "00" : "59"} style={{ flex: 1, backgroundColor: SURFACE2, borderRadius: 12, border: `1px solid ${CLR_DELIVERING}44`, color: "#A6CDFB", fontWeight: 800, fontSize: 22, textAlign: "center", padding: "10px 0", outline: "none" }} />
                 </div>
-                {idx === 0 && <div style={{ textAlign: "center" }}><ArrowDown size={18} style={{ color: "var(--color-muted-foreground)" }} /></div>}
+                {idx === 0 && <div style={{ textAlign: "center" }}><ArrowDown size={18} style={{ color: TEXT_DIM }} /></div>}
               </div>
             );
           })}
           {(doneFiltered.length > 0 || activeFiltered.length > 0) && (
-            <div style={{ backgroundColor: "#82B1FF0D", borderRadius: 12, padding: 10, display: "flex", justifyContent: "space-around", border: "1px solid #82B1FF22" }}>
-              {[{ value: filteredTotal.toFixed(2), label: "ر.س في النطاق", color: "#82B1FF" }, { value: String(doneFiltered.length), label: "مكتمل", color: "#4CAF50" }, { value: String(activeFiltered.length), label: "بانتظار", color: GOLD }].map((s, i) => (
+            <div style={{ backgroundColor: CLR_DELIVERING_DIM, borderRadius: 12, padding: 10, display: "flex", justifyContent: "space-around", border: `1px solid ${CLR_DELIVERING}22` }}>
+              {[{ value: filteredTotal.toFixed(2), label: "ر.س في النطاق", color: "#A6CDFB" }, { value: String(doneFiltered.length), label: "مكتمل", color: CLR_READY }, { value: String(activeFiltered.length), label: "بانتظار", color: SAFFRON }].map((s, i) => (
                 <div key={i} style={{ textAlign: "center" }}>
                   <div style={{ color: s.color, fontWeight: 800, fontSize: 16 }}>{s.value}</div>
-                  <div style={{ color: "var(--color-muted-foreground)", fontSize: 10, fontWeight: 600 }}>{s.label}</div>
+                  <div style={{ color: TEXT_FAINT, fontSize: 10, fontWeight: 600 }}>{s.label}</div>
                 </div>
               ))}
             </div>
           )}
         </div>
 
-        {/* Active pickup orders */}
         {activeFiltered.length === 0 ? (
-          <div style={{ backgroundColor: "var(--color-card)", borderRadius: 16, padding: 28, textAlign: "center", border: "1px solid var(--color-border)" }}>
+          <div style={{ backgroundColor: SURFACE, borderRadius: 16, padding: 28, textAlign: "center", border: `1px solid ${LINE}` }}>
             <div style={{ fontSize: 40, marginBottom: 8 }}>🏪</div>
-            <div style={{ color: "var(--color-muted-foreground)", fontWeight: 600, fontSize: 14 }}>لا يوجد طلبات استلام في هذا النطاق</div>
+            <div style={{ color: TEXT_DIM, fontWeight: 600, fontSize: 14 }}>لا يوجد طلبات استلام في هذا النطاق</div>
           </div>
         ) : (
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-              <div style={{ width: 10, height: 10, borderRadius: "50%", backgroundColor: "#82B1FF" }} />
-              <span style={{ color: "var(--color-foreground)", fontWeight: 700, fontSize: 14 }}>بانتظار الاستلام ({activeFiltered.length})</span>
+              <div style={{ width: 10, height: 10, borderRadius: "50%", backgroundColor: "#A6CDFB" }} />
+              <span style={{ color: TEXT, fontWeight: 700, fontSize: 14 }}>بانتظار الاستلام ({activeFiltered.length})</span>
             </div>
             {activeFiltered.map(order => {
               const d = new Date(order.createdAt);
               const timeStr = d.toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit", hour12: true });
               const dateStr = d.toLocaleDateString("ar-SA", { day: "numeric", month: "long", year: "numeric" });
               return (
-                <div key={order.id} style={{ backgroundColor: "var(--color-card)", borderRadius: 16, border: "1px solid #82B1FF44", overflow: "hidden", marginBottom: 8 }}>
-                  {/* top */}
-                  <div style={{ backgroundColor: "#82B1FF11", padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div key={order.id} style={{ backgroundColor: SURFACE, borderRadius: 16, border: `1px solid ${CLR_DELIVERING}44`, overflow: "hidden", marginBottom: 8 }}>
+                  <div style={{ backgroundColor: CLR_DELIVERING_DIM, padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <span style={{ backgroundColor: "#82B1FF22", padding: "3px 8px", borderRadius: 8, color: "#82B1FF", fontWeight: 800, fontSize: 14 }}>#{order.dailyNumber ?? order.id}</span>
-                      <span style={{ color: "var(--color-foreground)", fontWeight: 700, fontSize: 15 }}>{order.customerName}</span>
+                      <span style={{ backgroundColor: CLR_DELIVERING_DIM, padding: "3px 8px", borderRadius: 8, color: "#A6CDFB", fontWeight: 800, fontSize: 14 }}>#{order.dailyNumber ?? order.id}</span>
+                      <span style={{ color: TEXT, fontWeight: 700, fontSize: 15 }}>{order.customerName}</span>
                     </div>
                     <div style={{ textAlign: "left" }}>
-                      <div style={{ color: "#82B1FF", fontWeight: 800, fontSize: 16 }}>{sar(order.totalPrice)}</div>
+                      <div style={{ color: "#A6CDFB", fontWeight: 800, fontSize: 16 }}>{sar(order.totalPrice)}</div>
                       <span style={{ backgroundColor: STATUS_COLOR[order.status] + "22", padding: "2px 7px", borderRadius: 8, color: STATUS_COLOR[order.status], fontSize: 11, fontWeight: 700 }}>{STATUS_LABEL[order.status]}</span>
                     </div>
                   </div>
-                  {/* items */}
                   <div style={{ padding: "8px 14px", display: "flex", flexDirection: "column", gap: 3 }}>
                     {order.items.map((item, i) => (
                       <div key={i} style={{ display: "flex", justifyContent: "space-between" }}>
-                        <span style={{ color: "var(--color-muted-foreground)", fontSize: 12 }}>{sarRaw(item.price * item.quantity)}</span>
-                        <span style={{ color: "var(--color-foreground)", fontWeight: 600, fontSize: 13 }}>× {item.quantity}  {item.name}</span>
+                        <span style={{ color: TEXT_DIM, fontSize: 12 }}>{sarRaw(item.price * item.quantity)}</span>
+                        <span style={{ color: TEXT, fontWeight: 600, fontSize: 13 }}>× {item.quantity}  {item.name}</span>
                       </div>
                     ))}
                   </div>
-                  {/* time + phone */}
                   <div style={{ padding: "0 14px 8px", display: "flex", justifyContent: "space-between" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                      <Calendar size={13} style={{ color: "var(--color-muted-foreground)" }} />
-                      <span style={{ color: "var(--color-muted-foreground)", fontSize: 12 }}>{dateStr}</span>
+                      <Calendar size={13} style={{ color: TEXT_DIM }} />
+                      <span style={{ color: TEXT_DIM, fontSize: 12 }}>{dateStr}</span>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                      <Clock size={13} style={{ color: "var(--color-muted-foreground)" }} />
-                      <span style={{ color: "var(--color-muted-foreground)", fontSize: 12 }}>{timeStr}</span>
+                      <Clock size={13} style={{ color: TEXT_DIM }} />
+                      <span style={{ color: TEXT_DIM, fontSize: 12 }}>{timeStr}</span>
                     </div>
                   </div>
                   {order.customerPhone && (
                     <a href={`tel:${order.customerPhone}`} style={{ display: "flex", alignItems: "center", gap: 6, padding: "0 14px 10px", textDecoration: "none" }}>
-                      <Phone size={13} style={{ color: "#82B1FF" }} />
-                      <span style={{ color: "#82B1FF", fontWeight: 600, fontSize: 13 }}>{order.customerPhone}</span>
+                      <Phone size={13} style={{ color: "#A6CDFB" }} />
+                      <span style={{ color: "#A6CDFB", fontWeight: 600, fontSize: 13 }}>{order.customerPhone}</span>
                     </a>
                   )}
-                  {/* action buttons */}
-                  <div style={{ display: "flex", borderTop: "1px solid #82B1FF22" }}>
-                    <button onClick={() => printReceipt(order)} style={{ flex: 1, backgroundColor: "#0D1A0D", border: "none", borderRight: "1px solid #82B1FF22", padding: "13px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, color: GOLD, fontWeight: 700, fontSize: 13 }}>
-                      <Printer size={15} style={{ color: GOLD }} /> طباعة الفاتورة
+                  <div style={{ display: "flex", borderTop: `1px solid ${CLR_DELIVERING}22` }}>
+                    <button onClick={() => printReceipt(order)} style={{ flex: 1, backgroundColor: SURFACE2, border: "none", borderRight: `1px solid ${CLR_DELIVERING}22`, padding: "13px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, color: SAFFRON, fontWeight: 700, fontSize: 13 }}>
+                      <Printer size={15} style={{ color: SAFFRON }} /> طباعة
                     </button>
-                    <button onClick={() => handleUpdateStatus(order, "done")} style={{ flex: 1, backgroundColor: "#0D1F35", border: "none", padding: "13px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, color: "#82B1FF", fontWeight: 800, fontSize: 13 }}>
-                      <CheckCircle size={15} style={{ color: "#82B1FF" }} /> ✅ تم التسليم
+                    <button onClick={() => handleUpdateStatus(order, "done")} style={{ flex: 1, backgroundColor: CLR_READY_DIM, border: "none", padding: "13px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, color: CLR_READY, fontWeight: 800, fontSize: 13 }}>
+                      <CheckCircle size={15} style={{ color: CLR_READY }} /> ✅ تم التسليم
                     </button>
                   </div>
                 </div>
@@ -707,31 +843,30 @@ export default function Orders() {
           </div>
         )}
 
-        {/* Done pickup orders */}
         {doneFiltered.length > 0 && (
           <div>
-            <div style={{ height: 1, backgroundColor: "var(--color-border)", margin: "4px 0 8px" }} />
-            <div style={{ color: "var(--color-muted-foreground)", fontWeight: 600, fontSize: 13, marginBottom: 8 }}>✅ تم استلامها ({doneFiltered.length})</div>
+            <div style={{ height: 1, backgroundColor: LINE, margin: "4px 0 8px" }} />
+            <div style={{ color: TEXT_DIM, fontWeight: 600, fontSize: 13, marginBottom: 8 }}>✅ تم استلامها ({doneFiltered.length})</div>
             {doneFiltered.map(order => {
               const d = new Date(order.createdAt);
               const timeStr = d.toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit", hour12: true });
               return (
-                <div key={order.id} style={{ backgroundColor: "var(--color-card)", borderRadius: 14, border: "1px solid #4CAF5033", overflow: "hidden", opacity: 0.85, marginBottom: 6 }}>
+                <div key={order.id} style={{ backgroundColor: SURFACE, borderRadius: 14, border: `1px solid ${CLR_READY}33`, overflow: "hidden", opacity: 0.85, marginBottom: 6 }}>
                   <div style={{ padding: 12 }}>
                     <div style={{ display: "flex", justifyContent: "space-between" }}>
-                      <span style={{ color: "#4CAF50", fontWeight: 700, fontSize: 14 }}>{sar(order.totalPrice)}</span>
+                      <span style={{ color: CLR_READY, fontWeight: 700, fontSize: 14 }}>{sar(order.totalPrice)}</span>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <span style={{ color: "var(--color-foreground)", fontWeight: 600, fontSize: 13 }}>{order.customerName}</span>
-                        <span style={{ color: "#4CAF50", fontWeight: 800, fontSize: 13 }}>#{order.dailyNumber ?? order.id}</span>
+                        <span style={{ color: TEXT, fontWeight: 600, fontSize: 13 }}>{order.customerName}</span>
+                        <span style={{ color: CLR_READY, fontWeight: 800, fontSize: 13 }}>#{order.dailyNumber ?? order.id}</span>
                       </div>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 4 }}>
-                      <Clock size={12} style={{ color: "var(--color-muted-foreground)" }} />
-                      <span style={{ color: "var(--color-muted-foreground)", fontSize: 11 }}>{timeStr}</span>
+                      <Clock size={12} style={{ color: TEXT_DIM }} />
+                      <span style={{ color: TEXT_DIM, fontSize: 11 }}>{timeStr}</span>
                     </div>
                   </div>
-                  <button onClick={() => printReceipt(order)} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: "#0D1A0D", border: "none", borderTop: "1px solid #4CAF5022", padding: "9px", cursor: "pointer", width: "100%", color: GOLD, fontWeight: 700, fontSize: 12 }}>
-                    <Printer size={13} style={{ color: GOLD }} /> إعادة طباعة الفاتورة
+                  <button onClick={() => printReceipt(order)} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: SURFACE2, border: "none", borderTop: `1px solid ${CLR_READY}22`, padding: "9px", cursor: "pointer", width: "100%", color: SAFFRON, fontWeight: 700, fontSize: 12 }}>
+                    <Printer size={13} style={{ color: SAFFRON }} /> إعادة طباعة الفاتورة
                   </button>
                 </div>
               );
@@ -759,7 +894,6 @@ export default function Orders() {
     const cashCollected  = allDeliveries.filter(r => r.paymentMethod === "cash").reduce((s, r) => s + r.totalPrice, 0);
     const fmtTime = (iso: string | null) => iso ? new Date(iso).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" }) : "--:--";
 
-    // Derive orders with drivers assigned but not yet picked up (from outer state)
     const assignedOrders = orders.filter(o => {
       const a = assignments[o.id];
       return a && a.status === "assigned";
@@ -772,7 +906,6 @@ export default function Orders() {
       pendingByDriver.get(key)!.rows.push(o);
     }
 
-    // Group deliveries by driver
     const driverMap = new Map<string, AllDeliveryRow[]>();
     for (const r of allDeliveries) {
       const key = r.driverName || "غير محدد";
@@ -782,36 +915,33 @@ export default function Orders() {
 
     return (
       <div dir="rtl">
-        {/* Calendar */}
-        <div style={{ backgroundColor: "#0D0D0D", borderBottom: "1px solid var(--color-border)" }}>
+        <div style={{ backgroundColor: SURFACE, borderBottom: `1px solid ${LINE}` }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 10px 6px" }}>
             <button onClick={() => setDrvWeekOffset(p => p + 1)} disabled={drvWeekOffset >= 0} style={{ background: "none", border: "none", cursor: drvWeekOffset >= 0 ? "default" : "pointer", opacity: drvWeekOffset >= 0 ? 0.25 : 1, padding: 6 }}>
-              <ChevronRight size={18} style={{ color: "var(--color-muted-foreground)" }} />
+              <ChevronRight size={18} style={{ color: TEXT_DIM }} />
             </button>
-            <span style={{ color: "var(--color-foreground)", fontWeight: 800, fontSize: 14 }}>{monthLabel}</span>
+            <span style={{ color: TEXT, fontWeight: 800, fontSize: 14 }}>{monthLabel}</span>
             <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              <button onClick={() => { setDrvWeekOffset(0); const d = new Date(); d.setHours(0,0,0,0); setDrvSelectedDate(d); loadAllDeliveries(d); setExpandedDrivers(new Set()); }} style={{ backgroundColor: "#1A2A1A", borderRadius: 8, padding: "4px 10px", border: "1px solid #4CAF5044", cursor: "pointer", color: "#4CAF50", fontWeight: 700, fontSize: 11 }}>اليوم</button>
+              <button onClick={() => { setDrvWeekOffset(0); const d = new Date(); d.setHours(0,0,0,0); setDrvSelectedDate(d); loadAllDeliveries(d); setExpandedDrivers(new Set()); }} style={{ backgroundColor: CLR_READY_DIM, borderRadius: 8, padding: "4px 10px", border: `1px solid ${CLR_READY}44`, cursor: "pointer", color: CLR_READY, fontWeight: 700, fontSize: 11 }}>اليوم</button>
               <button onClick={() => setDrvWeekOffset(p => p - 1)} style={{ background: "none", border: "none", cursor: "pointer", padding: 6 }}>
-                <ChevronLeft size={18} style={{ color: "var(--color-muted-foreground)" }} />
+                <ChevronLeft size={18} style={{ color: TEXT_DIM }} />
               </button>
             </div>
           </div>
-          {/* Day abbreviations */}
           <div style={{ display: "flex", flexDirection: "row-reverse", padding: "0 8px" }}>
             {weekDays.map((_, i) => (
               <div key={i} style={{ flex: 1, textAlign: "center" }}>
-                <span style={{ color: "var(--color-muted-foreground)", fontWeight: 600, fontSize: 10 }}>{DAY_ABBR[i]}</span>
+                <span style={{ color: TEXT_DIM, fontWeight: 600, fontSize: 10 }}>{DAY_ABBR[i]}</span>
               </div>
             ))}
           </div>
-          {/* Date numbers */}
           <div style={{ display: "flex", flexDirection: "row-reverse", padding: "2px 6px 8px" }}>
             {weekDays.map((d, i) => {
               const sel = isSelected(d), tod = isToday(d), fut = isFuture(d);
               return (
                 <button key={i} disabled={fut} onClick={() => { setDrvSelectedDate(d); loadAllDeliveries(d); setExpandedDrivers(new Set()); }} style={{ flex: 1, display: "flex", justifyContent: "center", padding: "3px 0", background: "none", border: "none", cursor: fut ? "default" : "pointer" }}>
-                  <div style={{ width: 30, height: 30, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: sel ? "#4CAF50" : tod ? "#4CAF5022" : "transparent", border: tod && !sel ? "1px solid #4CAF5066" : "none" }}>
-                    <span style={{ color: sel ? "#fff" : fut ? "var(--color-border)" : tod ? "#4CAF50" : "var(--color-foreground)", fontWeight: sel ? 800 : 600, fontSize: 13 }}>{d.getDate()}</span>
+                  <div style={{ width: 30, height: 30, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: sel ? CLR_READY : tod ? CLR_READY_DIM : "transparent", border: tod && !sel ? `1px solid ${CLR_READY}66` : "none" }}>
+                    <span style={{ color: sel ? "#fff" : fut ? LINE : tod ? CLR_READY : TEXT, fontWeight: sel ? 800 : 600, fontSize: 13 }}>{d.getDate()}</span>
                   </div>
                 </button>
               );
@@ -819,81 +949,75 @@ export default function Orders() {
           </div>
         </div>
 
-        {/* Stats summary */}
-        <div style={{ display: "flex", flexDirection: "row-reverse", backgroundColor: "#111", borderBottom: "1px solid var(--color-border)", padding: "14px 0" }}>
+        <div style={{ display: "flex", flexDirection: "row-reverse", backgroundColor: BG, borderBottom: `1px solid ${LINE}`, padding: "14px 0" }}>
           {[
-            { icon: "🛒", label: "تم جمعها",       value: `SR ${totalCollected.toFixed(2)}`, color: "#4CAF50" },
-            { icon: "📦", label: "عمليات التوصيل", value: String(allDeliveries.length),       color: GOLD },
-            { icon: "💵", label: "نقدي",             value: `SR ${cashCollected.toFixed(2)}`,  color: "#81C784" },
-            { icon: "🚗", label: "في الطريق",        value: String(activeAssignments.length),  color: "#82B1FF" },
+            { icon: "🛒", label: "تم جمعها",       value: `${totalCollected.toFixed(2)} ر.س`, color: CLR_READY },
+            { icon: "📦", label: "عمليات التوصيل", value: String(allDeliveries.length),       color: SAFFRON },
+            { icon: "💵", label: "نقدي",             value: `${cashCollected.toFixed(2)} ر.س`,  color: "#81C784" },
+            { icon: "🚗", label: "في الطريق",        value: String(activeAssignments.length),  color: "#A6CDFB" },
           ].map((s, i) => (
-            <div key={i} style={{ flex: 1, textAlign: "center", borderRight: i < 3 ? "1px solid var(--color-border)" : "none" }}>
+            <div key={i} style={{ flex: 1, textAlign: "center", borderRight: i < 3 ? `1px solid ${LINE}` : "none" }}>
               <div style={{ fontSize: 20 }}>{s.icon}</div>
               <div style={{ color: s.color, fontWeight: 800, fontSize: 14 }}>{s.value}</div>
-              <div style={{ color: "var(--color-muted-foreground)", fontSize: 10 }}>{s.label}</div>
+              <div style={{ color: TEXT_FAINT, fontSize: 10 }}>{s.label}</div>
             </div>
           ))}
         </div>
 
         <div style={{ padding: 14, display: "flex", flexDirection: "column", gap: 12 }}>
-
-          {/* ── Assigned orders (waiting for driver to pick up) ── */}
+          {/* Assigned orders (pending pickup) */}
           {pendingByDriver.size > 0 && (
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <div style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: GOLD }} />
-                <span style={{ color: GOLD, fontWeight: 700, fontSize: 13 }}>⏳ طلبات معيّنة على مناديب ({assignedOrders.length})</span>
+                <div style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: SAFFRON }} />
+                <span style={{ color: SAFFRON, fontWeight: 700, fontSize: 13 }}>⏳ طلبات معيّنة على مناديب ({assignedOrders.length})</span>
                 <div style={{ flex: 1 }} />
                 <button onClick={fetchAssignments} style={{ background: "none", border: "none", cursor: "pointer", padding: 4 }}>
-                  <RefreshCw size={12} style={{ color: GOLD }} />
+                  <RefreshCw size={12} style={{ color: SAFFRON }} />
                 </button>
               </div>
               {Array.from(pendingByDriver.values()).map(({ driverName, rows }) => (
-                <div key={driverName} style={{ backgroundColor: "#1A1200", borderRadius: 14, border: `1px solid ${GOLD}44`, overflow: "hidden" }}>
-                  {/* driver header */}
-                  <div style={{ backgroundColor: GOLD + "11", padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                    <span style={{ backgroundColor: GOLD + "22", borderRadius: 20, padding: "3px 12px", color: GOLD, fontSize: 11, fontWeight: 700 }}>{rows.length} طلب</span>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <span style={{ color: GOLD, fontWeight: 800, fontSize: 15 }}>🛵 {driverName}</span>
-                    </div>
+                <div key={driverName} style={{ backgroundColor: "#120D00", borderRadius: 14, border: `1px solid ${SAFFRON}44`, overflow: "hidden" }}>
+                  <div style={{ backgroundColor: SAFFRON + "11", padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <span style={{ backgroundColor: SAFFRON + "22", borderRadius: 20, padding: "3px 12px", color: SAFFRON, fontSize: 11, fontWeight: 700 }}>{rows.length} طلب</span>
+                    <span style={{ color: SAFFRON, fontWeight: 800, fontSize: 15 }}>🛵 {driverName}</span>
                   </div>
-                  {/* order rows */}
                   {rows.map((o, i) => {
                     const time = new Date(o.createdAt).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" });
                     const isPickup = !!o.notes?.includes("استلام من الفرع");
                     return (
-                      <div key={o.id} style={{ padding: "10px 14px", borderTop: i > 0 ? "1px solid var(--color-border)" : undefined, display: "flex", flexDirection: "column", gap: 6 }}>
+                      <div key={o.id} style={{ padding: "10px 14px", borderTop: i > 0 ? `1px solid ${LINE}` : undefined, display: "flex", flexDirection: "column", gap: 6 }}>
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                            <span style={{ color: "var(--color-muted-foreground)", fontSize: 12 }}>{time}</span>
-                            <span style={{ color: STATUS_COLOR[o.status], fontSize: 11, fontWeight: 700, backgroundColor: STATUS_COLOR[o.status] + "22", padding: "2px 7px", borderRadius: 6 }}>{STATUS_LABEL[o.status]}</span>
+                            <span style={{ color: TEXT_DIM, fontSize: 12 }}>{time}</span>
+                            <span style={{ color: STATUS_CARD_COLOR[o.status], fontSize: 11, fontWeight: 700, backgroundColor: STATUS_CARD_DIM[o.status], padding: "2px 7px", borderRadius: 6 }}>{STATUS_DISPLAY[o.status]}</span>
                           </div>
                           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                            <span style={{ color: GOLD, fontWeight: 800, fontSize: 14 }}>{sar(o.totalPrice)}</span>
-                            <span style={{ color: "var(--color-foreground)", fontWeight: 600, fontSize: 13 }}>{o.customerName}</span>
-                            <span style={{ backgroundColor: GOLD + "22", padding: "2px 7px", borderRadius: 7, color: GOLD, fontWeight: 800, fontSize: 12 }}>#{o.dailyNumber ?? o.id}</span>
+                            <span style={{ color: SAFFRON, fontWeight: 800, fontSize: 14 }}>{sar(o.totalPrice)}</span>
+                            <span style={{ color: TEXT, fontWeight: 600, fontSize: 13 }}>{o.customerName}</span>
+                            <span style={{ backgroundColor: SAFFRON + "22", padding: "2px 7px", borderRadius: 7, color: SAFFRON, fontWeight: 800, fontSize: 12 }}>#{o.dailyNumber ?? o.id}</span>
                           </div>
                         </div>
                         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                           {o.items.map((item, ii) => (
                             <div key={ii} style={{ display: "flex", justifyContent: "space-between" }}>
-                              <span style={{ color: "var(--color-muted-foreground)", fontSize: 11 }}>{sarRaw(item.price * item.quantity)}</span>
-                              <span style={{ color: "var(--color-foreground)", fontSize: 12 }}>{item.name} × {item.quantity}</span>
+                              <span style={{ color: TEXT_DIM, fontSize: 11 }}>{sarRaw(item.price * item.quantity)}</span>
+                              <span style={{ color: TEXT, fontSize: 12 }}>{item.name} × {item.quantity}</span>
                             </div>
                           ))}
                         </div>
                         {o.customerAddress && (
                           <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 4 }}>
-                            <span style={{ color: "var(--color-muted-foreground)", fontSize: 11, maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            <span style={{ color: TEXT_DIM, fontSize: 11 }}>
                               {o.customerAddress.startsWith("https://") ? "📍 موقع GPS" : o.customerAddress}
                             </span>
-                            <MapPin size={11} style={{ color: "var(--color-muted-foreground)" }} />
+                            <MapPin size={11} style={{ color: TEXT_DIM }} />
                           </div>
                         )}
                         {!isPickup && (
                           <button
                             onClick={() => handleUpdateStatus(o, "done")}
-                            style={{ backgroundColor: "#1A3A1A", border: "1px solid #4CAF5066", borderRadius: 10, padding: "9px", color: "#4CAF50", fontWeight: 700, fontSize: 13, cursor: "pointer", width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
+                            style={{ backgroundColor: CLR_READY_DIM, border: `1px solid ${CLR_READY}66`, borderRadius: 10, padding: "9px", color: CLR_READY, fontWeight: 700, fontSize: 13, cursor: "pointer", width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontFamily: "inherit" }}
                           >
                             <span>🛵</span> تسليم الطلب للمندوب
                           </button>
@@ -910,45 +1034,60 @@ export default function Orders() {
           {activeAssignments.length > 0 && (
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <div style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: "#4CAF50" }} />
-                <span style={{ color: "#4CAF50", fontWeight: 700, fontSize: 13 }}>🚗 بانتظار التسليم ({activeAssignments.length})</span>
+                <div style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: CLR_READY }} />
+                <span style={{ color: CLR_READY, fontWeight: 700, fontSize: 13 }}>🚗 بانتظار التسليم ({activeAssignments.length})</span>
                 <div style={{ flex: 1 }} />
                 <button onClick={loadActiveAssignments} style={{ background: "none", border: "none", cursor: "pointer", padding: 4 }}>
-                  <RefreshCw size={12} style={{ color: "#4CAF50" }} />
+                  <RefreshCw size={12} style={{ color: CLR_READY }} />
                 </button>
               </div>
               {activeAssignments.map(a => {
                 const gpsLost = !a.locationUpdatedAt || (Date.now() - new Date(a.locationUpdatedAt).getTime() > 30000);
                 return (
-                  <div key={a.orderId} style={{ backgroundColor: "#0A1A0A", borderRadius: 14, border: `1px solid ${gpsLost ? "#F9A82544" : "#4CAF5044"}`, overflow: "hidden" }}>
+                  <div key={a.orderId} style={{ backgroundColor: "#0A120A", borderRadius: 14, border: `1px solid ${gpsLost ? SAFFRON + "44" : CLR_READY + "44"}`, overflow: "hidden" }}>
                     {gpsLost && (
-                      <div style={{ display: "flex", alignItems: "center", gap: 5, backgroundColor: "#F9A82518", padding: "6px 12px", borderBottom: "1px solid #F9A82533" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 5, backgroundColor: SAFFRON + "18", padding: "6px 12px", borderBottom: `1px solid ${SAFFRON}33` }}>
                         <span style={{ fontSize: 13 }}>⚠️</span>
-                        <span style={{ color: "#F9A825", fontWeight: 700, fontSize: 12 }}>انقطع إشارة GPS للمندوب</span>
+                        <span style={{ color: SAFFRON, fontWeight: 700, fontSize: 12 }}>انقطع إشارة GPS للمندوب</span>
                       </div>
                     )}
                     <div style={{ display: "flex", flexDirection: "row-reverse", alignItems: "center", padding: 12, gap: 10 }}>
                       <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 3 }}>
                         <div style={{ display: "flex", flexDirection: "row-reverse", alignItems: "center", gap: 6 }}>
-                          <span style={{ backgroundColor: GOLD + "22", padding: "2px 7px", borderRadius: 7, color: GOLD, fontWeight: 800, fontSize: 12 }}>#{a.dailyNumber ?? a.orderId}</span>
-                          <span style={{ color: "var(--color-foreground)", fontWeight: 600, fontSize: 13 }}>{a.customerName}</span>
+                          <span style={{ backgroundColor: SAFFRON + "22", padding: "2px 7px", borderRadius: 7, color: SAFFRON, fontWeight: 800, fontSize: 12 }}>#{a.dailyNumber ?? a.orderId}</span>
+                          <span style={{ color: TEXT, fontWeight: 600, fontSize: 13 }}>{a.customerName}</span>
                         </div>
-                        <span style={{ color: "#4CAF50", fontWeight: 600, fontSize: 12 }}>🛵 {a.driverName}</span>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, flexDirection: "row-reverse" }}>
+                          <span style={{ color: CLR_READY, fontWeight: 700, fontSize: 14 }}>{sar(a.totalPrice)}</span>
+                          <span style={{ color: a.paymentMethod === "cash" ? "#81C784" : "#A6CDFB", fontSize: 12, fontWeight: 600 }}>{a.paymentMethod === "cash" ? "💵 نقدي" : "💳 إلكتروني"}</span>
+                        </div>
+                        {a.customerAddress && (
+                          <div style={{ display: "flex", alignItems: "center", gap: 5, flexDirection: "row-reverse" }}>
+                            <MapPin size={12} style={{ color: TEXT_DIM }} />
+                            {a.customerAddress.startsWith("https://") ? (
+                              <a href={a.customerAddress} target="_blank" rel="noreferrer" style={{ color: CLR_READY, fontSize: 12, textDecoration: "none" }}>📍 موقع على الخريطة</a>
+                            ) : (
+                              <span style={{ color: TEXT_DIM, fontSize: 12 }}>{a.customerAddress}</span>
+                            )}
+                          </div>
+                        )}
                       </div>
-                      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 3 }}>
-                        <span style={{ color: "#4CAF50", fontWeight: 800, fontSize: 15 }}>{a.totalPrice.toFixed(2)} ر.س</span>
-                        <span style={{ color: "var(--color-muted-foreground)", fontWeight: 600, fontSize: 10 }}>{a.paymentMethod === "cash" ? "💵 نقدي" : "💳 إلكتروني"}</span>
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+                        <div style={{ width: 44, height: 44, borderRadius: "50%", backgroundColor: CLR_READY_DIM, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>🛵</div>
+                        <span style={{ color: CLR_READY, fontWeight: 700, fontSize: 12, textAlign: "center" }}>{a.driverName}</span>
                       </div>
                     </div>
-                    <div style={{ display: "flex", borderTop: "1px solid #4CAF5033" }}>
-                      {a.customerAddress?.startsWith("https://") && (
-                        <a href={a.customerAddress} target="_blank" rel="noreferrer" style={{ flex: 1, backgroundColor: "#0A1A2A", padding: "11px", display: "flex", alignItems: "center", justifyContent: "center", gap: 5, borderRight: "1px solid #4CAF5022", textDecoration: "none" }}>
-                          <MapPin size={14} style={{ color: "#29B6F6" }} />
-                          <span style={{ color: "#29B6F6", fontWeight: 800, fontSize: 12 }}>تتبع مباشر</span>
-                        </a>
-                      )}
-                      <button onClick={() => confirmDelivery(a.orderId)} disabled={deliveringOrderId === a.orderId} style={{ flex: 2, backgroundColor: "#1A3A1A", border: "none", padding: "11px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, color: "#4CAF50", fontWeight: 800, fontSize: 13 }}>
-                        {deliveringOrderId === a.orderId ? "⏳" : <><CheckCircle size={14} style={{ color: "#4CAF50" }} /> ✅ تم التسليم للعميل</>}
+                    <div style={{ display: "flex", borderTop: `1px solid ${CLR_READY}22` }}>
+                      <a href={`tel:${a.driverPhone}`} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "11px", color: "#A6CDFB", fontWeight: 700, fontSize: 12, textDecoration: "none", borderRight: `1px solid ${CLR_READY}22` }}>
+                        <Phone size={14} style={{ color: "#A6CDFB" }} /> اتصل بالمندوب
+                      </a>
+                      <button
+                        onClick={() => confirmDelivery(a.orderId)}
+                        disabled={deliveringOrderId === a.orderId}
+                        style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "11px", color: CLR_READY, fontWeight: 700, fontSize: 12, background: "none", border: "none", cursor: "pointer" }}
+                      >
+                        <CheckCircle size={14} style={{ color: CLR_READY }} />
+                        {deliveringOrderId === a.orderId ? "..." : "تأكيد التسليم"}
                       </button>
                     </div>
                   </div>
@@ -957,50 +1096,58 @@ export default function Orders() {
             </div>
           )}
 
-          {/* All deliveries for selected date grouped by driver */}
-          {allDeliveriesLoading ? (
-            <div style={{ textAlign: "center", padding: 24, color: "var(--color-muted-foreground)" }}>⏳ جار التحميل...</div>
-          ) : allDeliveries.length === 0 ? (
-            <div style={{ backgroundColor: "var(--color-card)", borderRadius: 16, padding: 28, textAlign: "center", border: "1px solid var(--color-border)" }}>
-              <div style={{ fontSize: 40 }}>🚗</div>
-              <div style={{ color: "var(--color-muted-foreground)", fontWeight: 600, fontSize: 14, marginTop: 8 }}>لا يوجد توصيلات في هذا اليوم</div>
-            </div>
-          ) : (
-            Array.from(driverMap.entries()).map(([name, rows]) => {
-              const total = rows.reduce((s, r) => s + r.totalPrice, 0);
-              const cash  = rows.filter(r => r.paymentMethod === "cash").reduce((s, r) => s + r.totalPrice, 0);
-              const expanded = expandedDrivers.has(name);
-              return (
-                <div key={name} style={{ backgroundColor: "var(--color-card)", borderRadius: 16, border: "1px solid #4CAF5033", overflow: "hidden" }}>
-                  <button onClick={() => setExpandedDrivers(prev => { const n = new Set(prev); n.has(name) ? n.delete(name) : n.add(name); return n; })} style={{ width: "100%", background: "none", border: "none", cursor: "pointer", padding: "12px 14px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                    <ChevronLeft size={16} style={{ color: "#4CAF50", transform: expanded ? "rotate(-90deg)" : "none" }} />
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <div style={{ textAlign: "right" }}>
-                        <div style={{ color: "var(--color-muted-foreground)", fontSize: 11 }}>{rows.length} طلب | نقدي: {cash.toFixed(2)} | الإجمالي: {total.toFixed(2)} ر.س</div>
-                      </div>
-                      <span style={{ color: "#4CAF50", fontWeight: 800, fontSize: 15 }}>🛵 {name}</span>
-                    </div>
-                  </button>
-                  {expanded && (
-                    <div style={{ borderTop: "1px solid #4CAF5033" }}>
-                      {rows.map((r, i) => (
-                        <div key={i} style={{ padding: "10px 14px", borderBottom: i < rows.length - 1 ? "1px solid var(--color-border)" : "none", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                            <span style={{ color: "var(--color-muted-foreground)", fontSize: 11 }}>{fmtTime(r.deliveredAt)}</span>
-                            <span style={{ color: r.paymentMethod === "cash" ? "#81C784" : "#64B5F6", fontSize: 12, fontWeight: 600 }}>{r.paymentMethod === "cash" ? "💵" : "💳"}</span>
-                          </div>
-                          <div style={{ textAlign: "right" }}>
-                            <div style={{ color: "var(--color-foreground)", fontWeight: 600, fontSize: 13 }}>{r.customerName}</div>
-                            <div style={{ color: "#4CAF50", fontWeight: 800, fontSize: 14 }}>{r.totalPrice.toFixed(2)} ر.س</div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+          {/* Historical deliveries */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {allDeliveriesLoading ? (
+              <div style={{ textAlign: "center", padding: 20, color: TEXT_DIM }}>⏳ جارٍ التحميل...</div>
+            ) : allDeliveries.length === 0 ? (
+              <div style={{ textAlign: "center", padding: 24, color: TEXT_FAINT }}>
+                <div style={{ fontSize: 32, marginBottom: 8 }}>📦</div>
+                <div>لا توجد توصيلات في هذا اليوم</div>
+              </div>
+            ) : (
+              <>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <div style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: "#A6CDFB" }} />
+                  <span style={{ color: "#A6CDFB", fontWeight: 700, fontSize: 13 }}>📋 سجل التوصيلات ({allDeliveries.length})</span>
                 </div>
-              );
-            })
-          )}
+                {Array.from(driverMap.entries()).map(([name, rows]) => {
+                  const total = rows.reduce((s, r) => s + r.totalPrice, 0);
+                  const expanded = expandedDrivers.has(name);
+                  return (
+                    <div key={name} style={{ backgroundColor: "#0A120A", borderRadius: 14, border: `1px solid ${CLR_READY}44`, overflow: "hidden" }}>
+                      <button onClick={() => setExpandedDrivers(prev => { const n = new Set(prev); n.has(name) ? n.delete(name) : n.add(name); return n; })} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", padding: 14, background: "none", border: "none", cursor: "pointer" }}>
+                        <ChevronDown size={16} style={{ color: TEXT_DIM, transform: expanded ? "rotate(180deg)" : "none", transition: "transform .2s" }} />
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          <div style={{ textAlign: "right" }}>
+                            <div style={{ color: CLR_READY, fontWeight: 700, fontSize: 13 }}>{total.toFixed(2)} ر.س</div>
+                            <div style={{ color: TEXT_FAINT, fontSize: 11 }}>{rows.length} توصيلة</div>
+                          </div>
+                          <span style={{ color: CLR_READY, fontWeight: 800, fontSize: 15 }}>🛵 {name}</span>
+                        </div>
+                      </button>
+                      {expanded && (
+                        <div style={{ borderTop: `1px solid ${CLR_READY}33` }}>
+                          {rows.map((r, i) => (
+                            <div key={i} style={{ padding: "10px 14px", borderBottom: i < rows.length - 1 ? `1px solid ${LINE}` : "none", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                <span style={{ color: TEXT_DIM, fontSize: 11 }}>{fmtTime(r.deliveredAt)}</span>
+                                <span style={{ color: r.paymentMethod === "cash" ? "#81C784" : "#A6CDFB", fontSize: 12, fontWeight: 600 }}>{r.paymentMethod === "cash" ? "💵" : "💳"}</span>
+                              </div>
+                              <div style={{ textAlign: "right" }}>
+                                <div style={{ color: TEXT, fontWeight: 600, fontSize: 13 }}>{r.customerName}</div>
+                                <div style={{ color: CLR_READY, fontWeight: 800, fontSize: 14 }}>{r.totalPrice.toFixed(2)} ر.س</div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </>
+            )}
+          </div>
         </div>
       </div>
     );
@@ -1008,150 +1155,197 @@ export default function Orders() {
 
   // ─── RENDER ───────────────────────────────────────────────────────────────
   return (
-    <div dir="rtl">
-      {/* Header */}
-      <div style={{ marginBottom: 12, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
-        <div>
-          <h1 style={{ fontSize: 22, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}>
-            إدارة الطلبات
-            {pendingCount > 0 && (
-              <span style={{ backgroundColor: "#E53935", color: "#fff", fontSize: 12, fontWeight: 700, borderRadius: "50%", minWidth: 22, height: 22, display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "0 4px" }} className="animate-pulse">
-                {pendingCount}
-              </span>
-            )}
-          </h1>
-          <p style={{ fontSize: 12, color: "var(--color-muted-foreground)", marginTop: 2, display: "flex", alignItems: "center", gap: 6 }}>
-            تحديث تلقائي كل ١٠ ثوانٍ
-            <span className={cn("inline-block w-2 h-2 rounded-full", fetching ? "bg-yellow-400 animate-ping" : "bg-green-500")} />
-          </p>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          {hasNewOrder && (
-            <div className="animate-bounce" style={{ display: "flex", alignItems: "center", gap: 6, backgroundColor: "#E53935", color: "#fff", fontSize: 13, fontWeight: 700, padding: "6px 14px", borderRadius: 9999 }}>
-              <Bell size={14} /> طلب جديد وصل!
-            </div>
-          )}
-          <button onClick={() => fetchOrders()} disabled={fetching} style={{ backgroundColor: "var(--color-card)", border: "1px solid var(--color-border)", borderRadius: 8, padding: "7px 10px", cursor: "pointer", display: "flex", alignItems: "center" }}>
-            <RefreshCw size={16} className={cn(fetching && "animate-spin")} />
-          </button>
-        </div>
-      </div>
+    <div dir="rtl" style={{ background: BG, minHeight: "100vh", fontFamily: "'IBM Plex Sans Arabic', 'Cairo', sans-serif" }}>
 
-      {/* New-order banner */}
-      {cashierView === "orders" && hasNewOrder && (
-        <div style={{ backgroundColor: "#E53935", padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, borderRadius: 12, marginBottom: 12 }}>
-          <span style={{ fontSize: 20 }}>🔔</span>
-          <span style={{ color: "#fff", fontWeight: 800, fontSize: 16 }}>طلب جديد وصل!</span>
-          <span style={{ fontSize: 20 }}>🔔</span>
-        </div>
-      )}
+      {/* ── App bar (sticky) ── */}
+      <div style={{ position: "sticky", top: 0, zIndex: 30, background: `linear-gradient(180deg, ${BG} 85%, rgba(20,22,27,0))`, padding: "18px 20px 10px" }}>
 
-      {/* Three-tab nav bar */}
-      <div style={{ display: "flex", flexDirection: "row-reverse", backgroundColor: "var(--color-card)", borderRadius: 14, border: "1px solid var(--color-border)", overflow: "hidden", marginBottom: 14 }}>
-        {tabs.map(tab => {
-          const active = cashierView === tab.key;
-          return (
-            <button
-              key={tab.key}
-              onClick={() => { setCashierView(tab.key); if (tab.key === "drivers") { loadActiveAssignments(); loadAllDeliveries(drvSelectedDate); } }}
-              style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "10px 4px", gap: 3, background: "none", border: "none", borderBottom: `3px solid ${active ? tab.color : "transparent"}`, cursor: "pointer" }}
-            >
-              <div style={{ position: "relative" }}>
-                <div style={{ width: 42, height: 42, borderRadius: "50%", backgroundColor: active ? tab.color + "22" : "transparent", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <span style={{ color: active ? tab.color : "var(--color-muted-foreground)" }}>{tab.icon}</span>
-                </div>
-                {tab.badge > 0 && (
-                  <span style={{ position: "absolute", top: 0, left: 0, backgroundColor: "#E53935", borderRadius: "50%", minWidth: 18, height: 18, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: "#fff", fontWeight: 800, padding: "0 3px" }}>
-                    {tab.badge > 9 ? "9+" : tab.badge}
-                  </span>
-                )}
+        {/* Brand row */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ width: 34, height: 34, borderRadius: 10, background: "linear-gradient(135deg, #F2994A, #C9761E)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Cairo, sans-serif", fontWeight: 800, color: "#1B1206", fontSize: 16, flexShrink: 0 }}>ر</div>
+            <div>
+              <div style={{ fontFamily: "Cairo, sans-serif", fontWeight: 700, fontSize: 15.5, color: TEXT }}>روابي المندي</div>
+              <div style={{ fontSize: 11.5, color: TEXT_FAINT, display: "flex", alignItems: "center", gap: 4 }}>
+                <span style={{ width: 6, height: 6, borderRadius: "50%", background: CLR_READY, display: "inline-block", flexShrink: 0, boxShadow: `0 0 0 3px ${CLR_READY_DIM}` }} className={cn(fetching && "animate-ping")} />
+                تحديث تلقائي كل 10 ثوانٍ
               </div>
-              <span style={{ color: active ? tab.color : "var(--color-muted-foreground)", fontWeight: active ? 700 : 400, fontSize: 12 }}>{tab.label}</span>
+            </div>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            {hasNewOrder && (
+              <div className="animate-bounce" style={{ display: "flex", alignItems: "center", gap: 5, backgroundColor: CLR_CANCELLED, color: "#fff", fontSize: 11, fontWeight: 700, padding: "5px 10px", borderRadius: 9999 }}>
+                <Bell size={11} /> طلب جديد!
+              </div>
+            )}
+            <button
+              onClick={() => fetchOrders()}
+              disabled={fetching}
+              style={{ width: 36, height: 36, borderRadius: 10, border: `1px solid ${LINE}`, background: SURFACE, color: TEXT_DIM, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+            >
+              <RefreshCw size={16} className={cn(fetching && "animate-spin")} />
             </button>
-          );
-        })}
-      </div>
+          </div>
+        </div>
 
-      {/* ── ORDERS TAB ── */}
-      {cashierView === "orders" && (
-        <>
-          {/* Filter tabs */}
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14, overflowX: "auto" }}>
-            {(["all","pending","preparing","ready","out_for_delivery","done","cancelled"] as const).map(key => {
-              const label = key === "all" ? "الكل" : STATUS_LABEL[key as OrderStatus];
-              const cnt   = key === "all" ? orders.filter(o => !["done","cancelled"].includes(o.status)).length : orders.filter(o => o.status === key).length;
-              const clr   = key === "all" ? GOLD : STATUS_COLOR[key as OrderStatus];
-              const active = filter === key;
+        <h1 style={{ fontSize: 24, fontFamily: "Cairo, sans-serif", fontWeight: 800, margin: "10px 0 14px", color: TEXT }}>إدارة الطلبات</h1>
+
+        {/* Search (orders tab only) */}
+        {cashierView === "orders" && (
+          <div style={{ position: "relative", marginBottom: 12 }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={TEXT_FAINT} strokeWidth="2" style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+            <input
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              placeholder="ابحث برقم الطلب أو اسم العميل أو الجوال"
+              style={{ width: "100%", background: SURFACE, border: `1px solid ${LINE}`, borderRadius: 12, padding: "12px 40px 12px 14px", color: TEXT, fontFamily: "inherit", fontSize: 14, outline: "none", boxSizing: "border-box" }}
+            />
+          </div>
+        )}
+
+        {/* Filter tabs (orders tab only) */}
+        {cashierView === "orders" && (
+          <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 2, scrollbarWidth: "none", marginBottom: 4 }}>
+            {ORDER_FILTERS.map(f => {
+              const cnt = f.key === "all"
+                ? orders.filter(o => !["done","cancelled"].includes(o.status)).length
+                : orders.filter(o => o.status === f.key).length;
+              const active = filter === f.key;
               return (
-                <button key={key} onClick={() => setFilter(key)} style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 10, border: active ? `1.5px solid ${clr}` : "1px solid var(--color-border)", backgroundColor: active ? clr + "22" : "var(--color-card)", cursor: "pointer" }}>
-                  <span style={{ color: active ? clr : "var(--color-muted-foreground)", fontWeight: active ? 700 : 400, fontSize: 13 }}>{label}</span>
-                  {cnt > 0 && <span style={{ backgroundColor: active ? clr + "33" : "var(--color-secondary)", color: active ? clr : "var(--color-muted-foreground)", borderRadius: "50%", minWidth: 18, height: 18, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700 }}>{cnt}</span>}
-                </button>
+                <div
+                  key={f.key}
+                  onClick={() => setFilter(f.key)}
+                  style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 10, fontSize: 13, fontWeight: 500, background: active ? SAFFRON_DIM : SURFACE, border: `1px solid ${active ? "rgba(242,153,74,.4)" : LINE}`, color: active ? "#FFC98F" : TEXT_DIM, cursor: "pointer", whiteSpace: "nowrap" }}
+                >
+                  {f.label}
+                  {cnt > 0 && (
+                    <span style={{ fontSize: 11, fontWeight: 700, padding: "1px 6px", borderRadius: 20, background: active ? SAFFRON : "#2C303B", color: active ? "#1B1206" : TEXT_DIM }}>{cnt}</span>
+                  )}
+                </div>
               );
             })}
           </div>
+        )}
 
-          {/* Print list button */}
-          {!loading && filteredOrders.length > 0 && (
-            <button onClick={() => { const w = window.open("","_blank","width=900,height=700"); if (w) { const rows = filteredOrders.map(o=>`<tr><td>#${o.dailyNumber??o.id}</td><td>${o.customerName}</td><td>${o.paymentMethod==="cash"?"نقدي":"إلكتروني"}</td><td>${STATUS_LABEL[o.status]}</td><td>${fmt2(o.totalPrice/100)} ر.س</td><td>${new Date(o.createdAt).toLocaleTimeString("ar-SA",{hour:"2-digit",minute:"2-digit"})}</td></tr>`).join(""); w.document.write(`<!DOCTYPE html><html dir="rtl"><head><meta charset="UTF-8"><title>طلبات</title><style>body{font-family:Cairo,sans-serif;padding:10mm}table{width:100%;border-collapse:collapse}th,td{padding:7px;border:1px solid #ddd;text-align:right}th{background:#8B4513;color:#fff}@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap')</style></head><body><h2>روابي المندي — الطلبات</h2><table><thead><tr><th>#</th><th>العميل</th><th>الدفع</th><th>الحالة</th><th>المبلغ</th><th>الوقت</th></tr></thead><tbody>${rows}</tbody></table><script>window.onload=function(){window.print()}<\/script></body></html>`); w.document.close(); } }} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 12, padding: "10px", borderRadius: 12, backgroundColor: "#1A2A3A", border: "1px solid #64B5F633", color: "#64B5F6", fontWeight: 700, fontSize: 13, cursor: "pointer", width: "100%" }}>
-              <Printer size={15} style={{ color: "#64B5F6" }} /> طباعة قائمة الطلبات ({filteredOrders.length})
-            </button>
-          )}
+        {/* Sort + select row (orders tab only) */}
+        {cashierView === "orders" && (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "4px 0" }}>
+            <div
+              onClick={() => setSortNewest(p => !p)}
+              style={{ display: "flex", alignItems: "center", gap: 6, background: SURFACE, border: `1px solid ${LINE}`, color: TEXT_DIM, fontFamily: "inherit", fontSize: 12.5, padding: "7px 12px", borderRadius: 9, cursor: "pointer" }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 5h10M11 9h7M11 13h4"/><path d="m3 8 3-3 3 3M6 5v14"/></svg>
+              {sortNewest ? "الأحدث أولاً" : "الأقدم أولاً"}
+            </div>
+            <div
+              onClick={() => { setSelectMode(p => !p); if (selectMode) setSelectedIds(new Set()); }}
+              style={{ display: "flex", alignItems: "center", gap: 6, color: selectMode ? SAFFRON : TEXT_FAINT, fontSize: 12.5, cursor: "pointer", userSelect: "none" }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+              تحديد للطباعة
+            </div>
+          </div>
+        )}
 
-          {/* Orders list */}
-          {loading ? (
-            <div style={{ textAlign: "center", padding: "48px 0" }}>
-              <div style={{ fontSize: 40 }}>⏳</div>
-              <div style={{ color: "var(--color-muted-foreground)", marginTop: 8 }}>جارٍ التحميل...</div>
-            </div>
-          ) : filteredOrders.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "48px 0" }}>
-              <div style={{ fontSize: 48 }}>🍽️</div>
-              <div style={{ color: "var(--color-muted-foreground)", fontWeight: 600, marginTop: 8 }}>لا توجد طلبات</div>
-            </div>
-          ) : (
-            <div>
-              {filteredOrders.map(order => <OrderCard key={order.id} order={order} />)}
-            </div>
-          )}
+        {/* Section nav (3 tabs) */}
+        <div style={{ display: "flex", gap: 6, background: SURFACE, border: `1px solid ${LINE}`, borderRadius: 12, padding: 4, margin: "12px 0 4px" }}>
+          {tabDef.map(tab => {
+            const active = cashierView === tab.key;
+            return (
+              <button
+                key={tab.key}
+                onClick={() => { setCashierView(tab.key); if (tab.key === "drivers") { loadActiveAssignments(); loadAllDeliveries(drvSelectedDate); } }}
+                style={{ flex: 1, background: active ? SURFACE2 : "transparent", border: active ? `1px solid ${LINE}` : "none", color: active ? TEXT : TEXT_DIM, fontFamily: "inherit", padding: "9px 6px", borderRadius: 9, fontSize: 12, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 4, position: "relative" }}
+              >
+                {tab.badge > 0 && (
+                  <span style={{ position: "absolute", top: 4, right: 4, backgroundColor: CLR_CANCELLED, borderRadius: "50%", minWidth: 16, height: 16, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, color: "#fff", fontWeight: 800, padding: "0 2px" }}>
+                    {tab.badge > 9 ? "9+" : tab.badge}
+                  </span>
+                )}
+                <span style={{ color: active ? SAFFRON : TEXT_DIM }}>{tab.icon}</span>
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
-          <p style={{ textAlign: "center", color: "var(--color-muted-foreground)", fontSize: 12, marginTop: 8 }}>
-            يعرض {filteredOrders.length} طلب{filter !== "all" ? ` من إجمالي ${orders.length}` : ""}
-          </p>
-        </>
+      {/* ── New-order banner ── */}
+      {cashierView === "orders" && hasNewOrder && (
+        <div style={{ backgroundColor: CLR_CANCELLED, padding: "10px 20px", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, margin: "0 20px 12px", borderRadius: 12 }}>
+          <span style={{ fontSize: 20 }}>🔔</span>
+          <span style={{ color: "#fff", fontWeight: 800, fontSize: 16, fontFamily: "Cairo, sans-serif" }}>طلب جديد وصل!</span>
+          <span style={{ fontSize: 20 }}>🔔</span>
+        </div>
       )}
 
-      {/* ── PICKUP TAB ── */}
-      {cashierView === "pickup" && <PickupView />}
-
-      {/* ── DRIVERS TAB ── */}
+      {/* ── Tab content ── */}
+      {cashierView === "orders" && (
+        <div style={{ padding: "0 16px 120px", display: "flex", flexDirection: "column", gap: 10 }}>
+          {loading ? (
+            <div style={{ textAlign: "center", padding: "60px 0" }}>
+              <div style={{ fontSize: 40 }}>⏳</div>
+              <div style={{ color: TEXT_DIM, marginTop: 8 }}>جارٍ التحميل...</div>
+            </div>
+          ) : visibleOrders.length === 0 ? (
+            <div style={{ textAlign: "center", padding: "60px 20px", color: TEXT_FAINT }}>
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ marginBottom: 12, opacity: 0.4, display: "block", margin: "0 auto 12px" }}><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+              <div>لا توجد طلبات مطابقة</div>
+            </div>
+          ) : (
+            visibleOrders.map(order => <OrderCard key={order.id} order={order} />)
+          )}
+          {!loading && (
+            <p style={{ textAlign: "center", color: TEXT_FAINT, fontSize: 12, marginTop: 4 }}>
+              {visibleOrders.length} طلب{filter !== "all" ? ` · من إجمالي ${orders.length}` : ""}
+            </p>
+          )}
+        </div>
+      )}
+      {cashierView === "pickup"  && <PickupView />}
       {cashierView === "drivers" && <DriversView />}
 
-      {/* ── CHAT MODAL ── */}
+      {/* ── Bulk print bar ── */}
+      {selectMode && selectedIds.size > 0 && (
+        <div style={{ position: "fixed", bottom: 16, left: 16, right: 16, zIndex: 40, background: SURFACE2, border: `1px solid ${LINE}`, borderRadius: 14, padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", boxShadow: "0 12px 30px rgba(0,0,0,.4)" }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: TEXT }}>
+            تم تحديد <span style={{ color: SAFFRON, fontFamily: "Cairo, sans-serif", fontWeight: 700 }}>{selectedIds.size}</span> طلب
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={() => { setSelectedIds(new Set()); setSelectMode(false); }} style={{ background: "transparent", border: `1px solid ${LINE}`, color: TEXT_DIM, fontFamily: "inherit", fontSize: 12.5, fontWeight: 600, padding: "8px 14px", borderRadius: 9, cursor: "pointer" }}>إلغاء</button>
+            <button
+              onClick={() => { printBulk(orders.filter(o => selectedIds.has(o.id))); setSelectedIds(new Set()); setSelectMode(false); }}
+              style={{ display: "flex", alignItems: "center", gap: 6, background: SAFFRON_DIM, border: "1px solid rgba(242,153,74,.35)", color: "#FFC98F", fontFamily: "inherit", fontSize: 12.5, fontWeight: 600, padding: "8px 14px", borderRadius: 9, cursor: "pointer" }}
+            >
+              <Printer size={14} /> طباعة المحدد
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Chat modal ── */}
       {chatOrder && (
         <div style={{ position: "fixed", inset: 0, zIndex: 50, backgroundColor: "rgba(0,0,0,0.75)", display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
-          <div style={{ backgroundColor: "var(--color-card)", borderTopLeftRadius: 24, borderTopRightRadius: 24, width: "100%", maxWidth: 560, maxHeight: "85vh", display: "flex", flexDirection: "column", overflow: "hidden", border: "1px solid var(--color-border)" }} dir="rtl">
-            {/* Chat header */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 18px", borderBottom: "1px solid var(--color-border)" }}>
+          <div style={{ backgroundColor: SURFACE, borderTopLeftRadius: 24, borderTopRightRadius: 24, width: "100%", maxWidth: 560, maxHeight: "85vh", display: "flex", flexDirection: "column", overflow: "hidden", border: `1px solid ${LINE}` }} dir="rtl">
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 18px", borderBottom: `1px solid ${LINE}` }}>
               <button onClick={() => setChatOrder(null)} style={{ background: "none", border: "none", cursor: "pointer", padding: 4 }}>
-                <X size={22} style={{ color: "var(--color-muted-foreground)" }} />
+                <X size={22} style={{ color: TEXT_DIM }} />
               </button>
               <div style={{ textAlign: "right" }}>
-                <div style={{ fontWeight: 800, fontSize: 16 }}>💬 مراسلة العميل</div>
-                <div style={{ color: "var(--color-muted-foreground)", fontSize: 12 }}>طلب #{chatOrder.dailyNumber ?? chatOrder.id} — {chatOrder.customerName}</div>
+                <div style={{ fontWeight: 800, fontSize: 16, color: TEXT }}>💬 مراسلة العميل</div>
+                <div style={{ color: TEXT_DIM, fontSize: 12 }}>طلب #{chatOrder.dailyNumber ?? chatOrder.id} — {chatOrder.customerName}</div>
               </div>
             </div>
-            {/* Messages */}
             <div style={{ flex: 1, overflowY: "auto", padding: "14px 18px", display: "flex", flexDirection: "column", gap: 10 }}>
               {chatLoading ? (
-                <div style={{ textAlign: "center", color: "var(--color-muted-foreground)" }}>⏳</div>
+                <div style={{ textAlign: "center", color: TEXT_DIM }}>⏳</div>
               ) : chatMsgs.length === 0 ? (
-                <div style={{ textAlign: "center", color: "var(--color-muted-foreground)", marginTop: 24 }}>لا توجد رسائل بعد</div>
+                <div style={{ textAlign: "center", color: TEXT_DIM, marginTop: 24 }}>لا توجد رسائل بعد</div>
               ) : chatMsgs.map(msg => (
                 <div key={msg.id} style={{ display: "flex", justifyContent: msg.fromCashier ? "flex-start" : "flex-end" }}>
-                  <div style={{ maxWidth: "80%", backgroundColor: msg.fromCashier ? "#1A2A1A" : "var(--color-secondary)", borderRadius: 14, padding: "10px 14px", border: msg.fromCashier ? "1px solid #4CAF5033" : "1px solid var(--color-border)" }}>
-                    <div style={{ fontSize: 14, color: "var(--color-foreground)" }}>{msg.text}</div>
-                    <div style={{ fontSize: 10, color: "var(--color-muted-foreground)", marginTop: 4, textAlign: msg.fromCashier ? "right" : "left" }}>
+                  <div style={{ maxWidth: "80%", backgroundColor: msg.fromCashier ? SURFACE2 : "#1A2A1A", borderRadius: 14, padding: "10px 14px", border: msg.fromCashier ? `1px solid ${LINE}` : `1px solid ${CLR_READY}33` }}>
+                    <div style={{ fontSize: 14, color: TEXT }}>{msg.text}</div>
+                    <div style={{ fontSize: 10, color: TEXT_DIM, marginTop: 4, textAlign: msg.fromCashier ? "right" : "left" }}>
                       {new Date(msg.createdAt).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" })}
                       {msg.fromCashier && <span style={{ marginRight: 4 }}>{msg.readAt ? "✓✓" : "✓"}</span>}
                     </div>
@@ -1160,17 +1354,16 @@ export default function Orders() {
               ))}
               <div ref={chatBottomRef} />
             </div>
-            {/* Input */}
-            <div style={{ padding: "10px 16px", borderTop: "1px solid var(--color-border)", display: "flex", gap: 8, alignItems: "center" }}>
-              <button onClick={sendChatMessage} disabled={chatSending || !chatInput.trim()} style={{ backgroundColor: chatInput.trim() ? "#4CAF50" : "var(--color-secondary)", border: "none", borderRadius: 10, padding: "10px 14px", cursor: chatInput.trim() ? "pointer" : "default", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <Send size={16} style={{ color: chatInput.trim() ? "#fff" : "var(--color-muted-foreground)" }} />
+            <div style={{ padding: "10px 16px", borderTop: `1px solid ${LINE}`, display: "flex", gap: 8, alignItems: "center" }}>
+              <button onClick={sendChatMessage} disabled={chatSending || !chatInput.trim()} style={{ backgroundColor: chatInput.trim() ? CLR_READY : SURFACE2, border: "none", borderRadius: 10, padding: "10px 14px", cursor: chatInput.trim() ? "pointer" : "default", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Send size={16} style={{ color: chatInput.trim() ? "#fff" : TEXT_DIM }} />
               </button>
               <input
                 value={chatInput}
                 onChange={e => setChatInput(e.target.value)}
                 onKeyDown={e => e.key === "Enter" && sendChatMessage()}
                 placeholder="اكتب رسالة..."
-                style={{ flex: 1, backgroundColor: "var(--color-secondary)", border: "1px solid var(--color-border)", borderRadius: 10, padding: "10px 14px", color: "var(--color-foreground)", fontSize: 14, textAlign: "right", outline: "none" }}
+                style={{ flex: 1, backgroundColor: SURFACE2, border: `1px solid ${LINE}`, borderRadius: 10, padding: "10px 14px", color: TEXT, fontSize: 14, textAlign: "right", outline: "none", fontFamily: "inherit" }}
               />
             </div>
           </div>
@@ -1180,7 +1373,6 @@ export default function Orders() {
   );
 }
 
-// small helper for calendar icon (not in lucide exports list above)
 function Calendar({ size, style }: { size: number; style?: React.CSSProperties }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={style}>
