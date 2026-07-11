@@ -298,7 +298,7 @@ export default function Orders() {
   const [drivers, setDrivers]               = useState<Driver[]>([]);
   const [driversEnabled, setDriversEnabled] = useState(false);
   const [assignments, setAssignments]       = useState<Record<number, Assignment>>({});
-  const [assigningOrderId, setAssigningOrderId] = useState<number | null>(null);
+  const [assigningOrder, setAssigningOrder] = useState<Order | null>(null);
 
   const [activeAssignments, setActiveAssignments] = useState<ActiveAssignment[]>([]);
   const [activeLoading, setActiveLoading]         = useState(false);
@@ -398,7 +398,7 @@ export default function Orders() {
       await apiPost(`/orders/${orderId}/assign-driver`, { driverId });
       const map = await apiGet<Record<number, Assignment>>("/orders/assignments");
       setAssignments(map);
-      setAssigningOrderId(null);
+      setAssigningOrder(null);
     } catch { alert("تعذّر تعيين المندوب"); }
   }, []);
 
@@ -738,32 +738,11 @@ export default function Orders() {
                         </div>
                       ) : (
                         <button
-                          onClick={() => setAssigningOrderId(order.id)}
+                          onClick={() => setAssigningOrder(order)}
                           style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, padding: "11px", color: CLR_READY, fontWeight: 700, fontSize: 13, cursor: "pointer", width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontFamily: "inherit" }}
                         >
                           ➕ تعيين مندوب
                         </button>
-                      )}
-                      {assigningOrderId === order.id && (
-                        <div style={{ background: C.surface, borderRadius: 12, padding: 14, border: `1px solid ${CLR_READY}44`, display: "flex", flexDirection: "column", gap: 8 }}>
-                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                            <button onClick={() => setAssigningOrderId(null)} style={{ background: "none", border: "none", cursor: "pointer", padding: 4 }}>
-                              <X size={16} style={{ color: C.sub }} />
-                            </button>
-                            <span style={{ color: CLR_READY, fontWeight: 700, fontSize: 13 }}>اختر مندوباً</span>
-                          </div>
-                          {drivers.length === 0 ? (
-                            <p style={{ color: C.muted, fontSize: 12, textAlign: "center" }}>لا يوجد مناديب نشطون</p>
-                          ) : drivers.map(d => (
-                            <button key={d.id} onClick={() => assignDriver(order.id, d.id)} style={{ background: C.card, borderRadius: 10, padding: "10px 12px", border: `1px solid ${C.border}`, cursor: "pointer", display: "flex", alignItems: "center", gap: 10, width: "100%", fontFamily: "inherit" }}>
-                              <div style={{ width: 36, height: 36, borderRadius: "50%", background: C.border, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>🛵</div>
-                              <div style={{ textAlign: "right" }}>
-                                <div style={{ color: C.text, fontWeight: 700, fontSize: 13 }}>{d.name}</div>
-                                <div style={{ color: C.muted, fontSize: 11 }}>{d.phone}</div>
-                              </div>
-                            </button>
-                          ))}
-                        </div>
                       )}
                     </>
                   )}
@@ -1404,6 +1383,59 @@ export default function Orders() {
             >
               <Printer size={14} /> طباعة المحدد
             </button>
+          </div>
+        </div>
+      )}
+
+      {assigningOrder && (
+        <div
+          style={{ position: "fixed", inset: 0, zIndex: 50, backgroundColor: "rgba(0,0,0,0.75)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
+          onClick={() => setAssigningOrder(null)}
+        >
+          <div
+            style={{ backgroundColor: C.surface, borderRadius: 20, width: "100%", maxWidth: 420, maxHeight: "80vh", display: "flex", flexDirection: "column", overflow: "hidden", border: `1px solid ${C.border}`, boxShadow: "0 24px 60px rgba(0,0,0,.6)" }}
+            dir="rtl"
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 18px", borderBottom: `1px solid ${C.border}` }}>
+              <button onClick={() => setAssigningOrder(null)} style={{ background: "none", border: "none", cursor: "pointer", padding: 4 }}>
+                <X size={22} style={{ color: C.sub }} />
+              </button>
+              <div style={{ textAlign: "right" }}>
+                <div style={{ fontWeight: 800, fontSize: 16, color: C.text }}>🛵 تعيين مندوب</div>
+                <div style={{ color: C.sub, fontSize: 12 }}>طلب #{assigningOrder.dailyNumber ?? assigningOrder.id} — {assigningOrder.customerName}</div>
+              </div>
+            </div>
+            <div style={{ flex: 1, overflowY: "auto", padding: "14px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
+              {drivers.length === 0 ? (
+                <div style={{ textAlign: "center", padding: 32, color: C.muted }}>
+                  <div style={{ fontSize: 32, marginBottom: 8 }}>🛵</div>
+                  <div>لا يوجد مناديب نشطون</div>
+                </div>
+              ) : drivers.map(d => {
+                const activeCount = activeAssignments.filter(a => a.driverId === d.id).length;
+                const isAvailable = activeCount === 0;
+                return (
+                  <button
+                    key={d.id}
+                    onClick={() => assignDriver(assigningOrder.id, d.id)}
+                    style={{ background: C.card, borderRadius: 14, padding: "12px 14px", border: `1px solid ${isAvailable ? C.green + "44" : C.border}`, cursor: "pointer", display: "flex", alignItems: "center", gap: 12, width: "100%", fontFamily: "inherit", textAlign: "right" }}
+                  >
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", flex: 1 }}>
+                      <div style={{ color: C.text, fontWeight: 700, fontSize: 14 }}>{d.name}</div>
+                      <div style={{ color: C.muted, fontSize: 11, marginTop: 2 }}>{d.phone}</div>
+                      {activeCount > 0 && (
+                        <div style={{ color: C.amber, fontSize: 11, marginTop: 2 }}>{activeCount} طلب نشط</div>
+                      )}
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                      <div style={{ width: 40, height: 40, borderRadius: "50%", background: isAvailable ? C.green + "22" : C.amber + "22", border: `1.5px solid ${isAvailable ? C.green + "55" : C.amber + "55"}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>🛵</div>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: isAvailable ? C.green : C.amber }}>{isAvailable ? "متاح" : "مشغول"}</span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
       )}
