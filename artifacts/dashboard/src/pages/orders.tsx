@@ -759,6 +759,19 @@ export default function Orders() {
     const cashCollected  = allDeliveries.filter(r => r.paymentMethod === "cash").reduce((s, r) => s + r.totalPrice, 0);
     const fmtTime = (iso: string | null) => iso ? new Date(iso).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" }) : "--:--";
 
+    // Derive orders with drivers assigned but not yet picked up (from outer state)
+    const assignedOrders = orders.filter(o => {
+      const a = assignments[o.id];
+      return a && a.status === "assigned";
+    });
+    const pendingByDriver = new Map<string, { driverName: string; rows: Order[] }>();
+    for (const o of assignedOrders) {
+      const a = assignments[o.id];
+      const key = a.driverName;
+      if (!pendingByDriver.has(key)) pendingByDriver.set(key, { driverName: a.driverName, rows: [] });
+      pendingByDriver.get(key)!.rows.push(o);
+    }
+
     // Group deliveries by driver
     const driverMap = new Map<string, AllDeliveryRow[]>();
     for (const r of allDeliveries) {
@@ -823,6 +836,76 @@ export default function Orders() {
         </div>
 
         <div style={{ padding: 14, display: "flex", flexDirection: "column", gap: 12 }}>
+
+          {/* ── Assigned orders (waiting for driver to pick up) ── */}
+          {pendingByDriver.size > 0 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <div style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: GOLD }} />
+                <span style={{ color: GOLD, fontWeight: 700, fontSize: 13 }}>⏳ طلبات معيّنة على مناديب ({assignedOrders.length})</span>
+                <div style={{ flex: 1 }} />
+                <button onClick={fetchAssignments} style={{ background: "none", border: "none", cursor: "pointer", padding: 4 }}>
+                  <RefreshCw size={12} style={{ color: GOLD }} />
+                </button>
+              </div>
+              {Array.from(pendingByDriver.values()).map(({ driverName, rows }) => (
+                <div key={driverName} style={{ backgroundColor: "#1A1200", borderRadius: 14, border: `1px solid ${GOLD}44`, overflow: "hidden" }}>
+                  {/* driver header */}
+                  <div style={{ backgroundColor: GOLD + "11", padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <span style={{ backgroundColor: GOLD + "22", borderRadius: 20, padding: "3px 12px", color: GOLD, fontSize: 11, fontWeight: 700 }}>{rows.length} طلب</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ color: GOLD, fontWeight: 800, fontSize: 15 }}>🛵 {driverName}</span>
+                    </div>
+                  </div>
+                  {/* order rows */}
+                  {rows.map((o, i) => {
+                    const time = new Date(o.createdAt).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" });
+                    const isPickup = !!o.notes?.includes("استلام من الفرع");
+                    return (
+                      <div key={o.id} style={{ padding: "10px 14px", borderTop: i > 0 ? "1px solid var(--color-border)" : undefined, display: "flex", flexDirection: "column", gap: 6 }}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            <span style={{ color: "var(--color-muted-foreground)", fontSize: 12 }}>{time}</span>
+                            <span style={{ color: STATUS_COLOR[o.status], fontSize: 11, fontWeight: 700, backgroundColor: STATUS_COLOR[o.status] + "22", padding: "2px 7px", borderRadius: 6 }}>{STATUS_LABEL[o.status]}</span>
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <span style={{ color: GOLD, fontWeight: 800, fontSize: 14 }}>{sar(o.totalPrice)}</span>
+                            <span style={{ color: "var(--color-foreground)", fontWeight: 600, fontSize: 13 }}>{o.customerName}</span>
+                            <span style={{ backgroundColor: GOLD + "22", padding: "2px 7px", borderRadius: 7, color: GOLD, fontWeight: 800, fontSize: 12 }}>#{o.dailyNumber ?? o.id}</span>
+                          </div>
+                        </div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                          {o.items.map((item, ii) => (
+                            <div key={ii} style={{ display: "flex", justifyContent: "space-between" }}>
+                              <span style={{ color: "var(--color-muted-foreground)", fontSize: 11 }}>{sarRaw(item.price * item.quantity)}</span>
+                              <span style={{ color: "var(--color-foreground)", fontSize: 12 }}>{item.name} × {item.quantity}</span>
+                            </div>
+                          ))}
+                        </div>
+                        {o.customerAddress && (
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 4 }}>
+                            <span style={{ color: "var(--color-muted-foreground)", fontSize: 11, maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              {o.customerAddress.startsWith("https://") ? "📍 موقع GPS" : o.customerAddress}
+                            </span>
+                            <MapPin size={11} style={{ color: "var(--color-muted-foreground)" }} />
+                          </div>
+                        )}
+                        {!isPickup && (
+                          <button
+                            onClick={() => handleUpdateStatus(o, "done")}
+                            style={{ backgroundColor: "#1A3A1A", border: "1px solid #4CAF5066", borderRadius: 10, padding: "9px", color: "#4CAF50", fontWeight: 700, fontSize: 13, cursor: "pointer", width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
+                          >
+                            <span>🛵</span> تسليم الطلب للمندوب
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* Active in-transit */}
           {activeAssignments.length > 0 && (
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
