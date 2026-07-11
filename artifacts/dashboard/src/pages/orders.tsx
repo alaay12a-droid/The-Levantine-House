@@ -3,13 +3,15 @@ import { useQueryClient } from "@tanstack/react-query";
 import { getListOrdersQueryKey } from "@workspace/api-client-react";
 import { apiGet, apiPost, apiPatch, apiPut, apiDel } from "@/lib/api";
 import {
-  RefreshCw, Bell, Phone, MapPin, Printer, Clock, Truck, ClipboardList,
+  RefreshCw, Bell, Phone, MapPin, Printer, Clock, Truck,
   Package, MessageCircle, X, ChevronRight, ChevronLeft,
-  BarChart2, User, Send, ArrowDown, CheckCircle, ChevronDown,
+  User, Send, CheckCircle, ChevronDown, Search, Check,
+  TrendingUp, DollarSign, CreditCard, Banknote, Store,
+  AlertTriangle, Wallet, ArrowUpRight, ArrowDownRight,
+  Calendar, ClipboardList, PackageCheck, UserCheck, CircleDot,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
 type OrderStatus = "pending" | "preparing" | "ready" | "out_for_delivery" | "done" | "cancelled";
 interface OrderItem { id: string; name: string; price: number; quantity: number; }
 interface Order {
@@ -30,49 +32,61 @@ interface ActiveAssignment {
 }
 interface AllDeliveryRow { orderId: number; dailyNumber: number | null; customerName: string; customerPhone: string; totalPrice: number; paymentMethod: string; driverName: string; deliveredAt: string | null; }
 
-// ─── Legacy constants (used by PickupView / DriversView) ──────────────────────
-const GOLD = "#E8920C";
+type CashierView = "orders" | "pickup" | "drivers" | "finance";
+type FilterKey = OrderStatus | "all";
+
+const C = {
+  bg: "#0B0F14",
+  surface: "#111820",
+  card: "#1A222C",
+  border: "#262F3A",
+  text: "#F0F4FA",
+  sub: "#8A94A6",
+  muted: "#4D5666",
+  amber: "#F5A623",
+  blue: "#4A9EFF",
+  green: "#34D399",
+  red: "#F6604F",
+  violet: "#A78BFA",
+};
+
+const SAFFRON          = C.amber;
+const SAFFRON_DIM      = C.amber + "22";
+const CLR_READY        = C.green;
+const CLR_READY_DIM    = C.green + "22";
+const CLR_DELIVERING   = C.blue;
+const CLR_DELIVERING_DIM = C.blue + "22";
+const CLR_CANCELLED    = C.red;
+const CLR_CANCELLED_DIM = C.red + "22";
+const CLR_NEW          = C.violet;
+const CLR_NEW_DIM      = C.violet + "22";
+const BG       = C.bg;
+const SURFACE  = C.surface;
+const SURFACE2 = C.card;
+const LINE     = C.border;
+const TEXT     = C.text;
+const TEXT_DIM   = C.sub;
+const TEXT_FAINT = C.muted;
+
 const STATUS_COLOR: Record<OrderStatus, string> = {
-  pending: "#E53935", preparing: "#FB8C00", ready: "#43A047",
-  out_for_delivery: "#29B6F6", done: "#757575", cancelled: "#9E9E9E",
+  pending: C.red, preparing: C.amber, ready: C.green,
+  out_for_delivery: C.blue, done: C.muted, cancelled: C.muted,
 };
 const STATUS_LABEL: Record<OrderStatus, string> = {
-  pending: "جديد", preparing: "قريباً يتجهز", ready: "جاري التجهيز",
-  out_for_delivery: "قيد التوصيل", done: "تم التسليم", cancelled: "ملغى",
+  pending: "جديد", preparing: "قيد التجهيز", ready: "جاهز",
+  out_for_delivery: "قيد التوصيل", done: "تم", cancelled: "ملغى",
 };
 const STATUS_NEXT: Partial<Record<OrderStatus, OrderStatus>> = { pending: "preparing", preparing: "ready" };
 const STATUS_NEXT_LABEL: Partial<Record<OrderStatus, string>> = {
-  pending: "قريبه تجهيز الطلب", preparing: "جاري تحضير الطلب",
+  pending: "بدء التجهيز", preparing: "الطلب جاهز",
 };
-type CashierView = "orders" | "pickup" | "drivers";
-type FilterKey = OrderStatus | "all";
-
-// ─── New design-system constants (matching mockup) ────────────────────────────
-const SAFFRON     = "#F2994A";
-const SAFFRON_DIM = "rgba(242,153,74,.14)";
-const CLR_READY   = "#3DD68C";
-const CLR_READY_DIM = "rgba(61,214,140,.14)";
-const CLR_DELIVERING     = "#4FA3F7";
-const CLR_DELIVERING_DIM = "rgba(79,163,247,.14)";
-const CLR_CANCELLED      = "#EF5A5A";
-const CLR_CANCELLED_DIM  = "rgba(239,90,90,.14)";
-const CLR_NEW     = "#C7A6FF";
-const CLR_NEW_DIM = "rgba(199,166,255,.14)";
-const BG       = "#14161B";
-const SURFACE  = "#1B1E25";
-const SURFACE2 = "#22252E";
-const LINE     = "#2B2F39";
-const TEXT     = "#EDEEF2";
-const TEXT_DIM   = "#9297A6";
-const TEXT_FAINT = "#5C6170";
-
 const STATUS_CARD_COLOR: Record<OrderStatus, string> = {
-  pending: CLR_NEW, preparing: SAFFRON, ready: CLR_READY,
-  out_for_delivery: CLR_DELIVERING, done: "#9297A6", cancelled: CLR_CANCELLED,
+  pending: C.violet, preparing: C.amber, ready: C.green,
+  out_for_delivery: C.blue, done: C.sub, cancelled: C.red,
 };
 const STATUS_CARD_DIM: Record<OrderStatus, string> = {
-  pending: CLR_NEW_DIM, preparing: SAFFRON_DIM, ready: CLR_READY_DIM,
-  out_for_delivery: CLR_DELIVERING_DIM, done: "rgba(146,151,166,.14)", cancelled: CLR_CANCELLED_DIM,
+  pending: C.violet + "22", preparing: C.amber + "22", ready: C.green + "22",
+  out_for_delivery: C.blue + "22", done: C.sub + "22", cancelled: C.red + "22",
 };
 const STATUS_DISPLAY: Record<OrderStatus, string> = {
   pending: "جديد", preparing: "جاري التجهيز", ready: "جاهز للتسليم",
@@ -87,14 +101,13 @@ const ORDER_FILTERS: { key: FilterKey; label: string }[] = [
   { key: "all",              label: "الكل" },
   { key: "pending",          label: "جديد" },
   { key: "preparing",        label: "جاري التجهيز" },
-  { key: "ready",            label: "جاهز للتسليم" },
+  { key: "ready",            label: "جاهز" },
   { key: "out_for_delivery", label: "قيد التوصيل" },
   { key: "cancelled",        label: "ملغى" },
 ];
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-const fmt2  = (n: number) => n % 1 === 0 ? String(n) : n.toFixed(2);
-const sar   = (h: number) => `${fmt2(h / 100)} ر.س`;
+const fmt2   = (n: number) => n % 1 === 0 ? String(n) : n.toFixed(2);
+const sar    = (h: number) => `${fmt2(h / 100)} ر.س`;
 const sarRaw = (h: number) => fmt2(h / 100);
 
 function printReceipt(order: Order) {
@@ -157,31 +170,105 @@ function printBulk(orders: Order[]) {
   }
 }
 
-// ─── Progress Rail ────────────────────────────────────────────────────────────
+function TimerRing({ createdAt, size = 44 }: { createdAt: string; size?: number }) {
+  const TARGET_MINS = 30;
+  const elapsed = (Date.now() - new Date(createdAt).getTime()) / 60000;
+  const remaining = Math.max(0, TARGET_MINS - elapsed);
+  const frac = Math.min(1, remaining / TARGET_MINS);
+  const r = (size - 8) / 2;
+  const circ = 2 * Math.PI * r;
+  const dash = circ * frac;
+  const color = remaining > 15 ? C.green : remaining > 5 ? C.amber : C.red;
+  const mins = Math.ceil(remaining);
+  return (
+    <svg width={size} height={size} style={{ transform: "rotate(-90deg)", flexShrink: 0 }}>
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={C.border} strokeWidth={3.5} />
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth={3.5}
+        strokeDasharray={`${dash} ${circ}`} strokeLinecap="round" />
+      <text x={size/2} y={size/2} textAnchor="middle" dominantBaseline="central"
+        style={{ fill: color, fontSize: size * 0.24, fontWeight: "700",
+          transform: `rotate(90deg)`, transformOrigin: `${size/2}px ${size/2}px`,
+          fontFamily: "Tajawal, sans-serif" }}>
+        {mins > 99 ? "∞" : mins}
+      </text>
+    </svg>
+  );
+}
+
+function Badge({ children, color, soft }: { children: React.ReactNode; color: string; soft?: boolean }) {
+  return (
+    <span style={{
+      display: "inline-flex", alignItems: "center",
+      padding: "3px 9px", borderRadius: 999,
+      fontSize: 11, fontWeight: 700,
+      background: soft ? color + "22" : color,
+      color: soft ? color : "#0B0F14",
+      border: `1px solid ${color}55`,
+      whiteSpace: "nowrap",
+    }}>
+      {children}
+    </span>
+  );
+}
+
+function IconBtn({ icon: Icon, label, tone, small, onClick, disabled }: {
+  icon: React.ElementType; label?: string; tone: "good"|"bad"|"info"|"default";
+  small?: boolean; onClick: () => void; disabled?: boolean;
+}) {
+  const toneMap: Record<string, [string, string]> = {
+    good:    [C.green,  C.green  + "18"],
+    bad:     [C.red,    C.red    + "18"],
+    info:    [C.blue,   C.blue   + "18"],
+    default: [C.sub,    C.border],
+  };
+  const [clr, bg] = toneMap[tone];
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      style={{
+        display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
+        padding: small ? "6px 10px" : "8px 14px",
+        borderRadius: 10, border: `1px solid ${clr}55`,
+        background: bg, color: clr,
+        fontSize: 12, fontWeight: 700,
+        cursor: disabled ? "default" : "pointer",
+        fontFamily: "inherit",
+        flex: label ? 1 : undefined,
+        opacity: disabled ? 0.5 : 1,
+        transition: "opacity .15s",
+      }}
+    >
+      <Icon size={13} strokeWidth={2.5} />
+      {label && <span>{label}</span>}
+    </button>
+  );
+}
+
 function ProgressRail({ status }: { status: OrderStatus }) {
   if (status === "cancelled") {
-    return <div style={{ fontSize: 12, color: TEXT_FAINT, textAlign: "center", padding: "8px 0 14px" }}>تم إلغاء هذا الطلب</div>;
+    return <div style={{ fontSize: 12, color: C.muted, textAlign: "center", padding: "8px 0 14px" }}>تم إلغاء هذا الطلب</div>;
   }
   const idx = RAIL_ORDER.indexOf(status);
   return (
     <div style={{ display: "flex", alignItems: "flex-start", margin: "4px 0 14px", padding: "0 2px" }}>
       {RAIL_STEPS.map((step, i) => {
-        const done = i < idx;
+        const done    = i < idx;
         const current = i === idx;
-        const active = done || current;
+        const active  = done || current;
         return (
           <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", position: "relative" }}>
             {i > 0 && (
-              <div style={{ position: "absolute", top: 7, right: "50%", width: "100%", height: 2, backgroundColor: done ? SAFFRON : LINE, zIndex: 0 }} />
+              <div style={{ position: "absolute", top: 7, right: "50%", width: "100%", height: 2, backgroundColor: done ? C.amber : C.border, zIndex: 0 }} />
             )}
             <div style={{
               width: 16, height: 16, borderRadius: "50%",
-              backgroundColor: active ? SAFFRON : LINE,
-              border: `2px solid ${BG}`,
+              backgroundColor: active ? C.amber : C.border,
+              border: `2px solid ${C.bg}`,
               zIndex: 1, position: "relative",
-              ...(current ? { boxShadow: `0 0 0 4px ${SAFFRON_DIM}` } : {}),
+              ...(current ? { boxShadow: `0 0 0 4px ${C.amber}33` } : {}),
             }} />
-            <div style={{ fontSize: 10, color: active ? TEXT_DIM : TEXT_FAINT, marginTop: 6, textAlign: "center" }}>{step.label}</div>
+            <div style={{ fontSize: 10, color: active ? C.sub : C.muted, marginTop: 6, textAlign: "center" }}>{step.label}</div>
           </div>
         );
       })}
@@ -189,11 +276,9 @@ function ProgressRail({ status }: { status: OrderStatus }) {
   );
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
 export default function Orders() {
   const queryClient = useQueryClient();
 
-  // ── Core order state ──────────────────────────────────────────────────────
   const [cashierView, setCashierView] = useState<CashierView>("orders");
   const [orders, setOrders]           = useState<Order[]>([]);
   const [loading, setLoading]         = useState(true);
@@ -204,38 +289,32 @@ export default function Orders() {
   const pollRef   = useRef<ReturnType<typeof setInterval> | null>(null);
   const isFirst   = useRef(true);
 
-  // ── UI state (new design) ─────────────────────────────────────────────────
   const [expandedCards, setExpandedCards] = useState<Set<number>>(new Set());
   const [searchTerm, setSearchTerm]       = useState("");
   const [sortNewest, setSortNewest]       = useState(true);
   const [selectMode, setSelectMode]       = useState(false);
   const [selectedIds, setSelectedIds]     = useState<Set<number>>(new Set());
 
-  // ── Drivers ───────────────────────────────────────────────────────────────
   const [drivers, setDrivers]               = useState<Driver[]>([]);
   const [driversEnabled, setDriversEnabled] = useState(false);
   const [assignments, setAssignments]       = useState<Record<number, Assignment>>({});
   const [assigningOrderId, setAssigningOrderId] = useState<number | null>(null);
 
-  // ── Active assignments ────────────────────────────────────────────────────
   const [activeAssignments, setActiveAssignments] = useState<ActiveAssignment[]>([]);
   const [activeLoading, setActiveLoading]         = useState(false);
   const [deliveringOrderId, setDeliveringOrderId] = useState<number | null>(null);
 
-  // ── All deliveries calendar ───────────────────────────────────────────────
   const [drvSelectedDate, setDrvSelectedDate] = useState<Date>(() => { const d = new Date(); d.setHours(0,0,0,0); return d; });
   const [drvWeekOffset, setDrvWeekOffset]     = useState(0);
   const [allDeliveries, setAllDeliveries]     = useState<AllDeliveryRow[]>([]);
   const [allDeliveriesLoading, setAllDeliveriesLoading] = useState(false);
   const [expandedDrivers, setExpandedDrivers] = useState<Set<string>>(new Set());
 
-  // ── Pickup time filter ────────────────────────────────────────────────────
   const [pickupFromHour, setPickupFromHour] = useState("00");
   const [pickupToHour,   setPickupToHour]   = useState("23");
   const [pickupFromMin,  setPickupFromMin]  = useState("00");
   const [pickupToMin,    setPickupToMin]    = useState("59");
 
-  // ── Chat ──────────────────────────────────────────────────────────────────
   const [chatOrder, setChatOrder]     = useState<Order | null>(null);
   const [chatMsgs, setChatMsgs]       = useState<ChatMsg[]>([]);
   const [chatInput, setChatInput]     = useState("");
@@ -245,7 +324,8 @@ export default function Orders() {
   const chatPollRef   = useRef<ReturnType<typeof setInterval> | null>(null);
   const chatBottomRef = useRef<HTMLDivElement>(null);
 
-  // ── Fetch orders ──────────────────────────────────────────────────────────
+  const [clock, setClock] = useState("");
+
   const fetchOrders = useCallback(async (silent = false) => {
     if (!silent) setLoading(true); else setFetching(true);
     try {
@@ -380,7 +460,6 @@ export default function Orders() {
     } catch { setChatInput(text); } finally { setChatSending(false); }
   }, [chatOrder, chatInput]);
 
-  // ── Effects ───────────────────────────────────────────────────────────────
   useEffect(() => {
     fetchOrders();
     fetchDriversData();
@@ -424,11 +503,24 @@ export default function Orders() {
     chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatMsgs]);
 
-  // ── UI helpers ────────────────────────────────────────────────────────────
+  useEffect(() => {
+    const tick = () => setClock(new Date().toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
+    tick();
+    const t = setInterval(tick, 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  useEffect(() => {
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = "https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap";
+    document.head.appendChild(link);
+    return () => { document.head.removeChild(link); };
+  }, []);
+
   const toggleCard   = (id: number) => setExpandedCards(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const toggleSelect = (id: number) => setSelectedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
-  // ── Derived ───────────────────────────────────────────────────────────────
   const totalUnread   = Object.values(unreadByOrder).reduce((s, n) => s + n, 0);
   const pendingCount  = orders.filter(o => o.status === "pending").length;
   const pickupOrders  = orders.filter(o => o.notes?.includes("استلام من الفرع"));
@@ -453,129 +545,146 @@ export default function Orders() {
     );
   })();
 
-  const tabDef = [
-    { key: "orders"  as CashierView, label: "استقبال الطلبات", icon: <ClipboardList size={18}/>, badge: pendingCount },
-    { key: "pickup"  as CashierView, label: "تسليم الفرع",     icon: <Package size={18}/>,       badge: pickupPending },
-    { key: "drivers" as CashierView, label: "المناديب",         icon: <Truck size={18}/>,         badge: activeAssignments.length },
-  ];
-
-  // ─── ORDER CARD ────────────────────────────────────────────────────────────
-  function OrderCard({ order }: { order: Order }) {
-    const isExpanded = expandedCards.has(order.id);
-    const isSelected = selectedIds.has(order.id);
+  function getOrderTypeMeta(order: Order) {
     const isPickup   = !!order.notes?.includes("استلام من الفرع");
     const isDelivery = !isPickup && (!!order.customerAddress || !!order.notes?.includes("توصيل"));
-    const aRow       = assignments[order.id];
-    const hasAssigned = order.status === "ready" && aRow?.status === "assigned";
+    if (isPickup)   return { icon: Store,   label: "استلام من الفرع", color: C.blue };
+    if (isDelivery) return { icon: Truck,   label: "توصيل",           color: C.amber };
+    return            { icon: Package, label: "طلب عادي",        color: C.violet };
+  }
+
+  function OrderCard({ order }: { order: Order }) {
+    const isExpanded  = expandedCards.has(order.id);
+    const isSelected  = selectedIds.has(order.id);
+    const isPickup    = !!order.notes?.includes("استلام من الفرع");
+    const isDelivery  = !isPickup && (!!order.customerAddress || !!order.notes?.includes("توصيل"));
+    const aRow        = assignments[order.id];
+    const hasAssigned    = order.status === "ready" && aRow?.status === "assigned";
     const driverPickedUp = aRow?.status === "picked_up";
-    const isGPS    = order.customerAddress?.startsWith("https://");
-    const time     = new Date(order.createdAt).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" });
-    const unread   = unreadByOrder[order.id] ?? 0;
+    const isGPS      = order.customerAddress?.startsWith("https://");
+    const time       = new Date(order.createdAt).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" });
+    const unread     = unreadByOrder[order.id] ?? 0;
     const nextStatus = STATUS_NEXT[order.status];
     const nextLabel  = STATUS_NEXT_LABEL[order.status];
     const cardColor  = STATUS_CARD_COLOR[order.status];
-    const cardDim    = STATUS_CARD_DIM[order.status];
+    const typeMeta   = getOrderTypeMeta(order);
+    const TypeIcon   = typeMeta.icon;
+    const fee        = (order.deliveryFee ?? 0) / 100;
 
     return (
       <div style={{
-        background: SURFACE, border: `1px solid ${LINE}`, borderRadius: 14, overflow: "hidden",
-        borderInlineStart: `3px solid ${cardColor}`,
+        background: C.card,
+        borderRadius: 16,
+        border: `1px solid ${order.status === "pending" ? cardColor + "55" : C.border}`,
+        boxShadow: order.status === "pending" ? `0 0 0 1px ${cardColor}20` : "none",
+        overflow: "hidden",
         opacity: order.status === "cancelled" ? 0.6 : 1,
+        transition: "transform .15s, box-shadow .15s",
       }}>
-        {/* ── Head ── */}
         <div
           onClick={() => selectMode ? toggleSelect(order.id) : toggleCard(order.id)}
-          style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", cursor: "pointer", gap: 10 }}
+          style={{ padding: "14px 14px 10px", cursor: "pointer" }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-            {selectMode && (
-              <div style={{ width: 18, height: 18, borderRadius: 6, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: isSelected ? SAFFRON : SURFACE2, border: `1.5px solid ${isSelected ? SAFFRON : LINE}` }}>
-                {isSelected && <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#1B1206" strokeWidth="3"><path d="M20 6 9 17l-5-5"/></svg>}
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 10 }}>
+            <button
+              onClick={e => { e.stopPropagation(); toggleCard(order.id); }}
+              style={{ display: "flex", alignItems: "center", gap: 8, background: "none", border: "none", cursor: "pointer", padding: 0 }}
+            >
+              <div style={{ background: typeMeta.color + "20", color: typeMeta.color, width: 36, height: 36, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <TypeIcon size={16} strokeWidth={2.5} />
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <div style={{ fontWeight: 800, fontSize: 14, color: C.text }}>#{order.dailyNumber ?? order.id}</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: typeMeta.color }}>{typeMeta.label}</div>
+              </div>
+            </button>
+            <TimerRing createdAt={order.createdAt} size={44} />
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+            {selectMode ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ width: 18, height: 18, borderRadius: 6, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: isSelected ? C.amber : C.card, border: `1.5px solid ${isSelected ? C.amber : C.border}` }}>
+                  {isSelected && <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#0B0F14" strokeWidth="3"><path d="M20 6 9 17l-5-5"/></svg>}
+                </div>
+                <span style={{ fontWeight: 700, fontSize: 14, color: C.text }}>{order.customerName}</span>
+              </div>
+            ) : (
+              <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 700, color: C.text }}>
+                <User size={13} style={{ color: C.muted }} />
+                {order.customerName}
               </div>
             )}
-            <span style={{ color: TEXT_FAINT, fontWeight: 700, fontSize: 13, flexShrink: 0 }}>#{order.dailyNumber ?? order.id}</span>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 14, fontWeight: 600, color: TEXT, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{order.customerName}</div>
-              <div style={{ fontSize: 11.5, color: TEXT_FAINT, marginTop: 1 }}>{order.customerPhone} · {time}</div>
-            </div>
+            <Badge color={cardColor} soft>{STATUS_DISPLAY[order.status]}</Badge>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
-            <div style={{ fontFamily: "Cairo, sans-serif", fontWeight: 700, fontSize: 15, color: TEXT }}>
-              {fmt2(order.totalPrice / 100)} <span style={{ fontSize: 11, color: TEXT_FAINT, fontWeight: 500 }}>ر.س</span>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: C.sub, marginBottom: 10 }}>
+            <Phone size={12} />
+            <span dir="ltr">{order.customerPhone}</span>
+            <span style={{ marginRight: "auto", fontSize: 11, color: C.muted }}>{time}</span>
+          </div>
+
+          <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 10, display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4, textAlign: "center" }}>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: 13, color: C.text }}>{fmt2(order.totalPrice / 100)} <span style={{ fontSize: 10, fontWeight: 500, color: C.muted }}>ر.س</span></div>
+              <div style={{ fontSize: 10, color: C.muted, marginTop: 2 }}>الإجمالي</div>
             </div>
-            <div style={{ fontSize: 11.5, fontWeight: 700, padding: "5px 10px", borderRadius: 8, background: cardDim, color: cardColor, whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 5 }}>
-              <span style={{ width: 6, height: 6, borderRadius: "50%", backgroundColor: cardColor, display: "inline-block", flexShrink: 0 }} />
-              {STATUS_DISPLAY[order.status]}
+            <div>
+              <div style={{ fontWeight: 800, fontSize: 13, color: C.text }}>{fee > 0 ? `${fmt2(fee)} ر.س` : "—"}</div>
+              <div style={{ fontSize: 10, color: C.muted, marginTop: 2 }}>رسوم التوصيل</div>
             </div>
-            {!selectMode && (
-              <ChevronDown size={16} style={{ color: TEXT_FAINT, transform: isExpanded ? "rotate(180deg)" : "none", transition: "transform .2s", flexShrink: 0 }} />
-            )}
+            <div>
+              <div style={{ fontWeight: 800, fontSize: 13, color: C.text }}>{order.paymentMethod === "cash" ? "نقدي" : "إلكتروني"}</div>
+              <div style={{ fontSize: 10, color: C.muted, marginTop: 2 }}>الدفع</div>
+            </div>
           </div>
         </div>
 
-        {/* Driver chip (collapsed) */}
         {aRow && !isExpanded && (
           <div style={{ padding: "0 14px 10px" }}>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: CLR_DELIVERING_DIM, color: "#A6CDFB", fontSize: 11.5, fontWeight: 600, padding: "5px 10px", borderRadius: 8 }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: CLR_DELIVERING_DIM, color: C.blue, fontSize: 11.5, fontWeight: 600, padding: "5px 10px", borderRadius: 8 }}>
               <User size={12} />
               المندوب: {aRow.driverName}
             </div>
           </div>
         )}
 
-        {/* ── Expanded body ── */}
         {isExpanded && (
-          <div style={{ borderTop: `1px solid ${LINE}` }}>
-            <div style={{ padding: "0 14px 14px" }}>
-              <div style={{ height: 1, background: LINE, margin: "12px 0" }} />
-
+          <div style={{ borderTop: `1px solid ${C.border}` }}>
+            <div style={{ padding: "12px 14px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
               <ProgressRail status={order.status} />
 
-              {/* Items box */}
-              <div style={{ background: SURFACE2, borderRadius: 10, padding: "10px 12px", marginBottom: 12 }}>
+              <div style={{ background: C.surface, borderRadius: 10, padding: "10px 12px" }}>
                 {order.items.map((item, i) => (
                   <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "3px 0" }}>
-                    <span style={{ color: TEXT_FAINT }}>{fmt2(item.price * item.quantity / 100)} ر.س</span>
-                    <span style={{ color: TEXT }}>{item.name} × {item.quantity}</span>
+                    <span style={{ color: C.sub }}>{fmt2(item.price * item.quantity / 100)} ر.س</span>
+                    <span style={{ color: C.text }}>{item.name} × {item.quantity}</span>
                   </div>
                 ))}
                 {order.discountCode && order.discountAmount != null && (
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "3px 0", borderTop: `1px solid ${LINE}`, marginTop: 6 }}>
-                    <span style={{ color: CLR_CANCELLED }}>- {fmt2(order.discountAmount / 100)} ر.س</span>
-                    <span style={{ color: CLR_CANCELLED }}>🏷️ {order.discountCode}</span>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "3px 0", borderTop: `1px solid ${C.border}`, marginTop: 6 }}>
+                    <span style={{ color: C.red }}>- {fmt2(order.discountAmount / 100)} ر.س</span>
+                    <span style={{ color: C.red }}>🏷️ {order.discountCode}</span>
                   </div>
                 )}
               </div>
 
-              {/* Info rows */}
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 13, color: TEXT_DIM, padding: "6px 0" }}>
-                <span style={{ color: TEXT_FAINT }}>طريقة الدفع</span>
-                <span>{order.paymentMethod === "cash" ? "💵 نقدي" : "💳 إلكتروني"}</span>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 13, color: TEXT_DIM, padding: "6px 0" }}>
-                <span style={{ color: TEXT_FAINT }}>رقم الجوال</span>
-                <span dir="ltr">{order.customerPhone}</span>
-              </div>
-              {order.customerAddress && (
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 13, color: TEXT_DIM, padding: "6px 0" }}>
-                  <span style={{ color: TEXT_FAINT }}>العنوان</span>
-                  {isGPS ? (
-                    <a href={order.customerAddress} target="_blank" rel="noreferrer" style={{ color: CLR_READY, textDecoration: "none" }}>📍 موقع على الخريطة</a>
+              {[
+                order.customerAddress && { label: "العنوان", val: isGPS ? null : order.customerAddress, href: isGPS ? order.customerAddress : null },
+                order.notes && { label: "ملاحظة", val: order.notes, href: null },
+              ].filter(Boolean).map((row: any, i) => (
+                <div key={i} style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", fontSize: 13, gap: 8 }}>
+                  <span style={{ color: C.muted, flexShrink: 0 }}>{row.label}</span>
+                  {row.href ? (
+                    <a href={row.href} target="_blank" rel="noreferrer" style={{ color: C.green, textDecoration: "none" }}>📍 موقع على الخريطة</a>
                   ) : (
-                    <span>{order.customerAddress}</span>
+                    <span style={{ color: C.sub, textAlign: "right" }}>{row.val}</span>
                   )}
                 </div>
-              )}
-              {order.notes && (
-                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", fontSize: 13, color: TEXT_DIM, padding: "6px 0", gap: 8 }}>
-                  <span style={{ color: TEXT_FAINT, flexShrink: 0 }}>ملاحظة</span>
-                  <span style={{ textAlign: "right" }}>{order.notes}</span>
-                </div>
-              )}
+              ))}
 
-              {/* Driver chip (expanded) */}
               {aRow && (
-                <div style={{ display: "flex", alignItems: "center", gap: 6, background: CLR_DELIVERING_DIM, color: "#A6CDFB", fontSize: 11.5, fontWeight: 600, padding: "8px 10px", borderRadius: 8, marginTop: 10 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, background: CLR_DELIVERING_DIM, color: C.blue, fontSize: 12, fontWeight: 600, padding: "8px 10px", borderRadius: 8 }}>
                   <User size={12} />
                   المندوب: {aRow.driverName}
                   {driverPickedUp && <span style={{ fontSize: 11, opacity: 0.8 }}>— في الطريق</span>}
@@ -583,9 +692,8 @@ export default function Orders() {
                 </div>
               )}
 
-              {/* ── Status advancement ── */}
-              {(nextStatus || (order.status === "ready")) && (
-                <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+              {(nextStatus || order.status === "ready") && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {nextStatus && nextLabel && (
                     <button
                       onClick={() => handleUpdateStatus(order, nextStatus)}
@@ -597,7 +705,7 @@ export default function Orders() {
                   {order.status === "ready" && isPickup && (
                     <button
                       onClick={() => handleUpdateStatus(order, "done")}
-                      style={{ background: CLR_DELIVERING_DIM, border: `1px solid ${CLR_DELIVERING}55`, borderRadius: 10, padding: "11px", color: "#A6CDFB", fontWeight: 700, fontSize: 13.5, cursor: "pointer", width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontFamily: "inherit" }}
+                      style={{ background: CLR_DELIVERING_DIM, border: `1px solid ${CLR_DELIVERING}55`, borderRadius: 10, padding: "11px", color: C.blue, fontWeight: 700, fontSize: 13.5, cursor: "pointer", width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontFamily: "inherit" }}
                     >
                       🏪 تم تسليم الطلب للعميل
                     </button>
@@ -607,18 +715,18 @@ export default function Orders() {
                       <button
                         onClick={hasAssigned ? () => handleUpdateStatus(order, "done") : undefined}
                         disabled={!hasAssigned}
-                        style={{ background: hasAssigned ? "rgba(61,214,140,.12)" : SURFACE2, border: `1.5px solid ${hasAssigned ? CLR_READY : LINE}`, borderRadius: 10, padding: "11px", color: hasAssigned ? CLR_READY : TEXT_FAINT, fontWeight: 700, fontSize: 13.5, cursor: hasAssigned ? "pointer" : "default", width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontFamily: "inherit" }}
+                        style={{ background: hasAssigned ? CLR_READY_DIM : C.surface, border: `1.5px solid ${hasAssigned ? CLR_READY : C.border}`, borderRadius: 10, padding: "11px", color: hasAssigned ? CLR_READY : C.muted, fontWeight: 700, fontSize: 13.5, cursor: hasAssigned ? "pointer" : "default", width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontFamily: "inherit" }}
                       >
                         <span>🛵</span>
                         <div style={{ textAlign: "center" }}>
                           <div>تسليم الطلب للمندوب</div>
-                          {!hasAssigned && <div style={{ fontSize: 11, color: TEXT_FAINT, fontWeight: 400 }}>عيّن مندوباً أولاً 🔒</div>}
+                          {!hasAssigned && <div style={{ fontSize: 11, color: C.muted, fontWeight: 400 }}>عيّن مندوباً أولاً 🔒</div>}
                         </div>
                       </button>
                       {aRow ? (
-                        <div style={{ background: "rgba(61,214,140,.06)", borderRadius: 10, padding: "10px 12px", border: `1px solid ${CLR_READY}33`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                        <div style={{ background: CLR_READY_DIM, borderRadius: 10, padding: "10px 12px", border: `1px solid ${CLR_READY}33`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                           <button onClick={() => unassignDriver(order.id)} style={{ background: "none", border: "none", cursor: "pointer", padding: 4 }}>
-                            <X size={14} style={{ color: TEXT_DIM }} />
+                            <X size={14} style={{ color: C.sub }} />
                           </button>
                           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                             <div>
@@ -631,27 +739,27 @@ export default function Orders() {
                       ) : (
                         <button
                           onClick={() => setAssigningOrderId(order.id)}
-                          style={{ background: SURFACE2, border: `1px solid ${LINE}`, borderRadius: 10, padding: "11px", color: CLR_READY, fontWeight: 700, fontSize: 13, cursor: "pointer", width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontFamily: "inherit" }}
+                          style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, padding: "11px", color: CLR_READY, fontWeight: 700, fontSize: 13, cursor: "pointer", width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontFamily: "inherit" }}
                         >
                           ➕ تعيين مندوب
                         </button>
                       )}
                       {assigningOrderId === order.id && (
-                        <div style={{ background: "#0A1208", borderRadius: 12, padding: 14, border: `1px solid ${CLR_READY}44`, display: "flex", flexDirection: "column", gap: 8 }}>
+                        <div style={{ background: C.surface, borderRadius: 12, padding: 14, border: `1px solid ${CLR_READY}44`, display: "flex", flexDirection: "column", gap: 8 }}>
                           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                             <button onClick={() => setAssigningOrderId(null)} style={{ background: "none", border: "none", cursor: "pointer", padding: 4 }}>
-                              <X size={16} style={{ color: TEXT_DIM }} />
+                              <X size={16} style={{ color: C.sub }} />
                             </button>
                             <span style={{ color: CLR_READY, fontWeight: 700, fontSize: 13 }}>اختر مندوباً</span>
                           </div>
                           {drivers.length === 0 ? (
-                            <p style={{ color: TEXT_FAINT, fontSize: 12, textAlign: "center" }}>لا يوجد مناديب نشطون</p>
+                            <p style={{ color: C.muted, fontSize: 12, textAlign: "center" }}>لا يوجد مناديب نشطون</p>
                           ) : drivers.map(d => (
-                            <button key={d.id} onClick={() => assignDriver(order.id, d.id)} style={{ background: SURFACE2, borderRadius: 10, padding: "10px 12px", border: `1px solid ${LINE}`, cursor: "pointer", display: "flex", alignItems: "center", gap: 10, width: "100%", fontFamily: "inherit" }}>
-                              <div style={{ width: 36, height: 36, borderRadius: "50%", background: "#1A2A1A", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>🛵</div>
+                            <button key={d.id} onClick={() => assignDriver(order.id, d.id)} style={{ background: C.card, borderRadius: 10, padding: "10px 12px", border: `1px solid ${C.border}`, cursor: "pointer", display: "flex", alignItems: "center", gap: 10, width: "100%", fontFamily: "inherit" }}>
+                              <div style={{ width: 36, height: 36, borderRadius: "50%", background: C.border, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>🛵</div>
                               <div style={{ textAlign: "right" }}>
-                                <div style={{ color: TEXT, fontWeight: 700, fontSize: 13 }}>{d.name}</div>
-                                <div style={{ color: TEXT_FAINT, fontSize: 11 }}>{d.phone}</div>
+                                <div style={{ color: C.text, fontWeight: 700, fontSize: 13 }}>{d.name}</div>
+                                <div style={{ color: C.muted, fontSize: 11 }}>{d.phone}</div>
                               </div>
                             </button>
                           ))}
@@ -662,21 +770,20 @@ export default function Orders() {
                 </div>
               )}
 
-              {/* ── Action buttons: مراسلة / طباعة / إلغاء ── */}
-              <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+              <div style={{ display: "flex", gap: 8 }}>
                 <button
                   onClick={() => openChat(order)}
-                  style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: SAFFRON_DIM, border: "1px solid rgba(242,153,74,.35)", color: "#FFC98F", borderRadius: 10, padding: 10, fontSize: 12.5, fontFamily: "inherit", fontWeight: 500, cursor: "pointer", position: "relative" }}
+                  style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: C.amber + "18", border: `1px solid ${C.amber}35`, color: C.amber, borderRadius: 10, padding: 10, fontSize: 12.5, fontFamily: "inherit", fontWeight: 600, cursor: "pointer", position: "relative" }}
                 >
                   <MessageCircle size={15} />
                   مراسلة
                   {unread > 0 && (
-                    <span style={{ position: "absolute", top: 3, right: 3, backgroundColor: CLR_CANCELLED, borderRadius: "50%", minWidth: 14, height: 14, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, color: "#fff", fontWeight: 800 }}>{unread}</span>
+                    <span style={{ position: "absolute", top: 3, right: 3, backgroundColor: C.red, borderRadius: "50%", minWidth: 14, height: 14, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, color: "#fff", fontWeight: 800 }}>{unread}</span>
                   )}
                 </button>
                 <button
                   onClick={() => printReceipt(order)}
-                  style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: SURFACE2, border: `1px solid ${LINE}`, color: TEXT_DIM, borderRadius: 10, padding: 10, fontSize: 12.5, fontFamily: "inherit", fontWeight: 500, cursor: "pointer" }}
+                  style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: C.surface, border: `1px solid ${C.border}`, color: C.sub, borderRadius: 10, padding: 10, fontSize: 12.5, fontFamily: "inherit", fontWeight: 600, cursor: "pointer" }}
                 >
                   <Printer size={15} />
                   طباعة
@@ -684,7 +791,7 @@ export default function Orders() {
                 {!["done","cancelled"].includes(order.status) && !driverPickedUp && (
                   <button
                     onClick={() => handleCancelOrder(order)}
-                    style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: SURFACE2, border: `1px solid ${LINE}`, color: "#F7A9A9", borderRadius: 10, padding: 10, fontSize: 12.5, fontFamily: "inherit", fontWeight: 500, cursor: "pointer" }}
+                    style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: C.surface, border: `1px solid ${C.border}`, color: "#F7A9A9", borderRadius: 10, padding: 10, fontSize: 12.5, fontFamily: "inherit", fontWeight: 600, cursor: "pointer" }}
                   >
                     <X size={15} />
                     إلغاء
@@ -698,186 +805,78 @@ export default function Orders() {
     );
   }
 
-  // ─── PICKUP VIEW ──────────────────────────────────────────────────────────
   function PickupView() {
-    const fromMins   = parseInt(pickupFromHour) * 60 + parseInt(pickupFromMin);
-    const toMins     = parseInt(pickupToHour)   * 60 + parseInt(pickupToMin);
+    const kanbanStages: { status: OrderStatus; label: string; icon: React.ElementType; color: string; next: OrderStatus | null; nextLabel: string }[] = [
+      { status: "pending",   label: "بانتظار التجهيز", icon: Clock,        color: C.violet, next: "preparing", nextLabel: "بدء التجهيز" },
+      { status: "preparing", label: "قيد التجهيز",     icon: Package,      color: C.amber,  next: "ready",     nextLabel: "جاهز الآن" },
+      { status: "ready",     label: "جاهز للاستلام",  icon: PackageCheck, color: C.green,  next: "done",      nextLabel: "تم التسليم" },
+      { status: "done",      label: "تم الاستلام",    icon: UserCheck,    color: C.blue,   next: null,        nextLabel: "" },
+    ];
     const todayStart = new Date(); todayStart.setHours(0,0,0,0);
     const todayPickup   = pickupOrders.filter(o => new Date(o.createdAt) >= todayStart);
     const todayDone     = todayPickup.filter(o => o.status === "done");
     const todayTotal    = todayDone.reduce((s, o) => s + o.totalPrice / 100, 0);
-    const todayPending  = todayPickup.filter(o => !["done","cancelled"].includes(o.status)).length;
-    const filtered      = pickupOrders.filter(o => { const d = new Date(o.createdAt); const m = d.getHours() * 60 + d.getMinutes(); return m >= fromMins && m <= toMins; });
-    const activeFiltered = filtered.filter(o => !["done","cancelled"].includes(o.status));
-    const doneFiltered   = filtered.filter(o => o.status === "done");
-    const filteredTotal  = doneFiltered.reduce((s, o) => s + o.totalPrice / 100, 0);
 
     return (
-      <div dir="rtl" style={{ padding: 14, display: "flex", flexDirection: "column", gap: 12 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div>
-            <div style={{ color: TEXT, fontWeight: 800, fontSize: 18 }}>🏪 تسليم من الفرع</div>
-            <div style={{ color: TEXT_FAINT, fontSize: 12, marginTop: 2 }}>
-              {new Date().toLocaleDateString("ar-SA", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+      <div dir="rtl" style={{ padding: "14px 14px 100px" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 16 }}>
+          {[
+            { value: fmt2(todayTotal), label: "ر.س إجمالي اليوم", color: C.green },
+            { value: String(todayDone.length), label: "طلب مكتمل", color: C.blue },
+            { value: String(pickupPending), label: "بانتظار التسليم", color: C.amber },
+          ].map((s, i) => (
+            <div key={i} style={{ background: s.color + "18", borderRadius: 14, padding: 12, border: `1px solid ${s.color}33`, textAlign: "center" }}>
+              <div style={{ color: s.color, fontWeight: 800, fontSize: 20 }}>{s.value}</div>
+              <div style={{ color: s.color, fontWeight: 600, fontSize: 11, marginTop: 2 }}>{s.label}</div>
             </div>
-          </div>
-          <div style={{ backgroundColor: CLR_DELIVERING_DIM, borderRadius: 14, padding: "8px 16px", border: `1px solid ${CLR_DELIVERING}44`, textAlign: "center" }}>
-            <div style={{ color: "#A6CDFB", fontWeight: 800, fontSize: 22 }}>{todayPending}</div>
-            <div style={{ color: "#A6CDFB", fontSize: 10, fontWeight: 600 }}>بانتظار</div>
-          </div>
+          ))}
         </div>
 
-        <div style={{ backgroundColor: SURFACE, borderRadius: 16, border: `1px solid ${SAFFRON}44`, overflow: "hidden" }}>
-          <div style={{ backgroundColor: SAFFRON + "11", padding: "10px 14px", display: "flex", alignItems: "center", gap: 6 }}>
-            <BarChart2 size={15} style={{ color: SAFFRON }} />
-            <span style={{ color: SAFFRON, fontWeight: 700, fontSize: 14 }}>إجمالي المبيعات اليوم</span>
-          </div>
-          <div style={{ display: "flex", padding: 14, gap: 10 }}>
-            {[
-              { value: todayTotal.toFixed(2), label: "ر.س إجمالي", color: CLR_READY },
-              { value: String(todayDone.length), label: "طلب مكتمل", color: "#A6CDFB" },
-              { value: String(todayPending), label: "بانتظار", color: SAFFRON },
-            ].map((s, i) => (
-              <div key={i} style={{ flex: 1, backgroundColor: s.color + "11", borderRadius: 14, padding: 14, border: `1px solid ${s.color}33`, textAlign: "center" }}>
-                <div style={{ color: s.color, fontWeight: 800, fontSize: 22 }}>{s.value}</div>
-                <div style={{ color: s.color, fontWeight: 600, fontSize: 12 }}>{s.label}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div style={{ backgroundColor: SURFACE, borderRadius: 16, padding: 14, border: `1px solid ${CLR_DELIVERING}33`, display: "flex", flexDirection: "column", gap: 12 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <Clock size={15} style={{ color: "#A6CDFB" }} />
-            <span style={{ color: "#A6CDFB", fontWeight: 700, fontSize: 14 }}>تصفية بالوقت</span>
-          </div>
-          {(["من","إلى"] as const).map((lbl, idx) => {
-            const [h, setH] = idx === 0 ? [pickupFromHour, setPickupFromHour] : [pickupToHour, setPickupToHour];
-            const [m, setM] = idx === 0 ? [pickupFromMin, setPickupFromMin] : [pickupToMin, setPickupToMin];
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
+          {kanbanStages.map(stage => {
+            const StageIcon = stage.icon;
+            const items = pickupOrders.filter(o => o.status === stage.status);
             return (
-              <div key={lbl} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                <span style={{ color: TEXT_DIM, fontWeight: 600, fontSize: 12, textAlign: "right" }}>{lbl} الساعة</span>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, direction: "rtl" }}>
-                  <input value={h} onChange={e => setH(e.target.value.replace(/\D/g,"").slice(0,2))} maxLength={2} placeholder={idx === 0 ? "00" : "23"} style={{ flex: 1, backgroundColor: SURFACE2, borderRadius: 12, border: `1px solid ${CLR_DELIVERING}44`, color: "#A6CDFB", fontWeight: 800, fontSize: 22, textAlign: "center", padding: "10px 0", outline: "none" }} />
-                  <span style={{ color: TEXT_DIM, fontWeight: 800, fontSize: 20 }}>:</span>
-                  <input value={m} onChange={e => setM(e.target.value.replace(/\D/g,"").slice(0,2))} maxLength={2} placeholder={idx === 0 ? "00" : "59"} style={{ flex: 1, backgroundColor: SURFACE2, borderRadius: 12, border: `1px solid ${CLR_DELIVERING}44`, color: "#A6CDFB", fontWeight: 800, fontSize: 22, textAlign: "center", padding: "10px 0", outline: "none" }} />
+              <div key={stage.status} style={{ background: C.surface, borderRadius: 14, border: `1px solid ${C.border}`, padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                  <StageIcon size={14} style={{ color: stage.color }} />
+                  <span style={{ fontSize: 12, fontWeight: 800, color: C.text }}>{stage.label}</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: C.muted, marginRight: "auto" }}>{items.length}</span>
                 </div>
-                {idx === 0 && <div style={{ textAlign: "center" }}><ArrowDown size={18} style={{ color: TEXT_DIM }} /></div>}
+                {items.map(o => (
+                  <div key={o.id} style={{ background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, padding: "10px 12px" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                      <span style={{ fontWeight: 800, fontSize: 12, color: C.text }}>#{o.dailyNumber ?? o.id}</span>
+                      {stage.status !== "done" && <TimerRing createdAt={o.createdAt} size={34} />}
+                    </div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: C.text, marginBottom: 2 }}>{o.customerName}</div>
+                    <div dir="ltr" style={{ fontSize: 11, color: C.sub, marginBottom: 2, textAlign: "right" }}>{o.customerPhone}</div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: stage.color, marginBottom: 8 }}>{fmt2(o.totalPrice / 100)} ر.س</div>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <IconBtn icon={Printer} label="" tone="default" small onClick={() => printReceipt(o)} />
+                      {stage.next && (
+                        <IconBtn
+                          icon={Check}
+                          label={stage.nextLabel}
+                          tone="good"
+                          small
+                          onClick={() => handleUpdateStatus(o, stage.next!)}
+                        />
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {items.length === 0 && (
+                  <div style={{ fontSize: 11, color: C.muted, textAlign: "center", padding: "16px 0" }}>لا شيء هنا</div>
+                )}
               </div>
             );
           })}
-          {(doneFiltered.length > 0 || activeFiltered.length > 0) && (
-            <div style={{ backgroundColor: CLR_DELIVERING_DIM, borderRadius: 12, padding: 10, display: "flex", justifyContent: "space-around", border: `1px solid ${CLR_DELIVERING}22` }}>
-              {[{ value: filteredTotal.toFixed(2), label: "ر.س في النطاق", color: "#A6CDFB" }, { value: String(doneFiltered.length), label: "مكتمل", color: CLR_READY }, { value: String(activeFiltered.length), label: "بانتظار", color: SAFFRON }].map((s, i) => (
-                <div key={i} style={{ textAlign: "center" }}>
-                  <div style={{ color: s.color, fontWeight: 800, fontSize: 16 }}>{s.value}</div>
-                  <div style={{ color: TEXT_FAINT, fontSize: 10, fontWeight: 600 }}>{s.label}</div>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
-
-        {activeFiltered.length === 0 ? (
-          <div style={{ backgroundColor: SURFACE, borderRadius: 16, padding: 28, textAlign: "center", border: `1px solid ${LINE}` }}>
-            <div style={{ fontSize: 40, marginBottom: 8 }}>🏪</div>
-            <div style={{ color: TEXT_DIM, fontWeight: 600, fontSize: 14 }}>لا يوجد طلبات استلام في هذا النطاق</div>
-          </div>
-        ) : (
-          <div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-              <div style={{ width: 10, height: 10, borderRadius: "50%", backgroundColor: "#A6CDFB" }} />
-              <span style={{ color: TEXT, fontWeight: 700, fontSize: 14 }}>بانتظار الاستلام ({activeFiltered.length})</span>
-            </div>
-            {activeFiltered.map(order => {
-              const d = new Date(order.createdAt);
-              const timeStr = d.toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit", hour12: true });
-              const dateStr = d.toLocaleDateString("ar-SA", { day: "numeric", month: "long", year: "numeric" });
-              return (
-                <div key={order.id} style={{ backgroundColor: SURFACE, borderRadius: 16, border: `1px solid ${CLR_DELIVERING}44`, overflow: "hidden", marginBottom: 8 }}>
-                  <div style={{ backgroundColor: CLR_DELIVERING_DIM, padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <span style={{ backgroundColor: CLR_DELIVERING_DIM, padding: "3px 8px", borderRadius: 8, color: "#A6CDFB", fontWeight: 800, fontSize: 14 }}>#{order.dailyNumber ?? order.id}</span>
-                      <span style={{ color: TEXT, fontWeight: 700, fontSize: 15 }}>{order.customerName}</span>
-                    </div>
-                    <div style={{ textAlign: "left" }}>
-                      <div style={{ color: "#A6CDFB", fontWeight: 800, fontSize: 16 }}>{sar(order.totalPrice)}</div>
-                      <span style={{ backgroundColor: STATUS_COLOR[order.status] + "22", padding: "2px 7px", borderRadius: 8, color: STATUS_COLOR[order.status], fontSize: 11, fontWeight: 700 }}>{STATUS_LABEL[order.status]}</span>
-                    </div>
-                  </div>
-                  <div style={{ padding: "8px 14px", display: "flex", flexDirection: "column", gap: 3 }}>
-                    {order.items.map((item, i) => (
-                      <div key={i} style={{ display: "flex", justifyContent: "space-between" }}>
-                        <span style={{ color: TEXT_DIM, fontSize: 12 }}>{sarRaw(item.price * item.quantity)}</span>
-                        <span style={{ color: TEXT, fontWeight: 600, fontSize: 13 }}>× {item.quantity}  {item.name}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <div style={{ padding: "0 14px 8px", display: "flex", justifyContent: "space-between" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                      <Calendar size={13} style={{ color: TEXT_DIM }} />
-                      <span style={{ color: TEXT_DIM, fontSize: 12 }}>{dateStr}</span>
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                      <Clock size={13} style={{ color: TEXT_DIM }} />
-                      <span style={{ color: TEXT_DIM, fontSize: 12 }}>{timeStr}</span>
-                    </div>
-                  </div>
-                  {order.customerPhone && (
-                    <a href={`tel:${order.customerPhone}`} style={{ display: "flex", alignItems: "center", gap: 6, padding: "0 14px 10px", textDecoration: "none" }}>
-                      <Phone size={13} style={{ color: "#A6CDFB" }} />
-                      <span style={{ color: "#A6CDFB", fontWeight: 600, fontSize: 13 }}>{order.customerPhone}</span>
-                    </a>
-                  )}
-                  <div style={{ display: "flex", borderTop: `1px solid ${CLR_DELIVERING}22` }}>
-                    <button onClick={() => printReceipt(order)} style={{ flex: 1, backgroundColor: SURFACE2, border: "none", borderRight: `1px solid ${CLR_DELIVERING}22`, padding: "13px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, color: SAFFRON, fontWeight: 700, fontSize: 13 }}>
-                      <Printer size={15} style={{ color: SAFFRON }} /> طباعة
-                    </button>
-                    <button onClick={() => handleUpdateStatus(order, "done")} style={{ flex: 1, backgroundColor: CLR_READY_DIM, border: "none", padding: "13px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, color: CLR_READY, fontWeight: 800, fontSize: 13 }}>
-                      <CheckCircle size={15} style={{ color: CLR_READY }} /> ✅ تم التسليم
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {doneFiltered.length > 0 && (
-          <div>
-            <div style={{ height: 1, backgroundColor: LINE, margin: "4px 0 8px" }} />
-            <div style={{ color: TEXT_DIM, fontWeight: 600, fontSize: 13, marginBottom: 8 }}>✅ تم استلامها ({doneFiltered.length})</div>
-            {doneFiltered.map(order => {
-              const d = new Date(order.createdAt);
-              const timeStr = d.toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit", hour12: true });
-              return (
-                <div key={order.id} style={{ backgroundColor: SURFACE, borderRadius: 14, border: `1px solid ${CLR_READY}33`, overflow: "hidden", opacity: 0.85, marginBottom: 6 }}>
-                  <div style={{ padding: 12 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between" }}>
-                      <span style={{ color: CLR_READY, fontWeight: 700, fontSize: 14 }}>{sar(order.totalPrice)}</span>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <span style={{ color: TEXT, fontWeight: 600, fontSize: 13 }}>{order.customerName}</span>
-                        <span style={{ color: CLR_READY, fontWeight: 800, fontSize: 13 }}>#{order.dailyNumber ?? order.id}</span>
-                      </div>
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 4 }}>
-                      <Clock size={12} style={{ color: TEXT_DIM }} />
-                      <span style={{ color: TEXT_DIM, fontSize: 11 }}>{timeStr}</span>
-                    </div>
-                  </div>
-                  <button onClick={() => printReceipt(order)} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: SURFACE2, border: "none", borderTop: `1px solid ${CLR_READY}22`, padding: "9px", cursor: "pointer", width: "100%", color: SAFFRON, fontWeight: 700, fontSize: 12 }}>
-                    <Printer size={13} style={{ color: SAFFRON }} /> إعادة طباعة الفاتورة
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        )}
       </div>
     );
   }
 
-  // ─── DRIVERS VIEW ─────────────────────────────────────────────────────────
   function DriversView() {
     const DAY_ABBR = ["ح","ن","ث","ر","خ","ج","س"];
     const today0 = new Date(); today0.setHours(0,0,0,0);
@@ -894,10 +893,7 @@ export default function Orders() {
     const cashCollected  = allDeliveries.filter(r => r.paymentMethod === "cash").reduce((s, r) => s + r.totalPrice, 0);
     const fmtTime = (iso: string | null) => iso ? new Date(iso).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" }) : "--:--";
 
-    const assignedOrders = orders.filter(o => {
-      const a = assignments[o.id];
-      return a && a.status === "assigned";
-    });
+    const assignedOrders = orders.filter(o => { const a = assignments[o.id]; return a && a.status === "assigned"; });
     const pendingByDriver = new Map<string, { driverName: string; rows: Order[] }>();
     for (const o of assignedOrders) {
       const a = assignments[o.id];
@@ -914,179 +910,147 @@ export default function Orders() {
     }
 
     return (
-      <div dir="rtl">
-        <div style={{ backgroundColor: SURFACE, borderBottom: `1px solid ${LINE}` }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 10px 6px" }}>
+      <div dir="rtl" style={{ paddingBottom: 100 }}>
+        <div style={{ background: C.surface, borderBottom: `1px solid ${C.border}` }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px 6px" }}>
             <button onClick={() => setDrvWeekOffset(p => p + 1)} disabled={drvWeekOffset >= 0} style={{ background: "none", border: "none", cursor: drvWeekOffset >= 0 ? "default" : "pointer", opacity: drvWeekOffset >= 0 ? 0.25 : 1, padding: 6 }}>
-              <ChevronRight size={18} style={{ color: TEXT_DIM }} />
+              <ChevronRight size={18} style={{ color: C.sub }} />
             </button>
-            <span style={{ color: TEXT, fontWeight: 800, fontSize: 14 }}>{monthLabel}</span>
+            <span style={{ color: C.text, fontWeight: 800, fontSize: 14 }}>{monthLabel}</span>
             <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              <button onClick={() => { setDrvWeekOffset(0); const d = new Date(); d.setHours(0,0,0,0); setDrvSelectedDate(d); loadAllDeliveries(d); setExpandedDrivers(new Set()); }} style={{ backgroundColor: CLR_READY_DIM, borderRadius: 8, padding: "4px 10px", border: `1px solid ${CLR_READY}44`, cursor: "pointer", color: CLR_READY, fontWeight: 700, fontSize: 11 }}>اليوم</button>
+              <button onClick={() => { setDrvWeekOffset(0); const d = new Date(); d.setHours(0,0,0,0); setDrvSelectedDate(d); loadAllDeliveries(d); setExpandedDrivers(new Set()); }} style={{ background: CLR_READY_DIM, borderRadius: 8, padding: "4px 10px", border: `1px solid ${CLR_READY}44`, cursor: "pointer", color: CLR_READY, fontWeight: 700, fontSize: 11 }}>اليوم</button>
               <button onClick={() => setDrvWeekOffset(p => p - 1)} style={{ background: "none", border: "none", cursor: "pointer", padding: 6 }}>
-                <ChevronLeft size={18} style={{ color: TEXT_DIM }} />
+                <ChevronLeft size={18} style={{ color: C.sub }} />
               </button>
             </div>
           </div>
+
           <div style={{ display: "flex", flexDirection: "row-reverse", padding: "0 8px" }}>
             {weekDays.map((_, i) => (
               <div key={i} style={{ flex: 1, textAlign: "center" }}>
-                <span style={{ color: TEXT_DIM, fontWeight: 600, fontSize: 10 }}>{DAY_ABBR[i]}</span>
+                <span style={{ color: C.muted, fontWeight: 600, fontSize: 10 }}>{DAY_ABBR[i]}</span>
               </div>
             ))}
           </div>
-          <div style={{ display: "flex", flexDirection: "row-reverse", padding: "2px 6px 8px" }}>
+          <div style={{ display: "flex", flexDirection: "row-reverse", padding: "4px 8px 8px" }}>
             {weekDays.map((d, i) => {
-              const sel = isSelected(d), tod = isToday(d), fut = isFuture(d);
+              const sel = isSelected(d);
+              const tod = isToday(d);
+              const fut = isFuture(d);
               return (
-                <button key={i} disabled={fut} onClick={() => { setDrvSelectedDate(d); loadAllDeliveries(d); setExpandedDrivers(new Set()); }} style={{ flex: 1, display: "flex", justifyContent: "center", padding: "3px 0", background: "none", border: "none", cursor: fut ? "default" : "pointer" }}>
-                  <div style={{ width: 30, height: 30, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: sel ? CLR_READY : tod ? CLR_READY_DIM : "transparent", border: tod && !sel ? `1px solid ${CLR_READY}66` : "none" }}>
-                    <span style={{ color: sel ? "#fff" : fut ? LINE : tod ? CLR_READY : TEXT, fontWeight: sel ? 800 : 600, fontSize: 13 }}>{d.getDate()}</span>
-                  </div>
-                </button>
+                <div key={i} style={{ flex: 1, display: "flex", justifyContent: "center" }}>
+                  <button
+                    onClick={() => { if (fut) return; setDrvSelectedDate(d); loadAllDeliveries(d); setExpandedDrivers(new Set()); }}
+                    style={{ width: 32, height: 32, borderRadius: "50%", border: "none", cursor: fut ? "default" : "pointer", opacity: fut ? 0.35 : 1, background: sel ? C.amber : tod ? C.amber + "22" : "transparent", color: sel ? "#0B0F14" : tod ? C.amber : C.text, fontWeight: sel || tod ? 800 : 500, fontSize: 13 }}
+                  >
+                    {d.getDate()}
+                  </button>
+                </div>
               );
             })}
           </div>
         </div>
 
-        <div style={{ display: "flex", flexDirection: "row-reverse", backgroundColor: BG, borderBottom: `1px solid ${LINE}`, padding: "14px 0" }}>
-          {[
-            { icon: "🛒", label: "تم جمعها",       value: `${totalCollected.toFixed(2)} ر.س`, color: CLR_READY },
-            { icon: "📦", label: "عمليات التوصيل", value: String(allDeliveries.length),       color: SAFFRON },
-            { icon: "💵", label: "نقدي",             value: `${cashCollected.toFixed(2)} ر.س`,  color: "#81C784" },
-            { icon: "🚗", label: "في الطريق",        value: String(activeAssignments.length),  color: "#A6CDFB" },
-          ].map((s, i) => (
-            <div key={i} style={{ flex: 1, textAlign: "center", borderRight: i < 3 ? `1px solid ${LINE}` : "none" }}>
-              <div style={{ fontSize: 20 }}>{s.icon}</div>
-              <div style={{ color: s.color, fontWeight: 800, fontSize: 14 }}>{s.value}</div>
-              <div style={{ color: TEXT_FAINT, fontSize: 10 }}>{s.label}</div>
-            </div>
-          ))}
-        </div>
-
         <div style={{ padding: 14, display: "flex", flexDirection: "column", gap: 12 }}>
-          {/* Assigned orders (pending pickup) */}
-          {pendingByDriver.size > 0 && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <div style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: SAFFRON }} />
-                <span style={{ color: SAFFRON, fontWeight: 700, fontSize: 13 }}>⏳ طلبات معيّنة على مناديب ({assignedOrders.length})</span>
-                <div style={{ flex: 1 }} />
-                <button onClick={fetchAssignments} style={{ background: "none", border: "none", cursor: "pointer", padding: 4 }}>
-                  <RefreshCw size={12} style={{ color: SAFFRON }} />
-                </button>
-              </div>
-              {Array.from(pendingByDriver.values()).map(({ driverName, rows }) => (
-                <div key={driverName} style={{ backgroundColor: "#120D00", borderRadius: 14, border: `1px solid ${SAFFRON}44`, overflow: "hidden" }}>
-                  <div style={{ backgroundColor: SAFFRON + "11", padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                    <span style={{ backgroundColor: SAFFRON + "22", borderRadius: 20, padding: "3px 12px", color: SAFFRON, fontSize: 11, fontWeight: 700 }}>{rows.length} طلب</span>
-                    <span style={{ color: SAFFRON, fontWeight: 800, fontSize: 15 }}>🛵 {driverName}</span>
-                  </div>
-                  {rows.map((o, i) => {
-                    const time = new Date(o.createdAt).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" });
-                    const isPickup = !!o.notes?.includes("استلام من الفرع");
-                    return (
-                      <div key={o.id} style={{ padding: "10px 14px", borderTop: i > 0 ? `1px solid ${LINE}` : undefined, display: "flex", flexDirection: "column", gap: 6 }}>
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                            <span style={{ color: TEXT_DIM, fontSize: 12 }}>{time}</span>
-                            <span style={{ color: STATUS_CARD_COLOR[o.status], fontSize: 11, fontWeight: 700, backgroundColor: STATUS_CARD_DIM[o.status], padding: "2px 7px", borderRadius: 6 }}>{STATUS_DISPLAY[o.status]}</span>
-                          </div>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                            <span style={{ color: SAFFRON, fontWeight: 800, fontSize: 14 }}>{sar(o.totalPrice)}</span>
-                            <span style={{ color: TEXT, fontWeight: 600, fontSize: 13 }}>{o.customerName}</span>
-                            <span style={{ backgroundColor: SAFFRON + "22", padding: "2px 7px", borderRadius: 7, color: SAFFRON, fontWeight: 800, fontSize: 12 }}>#{o.dailyNumber ?? o.id}</span>
-                          </div>
-                        </div>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                          {o.items.map((item, ii) => (
-                            <div key={ii} style={{ display: "flex", justifyContent: "space-between" }}>
-                              <span style={{ color: TEXT_DIM, fontSize: 11 }}>{sarRaw(item.price * item.quantity)}</span>
-                              <span style={{ color: TEXT, fontSize: 12 }}>{item.name} × {item.quantity}</span>
-                            </div>
-                          ))}
-                        </div>
-                        {o.customerAddress && (
-                          <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 4 }}>
-                            <span style={{ color: TEXT_DIM, fontSize: 11 }}>
-                              {o.customerAddress.startsWith("https://") ? "📍 موقع GPS" : o.customerAddress}
-                            </span>
-                            <MapPin size={11} style={{ color: TEXT_DIM }} />
-                          </div>
-                        )}
-                        {!isPickup && (
-                          <button
-                            onClick={() => handleUpdateStatus(o, "done")}
-                            style={{ backgroundColor: CLR_READY_DIM, border: `1px solid ${CLR_READY}66`, borderRadius: 10, padding: "9px", color: CLR_READY, fontWeight: 700, fontSize: 13, cursor: "pointer", width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontFamily: "inherit" }}
-                          >
-                            <span>🛵</span> تسليم الطلب للمندوب
-                          </button>
-                        )}
-                      </div>
-                    );
-                  })}
+          {allDeliveries.length > 0 && (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              {[
+                { value: fmt2(totalCollected / 100) + " ر.س", label: "إجمالي التحصيل", color: C.green },
+                { value: fmt2(cashCollected / 100) + " ر.س", label: "نقدي", color: C.amber },
+              ].map((s, i) => (
+                <div key={i} style={{ background: s.color + "18", borderRadius: 12, padding: 12, border: `1px solid ${s.color}33`, textAlign: "center" }}>
+                  <div style={{ color: s.color, fontWeight: 800, fontSize: 18 }}>{s.value}</div>
+                  <div style={{ color: s.color, fontSize: 11, fontWeight: 600, marginTop: 2 }}>{s.label}</div>
                 </div>
               ))}
             </div>
           )}
 
-          {/* Active in-transit */}
+          {pendingByDriver.size > 0 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <div style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: C.amber }} />
+                <span style={{ color: C.amber, fontWeight: 700, fontSize: 13 }}>⏳ بانتظار استلام المندوب ({pendingByDriver.size})</span>
+              </div>
+              {Array.from(pendingByDriver.entries()).map(([name, grp]) => (
+                <div key={name} style={{ background: C.surface, borderRadius: 14, border: `1px solid ${C.amber}44`, overflow: "hidden" }}>
+                  <div style={{ background: C.amber + "18", padding: "10px 14px", display: "flex", alignItems: "center", gap: 8 }}>
+                    <div style={{ width: 32, height: 32, borderRadius: "50%", background: C.border, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: C.text }}>{name[0]}</div>
+                    <span style={{ color: C.text, fontWeight: 700, fontSize: 14 }}>🛵 {name}</span>
+                    <span style={{ marginRight: "auto", color: C.amber, fontWeight: 700, fontSize: 12 }}>{grp.rows.length} طلب</span>
+                  </div>
+                  <div style={{ padding: "8px 14px", display: "flex", flexDirection: "column", gap: 6 }}>
+                    {grp.rows.map(o => (
+                      <div key={o.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <span style={{ background: C.amber + "22", padding: "2px 7px", borderRadius: 7, color: C.amber, fontWeight: 800, fontSize: 12 }}>#{o.dailyNumber ?? o.id}</span>
+                          <span style={{ color: C.text, fontWeight: 600, fontSize: 13 }}>{o.customerName}</span>
+                        </div>
+                        <span style={{ color: C.green, fontWeight: 800, fontSize: 13 }}>{sar(o.totalPrice)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
           {activeAssignments.length > 0 && (
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <div style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: CLR_READY }} />
-                <span style={{ color: CLR_READY, fontWeight: 700, fontSize: 13 }}>🚗 بانتظار التسليم ({activeAssignments.length})</span>
+                <div style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: C.green }} />
+                <span style={{ color: C.green, fontWeight: 700, fontSize: 13 }}>🚗 بانتظار التسليم ({activeAssignments.length})</span>
                 <div style={{ flex: 1 }} />
                 <button onClick={loadActiveAssignments} style={{ background: "none", border: "none", cursor: "pointer", padding: 4 }}>
-                  <RefreshCw size={12} style={{ color: CLR_READY }} />
+                  <RefreshCw size={12} style={{ color: C.green }} />
                 </button>
               </div>
               {activeAssignments.map(a => {
                 const gpsLost = !a.locationUpdatedAt || (Date.now() - new Date(a.locationUpdatedAt).getTime() > 30000);
                 return (
-                  <div key={a.orderId} style={{ backgroundColor: "#0A120A", borderRadius: 14, border: `1px solid ${gpsLost ? SAFFRON + "44" : CLR_READY + "44"}`, overflow: "hidden" }}>
+                  <div key={a.orderId} style={{ background: C.surface, borderRadius: 14, border: `1px solid ${gpsLost ? C.amber + "44" : C.green + "44"}`, overflow: "hidden" }}>
                     {gpsLost && (
-                      <div style={{ display: "flex", alignItems: "center", gap: 5, backgroundColor: SAFFRON + "18", padding: "6px 12px", borderBottom: `1px solid ${SAFFRON}33` }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 5, background: C.amber + "18", padding: "6px 12px", borderBottom: `1px solid ${C.amber}33` }}>
                         <span style={{ fontSize: 13 }}>⚠️</span>
-                        <span style={{ color: SAFFRON, fontWeight: 700, fontSize: 12 }}>انقطع إشارة GPS للمندوب</span>
+                        <span style={{ color: C.amber, fontWeight: 700, fontSize: 12 }}>انقطع إشارة GPS للمندوب</span>
                       </div>
                     )}
                     <div style={{ display: "flex", flexDirection: "row-reverse", alignItems: "center", padding: 12, gap: 10 }}>
                       <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 3 }}>
                         <div style={{ display: "flex", flexDirection: "row-reverse", alignItems: "center", gap: 6 }}>
-                          <span style={{ backgroundColor: SAFFRON + "22", padding: "2px 7px", borderRadius: 7, color: SAFFRON, fontWeight: 800, fontSize: 12 }}>#{a.dailyNumber ?? a.orderId}</span>
-                          <span style={{ color: TEXT, fontWeight: 600, fontSize: 13 }}>{a.customerName}</span>
+                          <span style={{ background: C.amber + "22", padding: "2px 7px", borderRadius: 7, color: C.amber, fontWeight: 800, fontSize: 12 }}>#{a.dailyNumber ?? a.orderId}</span>
+                          <span style={{ color: C.text, fontWeight: 600, fontSize: 13 }}>{a.customerName}</span>
                         </div>
                         <div style={{ display: "flex", alignItems: "center", gap: 6, flexDirection: "row-reverse" }}>
-                          <span style={{ color: CLR_READY, fontWeight: 700, fontSize: 14 }}>{sar(a.totalPrice)}</span>
-                          <span style={{ color: a.paymentMethod === "cash" ? "#81C784" : "#A6CDFB", fontSize: 12, fontWeight: 600 }}>{a.paymentMethod === "cash" ? "💵 نقدي" : "💳 إلكتروني"}</span>
+                          <span style={{ color: C.green, fontWeight: 700, fontSize: 14 }}>{sar(a.totalPrice)}</span>
+                          <span style={{ color: a.paymentMethod === "cash" ? C.green : C.blue, fontSize: 12, fontWeight: 600 }}>{a.paymentMethod === "cash" ? "💵 نقدي" : "💳 إلكتروني"}</span>
                         </div>
                         {a.customerAddress && (
                           <div style={{ display: "flex", alignItems: "center", gap: 5, flexDirection: "row-reverse" }}>
-                            <MapPin size={12} style={{ color: TEXT_DIM }} />
+                            <MapPin size={12} style={{ color: C.muted }} />
                             {a.customerAddress.startsWith("https://") ? (
-                              <a href={a.customerAddress} target="_blank" rel="noreferrer" style={{ color: CLR_READY, fontSize: 12, textDecoration: "none" }}>📍 موقع على الخريطة</a>
+                              <a href={a.customerAddress} target="_blank" rel="noreferrer" style={{ color: C.green, fontSize: 12, textDecoration: "none" }}>📍 موقع على الخريطة</a>
                             ) : (
-                              <span style={{ color: TEXT_DIM, fontSize: 12 }}>{a.customerAddress}</span>
+                              <span style={{ color: C.sub, fontSize: 12 }}>{a.customerAddress}</span>
                             )}
                           </div>
                         )}
                       </div>
                       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-                        <div style={{ width: 44, height: 44, borderRadius: "50%", backgroundColor: CLR_READY_DIM, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>🛵</div>
-                        <span style={{ color: CLR_READY, fontWeight: 700, fontSize: 12, textAlign: "center" }}>{a.driverName}</span>
+                        <div style={{ width: 44, height: 44, borderRadius: "50%", background: CLR_READY_DIM, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>🛵</div>
+                        <span style={{ color: C.green, fontWeight: 700, fontSize: 12, textAlign: "center" }}>{a.driverName}</span>
                       </div>
                     </div>
-                    <div style={{ display: "flex", borderTop: `1px solid ${CLR_READY}22` }}>
-                      <a href={`tel:${a.driverPhone}`} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "11px", color: "#A6CDFB", fontWeight: 700, fontSize: 12, textDecoration: "none", borderRight: `1px solid ${CLR_READY}22` }}>
-                        <Phone size={14} style={{ color: "#A6CDFB" }} /> اتصل بالمندوب
+                    <div style={{ display: "flex", borderTop: `1px solid ${C.green}22` }}>
+                      <a href={`tel:${a.driverPhone}`} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "11px", color: C.blue, fontWeight: 700, fontSize: 12, textDecoration: "none", borderRight: `1px solid ${C.green}22` }}>
+                        <Phone size={14} style={{ color: C.blue }} /> اتصل بالمندوب
                       </a>
                       <button
                         onClick={() => confirmDelivery(a.orderId)}
                         disabled={deliveringOrderId === a.orderId}
-                        style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "11px", color: CLR_READY, fontWeight: 700, fontSize: 12, background: "none", border: "none", cursor: "pointer" }}
+                        style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "11px", color: C.green, fontWeight: 700, fontSize: 12, background: "none", border: "none", cursor: "pointer" }}
                       >
-                        <CheckCircle size={14} style={{ color: CLR_READY }} />
+                        <CheckCircle size={14} style={{ color: C.green }} />
                         {deliveringOrderId === a.orderId ? "..." : "تأكيد التسليم"}
                       </button>
                     </div>
@@ -1096,47 +1060,46 @@ export default function Orders() {
             </div>
           )}
 
-          {/* Historical deliveries */}
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {allDeliveriesLoading ? (
-              <div style={{ textAlign: "center", padding: 20, color: TEXT_DIM }}>⏳ جارٍ التحميل...</div>
+              <div style={{ textAlign: "center", padding: 20, color: C.sub }}>⏳ جارٍ التحميل...</div>
             ) : allDeliveries.length === 0 ? (
-              <div style={{ textAlign: "center", padding: 24, color: TEXT_FAINT }}>
+              <div style={{ textAlign: "center", padding: 24, color: C.muted }}>
                 <div style={{ fontSize: 32, marginBottom: 8 }}>📦</div>
                 <div>لا توجد توصيلات في هذا اليوم</div>
               </div>
             ) : (
               <>
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <div style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: "#A6CDFB" }} />
-                  <span style={{ color: "#A6CDFB", fontWeight: 700, fontSize: 13 }}>📋 سجل التوصيلات ({allDeliveries.length})</span>
+                  <div style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: C.blue }} />
+                  <span style={{ color: C.blue, fontWeight: 700, fontSize: 13 }}>📋 سجل التوصيلات ({allDeliveries.length})</span>
                 </div>
                 {Array.from(driverMap.entries()).map(([name, rows]) => {
-                  const total = rows.reduce((s, r) => s + r.totalPrice, 0);
+                  const total    = rows.reduce((s, r) => s + r.totalPrice, 0);
                   const expanded = expandedDrivers.has(name);
                   return (
-                    <div key={name} style={{ backgroundColor: "#0A120A", borderRadius: 14, border: `1px solid ${CLR_READY}44`, overflow: "hidden" }}>
+                    <div key={name} style={{ background: C.surface, borderRadius: 14, border: `1px solid ${C.green}44`, overflow: "hidden" }}>
                       <button onClick={() => setExpandedDrivers(prev => { const n = new Set(prev); n.has(name) ? n.delete(name) : n.add(name); return n; })} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", padding: 14, background: "none", border: "none", cursor: "pointer" }}>
-                        <ChevronDown size={16} style={{ color: TEXT_DIM, transform: expanded ? "rotate(180deg)" : "none", transition: "transform .2s" }} />
+                        <ChevronDown size={16} style={{ color: C.sub, transform: expanded ? "rotate(180deg)" : "none", transition: "transform .2s" }} />
                         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                           <div style={{ textAlign: "right" }}>
-                            <div style={{ color: CLR_READY, fontWeight: 700, fontSize: 13 }}>{total.toFixed(2)} ر.س</div>
-                            <div style={{ color: TEXT_FAINT, fontSize: 11 }}>{rows.length} توصيلة</div>
+                            <div style={{ color: C.green, fontWeight: 700, fontSize: 13 }}>{total.toFixed(2)} ر.س</div>
+                            <div style={{ color: C.muted, fontSize: 11 }}>{rows.length} توصيلة</div>
                           </div>
-                          <span style={{ color: CLR_READY, fontWeight: 800, fontSize: 15 }}>🛵 {name}</span>
+                          <span style={{ color: C.green, fontWeight: 800, fontSize: 15 }}>🛵 {name}</span>
                         </div>
                       </button>
                       {expanded && (
-                        <div style={{ borderTop: `1px solid ${CLR_READY}33` }}>
+                        <div style={{ borderTop: `1px solid ${C.green}33` }}>
                           {rows.map((r, i) => (
-                            <div key={i} style={{ padding: "10px 14px", borderBottom: i < rows.length - 1 ? `1px solid ${LINE}` : "none", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                            <div key={i} style={{ padding: "10px 14px", borderBottom: i < rows.length - 1 ? `1px solid ${C.border}` : "none", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                                <span style={{ color: TEXT_DIM, fontSize: 11 }}>{fmtTime(r.deliveredAt)}</span>
-                                <span style={{ color: r.paymentMethod === "cash" ? "#81C784" : "#A6CDFB", fontSize: 12, fontWeight: 600 }}>{r.paymentMethod === "cash" ? "💵" : "💳"}</span>
+                                <span style={{ color: C.muted, fontSize: 11 }}>{fmtTime(r.deliveredAt)}</span>
+                                <span style={{ color: r.paymentMethod === "cash" ? C.green : C.blue, fontSize: 12, fontWeight: 600 }}>{r.paymentMethod === "cash" ? "💵" : "💳"}</span>
                               </div>
                               <div style={{ textAlign: "right" }}>
-                                <div style={{ color: TEXT, fontWeight: 600, fontSize: 13 }}>{r.customerName}</div>
-                                <div style={{ color: CLR_READY, fontWeight: 800, fontSize: 14 }}>{r.totalPrice.toFixed(2)} ر.س</div>
+                                <div style={{ color: C.text, fontWeight: 600, fontSize: 13 }}>{r.customerName}</div>
+                                <div style={{ color: C.green, fontWeight: 800, fontSize: 14 }}>{r.totalPrice.toFixed(2)} ر.س</div>
                               </div>
                             </div>
                           ))}
@@ -1153,169 +1116,291 @@ export default function Orders() {
     );
   }
 
-  // ─── RENDER ───────────────────────────────────────────────────────────────
+  function FinancialSummary() {
+    const todayStart = new Date(); todayStart.setHours(0,0,0,0);
+    const todayOrders   = orders.filter(o => new Date(o.createdAt) >= todayStart);
+    const completed     = todayOrders.filter(o => o.status === "done");
+    const cancelled     = todayOrders.filter(o => o.status === "cancelled");
+    const totalSales    = completed.reduce((s, o) => s + o.totalPrice / 100, 0);
+    const cashSales     = completed.filter(o => o.paymentMethod === "cash").reduce((s, o) => s + o.totalPrice / 100, 0);
+    const elecSales     = completed.filter(o => o.paymentMethod !== "cash").reduce((s, o) => s + o.totalPrice / 100, 0);
+    const avgOrder      = completed.length ? totalSales / completed.length : 0;
+    const totalDiscount = completed.reduce((s, o) => s + (o.discountAmount ?? 0) / 100, 0);
+    const deliveryFees  = completed.reduce((s, o) => s + (o.deliveryFee ?? 0) / 100, 0);
+    const pickupSales   = completed.filter(o => o.notes?.includes("استلام من الفرع")).reduce((s, o) => s + o.totalPrice / 100, 0);
+    const deliverySales = totalSales - pickupSales;
+
+    function StatCard({ label, value, icon: Icon, color, trend }: { label: string; value: string; icon: React.ElementType; color: string; trend?: number }) {
+      return (
+        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+            <div style={{ background: color + "1a", color, width: 34, height: 34, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Icon size={15} strokeWidth={2.5} />
+            </div>
+            {trend != null && (
+              <span style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 11, fontWeight: 700, color: trend >= 0 ? C.green : C.red }}>
+                {trend >= 0 ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
+                {Math.abs(trend)}%
+              </span>
+            )}
+          </div>
+          <div style={{ fontSize: 18, fontWeight: 800, color: C.text, fontVariantNumeric: "tabular-nums" }}>{value}</div>
+          <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>{label}</div>
+        </div>
+      );
+    }
+
+    return (
+      <div dir="rtl" style={{ padding: "14px 14px 100px", display: "flex", flexDirection: "column", gap: 20 }}>
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 800, color: C.text, marginBottom: 12 }}>نظرة عامة على اليوم</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <StatCard label="مبيعات اليوم"       value={`${fmt2(totalSales)} ر.س`}    icon={TrendingUp}   color={C.amber} />
+            <StatCard label="صافي الإيراد"        value={`${fmt2(totalSales - totalDiscount)} ر.س`} icon={DollarSign} color={C.green} />
+            <StatCard label="مبيعات التوصيل"      value={`${fmt2(deliverySales)} ر.س`} icon={Truck}        color={C.blue} />
+            <StatCard label="مبيعات الاستلام"     value={`${fmt2(pickupSales)} ر.س`}   icon={Store}        color={C.violet} />
+            <StatCard label="متوسط قيمة الطلب"   value={`${fmt2(avgOrder)} ر.س`}      icon={Package}      color={C.amber} />
+            <StatCard label="طلبات ملغاة اليوم"  value={String(cancelled.length)}     icon={AlertTriangle} color={C.red} />
+          </div>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: 16 }}>
+            <div style={{ fontSize: 12, fontWeight: 800, color: C.text, marginBottom: 12 }}>طرق الدفع</div>
+            {[
+              { label: "نقدي",       val: cashSales, icon: Banknote,   color: C.green },
+              { label: "إلكتروني",   val: elecSales, icon: CreditCard, color: C.blue },
+            ].map(({ label, val, icon: Icon, color }) => (
+              <div key={label} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${C.border}` }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, fontWeight: 700, color: C.sub }}>
+                  <Icon size={14} style={{ color }} /> {label}
+                </div>
+                <span style={{ fontWeight: 800, fontSize: 13, color: C.text }}>{fmt2(val)} ر.س</span>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: 16 }}>
+            <div style={{ fontSize: 12, fontWeight: 800, color: C.text, marginBottom: 12 }}>الرسوم والخصومات</div>
+            {[
+              { label: "رسوم التوصيل",    val: deliveryFees,  pos: true },
+              { label: "الخصومات",         val: totalDiscount, pos: false },
+            ].map(({ label, val, pos }) => (
+              <div key={label} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${C.border}` }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: C.sub }}>{label}</span>
+                <span style={{ fontWeight: 800, fontSize: 13, color: pos ? C.text : C.red }}>
+                  {!pos && val > 0 ? "-" : ""}{fmt2(val)} ر.س
+                </span>
+              </div>
+            ))}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 0" }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: C.sub }}>الطلبات المكتملة</span>
+              <Badge color={C.green} soft>{completed.length}</Badge>
+            </div>
+          </div>
+        </div>
+
+        {drivers.length > 0 && allDeliveries.length > 0 && (
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 800, color: C.text, marginBottom: 12 }}>أرصدة المناديب النقدية</div>
+            <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, overflow: "hidden" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr", background: C.surface, padding: "10px 14px" }}>
+                {["السائق", "النقد المحصّل", "الطلبات", "الرصيد المستحق"].map(h => (
+                  <div key={h} style={{ fontSize: 11, fontWeight: 700, color: C.muted }}>{h}</div>
+                ))}
+              </div>
+              {(() => {
+                const driverStats = new Map<string, { cash: number; count: number }>();
+                for (const r of allDeliveries) {
+                  const k = r.driverName || "غير محدد";
+                  if (!driverStats.has(k)) driverStats.set(k, { cash: 0, count: 0 });
+                  const s = driverStats.get(k)!;
+                  if (r.paymentMethod === "cash") s.cash += r.totalPrice;
+                  s.count++;
+                }
+                return Array.from(driverStats.entries()).map(([name, s], i) => (
+                  <div key={name} style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr", padding: "10px 14px", borderTop: `1px solid ${C.border}` }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: C.text }}>{name}</span>
+                    <span style={{ fontSize: 12, color: C.sub }}>{fmt2(s.cash / 100)} ر.س</span>
+                    <span style={{ fontSize: 12, color: C.sub }}>{s.count}</span>
+                    <span style={{ fontSize: 12, fontWeight: 800, color: C.amber }}>{fmt2(s.cash / 100)} ر.س</span>
+                  </div>
+                ));
+              })()}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  const tabDef = [
+    { key: "orders"  as CashierView, label: "الطلبات الواردة", icon: <ClipboardList size={17}/>, badge: pendingCount },
+    { key: "pickup"  as CashierView, label: "تسليم الفرع",     icon: <Package size={17}/>,       badge: pickupPending },
+    { key: "drivers" as CashierView, label: "المناديب",          icon: <Truck size={17}/>,         badge: activeAssignments.length },
+    { key: "finance" as CashierView, label: "المالية",           icon: <TrendingUp size={17}/>,    badge: 0 },
+  ];
+
   return (
-    <div dir="rtl" style={{ background: BG, minHeight: "100vh", fontFamily: "'IBM Plex Sans Arabic', 'Cairo', sans-serif" }}>
+    <div dir="rtl" style={{ background: C.bg, minHeight: "100vh", fontFamily: "'Tajawal', 'Cairo', system-ui, sans-serif" }}>
 
-      {/* ── App bar (sticky) ── */}
-      <div style={{ position: "sticky", top: 0, zIndex: 30, background: `linear-gradient(180deg, ${BG} 85%, rgba(20,22,27,0))`, padding: "18px 20px 10px" }}>
-
-        {/* Brand row */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+      <div style={{ position: "sticky", top: 0, zIndex: 30, background: C.bg, borderBottom: `1px solid ${C.border}` }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 16px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 34, height: 34, borderRadius: 10, background: "linear-gradient(135deg, #F2994A, #C9761E)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Cairo, sans-serif", fontWeight: 800, color: "#1B1206", fontSize: 16, flexShrink: 0 }}>ر</div>
+            <div style={{ width: 36, height: 36, borderRadius: 10, background: `linear-gradient(135deg, ${C.amber}, #C9761E)`, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Cairo, sans-serif", fontWeight: 800, color: "#0B0F14", fontSize: 17, flexShrink: 0 }}>ر</div>
             <div>
-              <div style={{ fontFamily: "Cairo, sans-serif", fontWeight: 700, fontSize: 15.5, color: TEXT }}>روابي المندي</div>
-              <div style={{ fontSize: 11.5, color: TEXT_FAINT, display: "flex", alignItems: "center", gap: 4 }}>
-                <span style={{ width: 6, height: 6, borderRadius: "50%", background: CLR_READY, display: "inline-block", flexShrink: 0, boxShadow: `0 0 0 3px ${CLR_READY_DIM}` }} className={cn(fetching && "animate-ping")} />
+              <div style={{ fontWeight: 800, fontSize: 15, color: C.text }}>روابي المندي</div>
+              <div style={{ fontSize: 11, color: C.muted, display: "flex", alignItems: "center", gap: 5 }}>
+                <CircleDot size={8} fill={C.green} style={{ color: C.green }} className={cn(fetching && "animate-pulse")} />
                 تحديث تلقائي كل 10 ثوانٍ
               </div>
             </div>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: C.sub, fontVariantNumeric: "tabular-nums", letterSpacing: 1 }} dir="ltr">{clock}</div>
             {hasNewOrder && (
-              <div className="animate-bounce" style={{ display: "flex", alignItems: "center", gap: 5, backgroundColor: CLR_CANCELLED, color: "#fff", fontSize: 11, fontWeight: 700, padding: "5px 10px", borderRadius: 9999 }}>
+              <div className="animate-bounce" style={{ display: "flex", alignItems: "center", gap: 5, background: C.red, color: "#fff", fontSize: 11, fontWeight: 700, padding: "5px 10px", borderRadius: 9999 }}>
                 <Bell size={11} /> طلب جديد!
               </div>
             )}
             <button
               onClick={() => fetchOrders()}
               disabled={fetching}
-              style={{ width: 36, height: 36, borderRadius: 10, border: `1px solid ${LINE}`, background: SURFACE, color: TEXT_DIM, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+              style={{ width: 36, height: 36, borderRadius: 10, border: `1px solid ${C.border}`, background: C.surface, color: C.sub, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
             >
-              <RefreshCw size={16} className={cn(fetching && "animate-spin")} />
+              <RefreshCw size={15} className={cn(fetching && "animate-spin")} />
             </button>
           </div>
         </div>
 
-        <h1 style={{ fontSize: 24, fontFamily: "Cairo, sans-serif", fontWeight: 800, margin: "10px 0 14px", color: TEXT }}>إدارة الطلبات</h1>
-
-        {/* Search (orders tab only) */}
-        {cashierView === "orders" && (
-          <div style={{ position: "relative", marginBottom: 12 }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={TEXT_FAINT} strokeWidth="2" style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
-            <input
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-              placeholder="ابحث برقم الطلب أو اسم العميل أو الجوال"
-              style={{ width: "100%", background: SURFACE, border: `1px solid ${LINE}`, borderRadius: 12, padding: "12px 40px 12px 14px", color: TEXT, fontFamily: "inherit", fontSize: 14, outline: "none", boxSizing: "border-box" }}
-            />
-          </div>
-        )}
-
-        {/* Filter tabs (orders tab only) */}
-        {cashierView === "orders" && (
-          <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 2, scrollbarWidth: "none", marginBottom: 4 }}>
-            {ORDER_FILTERS.map(f => {
-              const cnt = f.key === "all"
-                ? orders.filter(o => !["done","cancelled"].includes(o.status)).length
-                : orders.filter(o => o.status === f.key).length;
-              const active = filter === f.key;
-              return (
-                <div
-                  key={f.key}
-                  onClick={() => setFilter(f.key)}
-                  style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 10, fontSize: 13, fontWeight: 500, background: active ? SAFFRON_DIM : SURFACE, border: `1px solid ${active ? "rgba(242,153,74,.4)" : LINE}`, color: active ? "#FFC98F" : TEXT_DIM, cursor: "pointer", whiteSpace: "nowrap" }}
-                >
-                  {f.label}
-                  {cnt > 0 && (
-                    <span style={{ fontSize: 11, fontWeight: 700, padding: "1px 6px", borderRadius: 20, background: active ? SAFFRON : "#2C303B", color: active ? "#1B1206" : TEXT_DIM }}>{cnt}</span>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Sort + select row (orders tab only) */}
-        {cashierView === "orders" && (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "4px 0" }}>
-            <div
-              onClick={() => setSortNewest(p => !p)}
-              style={{ display: "flex", alignItems: "center", gap: 6, background: SURFACE, border: `1px solid ${LINE}`, color: TEXT_DIM, fontFamily: "inherit", fontSize: 12.5, padding: "7px 12px", borderRadius: 9, cursor: "pointer" }}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 5h10M11 9h7M11 13h4"/><path d="m3 8 3-3 3 3M6 5v14"/></svg>
-              {sortNewest ? "الأحدث أولاً" : "الأقدم أولاً"}
-            </div>
-            <div
-              onClick={() => { setSelectMode(p => !p); if (selectMode) setSelectedIds(new Set()); }}
-              style={{ display: "flex", alignItems: "center", gap: 6, color: selectMode ? SAFFRON : TEXT_FAINT, fontSize: 12.5, cursor: "pointer", userSelect: "none" }}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-              تحديد للطباعة
-            </div>
-          </div>
-        )}
-
-        {/* Section nav (3 tabs) */}
-        <div style={{ display: "flex", gap: 6, background: SURFACE, border: `1px solid ${LINE}`, borderRadius: 12, padding: 4, margin: "12px 0 4px" }}>
+        <div style={{ display: "flex", gap: 0, overflowX: "auto", scrollbarWidth: "none", borderTop: `1px solid ${C.border}` }}>
           {tabDef.map(tab => {
             const active = cashierView === tab.key;
             return (
               <button
                 key={tab.key}
                 onClick={() => { setCashierView(tab.key); if (tab.key === "drivers") { loadActiveAssignments(); loadAllDeliveries(drvSelectedDate); } }}
-                style={{ flex: 1, background: active ? SURFACE2 : "transparent", border: active ? `1px solid ${LINE}` : "none", color: active ? TEXT : TEXT_DIM, fontFamily: "inherit", padding: "9px 6px", borderRadius: 9, fontSize: 12, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 4, position: "relative" }}
+                style={{
+                  flex: 1, minWidth: 80, display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
+                  padding: "10px 8px", border: "none", background: "transparent",
+                  borderBottom: `2px solid ${active ? C.amber : "transparent"}`,
+                  color: active ? C.text : C.muted,
+                  fontFamily: "inherit", fontSize: 11, fontWeight: 700, cursor: "pointer",
+                  transition: "color .15s, border-color .15s",
+                  position: "relative",
+                }}
               >
                 {tab.badge > 0 && (
-                  <span style={{ position: "absolute", top: 4, right: 4, backgroundColor: CLR_CANCELLED, borderRadius: "50%", minWidth: 16, height: 16, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, color: "#fff", fontWeight: 800, padding: "0 2px" }}>
+                  <span style={{ position: "absolute", top: 6, right: "50%", transform: "translateX(8px)", background: C.red, borderRadius: "50%", minWidth: 15, height: 15, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, color: "#fff", fontWeight: 800, padding: "0 3px" }}>
                     {tab.badge > 9 ? "9+" : tab.badge}
                   </span>
                 )}
-                <span style={{ color: active ? SAFFRON : TEXT_DIM }}>{tab.icon}</span>
+                <span style={{ color: active ? C.amber : C.muted }}>{tab.icon}</span>
                 {tab.label}
               </button>
             );
           })}
         </div>
+
+        {cashierView === "orders" && (
+          <div style={{ padding: "10px 14px 8px", display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ position: "relative" }}>
+              <Search size={15} style={{ color: C.muted, position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)" }} />
+              <input
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                placeholder="ابحث برقم الطلب أو اسم العميل أو الجوال"
+                style={{ width: "100%", background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 38px 10px 12px", color: C.text, fontFamily: "inherit", fontSize: 13, outline: "none", boxSizing: "border-box" }}
+              />
+            </div>
+
+            <div style={{ display: "flex", gap: 6, overflowX: "auto", scrollbarWidth: "none" }}>
+              {ORDER_FILTERS.map(f => {
+                const cnt = f.key === "all"
+                  ? orders.filter(o => !["done","cancelled"].includes(o.status)).length
+                  : orders.filter(o => o.status === f.key).length;
+                const active = filter === f.key;
+                return (
+                  <button
+                    key={f.key}
+                    onClick={() => setFilter(f.key)}
+                    style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 6, padding: "7px 12px", borderRadius: 9, fontSize: 12, fontWeight: 700, background: active ? C.amber : C.card, border: `1px solid ${active ? C.amber + "aa" : C.border}`, color: active ? "#0B0F14" : C.sub, cursor: "pointer", whiteSpace: "nowrap", fontFamily: "inherit" }}
+                  >
+                    {f.label}
+                    {cnt > 0 && (
+                      <span style={{ fontSize: 11, fontWeight: 700, padding: "1px 6px", borderRadius: 20, background: active ? "#0B0F1466" : C.surface, color: active ? "#0B0F14" : C.muted }}>{cnt}</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <button
+                onClick={() => setSortNewest(p => !p)}
+                style={{ display: "flex", alignItems: "center", gap: 6, background: C.card, border: `1px solid ${C.border}`, color: C.sub, fontFamily: "inherit", fontSize: 12, fontWeight: 700, padding: "6px 12px", borderRadius: 9, cursor: "pointer" }}
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 5h10M11 9h7M11 13h4"/><path d="m3 8 3-3 3 3M6 5v14"/></svg>
+                {sortNewest ? "الأحدث أولاً" : "الأقدم أولاً"}
+              </button>
+              <button
+                onClick={() => { setSelectMode(p => !p); if (selectMode) setSelectedIds(new Set()); }}
+                style={{ display: "flex", alignItems: "center", gap: 6, color: selectMode ? C.amber : C.muted, fontSize: 12, fontWeight: 700, cursor: "pointer", userSelect: "none", background: "none", border: "none", fontFamily: "inherit" }}
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                تحديد للطباعة
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* ── New-order banner ── */}
       {cashierView === "orders" && hasNewOrder && (
-        <div style={{ backgroundColor: CLR_CANCELLED, padding: "10px 20px", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, margin: "0 20px 12px", borderRadius: 12 }}>
-          <span style={{ fontSize: 20 }}>🔔</span>
-          <span style={{ color: "#fff", fontWeight: 800, fontSize: 16, fontFamily: "Cairo, sans-serif" }}>طلب جديد وصل!</span>
-          <span style={{ fontSize: 20 }}>🔔</span>
+        <div style={{ background: C.red, padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+          <span style={{ fontSize: 18 }}>🔔</span>
+          <span style={{ color: "#fff", fontWeight: 800, fontSize: 15 }}>طلب جديد وصل!</span>
+          <span style={{ fontSize: 18 }}>🔔</span>
         </div>
       )}
 
-      {/* ── Tab content ── */}
       {cashierView === "orders" && (
-        <div style={{ padding: "0 16px 120px", display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ padding: "12px 14px 120px", display: "flex", flexDirection: "column", gap: 10 }}>
           {loading ? (
             <div style={{ textAlign: "center", padding: "60px 0" }}>
-              <div style={{ fontSize: 40 }}>⏳</div>
-              <div style={{ color: TEXT_DIM, marginTop: 8 }}>جارٍ التحميل...</div>
+              <div style={{ fontSize: 36 }}>⏳</div>
+              <div style={{ color: C.sub, marginTop: 8, fontSize: 14 }}>جارٍ التحميل...</div>
             </div>
           ) : visibleOrders.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "60px 20px", color: TEXT_FAINT }}>
-              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ marginBottom: 12, opacity: 0.4, display: "block", margin: "0 auto 12px" }}><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
-              <div>لا توجد طلبات مطابقة</div>
+            <div style={{ textAlign: "center", padding: "60px 20px", color: C.muted }}>
+              <Package size={40} style={{ opacity: 0.3, display: "block", margin: "0 auto 12px" }} />
+              <div style={{ fontSize: 14 }}>لا توجد طلبات مطابقة</div>
             </div>
           ) : (
             visibleOrders.map(order => <OrderCard key={order.id} order={order} />)
           )}
           {!loading && (
-            <p style={{ textAlign: "center", color: TEXT_FAINT, fontSize: 12, marginTop: 4 }}>
+            <p style={{ textAlign: "center", color: C.muted, fontSize: 12, marginTop: 4 }}>
               {visibleOrders.length} طلب{filter !== "all" ? ` · من إجمالي ${orders.length}` : ""}
             </p>
           )}
         </div>
       )}
+
       {cashierView === "pickup"  && <PickupView />}
       {cashierView === "drivers" && <DriversView />}
+      {cashierView === "finance" && <FinancialSummary />}
 
-      {/* ── Bulk print bar ── */}
       {selectMode && selectedIds.size > 0 && (
-        <div style={{ position: "fixed", bottom: 16, left: 16, right: 16, zIndex: 40, background: SURFACE2, border: `1px solid ${LINE}`, borderRadius: 14, padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", boxShadow: "0 12px 30px rgba(0,0,0,.4)" }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: TEXT }}>
-            تم تحديد <span style={{ color: SAFFRON, fontFamily: "Cairo, sans-serif", fontWeight: 700 }}>{selectedIds.size}</span> طلب
+        <div style={{ position: "fixed", bottom: 16, left: 16, right: 16, zIndex: 40, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", boxShadow: "0 16px 40px rgba(0,0,0,.5)" }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>
+            تم تحديد <span style={{ color: C.amber, fontWeight: 800 }}>{selectedIds.size}</span> طلب
           </div>
           <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={() => { setSelectedIds(new Set()); setSelectMode(false); }} style={{ background: "transparent", border: `1px solid ${LINE}`, color: TEXT_DIM, fontFamily: "inherit", fontSize: 12.5, fontWeight: 600, padding: "8px 14px", borderRadius: 9, cursor: "pointer" }}>إلغاء</button>
+            <button onClick={() => { setSelectedIds(new Set()); setSelectMode(false); }} style={{ background: "transparent", border: `1px solid ${C.border}`, color: C.sub, fontFamily: "inherit", fontSize: 12.5, fontWeight: 700, padding: "8px 14px", borderRadius: 9, cursor: "pointer" }}>إلغاء</button>
             <button
               onClick={() => { printBulk(orders.filter(o => selectedIds.has(o.id))); setSelectedIds(new Set()); setSelectMode(false); }}
-              style={{ display: "flex", alignItems: "center", gap: 6, background: SAFFRON_DIM, border: "1px solid rgba(242,153,74,.35)", color: "#FFC98F", fontFamily: "inherit", fontSize: 12.5, fontWeight: 600, padding: "8px 14px", borderRadius: 9, cursor: "pointer" }}
+              style={{ display: "flex", alignItems: "center", gap: 6, background: C.amber + "22", border: `1px solid ${C.amber}55`, color: C.amber, fontFamily: "inherit", fontSize: 12.5, fontWeight: 700, padding: "8px 14px", borderRadius: 9, cursor: "pointer" }}
             >
               <Printer size={14} /> طباعة المحدد
             </button>
@@ -1323,29 +1408,28 @@ export default function Orders() {
         </div>
       )}
 
-      {/* ── Chat modal ── */}
       {chatOrder && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 50, backgroundColor: "rgba(0,0,0,0.75)", display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
-          <div style={{ backgroundColor: SURFACE, borderTopLeftRadius: 24, borderTopRightRadius: 24, width: "100%", maxWidth: 560, maxHeight: "85vh", display: "flex", flexDirection: "column", overflow: "hidden", border: `1px solid ${LINE}` }} dir="rtl">
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 18px", borderBottom: `1px solid ${LINE}` }}>
+        <div style={{ position: "fixed", inset: 0, zIndex: 50, backgroundColor: "rgba(0,0,0,0.8)", display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+          <div style={{ backgroundColor: C.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, width: "100%", maxWidth: 560, maxHeight: "85vh", display: "flex", flexDirection: "column", overflow: "hidden", border: `1px solid ${C.border}` }} dir="rtl">
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 18px", borderBottom: `1px solid ${C.border}` }}>
               <button onClick={() => setChatOrder(null)} style={{ background: "none", border: "none", cursor: "pointer", padding: 4 }}>
-                <X size={22} style={{ color: TEXT_DIM }} />
+                <X size={22} style={{ color: C.sub }} />
               </button>
               <div style={{ textAlign: "right" }}>
-                <div style={{ fontWeight: 800, fontSize: 16, color: TEXT }}>💬 مراسلة العميل</div>
-                <div style={{ color: TEXT_DIM, fontSize: 12 }}>طلب #{chatOrder.dailyNumber ?? chatOrder.id} — {chatOrder.customerName}</div>
+                <div style={{ fontWeight: 800, fontSize: 16, color: C.text }}>💬 مراسلة العميل</div>
+                <div style={{ color: C.sub, fontSize: 12 }}>طلب #{chatOrder.dailyNumber ?? chatOrder.id} — {chatOrder.customerName}</div>
               </div>
             </div>
             <div style={{ flex: 1, overflowY: "auto", padding: "14px 18px", display: "flex", flexDirection: "column", gap: 10 }}>
               {chatLoading ? (
-                <div style={{ textAlign: "center", color: TEXT_DIM }}>⏳</div>
+                <div style={{ textAlign: "center", color: C.sub }}>⏳</div>
               ) : chatMsgs.length === 0 ? (
-                <div style={{ textAlign: "center", color: TEXT_DIM, marginTop: 24 }}>لا توجد رسائل بعد</div>
+                <div style={{ textAlign: "center", color: C.muted, marginTop: 24 }}>لا توجد رسائل بعد</div>
               ) : chatMsgs.map(msg => (
                 <div key={msg.id} style={{ display: "flex", justifyContent: msg.fromCashier ? "flex-start" : "flex-end" }}>
-                  <div style={{ maxWidth: "80%", backgroundColor: msg.fromCashier ? SURFACE2 : "#1A2A1A", borderRadius: 14, padding: "10px 14px", border: msg.fromCashier ? `1px solid ${LINE}` : `1px solid ${CLR_READY}33` }}>
-                    <div style={{ fontSize: 14, color: TEXT }}>{msg.text}</div>
-                    <div style={{ fontSize: 10, color: TEXT_DIM, marginTop: 4, textAlign: msg.fromCashier ? "right" : "left" }}>
+                  <div style={{ maxWidth: "80%", background: msg.fromCashier ? C.card : C.green + "22", borderRadius: 14, padding: "10px 14px", border: msg.fromCashier ? `1px solid ${C.border}` : `1px solid ${C.green}33` }}>
+                    <div style={{ fontSize: 14, color: C.text }}>{msg.text}</div>
+                    <div style={{ fontSize: 10, color: C.muted, marginTop: 4, textAlign: msg.fromCashier ? "right" : "left" }}>
                       {new Date(msg.createdAt).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" })}
                       {msg.fromCashier && <span style={{ marginRight: 4 }}>{msg.readAt ? "✓✓" : "✓"}</span>}
                     </div>
@@ -1354,29 +1438,25 @@ export default function Orders() {
               ))}
               <div ref={chatBottomRef} />
             </div>
-            <div style={{ padding: "10px 16px", borderTop: `1px solid ${LINE}`, display: "flex", gap: 8, alignItems: "center" }}>
-              <button onClick={sendChatMessage} disabled={chatSending || !chatInput.trim()} style={{ backgroundColor: chatInput.trim() ? CLR_READY : SURFACE2, border: "none", borderRadius: 10, padding: "10px 14px", cursor: chatInput.trim() ? "pointer" : "default", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <Send size={16} style={{ color: chatInput.trim() ? "#fff" : TEXT_DIM }} />
+            <div style={{ borderTop: `1px solid ${C.border}`, padding: "10px 14px", display: "flex", gap: 8, alignItems: "center" }}>
+              <button
+                onClick={sendChatMessage}
+                disabled={chatSending || !chatInput.trim()}
+                style={{ width: 40, height: 40, borderRadius: 10, background: chatInput.trim() ? C.amber + "22" : C.card, border: `1px solid ${chatInput.trim() ? C.amber + "55" : C.border}`, color: chatInput.trim() ? C.amber : C.muted, display: "flex", alignItems: "center", justifyContent: "center", cursor: chatInput.trim() ? "pointer" : "default", flexShrink: 0 }}
+              >
+                <Send size={16} />
               </button>
               <input
                 value={chatInput}
                 onChange={e => setChatInput(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && sendChatMessage()}
+                onKeyDown={e => e.key === "Enter" && !e.shiftKey && sendChatMessage()}
                 placeholder="اكتب رسالة..."
-                style={{ flex: 1, backgroundColor: SURFACE2, border: `1px solid ${LINE}`, borderRadius: 10, padding: "10px 14px", color: TEXT, fontSize: 14, textAlign: "right", outline: "none", fontFamily: "inherit" }}
+                style={{ flex: 1, background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 14px", color: C.text, fontFamily: "inherit", fontSize: 14, outline: "none" }}
               />
             </div>
           </div>
         </div>
       )}
     </div>
-  );
-}
-
-function Calendar({ size, style }: { size: number; style?: React.CSSProperties }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={style}>
-      <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
-    </svg>
   );
 }
