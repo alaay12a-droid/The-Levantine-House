@@ -1,7 +1,7 @@
 services:
   - type: static
     name: mandi-dashboard
-    buildCommand: pnpm install --frozen-lockfile && BASE_PATH=/ pnpm --filter @workspace/dashboard run build
+    buildCommand: npm install -g pnpm@9 && pnpm install --no-frozen-lockfile && BASE_PATH=/ pnpm --filter @workspace/dashboard run build
     staticPublishPath: artifacts/dashboard/dist/public
     pullRequestPreviewsEnabled: false
     routes:
