@@ -100,10 +100,9 @@ const RAIL_STEPS = [
 const ORDER_FILTERS: { key: FilterKey; label: string }[] = [
   { key: "all",              label: "الكل" },
   { key: "pending",          label: "جديد" },
-  { key: "preparing",        label: "جاري التجهيز" },
+  { key: "preparing",        label: "قيد التجهيز" },
   { key: "ready",            label: "جاهز" },
-  { key: "out_for_delivery", label: "قيد التوصيل" },
-  { key: "cancelled",        label: "ملغى" },
+  { key: "out_for_delivery", label: "توصيل" },
 ];
 
 const fmt2   = (n: number) => n % 1 === 0 ? String(n) : n.toFixed(2);
@@ -585,45 +584,47 @@ export default function Orders() {
           onClick={() => selectMode ? toggleSelect(order.id) : toggleCard(order.id)}
           style={{ padding: "14px 14px 10px", cursor: "pointer" }}
         >
-          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 10 }}>
-            <button
-              onClick={e => { e.stopPropagation(); toggleCard(order.id); }}
-              style={{ display: "flex", alignItems: "center", gap: 8, background: "none", border: "none", cursor: "pointer", padding: 0 }}
-            >
-              <div style={{ background: typeMeta.color + "20", color: typeMeta.color, width: 36, height: 36, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                <TypeIcon size={16} strokeWidth={2.5} />
-              </div>
-              <div style={{ textAlign: "right" }}>
-                <div style={{ fontWeight: 800, fontSize: 14, color: C.text }}>#{order.dailyNumber ?? order.id}</div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: typeMeta.color }}>{typeMeta.label}</div>
-              </div>
-            </button>
-            <TimerRing createdAt={order.createdAt} size={44} />
-          </div>
-
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-            {selectMode ? (
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <div style={{ width: 18, height: 18, borderRadius: 6, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: isSelected ? C.amber : C.card, border: `1.5px solid ${isSelected ? C.amber : C.border}` }}>
-                  {isSelected && <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#0B0F14" strokeWidth="3"><path d="M20 6 9 17l-5-5"/></svg>}
+          {/* ── Top row: TimerRing + order info ── */}
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 12 }}>
+            <TimerRing createdAt={order.createdAt} size={62} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              {/* Order # + type + status */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 5 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <div style={{ background: typeMeta.color + "20", color: typeMeta.color, width: 26, height: 26, borderRadius: 7, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <TypeIcon size={12} strokeWidth={2.5} />
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 800, fontSize: 14, color: C.text }}>#{order.dailyNumber ?? order.id}</div>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: typeMeta.color, lineHeight: 1 }}>{typeMeta.label}</div>
+                  </div>
                 </div>
-                <span style={{ fontWeight: 700, fontSize: 14, color: C.text }}>{order.customerName}</span>
+                <Badge color={cardColor} soft>{STATUS_DISPLAY[order.status]}</Badge>
               </div>
-            ) : (
-              <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 700, color: C.text }}>
-                <User size={13} style={{ color: C.muted }} />
-                {order.customerName}
+              {/* Customer name */}
+              {selectMode ? (
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                  <div style={{ width: 18, height: 18, borderRadius: 6, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: isSelected ? C.amber : C.card, border: `1.5px solid ${isSelected ? C.amber : C.border}` }}>
+                    {isSelected && <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#0B0F14" strokeWidth="3"><path d="M20 6 9 17l-5-5"/></svg>}
+                  </div>
+                  <span style={{ fontWeight: 700, fontSize: 13, color: C.text }}>{order.customerName}</span>
+                </div>
+              ) : (
+                <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 4 }}>
+                  <User size={12} style={{ color: C.muted, flexShrink: 0 }} />
+                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{order.customerName}</span>
+                </div>
+              )}
+              {/* Phone + time */}
+              <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: C.sub }}>
+                <Phone size={11} />
+                <span dir="ltr">{order.customerPhone}</span>
+                <span style={{ marginRight: "auto", fontSize: 11, color: C.muted }}>{time}</span>
               </div>
-            )}
-            <Badge color={cardColor} soft>{STATUS_DISPLAY[order.status]}</Badge>
+            </div>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: C.sub, marginBottom: 10 }}>
-            <Phone size={12} />
-            <span dir="ltr">{order.customerPhone}</span>
-            <span style={{ marginRight: "auto", fontSize: 11, color: C.muted }}>{time}</span>
-          </div>
-
+          {/* ── Stats row ── */}
           <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 10, display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4, textAlign: "center" }}>
             <div>
               <div style={{ fontWeight: 800, fontSize: 13, color: C.text }}>{fmt2(order.totalPrice / 100)} <span style={{ fontSize: 10, fontWeight: 500, color: C.muted }}>ر.س</span></div>
@@ -640,7 +641,27 @@ export default function Orders() {
           </div>
         </div>
 
-        {aRow && !isExpanded && (
+        {/* ── Quick Accept/Reject for pending orders ── */}
+        {order.status === "pending" && !isExpanded && (
+          <div style={{ padding: "0 12px 12px", display: "flex", gap: 8 }}>
+            <button
+              onClick={e => { e.stopPropagation(); handleUpdateStatus(order, "preparing"); }}
+              style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 7, padding: "11px 8px", background: C.green + "22", border: `1.5px solid ${C.green}55`, borderRadius: 10, color: C.green, fontFamily: "inherit", fontWeight: 800, fontSize: 14, cursor: "pointer" }}
+            >
+              <Check size={16} strokeWidth={2.5} />
+              قبول
+            </button>
+            <button
+              onClick={e => { e.stopPropagation(); handleCancelOrder(order); }}
+              style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 7, padding: "11px 8px", background: C.red + "22", border: `1.5px solid ${C.red}55`, borderRadius: 10, color: C.red, fontFamily: "inherit", fontWeight: 800, fontSize: 14, cursor: "pointer" }}
+            >
+              <X size={16} strokeWidth={2.5} />
+              رفض
+            </button>
+          </div>
+        )}
+
+        {aRow && !isExpanded && order.status !== "pending" && (
           <div style={{ padding: "0 14px 10px" }}>
             <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: CLR_DELIVERING_DIM, color: C.blue, fontSize: 11.5, fontWeight: 600, padding: "5px 10px", borderRadius: 8 }}>
               <User size={12} />
@@ -1228,10 +1249,10 @@ export default function Orders() {
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <div style={{ width: 36, height: 36, borderRadius: 10, background: `linear-gradient(135deg, ${C.amber}, #C9761E)`, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Cairo, sans-serif", fontWeight: 800, color: "#0B0F14", fontSize: 17, flexShrink: 0 }}>ر</div>
             <div>
-              <div style={{ fontWeight: 800, fontSize: 15, color: C.text }}>روابي المندي</div>
+              <div style={{ fontWeight: 800, fontSize: 15, color: C.text }}>مركز عمليات الطلبات</div>
               <div style={{ fontSize: 11, color: C.muted, display: "flex", alignItems: "center", gap: 5 }}>
                 <CircleDot size={8} fill={C.green} style={{ color: C.green }} className={cn(fetching && "animate-pulse")} />
-                تحديث تلقائي كل 10 ثوانٍ
+                متصل الآن
               </div>
             </div>
           </div>
@@ -1344,14 +1365,14 @@ export default function Orders() {
       )}
 
       {cashierView === "orders" && (
-        <div style={{ padding: "12px 14px 120px", display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ padding: "12px 14px 120px", display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 14, alignItems: "start" }}>
           {loading ? (
-            <div style={{ textAlign: "center", padding: "60px 0" }}>
+            <div style={{ gridColumn: "1 / -1", textAlign: "center", padding: "60px 0" }}>
               <div style={{ fontSize: 36 }}>⏳</div>
               <div style={{ color: C.sub, marginTop: 8, fontSize: 14 }}>جارٍ التحميل...</div>
             </div>
           ) : visibleOrders.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "60px 20px", color: C.muted }}>
+            <div style={{ gridColumn: "1 / -1", textAlign: "center", padding: "60px 20px", color: C.muted }}>
               <Package size={40} style={{ opacity: 0.3, display: "block", margin: "0 auto 12px" }} />
               <div style={{ fontSize: 14 }}>لا توجد طلبات مطابقة</div>
             </div>
@@ -1359,7 +1380,7 @@ export default function Orders() {
             visibleOrders.map(order => <OrderCard key={order.id} order={order} />)
           )}
           {!loading && (
-            <p style={{ textAlign: "center", color: C.muted, fontSize: 12, marginTop: 4 }}>
+            <p style={{ gridColumn: "1 / -1", textAlign: "center", color: C.muted, fontSize: 12, marginTop: 4 }}>
               {visibleOrders.length} طلب{filter !== "all" ? ` · من إجمالي ${orders.length}` : ""}
             </p>
           )}
