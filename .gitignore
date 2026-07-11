@@ -47,3 +47,9 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# Sensitive attached assets — never commit
+attached_assets/*.txt
+attached_assets/*.json
+attached_assets/*.pem
+attached_assets/*.p12
