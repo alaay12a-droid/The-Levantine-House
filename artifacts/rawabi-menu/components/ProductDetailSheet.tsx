@@ -196,7 +196,7 @@ export function ProductDetailSheet({ item, visible, onClose }: Props) {
           </View>
 
           <ScrollView
-            contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 18, paddingBottom: 130, gap: 18 }}
+            contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 18, paddingBottom: 148, gap: 18 }}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
@@ -495,7 +495,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 20,
     paddingVertical: 14,
-    paddingBottom: 28,
+    paddingBottom: 44,
     borderTopWidth: 1,
     gap: 14,
   },
