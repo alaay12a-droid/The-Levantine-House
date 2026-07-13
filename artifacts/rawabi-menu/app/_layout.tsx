@@ -10,8 +10,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack, useRouter, useSegments } from "expo-router";
 import * as Notifications from "expo-notifications";
 import * as SplashScreen from "expo-splash-screen";
-import React, { useEffect, useRef } from "react";
-import { Platform } from "react-native";
+import React, { useEffect, useRef, useState } from "react";
+import { Platform, Modal, View, Text, TouchableOpacity, StyleSheet, Linking } from "react-native";
+import Constants from "expo-constants";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
@@ -103,10 +104,119 @@ function NotificationSetup() {
   return null;
 }
 
+const API_BASE = process.env.EXPO_PUBLIC_API_BASE_URL ?? "";
+
+function isNewer(latest: string, current: string): boolean {
+  const p = (v: string) => v.split(".").map(Number);
+  const [la, lb, lc] = p(latest);
+  const [ca, cb, cc] = p(current);
+  if (la !== ca) return la > ca;
+  if (lb !== cb) return lb > cb;
+  return lc > cc;
+}
+
+function UpdateChecker() {
+  const [update, setUpdate] = useState<{ downloadUrl: string; forceUpdate: boolean } | null>(null);
+
+  useEffect(() => {
+    const currentVersion = Constants.expoConfig?.version ?? "0.0.0";
+    fetch(`${API_BASE}/api/version`)
+      .then((r) => r.json())
+      .then((data: { latestVersion: string; downloadUrl: string; forceUpdate: boolean }) => {
+        if (data.latestVersion && isNewer(data.latestVersion, currentVersion)) {
+          setUpdate({ downloadUrl: data.downloadUrl, forceUpdate: data.forceUpdate });
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  if (!update) return null;
+
+  return (
+    <Modal transparent animationType="fade" visible statusBarTranslucent>
+      <View style={updateStyles.overlay}>
+        <View style={updateStyles.card}>
+          <Text style={updateStyles.title}>🎉 يوجد تحديث جديد</Text>
+          <Text style={updateStyles.body}>
+            يتوفر إصدار جديد من تطبيق روابي المندي يحتوي على تحسينات وميزات جديدة.
+          </Text>
+          {update.downloadUrl ? (
+            <TouchableOpacity
+              style={updateStyles.btn}
+              onPress={() => Linking.openURL(update.downloadUrl)}
+            >
+              <Text style={updateStyles.btnText}>تحديث الآن</Text>
+            </TouchableOpacity>
+          ) : null}
+          {!update.forceUpdate && (
+            <TouchableOpacity onPress={() => setUpdate(null)}>
+              <Text style={updateStyles.skip}>لاحقاً</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+const updateStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+  },
+  card: {
+    backgroundColor: "#1A1008",
+    borderRadius: 20,
+    padding: 28,
+    width: "100%",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#E8920C44",
+  },
+  title: {
+    fontFamily: "Cairo_800ExtraBold",
+    fontSize: 22,
+    color: "#E8920C",
+    marginBottom: 12,
+    textAlign: "center",
+  },
+  body: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 15,
+    color: "#E8D5B0",
+    textAlign: "center",
+    lineHeight: 24,
+    marginBottom: 24,
+  },
+  btn: {
+    backgroundColor: "#C8171A",
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 40,
+    marginBottom: 14,
+    width: "100%",
+    alignItems: "center",
+  },
+  btnText: {
+    fontFamily: "Cairo_700Bold",
+    fontSize: 17,
+    color: "#fff",
+  },
+  skip: {
+    fontFamily: "Cairo_400Regular",
+    fontSize: 14,
+    color: "#888",
+  },
+});
+
 function RootLayoutNav() {
   return (
     <>
       <NotificationSetup />
+      <UpdateChecker />
       <AuthGate />
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="onboarding" options={{ headerShown: false, animation: "fade" }} />

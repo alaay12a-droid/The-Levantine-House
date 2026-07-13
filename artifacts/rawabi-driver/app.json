@@ -28,7 +28,7 @@
     },
     "android": {
       "package": "com.rwabi.driver",
-      "versionCode": 25,
+      "versionCode": 26,
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive_icon.png",
