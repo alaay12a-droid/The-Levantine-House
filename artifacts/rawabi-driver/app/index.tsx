@@ -242,6 +242,7 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
   const [driverCoords, setDriverCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [pendingDelivery, setPendingDelivery] = useState<{ orderId: number; total: number; customerName: string } | null>(null);
   const [cashConfirmed, setCashConfirmed] = useState(false);
+  const [arrivedOrders, setArrivedOrders] = useState<Set<number>>(new Set());
   const [activeView, setActiveView] = useState<"waiting" | "delivered" | "statement" | "messages">("waiting");
 
   const [driverConvos, setDriverConvos]   = useState<DriverConvo[]>([]);
@@ -1038,6 +1039,24 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
                           </TouchableOpacity>
                         </View>
                       )}
+                    </TouchableOpacity>
+                  )}
+
+                  {assignment.status === "picked_up" && (
+                    <TouchableOpacity
+                      onPress={async () => {
+                        if (arrivedOrders.has(assignment.orderId)) return;
+                        try {
+                          await apiPost(`/orders/${assignment.orderId}/driver-arrived`, {});
+                          setArrivedOrders(prev => { const s = new Set(prev); s.add(assignment.orderId); return s; });
+                        } catch {}
+                      }}
+                      activeOpacity={arrivedOrders.has(assignment.orderId) ? 1 : 0.8}
+                      style={{ backgroundColor: arrivedOrders.has(assignment.orderId) ? "#0D2A0D" : "#2A1A00", borderRadius: 12, paddingVertical: 14, alignItems: "center", borderWidth: 1.5, borderColor: arrivedOrders.has(assignment.orderId) ? "#4CAF5055" : "#FF9800" }}
+                    >
+                      {arrivedOrders.has(assignment.orderId)
+                        ? <Text style={{ color: "#4CAF5099", fontFamily: F.semi, fontSize: 14 }}>✅ أُخطر العميل بوصولك</Text>
+                        : <Text style={{ color: "#FF9800", fontFamily: F.extra, fontSize: 15 }}>🚪 وصلت الموقع — إخطار العميل</Text>}
                     </TouchableOpacity>
                   )}
 

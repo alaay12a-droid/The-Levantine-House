@@ -451,6 +451,30 @@ router.put("/orders/:id/driver-status", async (req, res) => {
   }
 });
 
+// ── POST /orders/:id/driver-arrived ──────────────────────────────────────────
+router.post("/orders/:id/driver-arrived", async (req, res) => {
+  const orderId = parseInt(req.params.id);
+  if (isNaN(orderId)) { res.status(400).json({ error: "معرّف غير صحيح" }); return; }
+
+  const [order] = await db
+    .select({ customerPushToken: ordersTable.customerPushToken, dailyNumber: ordersTable.dailyNumber })
+    .from(ordersTable)
+    .where(eq(ordersTable.id, orderId))
+    .limit(1);
+
+  res.json({ ok: true });
+
+  if (order?.customerPushToken) {
+    sendPushToToken(order.customerPushToken, {
+      title: "🚪 المندوب وصل!",
+      body: "مندوبك عند الباب — نزّل لاستلام طلبك 🛵",
+      sound: "default",
+      data: { orderId: String(orderId), type: "driver_arrived" },
+      channelId: "order-status",
+    }).catch(() => {});
+  }
+});
+
 // ── GET /orders/:id/assignment ────────────────────────────────────────────────
 router.get("/orders/:id/assignment", async (req, res) => {
   const orderId = parseInt(req.params.id);
