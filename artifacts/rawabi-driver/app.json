@@ -28,7 +28,7 @@
     },
     "android": {
       "package": "com.rwabi.driver",
-      "versionCode": 23,
+      "versionCode": 24,
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive_icon.png",
@@ -56,6 +56,8 @@
       [
         "expo-notifications",
         {
+          "icon": "./assets/images/notification_icon.png",
+          "color": "#C8171A",
           "sounds": [
             "./assets/sounds/notification_loop.wav",
             "./assets/sounds/notification.wav"
