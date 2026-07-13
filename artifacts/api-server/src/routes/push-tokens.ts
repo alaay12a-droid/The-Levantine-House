@@ -8,7 +8,8 @@ const router = Router();
 const tokenSchema = z.object({
   token: z.string().min(1),
   fcmToken: z.string().min(1).optional(),
-  role: z.enum(["cashier", "customer"]).default("cashier"),
+  role: z.enum(["cashier", "customer", "driver"]).default("cashier"),
+  driverId: z.number().int().positive().optional(),
 });
 
 router.post("/push-tokens", async (req, res) => {
@@ -18,13 +19,13 @@ router.post("/push-tokens", async (req, res) => {
     return;
   }
   try {
-    const { token, fcmToken, role } = parsed.data;
+    const { token, fcmToken, role, driverId } = parsed.data;
     await db
       .insert(pushTokensTable)
-      .values({ token, fcmToken: fcmToken ?? null, role })
+      .values({ token, fcmToken: fcmToken ?? null, role, driverId: driverId ?? null })
       .onConflictDoUpdate({
         target: pushTokensTable.token,
-        set: { fcmToken: fcmToken ?? null, role },
+        set: { fcmToken: fcmToken ?? null, role, driverId: driverId ?? null },
       });
     res.json({ ok: true });
   } catch {

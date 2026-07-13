@@ -14,6 +14,32 @@ import * as Notifications from "expo-notifications";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LocationDisclosureModal } from "@/components/LocationDisclosureModal";
 
+const DRIVER_PROJECT_ID = "0c32b5e4-7c57-4c5a-b07e-57e5fd04043e";
+
+async function registerDriverPushToken(driverId: number): Promise<void> {
+  try {
+    const { status } = await Notifications.requestPermissionsAsync();
+    if (status !== "granted") return;
+
+    const expoTokenData = await Notifications.getExpoPushTokenAsync({ projectId: DRIVER_PROJECT_ID });
+    const expoToken = expoTokenData.data;
+
+    let fcmToken: string | undefined;
+    if (Platform.OS === "android") {
+      try {
+        const raw = await Notifications.getDevicePushTokenAsync();
+        if (raw?.data) fcmToken = raw.data as string;
+      } catch {}
+    }
+
+    await fetch(`${API_BASE}/api/push-tokens`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token: expoToken, fcmToken, role: "driver", driverId }),
+    });
+  } catch {}
+}
+
 const LOCATION_DISCLOSURE_KEY = "driver_location_disclosure_accepted_v1";
 
 // ── Fixed theme (replaces useColors) ─────────────────────────────────────────
@@ -203,6 +229,10 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
   const [showLocationDisclosure, setShowLocationDisclosure] = useState(false);
   const locationDisclosureAcceptedRef = useRef(false);
   const pendingDisclosureOrderIdRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    registerDriverPushToken(driver.id).catch(() => {});
+  }, [driver.id]);
 
   useEffect(() => {
     AsyncStorage.getItem(LOCATION_DISCLOSURE_KEY).then((v) => {

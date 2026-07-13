@@ -1,5 +1,5 @@
 import { db, pushTokensTable } from "@workspace/db";
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { logger } from "./logger.js";
 import { getFCMMessaging } from "./firebase.js";
 
@@ -257,6 +257,52 @@ async function removeStaleByFCMToken(fcmTokens: string[]): Promise<void> {
   export async function sendPushToCashiers(msg: PushMessage): Promise<void> {
     return sendPushToRole("cashier", msg);
   }
+
+/**
+ * Send a push notification to a specific driver's registered devices.
+ */
+export async function sendPushToDriver(driverId: number, msg: PushMessage): Promise<void> {
+  try {
+    const rows = await db
+      .select()
+      .from(pushTokensTable)
+      .where(and(eq(pushTokensTable.role, "driver"), eq(pushTokensTable.driverId, driverId)));
+
+    if (rows.length === 0) {
+      logger.warn({ driverId }, "No push tokens for driver — push skipped");
+      return;
+    }
+
+    const rowsWithFCM = rows.filter((r) => !!r.fcmToken);
+    const fcmTokens = rowsWithFCM.map((r) => r.fcmToken as string);
+    const expoOnlyTokens = rows
+      .filter((r) => !r.fcmToken)
+      .map((r) => r.token)
+      .filter((t): t is string => !!t && t.startsWith("ExponentPushToken["));
+
+    const [fcmResult, staleExpo] = await Promise.all([
+      sendViaFCM(fcmTokens, msg),
+      sendViaExpo(expoOnlyTokens, msg),
+    ]);
+
+    if (fcmResult.successCount < fcmTokens.length) {
+      const fallback = rowsWithFCM
+        .map((r) => r.token)
+        .filter((t): t is string => !!t && t.startsWith("ExponentPushToken["));
+      if (fallback.length > 0) {
+        logger.warn({ driverId, fallback: fallback.length }, "FCM failed — falling back to Expo for driver");
+        await sendViaExpo(fallback, msg);
+      }
+    }
+
+    await Promise.all([
+      removeStaleByFCMToken(fcmResult.stale),
+      removeStaleExpoTokens(staleExpo),
+    ]);
+  } catch (err) {
+    logger.error({ err, driverId }, "Error in sendPushToDriver");
+  }
+}
 
 /**
  * Send a notification to a specific device identified by its Expo token.

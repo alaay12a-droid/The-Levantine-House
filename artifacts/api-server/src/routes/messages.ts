@@ -2,7 +2,7 @@ import { Router } from "express";
 import { db, messagesTable, ordersTable, orderDriverAssignmentsTable } from "@workspace/db";
 import { eq, desc, and, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
-import { sendPushToCashiers, sendPushToToken } from "../lib/sendPushNotification.js";
+import { sendPushToCashiers, sendPushToDriver, sendPushToToken } from "../lib/sendPushNotification.js";
 
 const router = Router();
 
@@ -267,8 +267,14 @@ router.post("/messages/order/:orderId", async (req, res) => {
         }).catch(() => {});
       }
     } else if (driverId) {
-      // Customer → driver: driver will poll (no push token for drivers currently)
-      // no-op push, driver gets it via polling
+      // Customer → driver: push to driver
+      sendPushToDriver(driverId, {
+        title: "💬 رسالة جديدة",
+        body: parsed.data.text.length > 80 ? parsed.data.text.slice(0, 77) + "…" : parsed.data.text,
+        sound: "default",
+        data: { orderId: String(orderId), type: "message" },
+        channelId: "order-status",
+      }).catch(() => {});
     } else {
       // Customer → cashier (no driver assigned): push to all cashier devices
       const [order] = await db

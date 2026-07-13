@@ -2,7 +2,7 @@ import { Router } from "express";
 import { db, deliveryDriversTable, orderDriverAssignmentsTable, ordersTable, appSettingsTable, messagesTable } from "@workspace/db";
 import { eq, desc, and, gte, lt, ne } from "drizzle-orm";
 import { z } from "zod";
-import { sendPushToToken } from "../lib/sendPushNotification.js";
+import { sendPushToDriver, sendPushToToken } from "../lib/sendPushNotification.js";
 
 const router = Router();
 
@@ -365,12 +365,13 @@ router.post("/orders/:id/assign-driver", async (req, res) => {
     .set({ status: "out_for_delivery" })
     .where(and(eq(ordersTable.id, orderId), ne(ordersTable.status, "done"), ne(ordersTable.status, "cancelled")));
 
-  // Notify customer that a driver has been assigned
+  // Notify customer + driver
   const [order] = await db
-    .select({ customerPushToken: ordersTable.customerPushToken, dailyNumber: ordersTable.dailyNumber })
+    .select({ customerPushToken: ordersTable.customerPushToken, dailyNumber: ordersTable.dailyNumber, customerName: ordersTable.customerName })
     .from(ordersTable)
     .where(eq(ordersTable.id, orderId))
     .limit(1);
+
   if (order?.customerPushToken) {
     sendPushToToken(order.customerPushToken, {
       title: "🛵 تم تعيين مندوب لطلبك",
@@ -380,6 +381,14 @@ router.post("/orders/:id/assign-driver", async (req, res) => {
       channelId: "order-status",
     }).catch(() => {});
   }
+
+  sendPushToDriver(driverIdInt, {
+    title: "🛵 طلب جديد!",
+    body: `طلب #${order?.dailyNumber ?? orderId}${order?.customerName ? ` — ${order.customerName}` : ""}`,
+    sound: "default",
+    data: { orderId: String(orderId), type: "new_assignment" },
+    channelId: "order-status",
+  }).catch(() => {});
 });
 
 // ── DELETE /orders/:id/assign-driver ─────────────────────────────────────────

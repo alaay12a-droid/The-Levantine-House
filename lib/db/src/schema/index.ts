@@ -114,7 +114,8 @@ export const pushTokensTable = pgTable("push_tokens", {
   id: serial("id").primaryKey(),
   token: text("token").notNull().unique(),
   fcmToken: text("fcm_token"),
-  role: text("role").default("cashier").notNull(), // "cashier" | "customer"
+  role: text("role").default("cashier").notNull(), // "cashier" | "customer" | "driver"
+  driverId: integer("driver_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
