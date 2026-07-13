@@ -336,17 +336,27 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
   const trackedOrderRef     = useRef<number | null>(null);
   const soundEnabled        = useRef(false);
   const knownAssignmentIds  = useRef<Set<number>>(new Set());
+  const orderSoundRef       = useRef<Audio.Sound | null>(null);
+
+  const stopOrderSound = useCallback(async () => {
+    if (orderSoundRef.current) {
+      try {
+        await orderSoundRef.current.stopAsync();
+        await orderSoundRef.current.unloadAsync();
+      } catch {}
+      orderSoundRef.current = null;
+    }
+  }, []);
 
   const playOrderSound = useCallback(async () => {
     try {
-      Vibration.vibrate([0, 300, 150, 300]);
+      await stopOrderSound();
+      Vibration.vibrate([0, 300, 150, 300, 150, 300]);
       await Audio.setAudioModeAsync({ playsInSilentModeIOS: true, staysActiveInBackground: true });
-      const { sound } = await Audio.Sound.createAsync(ORDER_SOUND, { shouldPlay: true, volume: 1.0 });
-      sound.setOnPlaybackStatusUpdate((s) => {
-        if (s.isLoaded && s.didJustFinish) sound.unloadAsync().catch(() => {});
-      });
+      const { sound } = await Audio.Sound.createAsync(ORDER_SOUND, { shouldPlay: true, volume: 1.0, isLooping: true });
+      orderSoundRef.current = sound;
     } catch {}
-  }, []);
+  }, [stopOrderSound]);
 
   const playMessageSound = useCallback(async () => {
     try {
@@ -481,6 +491,7 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
   }, [rows, startGPS, stopGPS]);
 
   useEffect(() => () => { stopGPS(); }, [stopGPS]);
+  useEffect(() => () => { stopOrderSound(); }, [stopOrderSound]);
 
   const loadOrders = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -510,6 +521,7 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
   }, [loadOrders]);
 
   const updateStatus = async (orderId: number, status: "picked_up" | "delivered") => {
+    await stopOrderSound();
     setUpdating(orderId);
     try {
       await apiPut(`/orders/${orderId}/driver-status`, { status });

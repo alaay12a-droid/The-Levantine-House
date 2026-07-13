@@ -387,7 +387,7 @@ router.post("/orders/:id/assign-driver", async (req, res) => {
     body: `طلب #${order?.dailyNumber ?? orderId}${order?.customerName ? ` — ${order.customerName}` : ""}`,
     sound: "default",
     data: { orderId: String(orderId), type: "new_assignment" },
-    channelId: "order-status",
+    channelId: "orders",
   }).catch(() => {});
 });
 
