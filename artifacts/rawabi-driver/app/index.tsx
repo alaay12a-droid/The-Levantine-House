@@ -1105,10 +1105,46 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+const DRIVER_SESSION_KEY = "driver_session_v1";
+
 export default function MandoobScreen() {
   const [driver, setDriver] = useState<Driver | null>(null);
-  if (!driver) return <LoginScreen onLogin={setDriver} />;
-  return <DriverHome driver={driver} onLogout={() => setDriver(null)} />;
+  const [sessionChecked, setSessionChecked] = useState(false);
+
+  useEffect(() => {
+    AsyncStorage.getItem(DRIVER_SESSION_KEY)
+      .then((raw) => {
+        if (raw) {
+          try {
+            const saved = JSON.parse(raw) as Driver;
+            setDriver(saved);
+          } catch {}
+        }
+      })
+      .catch(() => {})
+      .finally(() => setSessionChecked(true));
+  }, []);
+
+  const handleLogin = (d: Driver) => {
+    AsyncStorage.setItem(DRIVER_SESSION_KEY, JSON.stringify(d)).catch(() => {});
+    setDriver(d);
+  };
+
+  const handleLogout = () => {
+    AsyncStorage.removeItem(DRIVER_SESSION_KEY).catch(() => {});
+    setDriver(null);
+  };
+
+  if (!sessionChecked) {
+    return (
+      <View style={{ flex: 1, backgroundColor: "#0F0A05", alignItems: "center", justifyContent: "center" }}>
+        <ActivityIndicator color="#E8920C" size="large" />
+      </View>
+    );
+  }
+
+  if (!driver) return <LoginScreen onLogin={handleLogin} />;
+  return <DriverHome driver={driver} onLogout={handleLogout} />;
 }
 
 const _styles = StyleSheet.create({});
