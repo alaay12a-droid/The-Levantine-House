@@ -7,6 +7,7 @@ import {
   ScrollView,
   StyleSheet,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -94,6 +95,7 @@ interface Props {
 export function ProductDetailSheet({ item, visible, onClose }: Props) {
   const colors = useColors();
   const { addItem } = useCart();
+  const insets = useSafeAreaInsets();
 
   const [qty, setQty] = useState(1);
   const [sizeIdx, setSizeIdx] = useState(0);
@@ -375,7 +377,7 @@ export function ProductDetailSheet({ item, visible, onClose }: Props) {
           </ScrollView>
 
           {/* ── Fixed Footer: Qty + Add ── */}
-          <View style={[styles.footer, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
+          <View style={[styles.footer, { backgroundColor: colors.card, borderTopColor: colors.border, paddingBottom: insets.bottom + 14 }]}>
             <View style={styles.qtyRow}>
               <TouchableOpacity
                 onPress={() => { if (qty < 99) { setQty(qty + 1); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); } }}
@@ -494,8 +496,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 20,
-    paddingVertical: 14,
-    paddingBottom: 44,
+    paddingTop: 14,
     borderTopWidth: 1,
     gap: 14,
   },
