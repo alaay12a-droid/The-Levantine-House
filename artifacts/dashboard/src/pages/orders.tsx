@@ -397,6 +397,11 @@ export default function Orders() {
       await apiPost(`/orders/${orderId}/assign-driver`, { driverId });
       const map = await apiGet<Record<number, Assignment>>("/orders/assignments");
       setAssignments(map);
+      setOrders(prev => prev.map(o =>
+        o.id === orderId && o.status !== "done" && o.status !== "cancelled"
+          ? { ...o, status: "out_for_delivery" as OrderStatus }
+          : o
+      ));
       setAssigningOrder(null);
     } catch { alert("تعذّر تعيين المندوب"); }
   }, []);
@@ -713,7 +718,7 @@ export default function Orders() {
                 </div>
               )}
 
-              {(nextStatus || order.status === "ready") && (
+              {(nextStatus || order.status === "ready" || order.status === "out_for_delivery") && (
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {nextStatus && nextLabel && (
                     <button
@@ -731,41 +736,36 @@ export default function Orders() {
                       🏪 تم تسليم الطلب للعميل
                     </button>
                   )}
-                  {order.status === "ready" && isDelivery && !driverPickedUp && (
-                    <>
-                      <button
-                        onClick={hasAssigned ? () => handleUpdateStatus(order, "done") : undefined}
-                        disabled={!hasAssigned}
-                        style={{ background: hasAssigned ? CLR_READY_DIM : C.surface, border: `1.5px solid ${hasAssigned ? CLR_READY : C.border}`, borderRadius: 10, padding: "11px", color: hasAssigned ? CLR_READY : C.muted, fontWeight: 700, fontSize: 13.5, cursor: hasAssigned ? "pointer" : "default", width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontFamily: "inherit" }}
-                      >
-                        <span>🛵</span>
-                        <div style={{ textAlign: "center" }}>
-                          <div>تسليم الطلب للمندوب</div>
-                          {!hasAssigned && <div style={{ fontSize: 11, color: C.muted, fontWeight: 400 }}>عيّن مندوباً أولاً 🔒</div>}
-                        </div>
-                      </button>
-                      {aRow ? (
-                        <div style={{ background: CLR_READY_DIM, borderRadius: 10, padding: "10px 12px", border: `1px solid ${CLR_READY}33`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                          <button onClick={() => unassignDriver(order.id)} style={{ background: "none", border: "none", cursor: "pointer", padding: 4 }}>
-                            <X size={14} style={{ color: C.sub }} />
-                          </button>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                            <div>
-                              <div style={{ color: CLR_READY, fontWeight: 700, fontSize: 13 }}>{aRow.driverName}</div>
-                              <div style={{ color: `${CLR_READY}AA`, fontSize: 11 }}>معيّن — بانتظار التسليم</div>
-                            </div>
-                            <span style={{ fontSize: 16 }}>🛵</span>
-                          </div>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => setAssigningOrder(order)}
-                          style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, padding: "11px", color: CLR_READY, fontWeight: 700, fontSize: 13, cursor: "pointer", width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontFamily: "inherit" }}
-                        >
-                          ➕ تعيين مندوب
+                  {order.status === "ready" && isDelivery && (
+                    aRow ? (
+                      <div style={{ background: CLR_READY_DIM, borderRadius: 10, padding: "10px 12px", border: `1px solid ${CLR_READY}33`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                        <button onClick={() => unassignDriver(order.id)} style={{ background: "none", border: "none", cursor: "pointer", padding: 4 }}>
+                          <X size={14} style={{ color: C.sub }} />
                         </button>
-                      )}
-                    </>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <div>
+                            <div style={{ color: CLR_READY, fontWeight: 700, fontSize: 13 }}>{aRow.driverName}</div>
+                            <div style={{ color: `${CLR_READY}AA`, fontSize: 11 }}>معيّن — جارٍ نقل الطلب</div>
+                          </div>
+                          <span style={{ fontSize: 16 }}>🛵</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setAssigningOrder(order)}
+                        style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, padding: "11px", color: CLR_READY, fontWeight: 700, fontSize: 13, cursor: "pointer", width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontFamily: "inherit" }}
+                      >
+                        🛵 تعيين مندوب للتوصيل
+                      </button>
+                    )
+                  )}
+                  {order.status === "out_for_delivery" && (
+                    <button
+                      onClick={() => handleUpdateStatus(order, "done")}
+                      style={{ background: CLR_READY_DIM, border: `1.5px solid ${CLR_READY}55`, borderRadius: 10, padding: "12px", color: CLR_READY, fontWeight: 700, fontSize: 13.5, cursor: "pointer", width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontFamily: "inherit" }}
+                    >
+                      ✅ تأكيد التسليم للعميل
+                    </button>
                   )}
                 </div>
               )}
