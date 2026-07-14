@@ -1,7 +1,61 @@
-import { useState } from "react";
+import { useState, useMemo, Fragment } from "react";
 import { Order } from "@workspace/api-client-react";
 import { sarShort, sar, filterToday } from "./utils";
 import { downloadCSV } from "./export-utils";
+
+// ── Saudi time helpers ────────────────────────────────────────────────────────
+const TZ = 3 * 60 * 60 * 1000;
+function saudiParts(d = new Date()) {
+  const l = new Date(d.getTime() + TZ);
+  return { y: l.getUTCFullYear(), mo: l.getUTCMonth(), day: l.getUTCDate() };
+}
+function saudiMidnight(y: number, mo: number, day: number) {
+  return new Date(Date.UTC(y, mo, day) - TZ);
+}
+
+type CustPreset = "all" | "today" | "yesterday" | "this_week" | "this_month" | "custom";
+interface CustRange { start: Date | null; end: Date | null; label: string }
+
+function computeCustRange(preset: CustPreset, fromStr: string, toStr: string): CustRange {
+  if (preset === "all") return { start: null, end: null, label: "كل الوقت" };
+  const { y, mo, day } = saudiParts();
+  const localNow = new Date(Date.now() + TZ);
+  const dow = localNow.getUTCDay();
+  const days = (d: Date, n: number) => new Date(d.getTime() + n * 86_400_000);
+
+  switch (preset) {
+    case "today": {
+      const s = saudiMidnight(y, mo, day);
+      return { start: s, end: days(s, 1), label: "اليوم" };
+    }
+    case "yesterday": {
+      const s = saudiMidnight(y, mo, day - 1);
+      return { start: s, end: days(s, 1), label: "الأمس" };
+    }
+    case "this_week": {
+      const s = saudiMidnight(y, mo, day - dow);
+      return { start: s, end: days(s, 7), label: "هذا الأسبوع" };
+    }
+    case "this_month": {
+      const s = saudiMidnight(y, mo, 1);
+      return { start: s, end: saudiMidnight(y, mo + 1, 1), label: "هذا الشهر" };
+    }
+    case "custom": {
+      const s = fromStr ? new Date(`${fromStr}T00:00:00+03:00`) : saudiMidnight(y, mo, day);
+      const e = toStr   ? new Date(`${toStr}T23:59:59+03:00`)   : days(s, 1);
+      return { start: s, end: new Date(e.getTime() + 1000), label: `${fromStr || "?"} → ${toStr || "?"}` };
+    }
+  }
+}
+
+const CUST_PRESETS: { key: CustPreset; label: string }[] = [
+  { key: "all",        label: "كل الوقت"    },
+  { key: "today",      label: "اليوم"       },
+  { key: "yesterday",  label: "الأمس"       },
+  { key: "this_week",  label: "هذا الأسبوع" },
+  { key: "this_month", label: "هذا الشهر"   },
+  { key: "custom",     label: "مخصص"        },
+];
 
 interface CustomerStat {
   phone:       string;
@@ -229,27 +283,126 @@ function TopCustomerReward({ customer }: { customer: CustomerStat }) {
 interface Props { orders: Order[]; loading: boolean; }
 
 export function TabCustomers({ orders, loading }: Props) {
-  const allCustomers  = buildCustomerStats(orders);
-  const todayOrders   = filterToday(orders);
-  const todayCustomers = buildCustomerStats(todayOrders);
+  const [preset,   setPreset]   = useState<CustPreset>("all");
+  const [fromStr,  setFromStr]  = useState("");
+  const [toStr,    setToStr]    = useState("");
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
-  const topAll    = allCustomers.slice(0, 20);
-  const topToday  = todayCustomers.slice(0, 10);
-  const returning = allCustomers.filter(c => c.orderCount > 1).length;
-  const newCust   = allCustomers.filter(c => c.orderCount === 1).length;
+  const range = useMemo(() => computeCustRange(preset, fromStr, toStr), [preset, fromStr, toStr]);
+
+  const filteredOrders = useMemo(() => {
+    if (!range.start || !range.end) return orders;
+    return orders.filter(o => {
+      const d = new Date(o.createdAt);
+      return d >= range.start! && d < range.end!;
+    });
+  }, [orders, range]);
+
+  const filteredCustomers = useMemo(() => buildCustomerStats(filteredOrders), [filteredOrders]);
+  const allCustomers      = useMemo(() => buildCustomerStats(orders), [orders]);
+  const todayOrders       = useMemo(() => filterToday(orders), [orders]);
+  const todayCustomers    = useMemo(() => buildCustomerStats(todayOrders), [todayOrders]);
+
+  const displayCustomers = filteredCustomers;
+  const returning = displayCustomers.filter(c => c.orderCount > 1).length;
+  const newCust   = displayCustomers.filter(c => c.orderCount === 1).length;
+
+  // Orders per customer (for detail view)
+  const ordersByPhone = useMemo(() => {
+    const map = new Map<string, Order[]>();
+    for (const o of filteredOrders) {
+      if (o.status === "cancelled") continue;
+      const list = map.get(o.customerPhone) ?? [];
+      list.push(o);
+      map.set(o.customerPhone, list);
+    }
+    for (const list of map.values()) {
+      list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    }
+    return map;
+  }, [filteredOrders]);
+
+  function toggleExpand(phone: string) {
+    setExpanded(prev => {
+      const next = new Set(prev);
+      if (next.has(phone)) next.delete(phone); else next.add(phone);
+      return next;
+    });
+  }
 
   function exportCustomers() {
     downloadCSV(
-      topAll.map((c, idx) => ({
+      displayCustomers.map((c, idx) => ({
         "الترتيب": idx + 1,
         "الجوال": maskPhone(c.phone),
         "عدد الطلبات": c.orderCount,
         "إجمالي الإنفاق (ر.س)": c.totalSpent.toFixed(2),
         "متوسط الطلب (ر.س)": c.avgOrder.toFixed(2),
+        "آخر طلب": new Date(c.lastOrder).toLocaleDateString("ar-SA", { timeZone: "Asia/Riyadh" }),
       })),
-      "أفضل_العملاء.csv",
+      `عملاء_تفصيل_${range.label}.csv`,
       true,
     );
+  }
+
+  function printCustomerReport() {
+    const now = new Date().toLocaleString("ar-SA", { timeZone: "Asia/Riyadh" });
+    const rows = displayCustomers.slice(0, 50).map((c, i) => {
+      const cOrders = ordersByPhone.get(c.phone) ?? [];
+      const detailRows = cOrders.slice(0, 5).map(o => {
+        const items = o.items.map(it => `${it.name} ×${it.quantity}`).join("، ");
+        const dt = new Date(o.createdAt).toLocaleString("ar-SA", { timeZone: "Asia/Riyadh", month: "short", day: "numeric" });
+        return `<tr style="background:#fafafa;font-size:10px">
+          <td colspan="2"></td>
+          <td>${o.dailyNumber ?? "—"}</td>
+          <td style="font-size:10px">${items}</td>
+          <td>${(o.totalPrice / 100).toFixed(2)} ر.س</td>
+          <td>${o.paymentMethod === "cash" ? "نقدي" : "إلكتروني"}</td>
+          <td>${dt}</td>
+        </tr>`;
+      }).join("");
+      return `<tr style="background:#eff6ff">
+        <td>${i + 1}</td>
+        <td>${maskPhone(c.phone)}</td>
+        <td colspan="2"><strong>${c.orderCount} طلب</strong></td>
+        <td><strong>${c.totalSpent.toFixed(2)} ر.س</strong></td>
+        <td>${c.avgOrder.toFixed(2)} ر.س</td>
+        <td>${new Date(c.lastOrder).toLocaleDateString("ar-SA", { timeZone: "Asia/Riyadh" })}</td>
+      </tr>${detailRows}`;
+    }).join("");
+
+    const html = `<!DOCTYPE html>
+<html dir="rtl" lang="ar"><head><meta charset="utf-8"/>
+<title>تقرير العملاء تفصيل — ${range.label}</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:Cairo,Arial,sans-serif;direction:rtl;padding:16px;font-size:12px;color:#111}
+  h1{font-size:18px;text-align:center;margin-bottom:4px}
+  .sub{text-align:center;color:#666;font-size:11px;margin-bottom:14px}
+  .summary{display:flex;gap:12px;justify-content:center;margin-bottom:16px;flex-wrap:wrap}
+  .sc{border:1px solid #e5e7eb;border-radius:8px;padding:8px 16px;text-align:center}
+  .sc .n{font-size:18px;font-weight:700;color:#065f46}.sc .l{font-size:10px;color:#666}
+  table{width:100%;border-collapse:collapse}
+  th{background:#f3f4f6;padding:6px;font-size:11px;font-weight:700;border-bottom:2px solid #d1d5db;text-align:right}
+  td{padding:5px 6px;border-bottom:1px solid #f0f0f0;font-size:11px;vertical-align:top}
+  @media print{body{padding:5mm}}
+</style></head><body>
+<h1>👥 تقرير العملاء تفصيل — ${range.label}</h1>
+<p class="sub">روابي المندي للمذاق فن وأصول · مطبوع: ${now}</p>
+<div class="summary">
+  <div class="sc"><div class="n">${displayCustomers.length}</div><div class="l">عدد العملاء</div></div>
+  <div class="sc"><div class="n">${returning}</div><div class="l">متكررون</div></div>
+  <div class="sc"><div class="n">${newCust}</div><div class="l">جدد</div></div>
+  <div class="sc"><div class="n">${displayCustomers.reduce((s, c) => s + c.totalSpent, 0).toFixed(2)} ر.س</div><div class="l">إجمالي الإنفاق</div></div>
+</div>
+<table>
+<thead><tr><th>#</th><th>الجوال</th><th>رقم الطلب</th><th>الأصناف / التفاصيل</th><th>المبلغ</th><th>الدفع</th><th>التاريخ</th></tr></thead>
+<tbody>${rows}</tbody>
+</table>
+</body></html>`;
+    const w = window.open("", "_blank");
+    if (w) { w.document.write(html); w.document.close(); setTimeout(() => w.print(), 500); }
   }
 
   if (loading) {
@@ -258,13 +411,51 @@ export function TabCustomers({ orders, loading }: Props) {
 
   return (
     <div className="space-y-8">
+
+      {/* ══ DATE RANGE FILTER ════════════════════════════════════════════════ */}
+      <section className="rounded-2xl border border-purple-200 bg-purple-50 p-5">
+        <h3 className="font-bold text-sm mb-4 flex items-center gap-2">
+          <span>📅</span> اختر الفترة الزمنية
+        </h3>
+        <div className="flex flex-wrap gap-2 mb-4">
+          {CUST_PRESETS.map(p => (
+            <button key={p.key} onClick={() => setPreset(p.key)}
+              className={`rounded-xl px-3 py-1.5 text-xs font-semibold border transition-all ${
+                preset === p.key
+                  ? "bg-purple-600 text-white border-purple-600 shadow-sm"
+                  : "bg-white text-purple-700 border-purple-200 hover:bg-purple-100"
+              }`}>
+              {p.label}
+            </button>
+          ))}
+        </div>
+        {preset === "custom" && (
+          <div className="flex flex-wrap gap-3 items-end">
+            <div>
+              <label className="text-[11px] font-medium text-purple-800 block mb-1">من تاريخ</label>
+              <input type="date" value={fromStr} onChange={e => setFromStr(e.target.value)}
+                className="rounded-xl border border-purple-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-purple-300" />
+            </div>
+            <div>
+              <label className="text-[11px] font-medium text-purple-800 block mb-1">إلى تاريخ</label>
+              <input type="date" value={toStr} onChange={e => setToStr(e.target.value)}
+                className="rounded-xl border border-purple-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-purple-300" />
+            </div>
+          </div>
+        )}
+        <p className="text-xs text-purple-700 mt-3 font-medium">
+          الفترة: <span className="font-bold">{range.label}</span>
+          {" · "}عدد الطلبات: <span className="font-bold">{filteredOrders.filter(o => o.status !== "cancelled").length}</span>
+        </p>
+      </section>
+
       {/* Summary */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { icon: "👥", label: "إجمالي العملاء", value: String(allCustomers.length), accent: "text-blue-700", bg: "bg-blue-50", border: "border-blue-200" },
-          { icon: "🔄", label: "عملاء متكررون", value: String(returning), accent: "text-emerald-700", bg: "bg-emerald-50", border: "border-emerald-200" },
-          { icon: "🆕", label: "عملاء جدد", value: String(newCust), accent: "text-violet-700", bg: "bg-violet-50", border: "border-violet-200" },
-          { icon: "📅", label: "عملاء اليوم", value: String(todayCustomers.length), accent: "text-amber-700", bg: "bg-amber-50", border: "border-amber-200" },
+          { icon: "👥", label: "عدد العملاء",       value: String(displayCustomers.length),  accent: "text-blue-700",    bg: "bg-blue-50",    border: "border-blue-200"    },
+          { icon: "🔄", label: "عملاء متكررون",      value: String(returning),                accent: "text-emerald-700", bg: "bg-emerald-50", border: "border-emerald-200" },
+          { icon: "🆕", label: "عملاء جدد",          value: String(newCust),                  accent: "text-violet-700",  bg: "bg-violet-50",  border: "border-violet-200"  },
+          { icon: "📅", label: "عملاء اليوم (كلي)",  value: String(todayCustomers.length),    accent: "text-amber-700",   bg: "bg-amber-50",   border: "border-amber-200"   },
         ].map(c => (
           <div key={c.label} className={`rounded-2xl border ${c.bg} ${c.border} p-5`}>
             <div className="flex items-center gap-2 mb-3">
@@ -281,34 +472,111 @@ export function TabCustomers({ orders, loading }: Props) {
         <TopCustomerReward customer={allCustomers[0]} />
       )}
 
-      {/* Export */}
-      <div className="flex justify-end print:hidden">
+      {/* Actions */}
+      <div className="flex gap-2 flex-wrap print:hidden">
+        <button onClick={printCustomerReport}
+          className="flex items-center gap-1.5 text-xs border rounded-lg px-3 py-1.5 bg-background hover:bg-muted transition-colors font-medium">
+          🖨️ طباعة التقرير
+        </button>
         <button onClick={exportCustomers}
           className="flex items-center gap-1.5 text-xs border rounded-lg px-3 py-1.5 hover:bg-muted transition-colors font-medium">
           📊 تصدير Excel
         </button>
       </div>
 
-      {/* Today's customers */}
-      {topToday.length > 0 && (
-        <section className="rounded-2xl border bg-card p-5 print:p-3">
-          <h3 className="font-bold text-sm mb-4 flex items-center gap-2"><span>📅</span> عملاء اليوم</h3>
-          <CustomerTable customers={topToday} />
-        </section>
-      )}
-
-      {/* All-time top customers */}
+      {/* Detailed customers table */}
       <section className="rounded-2xl border bg-card p-5 print:p-3">
         <h3 className="font-bold text-sm mb-4 flex items-center gap-2">
-          <span>🏆</span> أفضل 20 عميل (كل الوقت)
+          <span>🏆</span> العملاء تفصيل — {range.label}
+          <span className="text-xs font-normal text-muted-foreground mr-1">
+            ({displayCustomers.length} عميل)
+          </span>
         </h3>
-        {topAll.length === 0 ? (
+        {displayCustomers.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-10 text-muted-foreground gap-2">
             <span className="text-3xl">📭</span>
-            <p className="text-sm">لا توجد بيانات</p>
+            <p className="text-sm">لا توجد بيانات في هذه الفترة</p>
           </div>
         ) : (
-          <CustomerTable customers={topAll} showRank />
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b bg-muted/30">
+                  <th className="py-2 px-3 text-right text-xs font-semibold text-muted-foreground w-8">#</th>
+                  {["الجوال","الطلبات","إجمالي الإنفاق","متوسط الطلب","آخر طلب",""].map(h => (
+                    <th key={h} className="py-2 px-3 text-right text-xs font-semibold text-muted-foreground">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {displayCustomers.map((c, idx) => {
+                  const cOrders = ordersByPhone.get(c.phone) ?? [];
+                  const isOpen  = expanded.has(c.phone);
+                  return (
+                    <Fragment key={c.phone}>
+                      <tr className="border-b hover:bg-muted/10">
+                        <td className="py-2.5 px-3">
+                          <span className={`inline-flex items-center justify-center h-6 w-6 rounded-full text-xs font-bold ${
+                            idx === 0 ? "bg-amber-400 text-white" : idx === 1 ? "bg-gray-300 text-gray-700" : idx === 2 ? "bg-orange-300 text-white" : "bg-muted text-muted-foreground"
+                          }`}>{idx + 1}</span>
+                        </td>
+                        <td className="py-2.5 px-3 font-mono text-xs">{maskPhone(c.phone)}</td>
+                        <td className="py-2.5 px-3">
+                          <span className="inline-flex items-center gap-1">
+                            <span className="font-bold text-primary">{c.orderCount}</span>
+                            {c.orderCount > 3 && <span className="text-[10px] text-emerald-600 font-semibold">متكرر</span>}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-3 font-bold text-emerald-700">{sar(c.totalSpent)}</td>
+                        <td className="py-2.5 px-3 text-xs text-muted-foreground">{sarShort(c.avgOrder)}</td>
+                        <td className="py-2.5 px-3 text-xs text-muted-foreground">
+                          {new Date(c.lastOrder).toLocaleDateString("ar-SA", { timeZone: "Asia/Riyadh", month: "short", day: "numeric" })}
+                        </td>
+                        <td className="py-2.5 px-3">
+                          {cOrders.length > 0 && (
+                            <button
+                              onClick={() => toggleExpand(c.phone)}
+                              className="text-xs border rounded-lg px-2 py-1 hover:bg-muted transition-colors font-medium text-muted-foreground whitespace-nowrap"
+                            >
+                              {isOpen ? "▲ إخفاء" : "▼ تفصيل"}
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+
+                      {/* Expandable order rows */}
+                      {isOpen && cOrders.map(o => (
+                        <tr key={o.id} className="bg-purple-50/50 border-b border-purple-100 text-xs">
+                          <td className="py-1.5 px-3"></td>
+                          <td className="py-1.5 px-3 font-mono text-muted-foreground">
+                            #{o.dailyNumber ?? o.id}
+                          </td>
+                          <td className="py-1.5 px-3" colSpan={2}>
+                            <span className="text-muted-foreground">
+                              {o.items.slice(0, 3).map(it => `${it.name} ×${it.quantity}`).join("، ")}
+                              {o.items.length > 3 && ` +${o.items.length - 3}`}
+                            </span>
+                          </td>
+                          <td className="py-1.5 px-3 font-semibold text-emerald-700 whitespace-nowrap">
+                            {(o.totalPrice / 100).toFixed(2)} ر.س
+                          </td>
+                          <td className="py-1.5 px-3 text-muted-foreground whitespace-nowrap">
+                            {o.paymentMethod === "cash" ? "💵 نقدي" : "💳 إلكتروني"}
+                          </td>
+                          <td className="py-1.5 px-3 text-muted-foreground whitespace-nowrap">
+                            {new Date(o.createdAt).toLocaleString("ar-SA", {
+                              timeZone: "Asia/Riyadh", month: "short", day: "numeric",
+                              hour: "2-digit", minute: "2-digit",
+                            })}
+                          </td>
+                        </tr>
+                      ))}
+                    </Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
       </section>
 

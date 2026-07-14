@@ -137,6 +137,69 @@ router.get("/drivers/all-deliveries", async (req, res) => {
   })));
 });
 
+// ── GET /drivers/report?from=YYYY-MM-DD&to=YYYY-MM-DD  (range report) ────────
+router.get("/drivers/report", async (req, res) => {
+  const fromStr = String(req.query.from ?? "");
+  const toStr   = String(req.query.to   ?? "");
+
+  const from = fromStr ? new Date(`${fromStr}T00:00:00+03:00`) : new Date(Date.now() - 30 * 86_400_000);
+  const to   = toStr   ? new Date(`${toStr}T23:59:59+03:00`)   : new Date();
+
+  const rows = await db
+    .select({ assignment: orderDriverAssignmentsTable, order: ordersTable, driver: deliveryDriversTable })
+    .from(orderDriverAssignmentsTable)
+    .leftJoin(ordersTable, eq(orderDriverAssignmentsTable.orderId, ordersTable.id))
+    .leftJoin(deliveryDriversTable, eq(orderDriverAssignmentsTable.driverId, deliveryDriversTable.id))
+    .where(and(
+      eq(orderDriverAssignmentsTable.status, "delivered"),
+      gte(orderDriverAssignmentsTable.deliveredAt, from),
+      lt(orderDriverAssignmentsTable.deliveredAt, to),
+    ))
+    .orderBy(desc(orderDriverAssignmentsTable.deliveredAt));
+
+  type DeliveryRow = {
+    orderId: number; dailyNumber: number | null; customerName: string;
+    customerPhone: string; totalPrice: number; paymentMethod: string;
+    deliveredAt: string | null; customerAddress: string | null;
+  };
+
+  const driverMap = new Map<number, { driverId: number; driverName: string; deliveries: DeliveryRow[] }>();
+
+  for (const r of rows) {
+    const driverId   = r.assignment.driverId;
+    const driverName = r.driver?.name ?? "غير محدد";
+    if (!driverMap.has(driverId)) {
+      driverMap.set(driverId, { driverId, driverName, deliveries: [] });
+    }
+    driverMap.get(driverId)!.deliveries.push({
+      orderId:         r.assignment.orderId,
+      dailyNumber:     r.order?.dailyNumber ?? null,
+      customerName:    r.order?.customerName ?? "",
+      customerPhone:   r.order?.customerPhone ?? "",
+      totalPrice:      (r.order?.totalPrice ?? 0) / 100,
+      paymentMethod:   r.order?.paymentMethod ?? "cash",
+      deliveredAt:     r.assignment.deliveredAt ? r.assignment.deliveredAt.toISOString() : null,
+      customerAddress: r.order?.customerAddress ?? null,
+    });
+  }
+
+  const result = Array.from(driverMap.values()).map(d => {
+    const cash       = d.deliveries.filter(x => x.paymentMethod === "cash");
+    const electronic = d.deliveries.filter(x => x.paymentMethod !== "cash");
+    return {
+      driverId:            d.driverId,
+      driverName:          d.driverName,
+      deliveryCount:       d.deliveries.length,
+      totalCollected:      +d.deliveries.reduce((s, x) => s + x.totalPrice, 0).toFixed(2),
+      cashCollected:       +cash.reduce((s, x) => s + x.totalPrice, 0).toFixed(2),
+      electronicCollected: +electronic.reduce((s, x) => s + x.totalPrice, 0).toFixed(2),
+      deliveries:          d.deliveries,
+    };
+  }).sort((a, b) => b.deliveryCount - a.deliveryCount);
+
+  res.json(result);
+});
+
 // ── GET /drivers/daily-summaries  (all drivers — admin view) ─────────────────
 router.get("/drivers/daily-summaries", async (_req, res) => {
   const today = new Date(); today.setHours(0, 0, 0, 0);

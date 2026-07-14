@@ -9,14 +9,16 @@ import { TabCustomers }  from "./tab-customers";
 import { TabAccounting } from "./tab-accounting";
 import { TabExport }     from "./tab-export";
 import { TabErp }        from "./tab-erp";
+import { TabDrivers }    from "./tab-drivers";
 
 const TABS = [
-  { id: "overview",   icon: "📊", label: "نظرة عامة"  },
-  { id: "products",   icon: "📦", label: "الأصناف"     },
-  { id: "customers",  icon: "👥", label: "العملاء"     },
-  { id: "accounting", icon: "🧾", label: "المحاسبة"    },
-  { id: "erp",        icon: "🗂️", label: "تقارير ERP"  },
-  { id: "export",     icon: "📥", label: "التصدير"     },
+  { id: "overview",   icon: "📊", label: "نظرة عامة"      },
+  { id: "products",   icon: "📦", label: "الأصناف"         },
+  { id: "customers",  icon: "👥", label: "العملاء تفصيل"   },
+  { id: "drivers",    icon: "🛵", label: "المندوبين"        },
+  { id: "accounting", icon: "🧾", label: "المحاسبة"        },
+  { id: "erp",        icon: "🗂️", label: "تقارير ERP"      },
+  { id: "export",     icon: "📥", label: "التصدير"         },
 ] as const;
 type TabId = typeof TABS[number]["id"];
 
@@ -141,6 +143,9 @@ export default function ReportsPage() {
               orders={orders}
               loading={loading}
             />
+          )}
+          {tab === "drivers" && (
+            <TabDrivers />
           )}
           {tab === "erp" && (
             <TabErp orders={orders} loading={ordersLoading} />
