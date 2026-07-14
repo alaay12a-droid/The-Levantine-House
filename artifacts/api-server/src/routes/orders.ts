@@ -179,7 +179,7 @@ router.get("/orders", async (req, res) => {
 
 const RESTAURANT_NAME = "روابي المندي";
 
-function buildCustomerStatusMessage(status: string, dailyNumber: number): { title: string; body: string } | null {
+function buildCustomerStatusMessage(status: string, dailyNumber: number, isDelivery: boolean): { title: string; body: string } | null {
   switch (status) {
     case "preparing":
       return {
@@ -187,10 +187,15 @@ function buildCustomerStatusMessage(status: string, dailyNumber: number): { titl
         body: `طلبك رقم #${dailyNumber} من ${RESTAURANT_NAME} قيد التحضير الآن — سيكون جاهز قريباً!`,
       };
     case "ready":
-      return {
-        title: "✅ طلبك جاهز!",
-        body: `طلبك رقم #${dailyNumber} من ${RESTAURANT_NAME} أصبح جاهزاً، تفضّل بالاستلام 🎉`,
-      };
+      return isDelivery
+        ? {
+            title: "✅ طلبك جاهز!",
+            body: `طلبك رقم #${dailyNumber} من ${RESTAURANT_NAME} جاهز وسيصلك مع المندوب قريباً 🚚`,
+          }
+        : {
+            title: "✅ طلبك جاهز!",
+            body: `طلبك رقم #${dailyNumber} من ${RESTAURANT_NAME} أصبح جاهزاً، تفضّل بالاستلام 🎉`,
+          };
     case "done":
       // pickup orders only (delivery orders notified via driver "delivered" event)
       return {
@@ -231,7 +236,8 @@ router.patch("/orders/:id/status", async (req, res) => {
   res.json(order);
 
   // Send push notification to customer if they have a token
-  const customerMsg = buildCustomerStatusMessage(status, order.dailyNumber);
+  const isDelivery = (order.deliveryFee ?? 0) > 0;
+  const customerMsg = buildCustomerStatusMessage(status, order.dailyNumber, isDelivery);
   if (order.customerPushToken && customerMsg) {
     // For "done": skip if order has a driver assignment (delivery order) —
     // the driver's "delivered" event sends the notification instead
