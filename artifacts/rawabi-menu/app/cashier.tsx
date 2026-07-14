@@ -582,15 +582,19 @@ export default function CashierScreen() {
 
     // ── Price unit detection ──────────────────────────────────────────────────
     // Some orders have item.price stored 100× too small (e.g. 0.44 instead of 44).
-    // Any real menu item costs at least 2 SAR, so if any price < 1 it is wrong.
-    const priceFactor = order.items.some(i => i.price > 0 && i.price < 1) ? 100 : 1;
-    const rawSubtotal = order.items.reduce((s, i) => s + i.price * i.quantity, 0);
     const totalPaid   = order.totalPrice / 100;
+    const deliveryFee   = (order.deliveryFee ?? 0) / 100;
+    const rawSubtotal = order.items.reduce((s, i) => s + i.price * i.quantity, 0);
+    // Use totalPaid as the authoritative source.
+    // If rawSubtotal is ≥50× smaller than (totalPaid − deliveryFee), prices are
+    // stored in a wrong unit — scale them up so the receipt matches the actual total.
+    const expected = totalPaid - deliveryFee;
+    const priceFactor = rawSubtotal > 0 && expected > rawSubtotal * 50
+      ? expected / rawSubtotal
+      : 1;
+    const itemsSubtotal = rawSubtotal * priceFactor;
 
     const fmt = (n: number) => n % 1 === 0 ? String(n) : n.toFixed(2);
-
-    const deliveryFee   = (order.deliveryFee ?? 0) / 100;
-    const itemsSubtotal = rawSubtotal * priceFactor;
     const discount      = Math.max(0, itemsSubtotal + deliveryFee - totalPaid);
     const hasDiscount   = discount > 0.005;
     const hasDelivery   = deliveryFee > 0;
@@ -2253,11 +2257,13 @@ ${daySections}
 
             {/* Order Summary with full breakdown */}
             {printOrder && (() => {
-              const deliveryFee = (printOrder.deliveryFee ?? 0) / 100;
               const totalDue = printOrder.totalPrice / 100;
-              // Any real menu item costs at least 2 SAR — if any price < 1 it is stored 100× too small
-              const priceFactor = printOrder.items.some(i => i.price > 0 && i.price < 1) ? 100 : 1;
+              const deliveryFee = (printOrder.deliveryFee ?? 0) / 100;
               const rawSubtotal = printOrder.items.reduce((s, i) => s + i.price * i.quantity, 0);
+              const expected = totalDue - deliveryFee;
+              const priceFactor = rawSubtotal > 0 && expected > rawSubtotal * 50
+                ? expected / rawSubtotal
+                : 1;
               const itemsSubtotal = rawSubtotal * priceFactor;
               const discount = Math.max(0, itemsSubtotal + deliveryFee - totalDue);
               const hasDiscount = discount > 0.005;
