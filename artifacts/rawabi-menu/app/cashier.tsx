@@ -579,51 +579,67 @@ export default function CashierScreen() {
     const date = new Date(order.createdAt);
     const dateStr = date.toLocaleDateString("ar-SA", { day: "numeric", month: "long", year: "numeric" });
     const timeStr = date.toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" });
-    const itemsRows = order.items.map((item) => {
-      const lineTotal = (item.price * item.quantity);
-      const lineTotalStr = lineTotal % 1 === 0 ? String(lineTotal) : lineTotal.toFixed(2);
-      return `
-        <tr>
-          <td style="padding:4px 8px;text-align:left;">${lineTotalStr} ر.س</td>
-          <td style="padding:4px 8px;text-align:right;">${item.name}</td>
-          <td style="padding:4px 8px;text-align:center;">${item.quantity}</td>
-        </tr>`;
-    }).join("");
 
-    const itemsSubtotal = order.items.reduce((s, i) => s + i.price * i.quantity, 0);
-    const deliveryFee = (order.deliveryFee ?? 0) / 100;
-    const totalPaid = order.totalPrice / 100;
-    const discount = Math.max(0, itemsSubtotal + deliveryFee - totalPaid);
-    const hasDiscount = discount > 0.005;
-    const hasDelivery = deliveryFee > 0;
-    const payMethod = order.paymentMethod === "cash" ? "نقدي" : "إلكتروني";
-    const change = paidAmount !== undefined ? Math.max(0, paidAmount - totalPaid) : null;
+    // ── Price unit detection ──────────────────────────────────────────────────
+    // Some orders may have item.price stored in a unit 100× smaller than SAR.
+    // Compare raw items subtotal vs. authoritative totalPrice/100.
+    const rawSubtotal = order.items.reduce((s, i) => s + i.price * i.quantity, 0);
+    const totalPaid   = order.totalPrice / 100;
+    // If rawSubtotal is ~100× smaller than totalPaid, multiply prices by 100.
+    const priceFactor =
+      rawSubtotal > 0 &&
+      totalPaid > 0 &&
+      totalPaid / rawSubtotal > 50 &&
+      totalPaid / rawSubtotal < 150
+        ? 100 : 1;
 
     const fmt = (n: number) => n % 1 === 0 ? String(n) : n.toFixed(2);
+
+    const deliveryFee   = (order.deliveryFee ?? 0) / 100;
+    const itemsSubtotal = rawSubtotal * priceFactor;
+    const discount      = Math.max(0, itemsSubtotal + deliveryFee - totalPaid);
+    const hasDiscount   = discount > 0.005;
+    const hasDelivery   = deliveryFee > 0;
+    const payMethod     = order.paymentMethod === "cash" ? "نقدي" : "إلكتروني";
+    const change        = paidAmount !== undefined ? Math.max(0, paidAmount - totalPaid) : null;
+
+    // ── Items table rows ──────────────────────────────────────────────────────
+    // RTL column order in DOM: الصنف (right) | الكمية (center) | المبلغ (left)
+    const itemsRows = order.items.map((item, idx) => {
+      const unitPrice  = item.price * priceFactor;
+      const lineTotal  = unitPrice * item.quantity;
+      const bg = idx % 2 === 1 ? "background:#fafafa;" : "";
+      return `
+        <tr style="${bg}">
+          <td style="padding:5px 8px;text-align:right;">${item.name}</td>
+          <td style="padding:5px 8px;text-align:center;">${item.quantity}</td>
+          <td style="padding:5px 8px;text-align:left;font-weight:600;">${fmt(lineTotal)} ر.س</td>
+        </tr>`;
+    }).join("");
 
     const summaryRows = `
       ${hasDelivery ? `
       <tr>
-        <td style="padding:3px 8px;text-align:left;color:#555;">${fmt(deliveryFee)} ر.س</td>
-        <td colspan="2" style="padding:3px 8px;text-align:right;color:#555;">رسوم التوصيل</td>
+        <td colspan="2" style="padding:4px 8px;text-align:right;color:#555;">رسوم التوصيل</td>
+        <td style="padding:4px 8px;text-align:left;color:#555;">+ ${fmt(deliveryFee)} ر.س</td>
       </tr>` : ""}
       ${hasDiscount ? `
       <tr>
-        <td style="padding:3px 8px;text-align:left;color:#C8171A;">- ${fmt(discount)} ر.س</td>
-        <td colspan="2" style="padding:3px 8px;text-align:right;color:#C8171A;">إجمالي الخصم</td>
+        <td colspan="2" style="padding:4px 8px;text-align:right;color:#C8171A;">خصم</td>
+        <td style="padding:4px 8px;text-align:left;color:#C8171A;">- ${fmt(discount)} ر.س</td>
       </tr>` : ""}
-      <tr style="font-size:15px;font-weight:800;border-top:1px solid #aaa;">
-        <td style="padding:8px;text-align:left;">${fmt(totalPaid)} ر.س</td>
-        <td colspan="2" style="padding:8px;text-align:right;">الصافي المستحق</td>
+      <tr style="background:#FFF8E1;border-top:2px solid #E8920C;">
+        <td colspan="2" style="padding:8px;text-align:right;font-size:14px;font-weight:800;color:#7A5C00;">الإجمالي المستحق</td>
+        <td style="padding:8px;text-align:left;font-size:14px;font-weight:800;color:#7A5C00;">${fmt(totalPaid)} ر.س</td>
       </tr>
       ${paidAmount !== undefined ? `
       <tr>
-        <td style="padding:3px 8px;text-align:left;color:#555;">${fmt(paidAmount)} ر.س</td>
-        <td colspan="2" style="padding:3px 8px;text-align:right;color:#555;">المبلغ المدفوع</td>
+        <td colspan="2" style="padding:4px 8px;text-align:right;color:#555;">المبلغ المدفوع</td>
+        <td style="padding:4px 8px;text-align:left;color:#555;">${fmt(paidAmount)} ر.س</td>
       </tr>
-      <tr style="font-weight:700;background:#f0f0f0;">
-        <td style="padding:4px 8px;text-align:left;color:#2e7d32;">${fmt(change!)} ر.س</td>
-        <td colspan="2" style="padding:4px 8px;text-align:right;color:#2e7d32;">المتبقي (الفكة)</td>
+      <tr style="background:#E8F5E9;">
+        <td colspan="2" style="padding:6px 8px;text-align:right;font-weight:700;color:#2e7d32;">الفكة المتبقية</td>
+        <td style="padding:6px 8px;text-align:left;font-weight:700;color:#2e7d32;">${fmt(change!)} ر.س</td>
       </tr>` : ""}
     `;
 
@@ -636,70 +652,123 @@ export default function CashierScreen() {
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap');
   * { margin:0; padding:0; box-sizing:border-box; }
-  body { font-family:'Cairo',sans-serif; background:#fff; color:#111; direction:rtl; }
-  .receipt { max-width:80mm; margin:0 auto; padding:10mm 5mm; }
-  .logo-wrap { text-align:center; margin-bottom:4px; }
-  .logo-wrap img { width:80px; height:80px; object-fit:contain; mix-blend-mode:multiply; }
-  .restaurant-name { text-align:center; font-size:17px; font-weight:800; color:#8B4513; margin-bottom:2px; }
-  .restaurant-sub { text-align:center; font-size:11px; color:#666; margin-bottom:6px; }
-  .divider { border:none; border-top:1px dashed #bbb; margin:8px 0; }
-  .meta { font-size:12px; margin-bottom:5px; }
-  .meta span { color:#555; }
-  .daily-num { text-align:center; font-size:18px; font-weight:800; margin:6px 0; color:#8B4513; }
-  table { width:100%; border-collapse:collapse; font-size:13px; }
-  thead th { border-bottom:1px solid #ccc; padding:4px 8px; font-weight:700; }
-  .subtotal-row td { padding:3px 8px; border-top:1px solid #eee; font-size:13px; }
-  .footer { text-align:center; font-size:11px; color:#888; margin-top:10px; }
+  body { font-family:'Cairo',sans-serif; background:#fff; color:#111; direction:rtl; font-size:13px; }
+  .receipt { max-width:82mm; margin:0 auto; padding:8mm 5mm; }
+
+  /* Header */
+  .logo-wrap { text-align:center; margin-bottom:6px; }
+  .logo-wrap img { width:72px; height:72px; object-fit:contain; mix-blend-mode:multiply; }
+  .restaurant-name { text-align:center; font-size:16px; font-weight:800; color:#8B4513; line-height:1.3; }
+  .restaurant-sub  { text-align:center; font-size:10px; color:#777; margin-top:2px; }
+
+  /* Divider */
+  .divider { border:none; border-top:1px dashed #ccc; margin:7px 0; }
+  .divider-solid { border:none; border-top:2px solid #C8171A; margin:7px 0; }
+
+  /* Order number badge */
+  .order-badge { text-align:center; background:#FFF3E0; border:1px solid #E8920C; border-radius:8px; padding:5px 10px; margin:6px 0; }
+  .order-badge .num { font-size:17px; font-weight:800; color:#8B4513; }
+  .order-badge .date { font-size:10px; color:#777; margin-top:1px; }
+
+  /* Meta grid */
+  .meta-grid { display:grid; grid-template-columns:auto 1fr; gap:2px 8px; font-size:11.5px; margin:4px 0; }
+  .meta-label { color:#777; white-space:nowrap; }
+  .meta-value { font-weight:600; color:#111; word-break:break-all; }
+
+  /* Items table */
+  table { width:100%; border-collapse:collapse; font-size:12.5px; margin-top:4px; }
+  thead th { background:#3E1A00; color:#E8920C; font-weight:700; font-size:11px; padding:5px 8px; }
+  thead th:first-child  { text-align:right; }
+  thead th:nth-child(2) { text-align:center; }
+  thead th:last-child   { text-align:left; }
+  tbody tr:last-child td { border-bottom:1px solid #ddd; }
+
+  /* Subtotal section */
+  .subtotal-section { width:100%; border-collapse:collapse; font-size:12.5px; margin-top:2px; }
+  .subtotal-section td { padding:4px 8px; }
+
+  /* Footer */
+  .footer { text-align:center; font-size:10.5px; color:#888; margin-top:10px; line-height:1.6; }
+
   @media print {
-    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    body { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
     button { display:none !important; }
   }
 </style>
 </head>
 <body>
 <div class="receipt">
+
+  <!-- Header -->
   <div class="logo-wrap">
     <img src="data:image/png;base64,${LOGO_B64}" alt="روابي المندي"/>
   </div>
-  <div class="restaurant-name">روابي المندي</div>
+  <div class="restaurant-name">روابي المندي للمذاق فن وأصول</div>
   <div class="restaurant-sub">تبوك — المملكة العربية السعودية</div>
+
+  <hr class="divider-solid"/>
+
+  <!-- Order badge -->
+  <div class="order-badge">
+    <div class="num">طلب اليوم #${order.dailyNumber}</div>
+    <div class="date">${dateStr} — ${timeStr}</div>
+  </div>
+
   <hr class="divider"/>
-  <div class="daily-num">طلب اليوم #${order.dailyNumber}</div>
+
+  <!-- Customer info -->
+  <div class="meta-grid">
+    <span class="meta-label">الاسم:</span>
+    <span class="meta-value">${order.customerName}</span>
+    <span class="meta-label">الجوال:</span>
+    <span class="meta-value">${order.customerPhone}</span>
+    ${order.customerAddress ? `
+    <span class="meta-label">العنوان:</span>
+    <span class="meta-value">${order.customerAddress.startsWith("https://") ? "موقع GPS 📍" : order.customerAddress}</span>
+    ` : ""}
+    <span class="meta-label">الدفع:</span>
+    <span class="meta-value">${payMethod}</span>
+    ${order.notes ? `
+    <span class="meta-label">ملاحظات:</span>
+    <span class="meta-value">${order.notes}</span>
+    ` : ""}
+  </div>
+
   <hr class="divider"/>
-  <div class="meta"><span>الاسم: </span>${order.customerName}</div>
-  <div class="meta"><span>الجوال: </span>${order.customerPhone}</div>
-  ${order.customerAddress ? `<div class="meta"><span>العنوان: </span>${order.customerAddress.startsWith("https://") ? "موقع GPS" : order.customerAddress}</div>` : ""}
-  <div class="meta"><span>التاريخ: </span>${dateStr}</div>
-  <div class="meta"><span>الوقت: </span>${timeStr}</div>
-  <div class="meta"><span>طريقة الدفع: </span>${payMethod}</div>
-  ${order.notes ? `<div class="meta"><span>ملاحظات: </span>${order.notes}</div>` : ""}
-  <hr class="divider"/>
+
+  <!-- Items table: RTL order in DOM = الصنف (right) | الكمية (center) | المبلغ (left) -->
   <table>
     <thead>
       <tr>
-        <th style="text-align:left;">المبلغ</th>
-        <th style="text-align:right;">الصنف</th>
-        <th style="text-align:center;">الكمية</th>
+        <th>الصنف</th>
+        <th>الكمية</th>
+        <th>المبلغ</th>
       </tr>
     </thead>
     <tbody>${itemsRows}</tbody>
-    <tbody class="subtotal-row">
+  </table>
+
+  <!-- Totals -->
+  <table class="subtotal-section">
+    <tbody>
       <tr style="border-top:1px solid #ccc;">
-        <td style="padding:3px 8px;text-align:left;">${fmt(itemsSubtotal)} ر.س</td>
-        <td colspan="2" style="padding:3px 8px;text-align:right;">المجموع قبل الخصم</td>
+        <td colspan="2" style="text-align:right;color:#555;">المجموع</td>
+        <td style="text-align:left;color:#555;">${fmt(itemsSubtotal)} ر.س</td>
       </tr>
       ${summaryRows}
     </tbody>
   </table>
+
   <hr class="divider"/>
-  <div class="footer">شكراً لاختيارك روابي المندي 🍗<br/>نتمنى لك وجبة شهية!</div>
+  <div class="footer">
+    شكراً لاختيارك روابي المندي 🍗<br/>
+    نتمنى لك وجبة شهية!
+  </div>
 </div>
-<script>
-  window.onload = function() { window.print(); };
-</script>
+<script>window.onload = function(){ window.print(); };<\/script>
 </body>
 </html>`;
-    const win = window.open("", "_blank", "width=420,height=700");
+    const win = window.open("", "_blank", "width=440,height=750");
     if (win) {
       win.document.write(html);
       win.document.close();
@@ -2190,9 +2259,12 @@ ${daySections}
 
             {/* Order Summary with full breakdown */}
             {printOrder && (() => {
-              const itemsSubtotal = printOrder.items.reduce((s, i) => s + i.price * i.quantity, 0);
+              const rawSubtotal = printOrder.items.reduce((s, i) => s + i.price * i.quantity, 0);
               const deliveryFee = (printOrder.deliveryFee ?? 0) / 100;
               const totalDue = printOrder.totalPrice / 100;
+              // Detect if item prices are stored in wrong unit (100× too small)
+              const priceFactor = rawSubtotal > 0 && totalDue > 0 && (totalDue / rawSubtotal) > 50 && (totalDue / rawSubtotal) < 150 ? 100 : 1;
+              const itemsSubtotal = rawSubtotal * priceFactor;
               const discount = Math.max(0, itemsSubtotal + deliveryFee - totalDue);
               const hasDiscount = discount > 0.005;
               const hasDelivery = deliveryFee > 0;
@@ -2219,7 +2291,7 @@ ${daySections}
                   {printOrder.items.map((item, i) => (
                     <View key={i} style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 2 }}>
                       <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12 }}>
-                        {fmt(item.price * item.quantity)} ر.س
+                        {fmt(item.price * priceFactor * item.quantity)} ر.س
                       </Text>
                       <Text style={{ color: colors.foreground, fontFamily: F.semi, fontSize: 12 }}>
                         {item.name} × {item.quantity}
