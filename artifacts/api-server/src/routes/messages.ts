@@ -273,7 +273,7 @@ router.post("/messages/order/:orderId", async (req, res) => {
         body: parsed.data.text.length > 80 ? parsed.data.text.slice(0, 77) + "…" : parsed.data.text,
         sound: "default",
         data: { orderId: String(orderId), type: "message" },
-        channelId: "order-status",
+        channelId: "messages",
       }).catch(() => {});
     } else {
       // Customer → cashier (no driver assigned): push to all cashier devices

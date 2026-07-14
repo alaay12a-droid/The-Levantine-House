@@ -35,6 +35,11 @@ app.listen(port, "0.0.0.0", (err) => {
     .then(() => logger.info("Migration: push_tokens.fcm_token ensured"))
     .catch((e) => logger.warn({ err: e }, "Migration: push_tokens.fcm_token skipped"));
 
+  // Auto-migrate: add driver_id column if missing (idempotent)
+  db.execute(sql`ALTER TABLE push_tokens ADD COLUMN IF NOT EXISTS driver_id INTEGER`)
+    .then(() => logger.info("Migration: push_tokens.driver_id ensured"))
+    .catch((e) => logger.warn({ err: e }, "Migration: push_tokens.driver_id skipped"));
+
   // Auto-migrate: create referrals table if missing
   db.execute(sql`
     CREATE TABLE IF NOT EXISTS referrals (
