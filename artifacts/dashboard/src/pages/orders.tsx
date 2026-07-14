@@ -11,6 +11,7 @@ import {
   Calendar, ClipboardList, PackageCheck, UserCheck, CircleDot,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getOrderPriceFactor } from "@/lib/format";
 
 type OrderStatus = "pending" | "preparing" | "ready" | "out_for_delivery" | "done" | "cancelled";
 interface OrderItem { id: string; name: string; price: number; quantity: number; }
@@ -113,11 +114,12 @@ function printReceipt(order: Order) {
   const date = new Date(order.createdAt);
   const dateStr = date.toLocaleDateString("ar-SA", { day: "numeric", month: "long", year: "numeric" });
   const timeStr = date.toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" });
-  const itemsSubtotal = order.items.reduce((s, i) => s + i.price * i.quantity, 0) / 100;
+  const pf            = getOrderPriceFactor(order);
+  const itemsSubtotal = order.items.reduce((s, i) => s + i.price * i.quantity, 0) * pf;
   const deliveryFee   = (order.deliveryFee ?? 0) / 100;
   const totalPaid     = order.totalPrice / 100;
   const discount      = Math.max(0, itemsSubtotal + deliveryFee - totalPaid);
-  const itemsRows = order.items.map(i => `<tr><td style="padding:4px 8px;text-align:left;">${fmt2(i.price*i.quantity/100)} ر.س</td><td style="padding:4px 8px;text-align:right;">${i.name}</td><td style="padding:4px 8px;text-align:center;">${i.quantity}</td></tr>`).join("");
+  const itemsRows = order.items.map(i => `<tr><td style="padding:4px 8px;text-align:left;">${fmt2(i.price*i.quantity*pf)} ر.س</td><td style="padding:4px 8px;text-align:right;">${i.name}</td><td style="padding:4px 8px;text-align:center;">${i.quantity}</td></tr>`).join("");
   const html = `<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"/><title>إيصال #${order.dailyNumber ?? order.id}</title>
 <style>@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap');
 *{margin:0;padding:0;box-sizing:border-box}body{font-family:'Cairo',sans-serif;background:#fff;color:#111;direction:rtl;padding:10mm;}
@@ -153,7 +155,8 @@ function printBulk(orders: Order[]) {
   if (orders.length === 0) return;
   const pages = orders.map(o => {
     const time = new Date(o.createdAt).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" });
-    const itemsRows = o.items.map(i => `<tr><td style="padding:3px 6px">${i.name} × ${i.quantity}</td><td style="padding:3px 6px;text-align:left">${fmt2(i.price*i.quantity/100)} ر.س</td></tr>`).join("");
+    const pf = getOrderPriceFactor(o);
+    const itemsRows = o.items.map(i => `<tr><td style="padding:3px 6px">${i.name} × ${i.quantity}</td><td style="padding:3px 6px;text-align:left">${fmt2(i.price*i.quantity*pf)} ر.س</td></tr>`).join("");
     return `<div style="page-break-after:always;padding:8mm;font-family:Cairo,sans-serif;direction:rtl">
 <h2 style="text-align:center;color:#8B4513;font-size:16px;margin-bottom:4px">روابي المندي</h2>
 <p style="text-align:center;font-size:14px;font-weight:700;margin-bottom:8px">طلب اليوم #${o.dailyNumber ?? o.id} — ${o.customerName}</p>
@@ -683,7 +686,7 @@ export default function Orders() {
               <div style={{ background: C.surface, borderRadius: 10, padding: "10px 12px" }}>
                 {order.items.map((item, i) => (
                   <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "3px 0" }}>
-                    <span style={{ color: C.sub }}>{fmt2(item.price * item.quantity / 100)} ر.س</span>
+                    <span style={{ color: C.sub }}>{fmt2(item.price * item.quantity * getOrderPriceFactor(order))} ر.س</span>
                     <span style={{ color: C.text }}>{item.name} × {item.quantity}</span>
                   </div>
                 ))}

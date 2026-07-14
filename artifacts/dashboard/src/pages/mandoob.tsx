@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { Link } from "wouter";
+import { getOrderPriceFactor } from "@/lib/format";
 
 // ── API helpers ───────────────────────────────────────────────────────────────
 const BASE = "/api";
@@ -508,7 +509,7 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
                   {order.items.map((item, i) => (
                     <div key={i} className="flex justify-between text-sm">
                       <span className="text-white">×{item.quantity} {item.name}</span>
-                      <span className="text-[#999]">{item.price * item.quantity} ر.س</span>
+                      <span className="text-[#999]">{(item.price * item.quantity * getOrderPriceFactor(order)).toFixed(2)} ر.س</span>
                     </div>
                   ))}
                   <div className="flex justify-between pt-1.5 border-t border-[#333] text-[#E8920C] font-bold">

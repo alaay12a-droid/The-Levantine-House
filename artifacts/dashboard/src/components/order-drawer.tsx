@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getListOrdersQueryKey } from "@workspace/api-client-react";
-import { formatCurrency, formatEasternNumber, formatDateTime } from "@/lib/format";
+import { formatCurrency, formatEasternNumber, formatDateTime, getOrderPriceFactor } from "@/lib/format";
 import { apiGet, apiPost, apiPatch, apiDel } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -177,8 +177,9 @@ export function OrderDrawer({ order, open, onOpenChange, onOrderUpdated }: Props
     const date = new Date(order.createdAt);
     const dateStr = date.toLocaleDateString("ar-SA", { day: "numeric", month: "long", year: "numeric" });
     const timeStr = date.toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" });
+    const pf = getOrderPriceFactor(order);
     const itemsRows = order.items.map(item => {
-      const lineTotal = (item.price * item.quantity) / 100;
+      const lineTotal = item.price * item.quantity * pf;
       return `<tr><td style="padding:5px 8px;text-align:left;">${lineTotal % 1 === 0 ? lineTotal : lineTotal.toFixed(2)} ر.س</td><td style="padding:5px 8px;text-align:right;">${item.name}</td><td style="padding:5px 8px;text-align:center;">${item.quantity}</td></tr>`;
     }).join("");
     const deliveryFee = (order.deliveryFee ?? 0) / 100;
@@ -217,7 +218,8 @@ ${order.notes ? `<p style="margin-top:8px;font-size:12px;color:#555;"><strong>م
   if (!order) return null;
   const meta = STATUS_META[order.status];
   const isDelivery = !!(order.customerAddress || order.notes?.includes("توصيل"));
-  const subtotal = order.items.reduce((s, i) => s + i.price * i.quantity, 0);
+  const pf = getOrderPriceFactor(order);
+  const subtotal = order.items.reduce((s, i) => s + i.price * i.quantity, 0) * pf;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -304,7 +306,7 @@ ${order.notes ? `<p style="margin-top:8px;font-size:12px;color:#555;"><strong>م
                           <span className="font-medium text-sm">{item.name}</span>
                         </div>
                         <span className="text-sm font-semibold text-muted-foreground">
-                          {formatCurrency(item.price * item.quantity)}
+                          {formatCurrency(Math.round(item.price * item.quantity * pf * 100))}
                         </span>
                       </div>
                     ))}
@@ -315,7 +317,7 @@ ${order.notes ? `<p style="margin-top:8px;font-size:12px;color:#555;"><strong>م
                   <div className="space-y-1.5 text-sm">
                     <div className="flex justify-between text-muted-foreground">
                       <span>قيمة الطلب</span>
-                      <span>{formatCurrency(subtotal)}</span>
+                      <span>{formatCurrency(Math.round(subtotal * 100))}</span>
                     </div>
                     {(order.deliveryFee ?? 0) > 0 && (
                       <div className="flex justify-between text-muted-foreground">

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { apiGet, apiPost, apiPatch, apiPut, apiDel } from "@/lib/api";
-import { formatCurrency } from "@/lib/format";
+import { formatCurrency, getOrderPriceFactor } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -1063,7 +1063,7 @@ export default function Cashier() {
                 {printOrder.items.map((item, i) => (
                   <div key={i} className="flex justify-between text-sm">
                     <span>{item.name} × {item.quantity}</span>
-                    <span>{formatCurrency(item.price * item.quantity)}</span>
+                    <span>{formatCurrency(Math.round(item.price * item.quantity * getOrderPriceFactor(printOrder) * 100))}</span>
                   </div>
                 ))}
               </div>
