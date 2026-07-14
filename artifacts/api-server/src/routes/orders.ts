@@ -190,7 +190,7 @@ function buildCustomerStatusMessage(status: string, dailyNumber: number, isDeliv
       return isDelivery
         ? {
             title: "✅ طلبك جاهز!",
-            body: `طلبك رقم #${dailyNumber} من ${RESTAURANT_NAME} جاهز وسيصلك مع المندوب قريباً 🚚`,
+            body: `طلبك جاهز للاستلام من المندوب — سيستلمه المندوب قريباً 🛵`,
           }
         : {
             title: "✅ طلبك جاهز!",
