@@ -43,6 +43,44 @@ function fmt0(n: number): string {
   return n.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 }
 
+// ── Preset type ───────────────────────────────────────────────────────────────
+type DatePreset = "today" | "yesterday" | "this_week" | "this_month" | "this_year" | "custom";
+
+const DATE_PRESETS: { key: DatePreset; label: string }[] = [
+  { key: "today",      label: "اليوم"       },
+  { key: "yesterday",  label: "الأمس"       },
+  { key: "this_week",  label: "هذا الأسبوع" },
+  { key: "this_month", label: "هذا الشهر"   },
+  { key: "this_year",  label: "هذا العام"   },
+  { key: "custom",     label: "مخصص"        },
+];
+
+function presetToDates(preset: DatePreset): { from: string; to: string } | null {
+  if (preset === "custom") return null;
+  const now     = new Date();
+  const TZ      = 3 * 60 * 60 * 1000;
+  const local   = new Date(now.getTime() + TZ);
+  const y = local.getUTCFullYear(), mo = local.getUTCMonth(), day = local.getUTCDate();
+  const dow = local.getUTCDay();
+
+  function fmt(d: Date) {
+    const l = new Date(d.getTime() + TZ);
+    return `${l.getUTCFullYear()}-${String(l.getUTCMonth()+1).padStart(2,"0")}-${String(l.getUTCDate()).padStart(2,"0")}`;
+  }
+  function midnight(yy: number, mm: number, dd: number) {
+    return new Date(Date.UTC(yy, mm, dd) - TZ);
+  }
+
+  switch (preset) {
+    case "today":      { const s = midnight(y,mo,day);      return { from: fmt(s), to: fmt(s) }; }
+    case "yesterday":  { const s = midnight(y,mo,day-1);    return { from: fmt(s), to: fmt(s) }; }
+    case "this_week":  { const s = midnight(y,mo,day-dow);  const e = midnight(y,mo,day-dow+6); return { from: fmt(s), to: fmt(e) }; }
+    case "this_month": { const s = midnight(y,mo,1);        const e = midnight(y,mo+1,1); const eDay = new Date(e.getTime()-86400000); return { from: fmt(s), to: fmt(eDay) }; }
+    case "this_year":  { const s = midnight(y,0,1);         const e = new Date(midnight(y+1,0,1).getTime()-86400000); return { from: fmt(s), to: fmt(e) }; }
+    default: return null;
+  }
+}
+
 // ── Row types ─────────────────────────────────────────────────────────────────
 interface ItemRow {
   id: string;
@@ -88,21 +126,42 @@ const PAGE_SIZES = [10, 25, 50, 100];
 
 // ─────────────────────────────────────────────────────────────────────────────
 export function TabErp({ orders, loading }: Props) {
-  const [dateFrom, setDateFrom]       = useState(todayStr());
-  const [dateTo,   setDateTo]         = useState(todayStr());
-  const [timeFrom, setTimeFrom]       = useState("00:00");
-  const [timeTo,   setTimeTo]         = useState("23:59");
-  const [payment,  setPayment]        = useState<"all"|"cash"|"moyasar">("all");
-  const [subtype,  setSubtype]        = useState<ReportSubtype>("groups");
-  const [viewMode, setViewMode]       = useState<ViewMode>("summary");
-  const [search,   setSearch]         = useState("");
-  const [page,     setPage]           = useState(1);
-  const [pageSize, setPageSize]       = useState(25);
-  const [expanded, setExpanded]       = useState<Set<string>>(new Set());
-  const [applied,  setApplied]        = useState({ dateFrom: todayStr(), dateTo: todayStr(), timeFrom: "00:00", timeTo: "23:59", payment: "all" as "all"|"cash"|"moyasar" });
+  const [dateFrom,     setDateFrom]     = useState(todayStr());
+  const [dateTo,       setDateTo]       = useState(todayStr());
+  const [timeFrom,     setTimeFrom]     = useState("00:00");
+  const [timeTo,       setTimeTo]       = useState("23:59");
+  const [payment,      setPayment]      = useState<"all"|"cash"|"moyasar">("all");
+  const [subtype,      setSubtype]      = useState<ReportSubtype>("groups");
+  const [viewMode,     setViewMode]     = useState<ViewMode>("summary");
+  const [search,       setSearch]       = useState("");
+  const [page,         setPage]         = useState(1);
+  const [pageSize,     setPageSize]     = useState(25);
+  const [expanded,     setExpanded]     = useState<Set<string>>(new Set());
+  const [activePreset, setActivePreset] = useState<DatePreset>("today");
+  const [applied,      setApplied]      = useState({ dateFrom: todayStr(), dateTo: todayStr(), timeFrom: "00:00", timeTo: "23:59", payment: "all" as "all"|"cash"|"moyasar" });
 
-  function applyFilters() {
-    setApplied({ dateFrom, dateTo, timeFrom, timeTo, payment });
+  function applyFilters(overrides?: { dateFrom?: string; dateTo?: string; timeFrom?: string; timeTo?: string }) {
+    setApplied({
+      dateFrom:  overrides?.dateFrom  ?? dateFrom,
+      dateTo:    overrides?.dateTo    ?? dateTo,
+      timeFrom:  overrides?.timeFrom  ?? timeFrom,
+      timeTo:    overrides?.timeTo    ?? timeTo,
+      payment,
+    });
+    setPage(1);
+  }
+
+  function selectPreset(preset: DatePreset) {
+    setActivePreset(preset);
+    if (preset === "custom") return; // keep current date inputs, wait for user
+    const dates = presetToDates(preset);
+    if (!dates) return;
+    setDateFrom(dates.from);
+    setDateTo(dates.to);
+    setTimeFrom("00:00");
+    setTimeTo("23:59");
+    // auto-apply immediately
+    setApplied({ dateFrom: dates.from, dateTo: dates.to, timeFrom: "00:00", timeTo: "23:59", payment });
     setPage(1);
   }
 
@@ -454,52 +513,79 @@ export function TabErp({ orders, loading }: Props) {
 
       {/* ── Filter Panel ──────────────────────────────────────────────── */}
       <div className="rounded-xl border bg-card shadow-sm">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-4">
-          {/* Date from */}
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-muted-foreground">من تاريخ</label>
-            <div className="flex items-center gap-1.5 border rounded-md px-3 py-1.5 bg-background focus-within:ring-1 focus-within:ring-primary/30">
-              <span className="text-muted-foreground text-sm">📅</span>
-              <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
-                className="flex-1 text-sm bg-transparent outline-none" />
-            </div>
-          </div>
-          {/* Date to */}
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-muted-foreground">إلى تاريخ</label>
-            <div className="flex items-center gap-1.5 border rounded-md px-3 py-1.5 bg-background focus-within:ring-1 focus-within:ring-primary/30">
-              <span className="text-muted-foreground text-sm">📅</span>
-              <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
-                className="flex-1 text-sm bg-transparent outline-none" />
-            </div>
-          </div>
-          {/* Time from */}
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-muted-foreground">من وقت</label>
-            <div className="flex items-center gap-1.5 border rounded-md px-3 py-1.5 bg-background focus-within:ring-1 focus-within:ring-primary/30">
-              <span className="text-muted-foreground text-sm">🕐</span>
-              <input type="time" value={timeFrom} onChange={e => setTimeFrom(e.target.value)}
-                className="flex-1 text-sm bg-transparent outline-none" />
-            </div>
-          </div>
-          {/* Time to */}
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-muted-foreground">إلى وقت</label>
-            <div className="flex items-center gap-1.5 border rounded-md px-3 py-1.5 bg-background focus-within:ring-1 focus-within:ring-primary/30">
-              <span className="text-muted-foreground text-sm">🕐</span>
-              <input type="time" value={timeTo} onChange={e => setTimeTo(e.target.value)}
-                className="flex-1 text-sm bg-transparent outline-none" />
-            </div>
+
+        {/* ── Preset buttons ── */}
+        <div className="p-4 border-b">
+          <p className="text-xs font-semibold text-muted-foreground mb-3">📅 اختر الفترة الزمنية</p>
+          <div className="flex flex-wrap gap-2">
+            {DATE_PRESETS.map(p => (
+              <button key={p.key} onClick={() => selectPreset(p.key)}
+                className={`rounded-xl px-3 py-1.5 text-xs font-semibold border transition-all ${
+                  activePreset === p.key
+                    ? "bg-[#1a2e1a] text-[#E8920C] border-[#1a2e1a] shadow-sm"
+                    : "bg-background text-foreground border-border hover:bg-muted"
+                }`}>
+                {p.label}
+              </button>
+            ))}
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 px-4 pb-4">
+        {/* ── Custom date/time inputs (shown only for مخصص) ── */}
+        {activePreset === "custom" && (
+          <div className="p-4 border-b bg-muted/20">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+              {/* Date from */}
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-muted-foreground">من تاريخ</label>
+                <div className="flex items-center gap-1.5 border rounded-md px-3 py-1.5 bg-background focus-within:ring-1 focus-within:ring-primary/30">
+                  <span className="text-muted-foreground text-sm">📅</span>
+                  <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
+                    className="flex-1 text-sm bg-transparent outline-none" />
+                </div>
+              </div>
+              {/* Date to */}
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-muted-foreground">إلى تاريخ</label>
+                <div className="flex items-center gap-1.5 border rounded-md px-3 py-1.5 bg-background focus-within:ring-1 focus-within:ring-primary/30">
+                  <span className="text-muted-foreground text-sm">📅</span>
+                  <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
+                    className="flex-1 text-sm bg-transparent outline-none" />
+                </div>
+              </div>
+              {/* Time from */}
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-muted-foreground">من وقت</label>
+                <div className="flex items-center gap-1.5 border rounded-md px-3 py-1.5 bg-background focus-within:ring-1 focus-within:ring-primary/30">
+                  <span className="text-muted-foreground text-sm">🕐</span>
+                  <input type="time" value={timeFrom} onChange={e => setTimeFrom(e.target.value)}
+                    className="flex-1 text-sm bg-transparent outline-none" />
+                </div>
+              </div>
+              {/* Time to */}
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-muted-foreground">إلى وقت</label>
+                <div className="flex items-center gap-1.5 border rounded-md px-3 py-1.5 bg-background focus-within:ring-1 focus-within:ring-primary/30">
+                  <span className="text-muted-foreground text-sm">🕐</span>
+                  <input type="time" value={timeTo} onChange={e => setTimeTo(e.target.value)}
+                    className="flex-1 text-sm bg-transparent outline-none" />
+                </div>
+              </div>
+            </div>
+            <button onClick={() => applyFilters()}
+              className="px-6 py-2 rounded-md bg-[#C8171A] text-white text-sm font-bold hover:bg-[#a81215] transition-colors shadow-sm">
+              ✅ عرض النتائج
+            </button>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 px-4 py-3">
           {/* Payment type */}
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-muted-foreground">طريقة الدفع</label>
             <div className="flex rounded-md border overflow-hidden text-xs font-medium">
               {([["all","الكل"],["cash","نقداً"],["moyasar","إلكتروني"]] as [string,string][]).map(([v,l]) => (
-                <button key={v} onClick={() => setPayment(v as typeof payment)}
+                <button key={v} onClick={() => { setPayment(v as typeof payment); if (activePreset !== "custom") { setApplied(a => ({ ...a, payment: v as typeof payment })); setPage(1); } }}
                   className={`flex-1 py-2 transition-colors ${payment===v ? "bg-primary text-primary-foreground" : "bg-background hover:bg-muted"}`}>
                   {l}
                 </button>
@@ -507,36 +593,16 @@ export function TabErp({ orders, loading }: Props) {
             </div>
           </div>
 
-          {/* Date presets */}
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-muted-foreground">فترة سريعة</label>
-            <div className="flex flex-wrap gap-1.5">
-              {([
-                ["اليوم", 0, 0], ["أمس", -1, -1], ["هذا الأسبوع", -6, 0],
-                ["هذا الشهر", -(new Date().getDate()-1), 0],
-              ] as [string, number, number][]).map(([label, fromOff, toOff]) => (
-                <button key={label} onClick={() => {
-                  const base = new Date(); base.setHours(0,0,0,0);
-                  const f = new Date(base); f.setDate(f.getDate() + fromOff);
-                  const t = new Date(base); t.setDate(t.getDate() + toOff);
-                  setDateFrom(toSaudiDateStr(f));
-                  setDateTo(toSaudiDateStr(t));
-                  setTimeFrom("00:00"); setTimeTo("23:59");
-                }}
-                  className="text-xs px-2.5 py-1 rounded-full border hover:bg-muted transition-colors">
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Apply */}
-          <div className="flex flex-col justify-end gap-1">
-            <label className="text-xs font-medium text-muted-foreground invisible">عرض</label>
-            <button onClick={applyFilters}
-              className="w-full py-2 rounded-md bg-[#C8171A] text-white text-sm font-bold hover:bg-[#a81215] transition-colors shadow-sm">
-              عرض النتائج
-            </button>
+          {/* Active period label */}
+          <div className="flex flex-col justify-end">
+            <p className="text-xs text-muted-foreground">
+              الفترة المطبّقة:{" "}
+              <span className="font-bold text-foreground">
+                {applied.dateFrom === applied.dateTo
+                  ? `${applied.dateFrom}  ${applied.timeFrom} – ${applied.timeTo}`
+                  : `${applied.dateFrom} → ${applied.dateTo}`}
+              </span>
+            </p>
           </div>
         </div>
 
