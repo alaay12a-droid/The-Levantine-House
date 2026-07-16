@@ -684,12 +684,26 @@ export default function Orders() {
               <ProgressRail status={order.status} />
 
               <div style={{ background: C.surface, borderRadius: 10, padding: "10px 12px" }}>
-                {order.items.map((item, i) => (
-                  <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "3px 0" }}>
-                    <span style={{ color: C.sub }}>{fmt2(item.price * item.quantity * getOrderPriceFactor(order))} ر.س</span>
-                    <span style={{ color: C.text }}>{item.name} × {item.quantity}</span>
-                  </div>
-                ))}
+                {(() => {
+                  const pf = getOrderPriceFactor(order);
+                  const SKEL = (k: number) => (
+                    <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0" }}>
+                      <div style={{ width: 54, height: 12, borderRadius: 4, background: C.border, opacity: 0.7 }} />
+                      <div style={{ width: 115, height: 12, borderRadius: 4, background: C.border, opacity: 0.7 }} />
+                    </div>
+                  );
+                  if (!order.items?.length) return [1, 2].map(SKEL);
+                  return order.items.map((item, i) => {
+                    const linePrice = item.price * item.quantity * pf;
+                    if (!item.name || item.name === '-' || item.name === '—' || linePrice <= 0) return SKEL(i);
+                    return (
+                      <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "3px 0" }}>
+                        <span style={{ color: C.sub }}>{fmt2(linePrice)} ر.س</span>
+                        <span style={{ color: C.text }}>{item.name} × {item.quantity}</span>
+                      </div>
+                    );
+                  });
+                })()}
                 {order.discountCode && order.discountAmount != null && (
                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "3px 0", borderTop: `1px solid ${C.border}`, marginTop: 6 }}>
                     <span style={{ color: C.red }}>- {fmt2(order.discountAmount / 100)} ر.س</span>
