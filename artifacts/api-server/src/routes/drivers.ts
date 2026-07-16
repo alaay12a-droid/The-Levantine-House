@@ -485,6 +485,15 @@ router.put("/orders/:id/driver-status", async (req, res) => {
     .set(set)
     .where(eq(orderDriverAssignmentsTable.orderId, orderId))
     .returning();
+
+  // When driver confirms delivery → mark the order itself as done
+  if (status === "delivered") {
+    await db
+      .update(ordersTable)
+      .set({ status: "done" })
+      .where(eq(ordersTable.id, orderId));
+  }
+
   res.json(assignment);
 
   // Send push notification to customer
