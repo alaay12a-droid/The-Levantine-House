@@ -42,3 +42,7 @@ yarn-error.*
 
 # Google Play Service Account Key (never commit this)
 google-play-service-account.json
+
+# iOS signing credentials (contain secrets — use credentials.json.example as template)
+credentials.json
+certs/
