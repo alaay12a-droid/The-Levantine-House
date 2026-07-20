@@ -10,3 +10,4 @@
 - [Image uploads use base64-in-DB](image-uploads-base64.md) — GCS/Firebase billing blocked; menu/driver photos stored as compressed base64 data URLs in text columns instead
 - [Driver background-location disclosure gate](driver-location-disclosure.md) — gate must live inside startGPS itself since permission requests are triggered by a useEffect, not direct user tap
 - [EAS FCM V1 SenderId mismatch diagnosis](eas-fcm-sender-mismatch.md) — push works in Expo Go but fails in prod APK if EAS's FCM V1 credential project differs from google-services.json's project
+- [EAS iOS PKCS12 format](eas-ios-pkcs12-format.md) — use OpenSSL legacy (3DES+SHA-1) NOT Python cryptography; also: credentialsSource at top-level, ascAppId must be numeric (6792793006)

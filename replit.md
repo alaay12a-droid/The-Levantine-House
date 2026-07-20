@@ -41,6 +41,13 @@ Premium Arabic mobile restaurant ordering app built with Expo React Native.
 - **Expo Slug**: rawabi-menu
 - **Project ID**: 75492716-d1d5-4871-bfd9-18c7ef3982c7
 - **Android Package**: com.rwabi.almndi
+- **iOS Bundle ID**: com.rwabi.almndi
+- **App Store Connect App ID**: 6792793006
+- **Apple Team ID**: 27476VAG8Z
+- **Distribution Cert ID** (Apple): 7T47T4U76B (expires 2027-07-20)
+- **Provisioning Profile**: RawabiAlmandi AppStore v2 (with aps-environment)
+- **Certs directory**: `artifacts/rawabi-menu/certs/` — dist_cert.p12 (legacy OpenSSL 3DES+SHA-1), rawabi.mobileprovision, AuthKey_L3432Q48N5.p8
+- **EAS Build (iOS v1.2.0)**: `8c2549c4-a82a-467a-ab3c-1b5f553ed49a` — finished ✅ — IPA at https://expo.dev/artifacts/eas/aoc3yqKgV25icMvQ7URDzfin_RmLAVlsaGdYB5hgjgM.ipa
 
 ### Design System
 - **Colors**: dark red `#C8171A`, gold `#E8920C`, dark background `#0F0A05`

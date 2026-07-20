@@ -19,13 +19,13 @@
       }
     },
     "production": {
+      "credentialsSource": "local",
       "android": {
         "buildType": "app-bundle",
         "image": "latest"
       },
       "ios": {
-        "image": "latest",
-        "credentialsSource": "local"
+        "image": "latest"
       },
       "node": "22.15.0",
       "env": {
@@ -42,8 +42,8 @@
       },
       "ios": {
         "appleId": "ala73812079773@gmail.com",
-        "ascAppId": "com.rwabi.almndi",
-        "ascApiKeyPath": "/tmp/AuthKey_L3432Q48N5.p8",
+        "ascAppId": "6792793006",
+        "ascApiKeyPath": "./certs/AuthKey_L3432Q48N5.p8",
         "ascApiKeyIssuerId": "428ea4ec-8e75-4111-a0a1-99e02a0b6c2d",
         "ascApiKeyId": "L3432Q48N5"
       }
