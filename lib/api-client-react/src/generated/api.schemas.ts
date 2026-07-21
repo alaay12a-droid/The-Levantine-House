@@ -155,6 +155,12 @@ export interface RevenueData {
   topItems: TopItem[];
 }
 
+export interface SizeOption {
+  name: string;
+  price: number;
+  enabled: boolean;
+}
+
 export interface MenuItem {
   id: number;
   itemId: string;
@@ -166,6 +172,7 @@ export interface MenuItem {
   imageKey?: string | null;
   imageUrl?: string | null;
   stock?: number | null;
+  sizes: SizeOption[];
   sortOrder: number;
 }
 
@@ -177,6 +184,7 @@ export interface MenuItemUpdate {
   stock?: number | null;
   imageUrl?: string | null;
   imageKey?: string | null;
+  sizes?: SizeOption[];
 }
 
 export interface Driver {

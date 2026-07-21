@@ -13,6 +13,12 @@ interface MenuCache {
   savedAt: number;
 }
 
+export interface ApiMenuItemSize {
+  name: string;
+  price: number;
+  enabled: boolean;
+}
+
 export interface ApiMenuItem {
   id: number;
   itemId: string;
@@ -24,6 +30,7 @@ export interface ApiMenuItem {
   imageKey: string | null;
   imageUrl: string | null;
   stock: number | null;
+  sizes: ApiMenuItemSize[];
   sortOrder: number;
   createdAt: string;
 }
@@ -65,6 +72,7 @@ function buildCategories(apiItems: ApiMenuItem[]): MenuCategoryWithApi[] {
       imageUrl: item.imageUrl ?? undefined,
       available: item.available,
       stock: item.stock,
+      sizes: (item.sizes ?? []).map(s => ({ ...s, price: s.price / 100 })),
     });
     categoryMap.set(item.category, existing);
   }

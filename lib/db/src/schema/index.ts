@@ -59,6 +59,7 @@ export const menuItemsTable = pgTable("menu_items", {
   imageKey: text("image_key"),
   imageUrl: text("image_url"),
   stock: integer("stock"),
+  sizes: jsonb("sizes").$type<{ name: string; price: number; enabled: boolean }[]>().notNull().default([]),
   sortOrder: integer("sort_order").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

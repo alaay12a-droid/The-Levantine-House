@@ -411,6 +411,13 @@ export const ListMenuItemsResponseItem = zod.object({
   imageKey: zod.string().nullish(),
   imageUrl: zod.string().nullish(),
   stock: zod.number().nullish(),
+  sizes: zod.array(
+    zod.object({
+      name: zod.string(),
+      price: zod.number(),
+      enabled: zod.boolean(),
+    }),
+  ),
   sortOrder: zod.number(),
 });
 export const ListMenuItemsResponse = zod.array(ListMenuItemsResponseItem);
@@ -430,6 +437,15 @@ export const UpdateMenuItemBody = zod.object({
   stock: zod.number().nullish(),
   imageUrl: zod.string().nullish(),
   imageKey: zod.string().nullish(),
+  sizes: zod
+    .array(
+      zod.object({
+        name: zod.string(),
+        price: zod.number(),
+        enabled: zod.boolean(),
+      }),
+    )
+    .optional(),
 });
 
 export const UpdateMenuItemResponse = zod.object({
@@ -443,6 +459,13 @@ export const UpdateMenuItemResponse = zod.object({
   imageKey: zod.string().nullish(),
   imageUrl: zod.string().nullish(),
   stock: zod.number().nullish(),
+  sizes: zod.array(
+    zod.object({
+      name: zod.string(),
+      price: zod.number(),
+      enabled: zod.boolean(),
+    }),
+  ),
   sortOrder: zod.number(),
 });
 

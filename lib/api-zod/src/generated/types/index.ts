@@ -28,4 +28,5 @@ export * from "./orderStatusUpdate";
 export * from "./orderStatusUpdateStatus";
 export * from "./revenueAggregate";
 export * from "./revenueData";
+export * from "./sizeOption";
 export * from "./topItem";

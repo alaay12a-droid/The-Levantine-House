@@ -45,7 +45,7 @@ function itemNeedsCustomization(item: MenuItem): boolean {
 interface ChickenSizes {
   halfPrice: number;
   wholePrice: number;
-  defaultIdx: number; // 0=نصف 1=حبة كاملة
+  defaultIdx: number;
 }
 
 function getChickenSizes(item: MenuItem): ChickenSizes | null {
@@ -58,7 +58,6 @@ function getChickenSizes(item: MenuItem): ChickenSizes | null {
   if (isHalf) {
     return { halfPrice: item.price, wholePrice: item.price * 2, defaultIdx: 0 };
   }
-  // whole or unlabelled → treat as whole
   return { halfPrice: item.price / 2, wholePrice: item.price, defaultIdx: 1 };
 }
 
@@ -66,12 +65,12 @@ interface MeatSizes {
   quarterPrice: number;
   halfPrice: number;
   wholePrice: number;
-  defaultIdx: number; // 0=ربع 1=نصف 2=كامل
+  defaultIdx: number;
 }
 
 function getMeatSizes(item: MenuItem): MeatSizes | null {
   if (item.category !== "meat") return null;
-  if (item.name.includes("نفر")) return null; // per-person serving, no size split
+  if (item.name.includes("نفر")) return null;
 
   const isQuarter = item.name.includes("ربع");
   const isHalf    = item.name.includes("نص") || item.name.includes("نصف");
@@ -82,7 +81,6 @@ function getMeatSizes(item: MenuItem): MeatSizes | null {
   if (isHalf) {
     return { quarterPrice: item.price / 2, halfPrice: item.price, wholePrice: item.price * 2, defaultIdx: 1 };
   }
-  // whole or unlabelled → treat as whole
   return { quarterPrice: item.price / 4, halfPrice: item.price / 2, wholePrice: item.price, defaultIdx: 2 };
 }
 
@@ -98,16 +96,27 @@ export function ProductDetailSheet({ item, visible, onClose }: Props) {
   const insets = useSafeAreaInsets();
 
   const [qty, setQty] = useState(1);
+
+  // DB-driven sizes
+  const [dbSizeIdx, setDbSizeIdx] = useState(0);
+
+  // Legacy chicken/meat size state
   const [sizeIdx, setSizeIdx] = useState(0);
   const [meatSizeIdx, setMeatSizeIdx] = useState(2);
+
   const [riceIdx, setRiceIdx] = useState(0);
   const [addonIdx, setAddonIdx] = useState(0);
+
+  // Enabled sizes from DB (prices already in SAR from useMenu hook)
+  const enabledDbSizes = item?.sizes?.filter(s => s.enabled) ?? [];
+  const hasDbSizes = enabledDbSizes.length > 0;
 
   useEffect(() => {
     if (visible && item) {
       setQty(1);
       setRiceIdx(0);
       setAddonIdx(0);
+      setDbSizeIdx(0);
       const sizes = getChickenSizes(item);
       setSizeIdx(sizes?.defaultIdx ?? 0);
       const meatSizes = getMeatSizes(item);
@@ -122,10 +131,11 @@ export function ProductDetailSheet({ item, visible, onClose }: Props) {
   const selectedRice = showRiceOptions ? RICE_OPTIONS[riceIdx] : null;
   const selectedAddon = showCustomization ? ADDON_OPTIONS[addonIdx] : null;
 
-  const sizes = getChickenSizes(item);
+  // Legacy size selectors only shown if no DB sizes defined
+  const sizes = !hasDbSizes ? getChickenSizes(item) : null;
   const showSizeSelector = sizes !== null;
 
-  const meatSizes = getMeatSizes(item);
+  const meatSizes = !hasDbSizes ? getMeatSizes(item) : null;
   const showMeatSizeSelector = meatSizes !== null;
 
   const meatSizePrices = meatSizes
@@ -136,11 +146,13 @@ export function ProductDetailSheet({ item, visible, onClose }: Props) {
     ? [sizes.halfPrice, sizes.wholePrice]
     : [];
 
-  const baseSizePrice = showSizeSelector
-    ? chickenPrices[sizeIdx]
-    : showMeatSizeSelector
-      ? meatSizePrices[meatSizeIdx]
-      : item.price;
+  const baseSizePrice = hasDbSizes
+    ? enabledDbSizes[dbSizeIdx].price
+    : showSizeSelector
+      ? chickenPrices[sizeIdx]
+      : showMeatSizeSelector
+        ? meatSizePrices[meatSizeIdx]
+        : item.price;
 
   const riceExtra = selectedRice?.extra ?? 0;
   const addonExtra = selectedAddon?.extra ?? 0;
@@ -152,20 +164,24 @@ export function ProductDetailSheet({ item, visible, onClose }: Props) {
   const handleAdd = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-    const sizeLabel = showSizeSelector
-      ? (["نصف", "حبة كاملة"][sizeIdx])
-      : showMeatSizeSelector
-        ? (["ربع", "نصف", "كامل"][meatSizeIdx])
-        : undefined;
+    let sizeLabel: string | undefined;
+    let sizeExtraPrice = 0;
 
-    const sizeExtraPrice = (showSizeSelector || showMeatSizeSelector)
-      ? baseSizePrice - item.price
-      : 0;
+    if (hasDbSizes) {
+      sizeLabel = enabledDbSizes[dbSizeIdx].name;
+      sizeExtraPrice = enabledDbSizes[dbSizeIdx].price - item.price;
+    } else if (showSizeSelector) {
+      sizeLabel = ["نصف", "حبة كاملة"][sizeIdx];
+      sizeExtraPrice = chickenPrices[sizeIdx] - item.price;
+    } else if (showMeatSizeSelector) {
+      sizeLabel = ["ربع", "نصف", "كامل"][meatSizeIdx];
+      sizeExtraPrice = meatSizePrices[meatSizeIdx] - item.price;
+    }
 
     const totalExtra = sizeExtraPrice + extraPrice;
 
     const customization: CartCustomization | undefined =
-      (showSizeSelector || showMeatSizeSelector || showCustomization)
+      (hasDbSizes || showSizeSelector || showMeatSizeSelector || showCustomization)
         ? {
             size: sizeLabel,
             riceType: selectedRice?.label,
@@ -202,7 +218,7 @@ export function ProductDetailSheet({ item, visible, onClose }: Props) {
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
-            {/* ── Item image (only when uploaded) ── */}
+            {/* ── Item image ── */}
             {item.imageUrl ? (
               <Image
                 source={{ uri: item.imageUrl }}
@@ -224,7 +240,41 @@ export function ProductDetailSheet({ item, visible, onClose }: Props) {
               ) : null}
             </View>
 
-            {/* ── Size Selector (Chicken: نصف / حبة كاملة) ── */}
+            {/* ── DB Size Selector (from dashboard config) ── */}
+            {hasDbSizes && (
+              <View style={{ gap: 10 }}>
+                <Text style={[styles.sectionTitle, { color: colors.foreground }]}>الحجم</Text>
+                <View style={{ flexDirection: "row", gap: enabledDbSizes.length === 3 ? 6 : 10 }}>
+                  {enabledDbSizes.map((opt, i) => {
+                    const active = dbSizeIdx === i;
+                    return (
+                      <TouchableOpacity
+                        key={i}
+                        onPress={() => { setDbSizeIdx(i); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
+                        style={[
+                          styles.sizeBtn,
+                          {
+                            flex: 1,
+                            backgroundColor: active ? "#C8171A" : colors.secondary,
+                            borderColor: active ? "#C8171A" : colors.border,
+                          },
+                        ]}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={{ color: active ? "#fff" : colors.foreground, fontFamily: active ? F.bold : F.regular, fontSize: 15, textAlign: "center" }}>
+                          {opt.name}
+                        </Text>
+                        <Text style={{ color: active ? "#ffee99" : colors.gold, fontFamily: F.bold, fontSize: 13 }}>
+                          {priceStr(opt.price)} ر.س
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+            )}
+
+            {/* ── Legacy Size Selector (Chicken: نصف / حبة كاملة) ── */}
             {showSizeSelector && (
               <View style={{ gap: 10 }}>
                 <Text style={[styles.sectionTitle, { color: colors.foreground }]}>الحجم</Text>
@@ -264,7 +314,7 @@ export function ProductDetailSheet({ item, visible, onClose }: Props) {
               </View>
             )}
 
-            {/* ── Size Selector (Meat: ربع / نصف / كامل) ── */}
+            {/* ── Legacy Size Selector (Meat: ربع / نصف / كامل) ── */}
             {showMeatSizeSelector && (
               <View style={{ gap: 10 }}>
                 <Text style={[styles.sectionTitle, { color: colors.foreground }]}>الحجم</Text>

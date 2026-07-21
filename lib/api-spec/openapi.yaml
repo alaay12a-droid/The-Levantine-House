@@ -503,6 +503,17 @@ components:
       required: [today, week, month, year, dailyBreakdown, monthlyBreakdown, topItems]
 
     # ── Menu ──────────────────────────────────────────────────────────
+    SizeOption:
+      type: object
+      properties:
+        name:
+          type: string
+        price:
+          type: number
+        enabled:
+          type: boolean
+      required: [name, price, enabled]
+
     MenuItem:
       type: object
       properties:
@@ -530,9 +541,13 @@ components:
         stock:
           type: integer
           nullable: true
+        sizes:
+          type: array
+          items:
+            $ref: "#/components/schemas/SizeOption"
         sortOrder:
           type: integer
-      required: [id, itemId, name, category, price, available, sortOrder]
+      required: [id, itemId, name, category, price, available, sizes, sortOrder]
 
     MenuItemUpdate:
       type: object
@@ -554,6 +569,10 @@ components:
         imageKey:
           type: string
           nullable: true
+        sizes:
+          type: array
+          items:
+            $ref: "#/components/schemas/SizeOption"
 
     # ── Drivers ───────────────────────────────────────────────────────
     Driver:

@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { SizeOption } from "./sizeOption";
 
 export interface MenuItemUpdate {
   name?: string;
@@ -14,4 +15,5 @@ export interface MenuItemUpdate {
   stock?: number | null;
   imageUrl?: string | null;
   imageKey?: string | null;
+  sizes?: SizeOption[];
 }

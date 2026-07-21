@@ -16,6 +16,12 @@ import { fileToCompressedDataUrl } from "@/lib/imageUpload";
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "";
 
+interface SizeOption {
+  name: string;
+  price: string;
+  enabled: boolean;
+}
+
 interface MenuItem {
   itemId: string;
   name: string;
@@ -26,6 +32,7 @@ interface MenuItem {
   imageUrl?: string | null;
   available: boolean;
   stock?: number | null;
+  sizes: { name: string; price: number; enabled: boolean }[];
 }
 
 const CATEGORIES = [
@@ -41,6 +48,20 @@ const CATEGORIES = [
 
 const getCatMeta = (id: string) => CATEGORIES.find(c => c.id === id) ?? { id, name: id, icon: "🍽️" };
 
+function defaultSizesForCategory(category: string): SizeOption[] {
+  if (category === "drinks") {
+    return [
+      { name: "صغير",  price: "", enabled: false },
+      { name: "وسط",   price: "", enabled: false },
+      { name: "كبير",  price: "", enabled: false },
+    ];
+  }
+  return [
+    { name: "صغير", price: "", enabled: false },
+    { name: "كبير", price: "", enabled: false },
+  ];
+}
+
 interface ItemForm {
   itemId?: string;
   name: string;
@@ -51,11 +72,13 @@ interface ItemForm {
   imageUrl: string;
   available: boolean;
   stock: string;
+  sizes: SizeOption[];
 }
 
 const emptyForm = (): ItemForm => ({
   name: "", nameAr: "", description: "", price: "", category: "chicken",
   imageUrl: "", available: true, stock: "",
+  sizes: defaultSizesForCategory("chicken"),
 });
 
 export default function MenuManagement() {
@@ -124,6 +147,18 @@ export default function MenuManagement() {
   };
 
   const openEdit = (item: MenuItem) => {
+    const existingSizes = item.sizes ?? [];
+    const defaults = defaultSizesForCategory(item.category);
+    let sizes: SizeOption[];
+    if (existingSizes.length > 0) {
+      sizes = existingSizes.map(s => ({
+        name: s.name,
+        price: s.price > 0 ? String(s.price / 100) : "",
+        enabled: s.enabled,
+      }));
+    } else {
+      sizes = defaults;
+    }
     setForm({
       itemId: item.itemId,
       name: item.name,
@@ -134,9 +169,29 @@ export default function MenuManagement() {
       imageUrl: item.imageUrl ?? "",
       available: item.available,
       stock: item.stock === null || item.stock === undefined ? "" : String(item.stock),
+      sizes,
     });
     setFormError("");
     setDialogOpen(true);
+  };
+
+  const handleCategoryChange = (newCat: string) => {
+    setForm(f => {
+      const wasdrinks = f.category === "drinks";
+      const isdrinks = newCat === "drinks";
+      let sizes = f.sizes;
+      if (wasdrinks !== isdrinks) {
+        sizes = defaultSizesForCategory(newCat);
+      }
+      return { ...f, category: newCat, sizes };
+    });
+  };
+
+  const updateSize = (idx: number, field: keyof SizeOption, value: string | boolean) => {
+    setForm(f => ({
+      ...f,
+      sizes: f.sizes.map((s, i) => i === idx ? { ...s, [field]: value } : s),
+    }));
   };
 
   const handleSave = async () => {
@@ -144,9 +199,19 @@ export default function MenuManagement() {
     if (!form.price.trim() || isNaN(parseFloat(form.price)) || parseFloat(form.price) < 0) {
       setFormError("أدخل سعراً صحيحاً"); return;
     }
+    for (const s of form.sizes) {
+      if (s.enabled && (s.price.trim() === "" || isNaN(parseFloat(s.price)) || parseFloat(s.price) < 0)) {
+        setFormError(`أدخل سعراً صحيحاً للحجم: ${s.name}`); return;
+      }
+    }
     setSaving(true);
     setFormError("");
     try {
+      const sizes = form.sizes.map(s => ({
+        name: s.name,
+        price: s.enabled ? parseFloat(s.price) : 0,
+        enabled: s.enabled,
+      }));
       const body: Record<string, unknown> = {
         name: form.name.trim(),
         nameAr: form.nameAr.trim() || undefined,
@@ -156,6 +221,7 @@ export default function MenuManagement() {
         imageUrl: form.imageUrl.trim() || undefined,
         available: form.available,
         stock: form.stock.trim() === "" ? null : parseInt(form.stock),
+        sizes,
       };
 
       if (form.itemId) {
@@ -346,6 +412,7 @@ export default function MenuManagement() {
                   <th className="text-right px-4 py-3 font-medium text-muted-foreground">الصنف</th>
                   <th className="text-right px-4 py-3 font-medium text-muted-foreground">التصنيف</th>
                   <th className="text-right px-4 py-3 font-medium text-muted-foreground">السعر</th>
+                  <th className="text-right px-4 py-3 font-medium text-muted-foreground">الأحجام</th>
                   <th className="text-right px-4 py-3 font-medium text-muted-foreground">المخزون</th>
                   <th className="text-right px-4 py-3 font-medium text-muted-foreground">التوفّر</th>
                   <th className="text-right px-4 py-3 font-medium text-muted-foreground">إجراءات</th>
@@ -354,6 +421,7 @@ export default function MenuManagement() {
               <tbody>
                 {filtered.map((item, idx) => {
                   const cat = getCatMeta(item.category);
+                  const enabledSizes = (item.sizes ?? []).filter(s => s.enabled);
                   return (
                     <tr
                       key={item.itemId}
@@ -386,6 +454,19 @@ export default function MenuManagement() {
                       </td>
                       <td className="px-4 py-3 font-semibold">
                         {(item.price / 100).toFixed(2)} ر.س
+                      </td>
+                      <td className="px-4 py-3">
+                        {enabledSizes.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {enabledSizes.map(s => (
+                              <span key={s.name} className="inline-flex items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 text-xs font-medium">
+                                {s.name} · {(s.price / 100).toFixed(2)}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">—</span>
+                        )}
                       </td>
                       <td className="px-4 py-3">
                         {stockEditId === item.itemId ? (
@@ -498,7 +579,7 @@ export default function MenuManagement() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label>السعر (ريال) *</Label>
+                <Label>السعر الأساسي (ريال) *</Label>
                 <Input
                   value={form.price}
                   onChange={e => setForm(f => ({ ...f, price: e.target.value }))}
@@ -511,7 +592,7 @@ export default function MenuManagement() {
               </div>
               <div className="space-y-1.5">
                 <Label>التصنيف *</Label>
-                <Select value={form.category} onValueChange={v => setForm(f => ({ ...f, category: v }))}>
+                <Select value={form.category} onValueChange={handleCategoryChange}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -533,12 +614,54 @@ export default function MenuManagement() {
                 placeholder="وصف مختصر للصنف"
               />
             </div>
+
+            {/* ── Sizes section ── */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-semibold">خيارات الحجم</Label>
+                <span className="text-xs text-muted-foreground">
+                  {form.category === "drinks" ? "3 أحجام" : "حجمان"}
+                </span>
+              </div>
+              <div className="rounded-lg border divide-y">
+                {form.sizes.map((size, idx) => (
+                  <div key={size.name} className="flex items-center gap-3 px-3 py-2.5">
+                    <Switch
+                      checked={size.enabled}
+                      onCheckedChange={v => updateSize(idx, "enabled", v)}
+                      className="scale-90 shrink-0"
+                    />
+                    <span className="w-10 text-sm font-medium shrink-0">{size.name}</span>
+                    {size.enabled ? (
+                      <div className="flex-1 flex items-center gap-1.5">
+                        <Input
+                          value={size.price}
+                          onChange={e => updateSize(idx, "price", e.target.value)}
+                          placeholder="السعر"
+                          dir="ltr"
+                          type="number"
+                          min="0"
+                          step="0.5"
+                          className="h-8 text-sm"
+                        />
+                        <span className="text-xs text-muted-foreground shrink-0">ر.س</span>
+                      </div>
+                    ) : (
+                      <span className="flex-1 text-xs text-muted-foreground">معطّل</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                الأحجام المفعّلة ستظهر للعميل في شاشة الطلب. اتركها معطّلة إن لم تكن مطلوبة.
+              </p>
+            </div>
+
             {/* Image upload */}
             <div className="space-y-1.5">
               <Label>صورة الصنف (اختياري)</Label>
               <input ref={imgFileRef} type="file" accept="image/*" className="hidden" onChange={handleImageSelect} />
               <div className="flex gap-3 items-start">
-                {/* Preview */}
                 <div className="relative shrink-0 h-24 w-24 rounded-lg border overflow-hidden bg-muted flex items-center justify-center">
                   {uploading ? (
                     <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -548,7 +671,6 @@ export default function MenuManagement() {
                     <ImagePlus className="h-8 w-8 text-muted-foreground/50" />
                   )}
                 </div>
-                {/* Controls */}
                 <div className="flex-1 flex flex-col gap-2">
                   <Button
                     type="button"

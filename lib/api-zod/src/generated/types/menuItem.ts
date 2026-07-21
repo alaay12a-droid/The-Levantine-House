@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { SizeOption } from "./sizeOption";
 
 export interface MenuItem {
   id: number;
@@ -17,5 +18,6 @@ export interface MenuItem {
   imageKey?: string | null;
   imageUrl?: string | null;
   stock?: number | null;
+  sizes: SizeOption[];
   sortOrder: number;
 }

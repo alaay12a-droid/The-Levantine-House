@@ -1,3 +1,9 @@
+export interface MenuItemSize {
+  name: string;
+  price: number;
+  enabled: boolean;
+}
+
 export interface MenuItem {
   id: string;
   name: string;
@@ -9,6 +15,7 @@ export interface MenuItem {
   imageKey?: string;
   imageUrl?: string;
   stock?: number | null;
+  sizes?: MenuItemSize[];
 }
 
 export interface MenuCategory {

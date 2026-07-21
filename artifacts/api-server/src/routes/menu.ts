@@ -80,6 +80,12 @@ export async function seedMenu() {
   }
 }
 
+const sizeOptionSchema = z.object({
+  name: z.string().min(1),
+  price: z.number().min(0),
+  enabled: z.boolean(),
+});
+
 const createSchema = z.object({
   name: z.string().min(1),
   nameEn: z.string().optional(),
@@ -88,6 +94,7 @@ const createSchema = z.object({
   imageKey: z.string().nullable().optional(),
   imageUrl: z.string().url().nullable().optional(),
   stock: z.number().int().min(0).nullable().optional(),
+  sizes: z.array(sizeOptionSchema).optional(),
 });
 
 const updateSchema = z.object({
@@ -99,6 +106,7 @@ const updateSchema = z.object({
   imageKey: z.string().nullable().optional(),
   imageUrl: z.string().url().nullable().optional(),
   stock: z.number().int().min(0).nullable().optional(),
+  sizes: z.array(sizeOptionSchema).optional(),
 });
 
 router.get("/menu", async (req, res) => {
@@ -126,6 +134,7 @@ router.post("/menu", async (req, res) => {
     available: true,
     imageKey: data.imageKey ?? null,
     imageUrl: data.imageUrl ?? null,
+    sizes: (data.sizes ?? []).map(s => ({ ...s, price: Math.round(s.price * 100) })),
     sortOrder: 999,
   }).returning();
   req.log.info({ itemId: item.itemId }, "Menu item created");
@@ -148,6 +157,7 @@ router.put("/menu/:itemId", async (req, res) => {
   if (data.available !== undefined) updates.available = data.available;
   if (data.imageKey !== undefined) updates.imageKey = data.imageKey;
   if (data.imageUrl !== undefined) updates.imageUrl = data.imageUrl;
+  if (data.sizes !== undefined) updates.sizes = data.sizes.map(s => ({ ...s, price: Math.round(s.price * 100) }));
   if (data.stock !== undefined) {
     updates.stock = data.stock;
     if (data.stock === null) updates.available = true;
