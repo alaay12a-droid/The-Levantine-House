@@ -116,3 +116,4 @@ externalPort = 3000
 
 [userenv.shared]
 ADMIN_USERNAME = "rawabi-mandi"
+VITE_API_BASE_URL = "https://mandi-menu-1-640o.onrender.com"
