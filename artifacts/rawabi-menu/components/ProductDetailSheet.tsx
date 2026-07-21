@@ -275,6 +275,32 @@ export function ProductDetailSheet({ item, visible, onClose }: Props) {
               ) : null}
             </View>
 
+            {/* ── Calorie Info ── */}
+            {item.calories != null && (
+              <View style={calorieStyles.row}>
+                <View style={calorieStyles.badge}>
+                  <Text style={calorieStyles.icon}>🔥</Text>
+                  <Text style={[calorieStyles.value, { color: colors.foreground, fontFamily: F.bold }]}>
+                    {item.calories}
+                  </Text>
+                  <Text style={[calorieStyles.unit, { color: colors.mutedForeground, fontFamily: F.regular }]}>
+                    كيلوكالوري
+                  </Text>
+                </View>
+                {item.walkingMinutes != null && (
+                  <View style={calorieStyles.badge}>
+                    <Text style={calorieStyles.icon}>🚶</Text>
+                    <Text style={[calorieStyles.value, { color: colors.foreground, fontFamily: F.bold }]}>
+                      {item.walkingMinutes}
+                    </Text>
+                    <Text style={[calorieStyles.unit, { color: colors.mutedForeground, fontFamily: F.regular }]}>
+                      دقيقة مشياً
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
+
             {/* ── DB Size Selector (from dashboard config) ── */}
             {hasDbSizes && (
               <View style={{ gap: 10 }}>
@@ -547,6 +573,35 @@ export function ProductDetailSheet({ item, visible, onClose }: Props) {
     </Modal>
   );
 }
+
+const calorieStyles = StyleSheet.create({
+  row: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  badge: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#ffffff0d",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#ffffff14",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  icon: {
+    fontSize: 16,
+  },
+  value: {
+    fontSize: 15,
+  },
+  unit: {
+    fontSize: 11,
+    flexShrink: 1,
+  },
+});
 
 const styles = StyleSheet.create({
   backdrop: {

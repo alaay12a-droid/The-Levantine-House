@@ -108,6 +108,8 @@ const createSchema = z.object({
   stock: z.number().int().min(0).nullable().optional(),
   sizes: z.array(sizeOptionSchema).optional(),
   options: z.array(optionGroupSchema).optional(),
+  calories: z.number().int().min(0).nullable().optional(),
+  walkingMinutes: z.number().int().min(0).nullable().optional(),
 });
 
 const updateSchema = z.object({
@@ -121,6 +123,8 @@ const updateSchema = z.object({
   stock: z.number().int().min(0).nullable().optional(),
   sizes: z.array(sizeOptionSchema).optional(),
   options: z.array(optionGroupSchema).optional(),
+  calories: z.number().int().min(0).nullable().optional(),
+  walkingMinutes: z.number().int().min(0).nullable().optional(),
 });
 
 router.get("/menu", async (req, res) => {
@@ -153,6 +157,8 @@ router.post("/menu", async (req, res) => {
       ...g,
       choices: g.choices.map(c => ({ ...c, extraPrice: Math.round(c.extraPrice * 100) })),
     })),
+    calories: data.calories ?? null,
+    walkingMinutes: data.walkingMinutes ?? null,
     sortOrder: 999,
   }).returning();
   req.log.info({ itemId: item.itemId }, "Menu item created");
@@ -180,6 +186,8 @@ router.put("/menu/:itemId", async (req, res) => {
     ...g,
     choices: g.choices.map(c => ({ ...c, extraPrice: Math.round(c.extraPrice * 100) })),
   }));
+  if (data.calories !== undefined) updates.calories = data.calories;
+  if (data.walkingMinutes !== undefined) updates.walkingMinutes = data.walkingMinutes;
   if (data.stock !== undefined) {
     updates.stock = data.stock;
     if (data.stock === null) updates.available = true;

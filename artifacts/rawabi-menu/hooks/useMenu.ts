@@ -44,6 +44,8 @@ export interface ApiMenuItem {
   stock: number | null;
   sizes: ApiMenuItemSize[];
   options: ApiMenuItemOptionGroup[];
+  calories: number | null;
+  walkingMinutes: number | null;
   sortOrder: number;
   createdAt: string;
 }
@@ -90,6 +92,8 @@ function buildCategories(apiItems: ApiMenuItem[]): MenuCategoryWithApi[] {
         ...g,
         choices: g.choices.map(c => ({ ...c, extraPrice: c.extraPrice / 100 })),
       })),
+      calories: item.calories ?? undefined,
+      walkingMinutes: item.walkingMinutes ?? undefined,
     });
     categoryMap.set(item.category, existing);
   }

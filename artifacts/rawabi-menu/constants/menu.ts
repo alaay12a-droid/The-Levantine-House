@@ -29,6 +29,8 @@ export interface MenuItem {
   stock?: number | null;
   sizes?: MenuItemSize[];
   options?: MenuItemOptionGroup[];
+  calories?: number | null;
+  walkingMinutes?: number | null;
 }
 
 export interface MenuCategory {

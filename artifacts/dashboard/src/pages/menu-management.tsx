@@ -48,6 +48,8 @@ interface MenuItem {
   stock?: number | null;
   sizes: { name: string; price: number; enabled: boolean }[];
   options: { groupName: string; required: boolean; choices: { name: string; extraPrice: number; available: boolean }[] }[];
+  calories?: number | null;
+  walkingMinutes?: number | null;
 }
 
 const CATEGORIES = [
@@ -89,6 +91,8 @@ interface ItemForm {
   stock: string;
   sizes: SizeOption[];
   options: OptionGroup[];
+  calories: string;
+  walkingMinutes: string;
 }
 
 const emptyForm = (): ItemForm => ({
@@ -96,6 +100,8 @@ const emptyForm = (): ItemForm => ({
   imageUrl: "", available: true, stock: "",
   sizes: defaultSizesForCategory("chicken"),
   options: [],
+  calories: "",
+  walkingMinutes: "",
 });
 
 export default function MenuManagement() {
@@ -200,6 +206,8 @@ export default function MenuManagement() {
       stock: item.stock === null || item.stock === undefined ? "" : String(item.stock),
       sizes,
       options,
+      calories: item.calories != null ? String(item.calories) : "",
+      walkingMinutes: item.walkingMinutes != null ? String(item.walkingMinutes) : "",
     });
     setFormError("");
     setDialogOpen(true);
@@ -332,6 +340,8 @@ export default function MenuManagement() {
         stock: form.stock.trim() === "" ? null : parseInt(form.stock),
         sizes,
         options,
+        calories: form.calories.trim() === "" ? null : parseInt(form.calories),
+        walkingMinutes: form.walkingMinutes.trim() === "" ? null : parseInt(form.walkingMinutes),
       };
 
       if (form.itemId) {
@@ -744,13 +754,66 @@ export default function MenuManagement() {
               />
             </div>
 
+            {/* ── Calorie Info (optional) ── */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-end">
+                <Label className="text-sm font-semibold">معلومات غذائية (اختياري)</Label>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">🔥 السعرات الحرارية (كيلوكالوري)</Label>
+                  <Input
+                    value={form.calories}
+                    onChange={e => setForm(f => ({ ...f, calories: e.target.value.replace(/\D/g, "") }))}
+                    placeholder="مثال: 450"
+                    dir="ltr"
+                    type="number"
+                    min="0"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">🚶 وقت المشي (دقائق)</Label>
+                  <Input
+                    value={form.walkingMinutes}
+                    onChange={e => setForm(f => ({ ...f, walkingMinutes: e.target.value.replace(/\D/g, "") }))}
+                    placeholder="مثال: 30"
+                    dir="ltr"
+                    type="number"
+                    min="0"
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                إذا تُركت فارغة لن تظهر في التطبيق. تظهر فقط عند فتح تفاصيل الصنف.
+              </p>
+            </div>
+
             {/* ── Sizes Section ── */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Button type="button" variant="outline" size="sm" className="gap-1.5 h-7 text-xs" onClick={addSize}>
-                  <Plus className="h-3 w-3" />
-                  إضافة حجم
-                </Button>
+                <div className="flex gap-1.5">
+                  <Button type="button" variant="outline" size="sm" className="gap-1.5 h-7 text-xs" onClick={addSize}>
+                    <Plus className="h-3 w-3" />
+                    إضافة حجم
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs gap-1"
+                    title="إضافة حجمَي كبير وصغير جاهزَين"
+                    onClick={() => setForm(f => ({
+                      ...f,
+                      sizes: [
+                        ...f.sizes,
+                        { name: "كبير", price: "", enabled: true },
+                        { name: "صغير", price: "", enabled: true },
+                      ],
+                    }))}
+                  >
+                    كبير / صغير ⚡
+                  </Button>
+                </div>
                 <Label className="text-sm font-semibold">خيارات الحجم</Label>
               </div>
               {form.sizes.length > 0 ? (
