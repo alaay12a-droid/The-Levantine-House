@@ -60,6 +60,7 @@ export const menuItemsTable = pgTable("menu_items", {
   imageUrl: text("image_url"),
   stock: integer("stock"),
   sizes: jsonb("sizes").$type<{ name: string; price: number; enabled: boolean }[]>().notNull().default([]),
+  options: jsonb("options").$type<{ groupName: string; required: boolean; choices: { name: string; extraPrice: number; available: boolean }[] }[]>().notNull().default([]),
   sortOrder: integer("sort_order").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

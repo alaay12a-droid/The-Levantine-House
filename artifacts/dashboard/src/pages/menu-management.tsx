@@ -10,16 +10,30 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, RefreshCw, Pencil, Trash2, Search, Loader2, PackageX, Package, ImagePlus } from "lucide-react";
+import { Plus, RefreshCw, Pencil, Trash2, Search, Loader2, PackageX, Package, ImagePlus, X, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fileToCompressedDataUrl } from "@/lib/imageUpload";
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "";
+void API_BASE;
 
 interface SizeOption {
   name: string;
   price: string;
   enabled: boolean;
+}
+
+interface OptionChoice {
+  name: string;
+  extraPrice: string;
+  available: boolean;
+}
+
+interface OptionGroup {
+  groupName: string;
+  required: boolean;
+  choices: OptionChoice[];
+  collapsed?: boolean;
 }
 
 interface MenuItem {
@@ -33,6 +47,7 @@ interface MenuItem {
   available: boolean;
   stock?: number | null;
   sizes: { name: string; price: number; enabled: boolean }[];
+  options: { groupName: string; required: boolean; choices: { name: string; extraPrice: number; available: boolean }[] }[];
 }
 
 const CATEGORIES = [
@@ -51,9 +66,9 @@ const getCatMeta = (id: string) => CATEGORIES.find(c => c.id === id) ?? { id, na
 function defaultSizesForCategory(category: string): SizeOption[] {
   if (category === "drinks") {
     return [
-      { name: "صغير",  price: "", enabled: false },
-      { name: "وسط",   price: "", enabled: false },
-      { name: "كبير",  price: "", enabled: false },
+      { name: "صغير", price: "", enabled: false },
+      { name: "وسط",  price: "", enabled: false },
+      { name: "كبير", price: "", enabled: false },
     ];
   }
   return [
@@ -73,12 +88,14 @@ interface ItemForm {
   available: boolean;
   stock: string;
   sizes: SizeOption[];
+  options: OptionGroup[];
 }
 
 const emptyForm = (): ItemForm => ({
   name: "", nameAr: "", description: "", price: "", category: "chicken",
   imageUrl: "", available: true, stock: "",
   sizes: defaultSizesForCategory("chicken"),
+  options: [],
 });
 
 export default function MenuManagement() {
@@ -148,7 +165,6 @@ export default function MenuManagement() {
 
   const openEdit = (item: MenuItem) => {
     const existingSizes = item.sizes ?? [];
-    const defaults = defaultSizesForCategory(item.category);
     let sizes: SizeOption[];
     if (existingSizes.length > 0) {
       sizes = existingSizes.map(s => ({
@@ -157,8 +173,21 @@ export default function MenuManagement() {
         enabled: s.enabled,
       }));
     } else {
-      sizes = defaults;
+      sizes = defaultSizesForCategory(item.category);
     }
+
+    const existingOptions = item.options ?? [];
+    const options: OptionGroup[] = existingOptions.map(g => ({
+      groupName: g.groupName,
+      required: g.required,
+      collapsed: false,
+      choices: g.choices.map(c => ({
+        name: c.name,
+        extraPrice: c.extraPrice > 0 ? String(c.extraPrice / 100) : "0",
+        available: c.available,
+      })),
+    }));
+
     setForm({
       itemId: item.itemId,
       name: item.name,
@@ -170,6 +199,7 @@ export default function MenuManagement() {
       available: item.available,
       stock: item.stock === null || item.stock === undefined ? "" : String(item.stock),
       sizes,
+      options,
     });
     setFormError("");
     setDialogOpen(true);
@@ -180,17 +210,77 @@ export default function MenuManagement() {
       const wasdrinks = f.category === "drinks";
       const isdrinks = newCat === "drinks";
       let sizes = f.sizes;
-      if (wasdrinks !== isdrinks) {
+      if (wasdrinks !== isdrinks && sizes.length === 0) {
         sizes = defaultSizesForCategory(newCat);
       }
       return { ...f, category: newCat, sizes };
     });
   };
 
+  // ── Size helpers ──
   const updateSize = (idx: number, field: keyof SizeOption, value: string | boolean) => {
     setForm(f => ({
       ...f,
       sizes: f.sizes.map((s, i) => i === idx ? { ...s, [field]: value } : s),
+    }));
+  };
+  const addSize = () => {
+    setForm(f => ({ ...f, sizes: [...f.sizes, { name: "", price: "", enabled: true }] }));
+  };
+  const removeSize = (idx: number) => {
+    setForm(f => ({ ...f, sizes: f.sizes.filter((_, i) => i !== idx) }));
+  };
+
+  // ── Option group helpers ──
+  const addOptionGroup = () => {
+    setForm(f => ({
+      ...f,
+      options: [...f.options, { groupName: "", required: false, collapsed: false, choices: [{ name: "", extraPrice: "0", available: true }] }],
+    }));
+  };
+  const removeOptionGroup = (gIdx: number) => {
+    setForm(f => ({ ...f, options: f.options.filter((_, i) => i !== gIdx) }));
+  };
+  const updateOptionGroup = (gIdx: number, field: keyof Omit<OptionGroup, "choices">, value: string | boolean) => {
+    setForm(f => ({
+      ...f,
+      options: f.options.map((g, i) => i === gIdx ? { ...g, [field]: value } : g),
+    }));
+  };
+  const toggleGroupCollapsed = (gIdx: number) => {
+    setForm(f => ({
+      ...f,
+      options: f.options.map((g, i) => i === gIdx ? { ...g, collapsed: !g.collapsed } : g),
+    }));
+  };
+
+  // ── Choice helpers ──
+  const addChoice = (gIdx: number) => {
+    setForm(f => ({
+      ...f,
+      options: f.options.map((g, i) =>
+        i === gIdx
+          ? { ...g, choices: [...g.choices, { name: "", extraPrice: "0", available: true }] }
+          : g
+      ),
+    }));
+  };
+  const removeChoice = (gIdx: number, cIdx: number) => {
+    setForm(f => ({
+      ...f,
+      options: f.options.map((g, i) =>
+        i === gIdx ? { ...g, choices: g.choices.filter((_, ci) => ci !== cIdx) } : g
+      ),
+    }));
+  };
+  const updateChoice = (gIdx: number, cIdx: number, field: keyof OptionChoice, value: string | boolean) => {
+    setForm(f => ({
+      ...f,
+      options: f.options.map((g, i) =>
+        i === gIdx
+          ? { ...g, choices: g.choices.map((c, ci) => ci === cIdx ? { ...c, [field]: value } : c) }
+          : g
+      ),
     }));
   };
 
@@ -200,8 +290,18 @@ export default function MenuManagement() {
       setFormError("أدخل سعراً صحيحاً"); return;
     }
     for (const s of form.sizes) {
+      if (!s.name.trim()) { setFormError("أدخل اسم الحجم"); return; }
       if (s.enabled && (s.price.trim() === "" || isNaN(parseFloat(s.price)) || parseFloat(s.price) < 0)) {
         setFormError(`أدخل سعراً صحيحاً للحجم: ${s.name}`); return;
+      }
+    }
+    for (const g of form.options) {
+      if (!g.groupName.trim()) { setFormError("أدخل اسم مجموعة الخيارات"); return; }
+      for (const c of g.choices) {
+        if (!c.name.trim()) { setFormError(`أدخل اسم الخيار في: ${g.groupName}`); return; }
+        if (isNaN(parseFloat(c.extraPrice)) || parseFloat(c.extraPrice) < 0) {
+          setFormError(`سعر إضافي غير صحيح في: ${g.groupName}`); return;
+        }
       }
     }
     setSaving(true);
@@ -211,6 +311,15 @@ export default function MenuManagement() {
         name: s.name,
         price: s.enabled ? parseFloat(s.price) : 0,
         enabled: s.enabled,
+      }));
+      const options = form.options.map(g => ({
+        groupName: g.groupName,
+        required: g.required,
+        choices: g.choices.map(c => ({
+          name: c.name,
+          extraPrice: parseFloat(c.extraPrice) || 0,
+          available: c.available,
+        })),
       }));
       const body: Record<string, unknown> = {
         name: form.name.trim(),
@@ -222,6 +331,7 @@ export default function MenuManagement() {
         available: form.available,
         stock: form.stock.trim() === "" ? null : parseInt(form.stock),
         sizes,
+        options,
       };
 
       if (form.itemId) {
@@ -310,7 +420,7 @@ export default function MenuManagement() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">إدارة القائمة</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">إضافة وتعديل الأصناف، التوفّر، والمخزون</p>
+          <p className="text-muted-foreground text-sm mt-0.5">إضافة وتعديل الأصناف، الأحجام، الخيارات، والمخزون</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="icon" onClick={() => load(true)} disabled={refreshing}>
@@ -412,7 +522,7 @@ export default function MenuManagement() {
                   <th className="text-right px-4 py-3 font-medium text-muted-foreground">الصنف</th>
                   <th className="text-right px-4 py-3 font-medium text-muted-foreground">التصنيف</th>
                   <th className="text-right px-4 py-3 font-medium text-muted-foreground">السعر</th>
-                  <th className="text-right px-4 py-3 font-medium text-muted-foreground">الأحجام</th>
+                  <th className="text-right px-4 py-3 font-medium text-muted-foreground">الأحجام / الخيارات</th>
                   <th className="text-right px-4 py-3 font-medium text-muted-foreground">المخزون</th>
                   <th className="text-right px-4 py-3 font-medium text-muted-foreground">التوفّر</th>
                   <th className="text-right px-4 py-3 font-medium text-muted-foreground">إجراءات</th>
@@ -422,6 +532,7 @@ export default function MenuManagement() {
                 {filtered.map((item, idx) => {
                   const cat = getCatMeta(item.category);
                   const enabledSizes = (item.sizes ?? []).filter(s => s.enabled);
+                  const optionGroups = item.options ?? [];
                   return (
                     <tr
                       key={item.itemId}
@@ -456,17 +567,29 @@ export default function MenuManagement() {
                         {(item.price / 100).toFixed(2)} ر.س
                       </td>
                       <td className="px-4 py-3">
-                        {enabledSizes.length > 0 ? (
-                          <div className="flex flex-wrap gap-1">
-                            {enabledSizes.map(s => (
-                              <span key={s.name} className="inline-flex items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 text-xs font-medium">
-                                {s.name} · {(s.price / 100).toFixed(2)}
-                              </span>
-                            ))}
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground text-xs">—</span>
-                        )}
+                        <div className="flex flex-col gap-1">
+                          {enabledSizes.length > 0 && (
+                            <div className="flex flex-wrap gap-1">
+                              {enabledSizes.map(s => (
+                                <span key={s.name} className="inline-flex items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 text-xs font-medium">
+                                  {s.name} · {(s.price / 100).toFixed(2)}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          {optionGroups.length > 0 && (
+                            <div className="flex flex-wrap gap-1">
+                              {optionGroups.map(g => (
+                                <span key={g.groupName} className="inline-flex items-center gap-1 rounded-md bg-blue-500/10 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 text-xs font-medium">
+                                  {g.groupName} ({g.choices.length})
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          {enabledSizes.length === 0 && optionGroups.length === 0 && (
+                            <span className="text-muted-foreground text-xs">—</span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-3">
                         {stockEditId === item.itemId ? (
@@ -552,11 +675,13 @@ export default function MenuManagement() {
 
       {/* Add/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{form.itemId ? "تعديل الصنف" : "إضافة صنف جديد"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
+
+            {/* Name fields */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>الاسم (عربي)</Label>
@@ -577,6 +702,8 @@ export default function MenuManagement() {
                 />
               </div>
             </div>
+
+            {/* Price + Category */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>السعر الأساسي (ريال) *</Label>
@@ -606,6 +733,8 @@ export default function MenuManagement() {
                 </Select>
               </div>
             </div>
+
+            {/* Description */}
             <div className="space-y-1.5">
               <Label>الوصف (اختياري)</Label>
               <Input
@@ -615,25 +744,38 @@ export default function MenuManagement() {
               />
             </div>
 
-            {/* ── Sizes section ── */}
+            {/* ── Sizes Section ── */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
+                <Button type="button" variant="outline" size="sm" className="gap-1.5 h-7 text-xs" onClick={addSize}>
+                  <Plus className="h-3 w-3" />
+                  إضافة حجم
+                </Button>
                 <Label className="text-sm font-semibold">خيارات الحجم</Label>
-                <span className="text-xs text-muted-foreground">
-                  {form.category === "drinks" ? "3 أحجام" : "حجمان"}
-                </span>
               </div>
-              <div className="rounded-lg border divide-y">
-                {form.sizes.map((size, idx) => (
-                  <div key={size.name} className="flex items-center gap-3 px-3 py-2.5">
-                    <Switch
-                      checked={size.enabled}
-                      onCheckedChange={v => updateSize(idx, "enabled", v)}
-                      className="scale-90 shrink-0"
-                    />
-                    <span className="w-10 text-sm font-medium shrink-0">{size.name}</span>
-                    {size.enabled ? (
-                      <div className="flex-1 flex items-center gap-1.5">
+              {form.sizes.length > 0 ? (
+                <div className="rounded-lg border divide-y">
+                  {form.sizes.map((size, idx) => (
+                    <div key={idx} className="flex items-center gap-2 px-3 py-2.5">
+                      <button
+                        type="button"
+                        onClick={() => removeSize(idx)}
+                        className="text-muted-foreground hover:text-destructive transition-colors shrink-0"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                      <Switch
+                        checked={size.enabled}
+                        onCheckedChange={v => updateSize(idx, "enabled", v)}
+                        className="scale-75 shrink-0"
+                      />
+                      <Input
+                        value={size.name}
+                        onChange={e => updateSize(idx, "name", e.target.value)}
+                        placeholder="مثال: صغير"
+                        className="h-8 text-sm flex-1 min-w-[70px]"
+                      />
+                      <div className="flex items-center gap-1 shrink-0">
                         <Input
                           value={size.price}
                           onChange={e => updateSize(idx, "price", e.target.value)}
@@ -642,19 +784,134 @@ export default function MenuManagement() {
                           type="number"
                           min="0"
                           step="0.5"
-                          className="h-8 text-sm"
+                          className="h-8 text-sm w-24"
+                          disabled={!size.enabled}
                         />
-                        <span className="text-xs text-muted-foreground shrink-0">ر.س</span>
+                        <span className="text-xs text-muted-foreground">ر.س</span>
                       </div>
-                    ) : (
-                      <span className="flex-1 text-xs text-muted-foreground">معطّل</span>
-                    )}
-                  </div>
-                ))}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground text-center py-2 border rounded-lg border-dashed">
+                  لا توجد أحجام — الصنف بسعر ثابت واحد
+                </p>
+              )}
+              {form.sizes.length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  فعّل الأحجام التي تريد إظهارها للعميل. الأحجام المعطّلة لن تظهر.
+                </p>
+              )}
+            </div>
+
+            {/* ── Options / Sub-Options Section ── */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Button type="button" variant="outline" size="sm" className="gap-1.5 h-7 text-xs" onClick={addOptionGroup}>
+                  <Plus className="h-3 w-3" />
+                  إضافة مجموعة خيارات
+                </Button>
+                <Label className="text-sm font-semibold">الخيارات الفرعية</Label>
               </div>
-              <p className="text-xs text-muted-foreground">
-                الأحجام المفعّلة ستظهر للعميل في شاشة الطلب. اتركها معطّلة إن لم تكن مطلوبة.
-              </p>
+              {form.options.length === 0 && (
+                <p className="text-xs text-muted-foreground text-center py-2 border rounded-lg border-dashed">
+                  لا توجد خيارات — مثال: نوع المشروب (بيبسي، 7UP، ...)
+                </p>
+              )}
+              {form.options.map((group, gIdx) => (
+                <div key={gIdx} className="rounded-lg border overflow-hidden">
+                  {/* Group header */}
+                  <div className="flex items-center gap-2 px-3 py-2.5 bg-muted/30">
+                    <button
+                      type="button"
+                      onClick={() => removeOptionGroup(gIdx)}
+                      className="text-muted-foreground hover:text-destructive transition-colors shrink-0"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                    <Input
+                      value={group.groupName}
+                      onChange={e => updateOptionGroup(gIdx, "groupName", e.target.value)}
+                      placeholder="اسم المجموعة (مثال: نوع المشروب)"
+                      className="h-8 text-sm flex-1"
+                    />
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <Switch
+                        checked={group.required}
+                        onCheckedChange={v => updateOptionGroup(gIdx, "required", v)}
+                        className="scale-75"
+                      />
+                      <span className="text-xs text-muted-foreground">مطلوب</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => toggleGroupCollapsed(gIdx)}
+                      className="text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                    >
+                      {group.collapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+                    </button>
+                  </div>
+
+                  {/* Choices */}
+                  {!group.collapsed && (
+                    <div className="divide-y">
+                      {group.choices.map((choice, cIdx) => (
+                        <div key={cIdx} className="flex items-center gap-2 px-3 py-2">
+                          <button
+                            type="button"
+                            onClick={() => removeChoice(gIdx, cIdx)}
+                            className="text-muted-foreground hover:text-destructive transition-colors shrink-0"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                          <Switch
+                            checked={choice.available}
+                            onCheckedChange={v => updateChoice(gIdx, cIdx, "available", v)}
+                            className="scale-75 shrink-0"
+                          />
+                          <Input
+                            value={choice.name}
+                            onChange={e => updateChoice(gIdx, cIdx, "name", e.target.value)}
+                            placeholder="مثال: بيبسي"
+                            className="h-7 text-sm flex-1 min-w-[80px]"
+                          />
+                          <div className="flex items-center gap-1 shrink-0">
+                            <span className="text-xs text-muted-foreground">+</span>
+                            <Input
+                              value={choice.extraPrice}
+                              onChange={e => updateChoice(gIdx, cIdx, "extraPrice", e.target.value)}
+                              placeholder="0"
+                              dir="ltr"
+                              type="number"
+                              min="0"
+                              step="0.5"
+                              className="h-7 text-sm w-20"
+                            />
+                            <span className="text-xs text-muted-foreground">ر.س</span>
+                          </div>
+                        </div>
+                      ))}
+                      <div className="px-3 py-2">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="gap-1.5 h-7 text-xs w-full"
+                          onClick={() => addChoice(gIdx)}
+                        >
+                          <Plus className="h-3 w-3" />
+                          إضافة خيار
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+              {form.options.length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  الخيارات المفعّلة تظهر للعميل. السعر الإضافي يُجمع فوق سعر الحجم.
+                </p>
+              )}
             </div>
 
             {/* Image upload */}
@@ -704,6 +961,8 @@ export default function MenuManagement() {
                 </div>
               </div>
             </div>
+
+            {/* Stock + Available */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>المخزون (اتركه فارغاً = غير محدود)</Label>
@@ -724,6 +983,7 @@ export default function MenuManagement() {
                 </div>
               </div>
             </div>
+
             {formError && (
               <p className="text-sm text-destructive">{formError}</p>
             )}

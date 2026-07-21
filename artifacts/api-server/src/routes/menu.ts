@@ -86,6 +86,18 @@ const sizeOptionSchema = z.object({
   enabled: z.boolean(),
 });
 
+const optionChoiceSchema = z.object({
+  name: z.string().min(1),
+  extraPrice: z.number().min(0),
+  available: z.boolean(),
+});
+
+const optionGroupSchema = z.object({
+  groupName: z.string().min(1),
+  required: z.boolean(),
+  choices: z.array(optionChoiceSchema),
+});
+
 const createSchema = z.object({
   name: z.string().min(1),
   nameEn: z.string().optional(),
@@ -95,6 +107,7 @@ const createSchema = z.object({
   imageUrl: z.string().url().nullable().optional(),
   stock: z.number().int().min(0).nullable().optional(),
   sizes: z.array(sizeOptionSchema).optional(),
+  options: z.array(optionGroupSchema).optional(),
 });
 
 const updateSchema = z.object({
@@ -107,6 +120,7 @@ const updateSchema = z.object({
   imageUrl: z.string().url().nullable().optional(),
   stock: z.number().int().min(0).nullable().optional(),
   sizes: z.array(sizeOptionSchema).optional(),
+  options: z.array(optionGroupSchema).optional(),
 });
 
 router.get("/menu", async (req, res) => {
@@ -135,6 +149,10 @@ router.post("/menu", async (req, res) => {
     imageKey: data.imageKey ?? null,
     imageUrl: data.imageUrl ?? null,
     sizes: (data.sizes ?? []).map(s => ({ ...s, price: Math.round(s.price * 100) })),
+    options: (data.options ?? []).map(g => ({
+      ...g,
+      choices: g.choices.map(c => ({ ...c, extraPrice: Math.round(c.extraPrice * 100) })),
+    })),
     sortOrder: 999,
   }).returning();
   req.log.info({ itemId: item.itemId }, "Menu item created");
@@ -158,6 +176,10 @@ router.put("/menu/:itemId", async (req, res) => {
   if (data.imageKey !== undefined) updates.imageKey = data.imageKey;
   if (data.imageUrl !== undefined) updates.imageUrl = data.imageUrl;
   if (data.sizes !== undefined) updates.sizes = data.sizes.map(s => ({ ...s, price: Math.round(s.price * 100) }));
+  if (data.options !== undefined) updates.options = data.options.map(g => ({
+    ...g,
+    choices: g.choices.map(c => ({ ...c, extraPrice: Math.round(c.extraPrice * 100) })),
+  }));
   if (data.stock !== undefined) {
     updates.stock = data.stock;
     if (data.stock === null) updates.available = true;

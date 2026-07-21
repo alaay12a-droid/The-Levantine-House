@@ -19,6 +19,18 @@ export interface ApiMenuItemSize {
   enabled: boolean;
 }
 
+export interface ApiMenuItemOptionChoice {
+  name: string;
+  extraPrice: number;
+  available: boolean;
+}
+
+export interface ApiMenuItemOptionGroup {
+  groupName: string;
+  required: boolean;
+  choices: ApiMenuItemOptionChoice[];
+}
+
 export interface ApiMenuItem {
   id: number;
   itemId: string;
@@ -31,6 +43,7 @@ export interface ApiMenuItem {
   imageUrl: string | null;
   stock: number | null;
   sizes: ApiMenuItemSize[];
+  options: ApiMenuItemOptionGroup[];
   sortOrder: number;
   createdAt: string;
 }
@@ -73,6 +86,10 @@ function buildCategories(apiItems: ApiMenuItem[]): MenuCategoryWithApi[] {
       available: item.available,
       stock: item.stock,
       sizes: (item.sizes ?? []).map(s => ({ ...s, price: s.price / 100 })),
+      options: (item.options ?? []).map(g => ({
+        ...g,
+        choices: g.choices.map(c => ({ ...c, extraPrice: c.extraPrice / 100 })),
+      })),
     });
     categoryMap.set(item.category, existing);
   }

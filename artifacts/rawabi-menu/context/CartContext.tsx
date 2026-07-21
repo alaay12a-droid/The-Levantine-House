@@ -6,6 +6,7 @@ export interface CartCustomization {
   riceType?: string;
   addon?: string;
   extraPrice?: number;
+  selectedOptions?: { groupName: string; choice: string }[];
 }
 
 export interface CartItem {

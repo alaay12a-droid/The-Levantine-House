@@ -70,5 +70,10 @@ export function resolveCustomizationParts(
   if (size && !sizeInName) parts.push(size);
   if (customization?.riceType) parts.push(customization.riceType);
   if (customization?.addon) parts.push(customization.addon);
+  if (customization?.selectedOptions) {
+    for (const opt of customization.selectedOptions) {
+      parts.push(opt.choice);
+    }
+  }
   return parts;
 }

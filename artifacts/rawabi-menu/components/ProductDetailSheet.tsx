@@ -13,7 +13,7 @@ import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useColors } from "@/hooks/useColors";
 import { useCart, CartCustomization } from "@/context/CartContext";
-import { MenuItem } from "@/constants/menu";
+import { MenuItem, MenuItemOptionGroup } from "@/constants/menu";
 
 const F = {
   regular: "Cairo_400Regular",
@@ -107,9 +107,19 @@ export function ProductDetailSheet({ item, visible, onClose }: Props) {
   const [riceIdx, setRiceIdx] = useState(0);
   const [addonIdx, setAddonIdx] = useState(0);
 
+  // selectedOptions: map of groupName → chosen choice name
+  const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
+
   // Enabled sizes from DB (prices already in SAR from useMenu hook)
   const enabledDbSizes = item?.sizes?.filter(s => s.enabled) ?? [];
   const hasDbSizes = enabledDbSizes.length > 0;
+
+  // Option groups from DB (choices available)
+  const optionGroups: MenuItemOptionGroup[] = (item?.options ?? []).map(g => ({
+    ...g,
+    choices: g.choices.filter(c => c.available),
+  })).filter(g => g.choices.length > 0);
+  const hasOptionGroups = optionGroups.length > 0;
 
   useEffect(() => {
     if (visible && item) {
@@ -121,6 +131,15 @@ export function ProductDetailSheet({ item, visible, onClose }: Props) {
       setSizeIdx(sizes?.defaultIdx ?? 0);
       const meatSizes = getMeatSizes(item);
       setMeatSizeIdx(meatSizes?.defaultIdx ?? 2);
+      // Auto-select first available choice for each required group
+      const defaults: Record<string, string> = {};
+      for (const g of (item.options ?? [])) {
+        const available = g.choices.filter(c => c.available);
+        if (available.length > 0) {
+          defaults[g.groupName] = available[0].name;
+        }
+      }
+      setSelectedOptions(defaults);
     }
   }, [visible, item?.id]);
 
@@ -156,7 +175,16 @@ export function ProductDetailSheet({ item, visible, onClose }: Props) {
 
   const riceExtra = selectedRice?.extra ?? 0;
   const addonExtra = selectedAddon?.extra ?? 0;
-  const extraPrice = riceExtra + addonExtra;
+
+  // Sum extra prices from selected options
+  const optionsExtra = optionGroups.reduce((sum, g) => {
+    const chosen = selectedOptions[g.groupName];
+    if (!chosen) return sum;
+    const choice = g.choices.find(c => c.name === chosen);
+    return sum + (choice?.extraPrice ?? 0);
+  }, 0);
+
+  const extraPrice = riceExtra + addonExtra + optionsExtra;
   const unitPrice = baseSizePrice + extraPrice;
   const totalPrice = unitPrice * qty;
   const priceStr = (v: number) => v % 1 === 0 ? v.toString() : v.toFixed(1);
@@ -180,13 +208,20 @@ export function ProductDetailSheet({ item, visible, onClose }: Props) {
 
     const totalExtra = sizeExtraPrice + extraPrice;
 
+    const pickedOptions = hasOptionGroups
+      ? optionGroups
+          .filter(g => selectedOptions[g.groupName])
+          .map(g => ({ groupName: g.groupName, choice: selectedOptions[g.groupName] }))
+      : undefined;
+
     const customization: CartCustomization | undefined =
-      (hasDbSizes || showSizeSelector || showMeatSizeSelector || showCustomization)
+      (hasDbSizes || showSizeSelector || showMeatSizeSelector || showCustomization || hasOptionGroups)
         ? {
             size: sizeLabel,
             riceType: selectedRice?.label,
             addon: selectedAddon?.label,
             extraPrice: totalExtra,
+            selectedOptions: pickedOptions,
           }
         : undefined;
 
@@ -354,6 +389,56 @@ export function ProductDetailSheet({ item, visible, onClose }: Props) {
                 </View>
               </View>
             )}
+
+            {/* ── Option Groups (from dashboard config e.g. نوع المشروب) ── */}
+            {optionGroups.map((group) => (
+              <View key={group.groupName} style={{ gap: 10 }}>
+                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 8 }}>
+                  <Text style={[styles.sectionTitle, { color: colors.foreground, opacity: 1 }]}>
+                    {group.groupName}
+                  </Text>
+                  {group.required && (
+                    <View style={[styles.requiredBadge, { backgroundColor: "#C8171A22" }]}>
+                      <Text style={{ color: "#C8171A", fontFamily: F.bold, fontSize: 10 }}>مطلوب</Text>
+                    </View>
+                  )}
+                </View>
+                {group.choices.map((choice) => {
+                  const active = selectedOptions[group.groupName] === choice.name;
+                  return (
+                    <TouchableOpacity
+                      key={choice.name}
+                      onPress={() => {
+                        setSelectedOptions(prev => ({ ...prev, [group.groupName]: choice.name }));
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      }}
+                      style={styles.optionRow}
+                      activeOpacity={0.7}
+                    >
+                      <View style={[
+                        styles.radio,
+                        { borderColor: active ? "#E8920C" : colors.border },
+                        active && { backgroundColor: "#E8920C22" },
+                      ]}>
+                        {active && (
+                          <View style={[styles.radioDot, { backgroundColor: "#E8920C" }]} />
+                        )}
+                      </View>
+                      <Text style={{ flex: 1, color: colors.foreground, fontFamily: active ? F.bold : F.regular, fontSize: 15, textAlign: "right" }}>
+                        {choice.name}
+                      </Text>
+                      {choice.extraPrice > 0 && (
+                        <View style={styles.extraBadge}>
+                          <Text style={{ color: "#E8920C", fontFamily: F.bold, fontSize: 12 }}>
+                            + {priceStr(choice.extraPrice)} ر.س
+                          </Text>
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            ))}
 
             {/* ── Rice Type ── */}
             {showRiceOptions && (
@@ -529,6 +614,11 @@ const styles = StyleSheet.create({
   extraBadge: {
     minWidth: 44,
     alignItems: "flex-end",
+  },
+  requiredBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
   },
   sizeBtn: {
     borderRadius: 14,

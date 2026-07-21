@@ -4,6 +4,18 @@ export interface MenuItemSize {
   enabled: boolean;
 }
 
+export interface MenuItemOptionChoice {
+  name: string;
+  extraPrice: number;
+  available: boolean;
+}
+
+export interface MenuItemOptionGroup {
+  groupName: string;
+  required: boolean;
+  choices: MenuItemOptionChoice[];
+}
+
 export interface MenuItem {
   id: string;
   name: string;
@@ -16,6 +28,7 @@ export interface MenuItem {
   imageUrl?: string;
   stock?: number | null;
   sizes?: MenuItemSize[];
+  options?: MenuItemOptionGroup[];
 }
 
 export interface MenuCategory {

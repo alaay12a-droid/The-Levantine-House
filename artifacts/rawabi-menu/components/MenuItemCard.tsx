@@ -46,6 +46,11 @@ function MenuItemCardInner({ item, quantity, onPress, isEn, isFavorite: faved, o
   const displayName = isEn && item.nameEn ? item.nameEn : item.name;
   const displayDesc = isEn && item.descriptionEn ? item.descriptionEn : item.description;
 
+  // Item needs detail sheet if it has configurable sizes or option groups
+  const hasOptions =
+    (item.sizes?.filter(s => s.enabled).length ?? 0) > 0 ||
+    (item.options?.some(g => g.choices.some(c => c.available)) ?? false);
+
   const handleAdd = useCallback(() => {
     if (isUnavailable || atStockLimit) return;
     if (isDhabiha) {
@@ -55,9 +60,14 @@ function MenuItemCardInner({ item, quantity, onPress, isEn, isFavorite: faved, o
       Linking.openURL(`https://wa.me/${whatsapp}?text=${encodeURIComponent(msg)}`);
       return;
     }
+    // If item has sizes/options, open detail sheet instead of adding directly
+    if (hasOptions) {
+      onPress?.();
+      return;
+    }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     addItem(item);
-  }, [isUnavailable, atStockLimit, isDhabiha, isEn, displayName, item, whatsapp, addItem]);
+  }, [isUnavailable, atStockLimit, isDhabiha, isEn, displayName, item, whatsapp, addItem, hasOptions, onPress]);
 
   const handleDecrease = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
