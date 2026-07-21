@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { OrderItem } from "./orderItem";
+import type { OrderOrderType } from "./orderOrderType";
 import type { OrderStatus } from "./orderStatus";
 
 export interface Order {
@@ -19,6 +20,7 @@ export interface Order {
   deliveryFee: number;
   discountCode?: string | null;
   discountAmount?: number | null;
+  orderType: OrderOrderType;
   status: OrderStatus;
   paymentMethod: string;
   notes?: string | null;

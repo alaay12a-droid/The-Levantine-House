@@ -24,7 +24,8 @@ const createOrderSchema = z.object({
   deliveryFee: z.number().min(0).default(0),
   discountCode: z.string().nullable().optional(),
   discountAmount: z.number().min(0).nullable().optional(),
-  paymentMethod: z.enum(["cash", "moyasar"]).default("cash"),
+  orderType: z.enum(["delivery", "pickup"]).default("delivery"),
+  paymentMethod: z.enum(["cash", "moyasar", "wallet"]).default("cash"),
   notes: z.string().nullable().optional(),
   customerPushToken: z.string().nullable().optional(),
 });
@@ -108,7 +109,8 @@ router.post("/orders", async (req, res) => {
     deliveryFee: Math.round((data.deliveryFee ?? 0) * 100),
     discountCode: data.discountCode ?? null,
     discountAmount: data.discountAmount != null ? Math.round(data.discountAmount * 100) : null,
-    paymentMethod: data.paymentMethod,
+    orderType: data.orderType,
+    paymentMethod: data.paymentMethod === "wallet" ? "cash" : data.paymentMethod,
     notes: data.notes ?? null,
     status: "pending",
     customerPushToken: data.customerPushToken ?? null,
@@ -236,7 +238,7 @@ router.patch("/orders/:id/status", async (req, res) => {
   res.json(order);
 
   // Send push notification to customer if they have a token
-  const isDelivery = (order.deliveryFee ?? 0) > 0;
+  const isDelivery = order.orderType === "delivery";
   const customerMsg = buildCustomerStatusMessage(status, order.dailyNumber, isDelivery);
   if (order.customerPushToken && customerMsg) {
     // For "done": skip if order has a driver assignment (delivery order) —

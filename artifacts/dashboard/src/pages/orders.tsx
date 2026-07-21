@@ -14,12 +14,13 @@ import { cn } from "@/lib/utils";
 import { getOrderPriceFactor } from "@/lib/format";
 
 type OrderStatus = "pending" | "preparing" | "ready" | "out_for_delivery" | "done" | "cancelled";
+type OrderType = "delivery" | "pickup";
 interface OrderItem { id: string; name: string; price: number; quantity: number; }
 interface Order {
   id: number; dailyNumber: number | null; customerName: string; customerPhone: string;
   customerAddress: string | null; items: OrderItem[]; totalPrice: number; deliveryFee: number;
-  discountCode: string | null; discountAmount: number | null; status: OrderStatus;
-  paymentMethod: string; notes: string | null; createdAt: string;
+  discountCode: string | null; discountAmount: number | null; orderType: OrderType;
+  status: OrderStatus; paymentMethod: string; notes: string | null; createdAt: string;
 }
 interface Driver { id: number; name: string; phone: string; photoUrl: string | null; active: boolean; }
 interface Assignment { driverId: number; driverName: string; status: string; }
@@ -529,14 +530,14 @@ export default function Orders() {
   const toggleSelect = (id: number) => setSelectedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
   const totalUnread   = Object.values(unreadByOrder).reduce((s, n) => s + n, 0);
-  const pendingCount  = orders.filter(o => o.status === "pending").length;
-  const pickupOrders  = orders.filter(o => o.notes?.includes("استلام من الفرع"));
+  const pendingCount  = orders.filter(o => o.status === "pending" && o.orderType !== "pickup").length;
+  const pickupOrders  = orders.filter(o => o.orderType === "pickup");
   const pickupPending = pickupOrders.filter(o => !["done","cancelled"].includes(o.status)).length;
 
   const visibleOrders = (() => {
     let result = filter === "all"
-      ? orders.filter(o => !["done","cancelled"].includes(o.status))
-      : orders.filter(o => o.status === filter);
+      ? orders.filter(o => !["done","cancelled"].includes(o.status) && o.orderType !== "pickup")
+      : orders.filter(o => o.status === filter && o.orderType !== "pickup");
     if (searchTerm.trim()) {
       const q = searchTerm.trim();
       result = result.filter(o =>
@@ -553,18 +554,16 @@ export default function Orders() {
   })();
 
   function getOrderTypeMeta(order: Order) {
-    const isPickup   = !!order.notes?.includes("استلام من الفرع");
-    const isDelivery = !isPickup && (!!order.customerAddress || !!order.notes?.includes("توصيل"));
-    if (isPickup)   return { icon: Store,   label: "استلام من الفرع", color: C.blue };
-    if (isDelivery) return { icon: Truck,   label: "توصيل",           color: C.amber };
-    return            { icon: Package, label: "طلب عادي",        color: C.violet };
+    if (order.orderType === "pickup")   return { icon: Store, label: "استلام من الفرع", color: C.blue };
+    if (order.orderType === "delivery") return { icon: Truck, label: "توصيل",           color: C.amber };
+    return { icon: Package, label: "طلب عادي", color: C.violet };
   }
 
   function OrderCard({ order }: { order: Order }) {
     const isExpanded  = expandedCards.has(order.id);
     const isSelected  = selectedIds.has(order.id);
-    const isPickup    = !!order.notes?.includes("استلام من الفرع");
-    const isDelivery  = !isPickup && (!!order.customerAddress || !!order.notes?.includes("توصيل"));
+    const isPickup    = order.orderType === "pickup";
+    const isDelivery  = order.orderType === "delivery";
     const aRow        = assignments[order.id];
     const hasAssigned    = order.status === "ready" && aRow?.status === "assigned";
     const driverPickedUp = aRow?.status === "picked_up";
@@ -1144,8 +1143,8 @@ export default function Orders() {
     const avgOrder      = completed.length ? totalSales / completed.length : 0;
     const totalDiscount = completed.reduce((s, o) => s + (o.discountAmount ?? 0) / 100, 0);
     const deliveryFees  = completed.reduce((s, o) => s + (o.deliveryFee ?? 0) / 100, 0);
-    const pickupSales   = completed.filter(o => o.notes?.includes("استلام من الفرع")).reduce((s, o) => s + o.totalPrice / 100, 0);
-    const deliverySales = totalSales - pickupSales;
+    const pickupSales   = completed.filter(o => o.orderType === "pickup").reduce((s, o) => s + o.totalPrice / 100, 0);
+    const deliverySales = completed.filter(o => o.orderType === "delivery").reduce((s, o) => s + o.totalPrice / 100, 0);
 
     function StatCard({ label, value, icon: Icon, color, trend }: { label: string; value: string; icon: React.ElementType; color: string; trend?: number }) {
       return (

@@ -384,6 +384,7 @@ export default function CheckoutScreen() {
         customerName: user.name,
         customerPhone: user.phone,
         customerAddress: orderType === "delivery" ? (locationUrl || user.address || null) : null,
+        orderType,
         items: items.map((ci) => {
           const extra = ci.customization?.extraPrice ?? 0;
           const displayName = resolveCartItemName(ci.item.name, ci.customization);

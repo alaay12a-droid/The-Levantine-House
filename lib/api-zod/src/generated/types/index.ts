@@ -22,6 +22,7 @@ export * from "./menuItemUpdate";
 export * from "./monthlyBreakdown";
 export * from "./order";
 export * from "./orderItem";
+export * from "./orderOrderType";
 export * from "./orderStatus";
 export * from "./orderStatusUpdate";
 export * from "./orderStatusUpdateStatus";

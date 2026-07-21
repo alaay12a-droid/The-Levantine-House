@@ -10,6 +10,8 @@ export const orderStatusEnum = pgEnum("order_status", [
   "cancelled",
 ]);
 
+export const orderTypeEnum = pgEnum("order_type", ["delivery", "pickup"]);
+
 export const ordersTable = pgTable("orders", {
   id: serial("id").primaryKey(),
   dailyNumber: integer("daily_number").notNull().default(0),
@@ -21,6 +23,7 @@ export const ordersTable = pgTable("orders", {
   deliveryFee: integer("delivery_fee").notNull().default(0),
   discountCode: text("discount_code"),
   discountAmount: integer("discount_amount"),
+  orderType: orderTypeEnum("order_type").default("delivery").notNull(),
   status: orderStatusEnum("status").default("pending").notNull(),
   paymentMethod: text("payment_method").default("cash").notNull(),
   notes: text("notes"),
@@ -36,6 +39,7 @@ export const insertOrderSchema = z.object({
   items: z.unknown(),
   totalPrice: z.number().int(),
   deliveryFee: z.number().int().optional(),
+  orderType: z.enum(["delivery", "pickup"]).optional(),
   status: z.enum(["pending", "preparing", "ready", "out_for_delivery", "done", "cancelled"]).optional(),
   paymentMethod: z.string().optional(),
   notes: z.string().nullable().optional(),

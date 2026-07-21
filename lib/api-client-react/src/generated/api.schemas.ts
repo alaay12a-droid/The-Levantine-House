@@ -35,6 +35,14 @@ export interface OrderItem {
   quantity: number;
 }
 
+export type OrderOrderType =
+  (typeof OrderOrderType)[keyof typeof OrderOrderType];
+
+export const OrderOrderType = {
+  delivery: "delivery",
+  pickup: "pickup",
+} as const;
+
 export type OrderStatus = (typeof OrderStatus)[keyof typeof OrderStatus];
 
 export const OrderStatus = {
@@ -56,6 +64,7 @@ export interface Order {
   deliveryFee: number;
   discountCode?: string | null;
   discountAmount?: number | null;
+  orderType: OrderOrderType;
   status: OrderStatus;
   paymentMethod: string;
   notes?: string | null;

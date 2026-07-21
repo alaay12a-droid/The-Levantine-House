@@ -375,6 +375,9 @@ components:
         discountAmount:
           type: integer
           nullable: true
+        orderType:
+          type: string
+          enum: [delivery, pickup]
         status:
           type: string
           enum: [pending, preparing, ready, done, cancelled]
@@ -394,6 +397,7 @@ components:
         - items
         - totalPrice
         - deliveryFee
+        - orderType
         - status
         - paymentMethod
         - createdAt
