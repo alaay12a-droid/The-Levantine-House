@@ -724,7 +724,7 @@ export default function MenuManagement() {
                   dir="ltr"
                   type="number"
                   min="0"
-                  step="0.5"
+                  step="any"
                 />
               </div>
               <div className="space-y-1.5">
@@ -846,7 +846,7 @@ export default function MenuManagement() {
                           dir="ltr"
                           type="number"
                           min="0"
-                          step="0.5"
+                          step="any"
                           className="h-8 text-sm w-24"
                           disabled={!size.enabled}
                         />
@@ -947,7 +947,7 @@ export default function MenuManagement() {
                               dir="ltr"
                               type="number"
                               min="0"
-                              step="0.5"
+                              step="any"
                               className="h-7 text-sm w-20"
                             />
                             <span className="text-xs text-muted-foreground">ر.س</span>
