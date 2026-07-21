@@ -58,6 +58,23 @@ app.listen(port, "0.0.0.0", (err) => {
     .then(() => logger.info("Migration: referrals table ensured"))
     .catch((e) => logger.warn({ err: e }, "Migration: referrals table skipped"));
 
+  // Auto-migrate: add sizes/options/calories/walking_minutes to menu_items (idempotent)
+  db.execute(sql`ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS sizes JSONB NOT NULL DEFAULT '[]'`)
+    .then(() => logger.info("Migration: menu_items.sizes ensured"))
+    .catch((e) => logger.warn({ err: e }, "Migration: menu_items.sizes skipped"));
+
+  db.execute(sql`ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS options JSONB NOT NULL DEFAULT '[]'`)
+    .then(() => logger.info("Migration: menu_items.options ensured"))
+    .catch((e) => logger.warn({ err: e }, "Migration: menu_items.options skipped"));
+
+  db.execute(sql`ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS calories INTEGER`)
+    .then(() => logger.info("Migration: menu_items.calories ensured"))
+    .catch((e) => logger.warn({ err: e }, "Migration: menu_items.calories skipped"));
+
+  db.execute(sql`ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS walking_minutes INTEGER`)
+    .then(() => logger.info("Migration: menu_items.walking_minutes ensured"))
+    .catch((e) => logger.warn({ err: e }, "Migration: menu_items.walking_minutes skipped"));
+
   seedMenu().catch((e) => logger.error({ err: e }, "Menu seed failed"));
   seedOccasions().catch((e) => logger.error({ err: e }, "Occasions seed failed"));
   seedDashboardAdmin().catch((e) => logger.error({ err: e }, "Dashboard admin seed failed"));
