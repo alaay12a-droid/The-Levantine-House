@@ -11,11 +11,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Plus, Trash2, Pencil, X, ChevronDown, ChevronUp, Package, Image as ImageIcon, Settings, MapPin, Gift, BarChart2, UtensilsCrossed, RefreshCw, Calendar, DollarSign, ShieldCheck, Volume2, Palette } from "lucide-react";
+import { Loader2, Plus, Trash2, Pencil, X, ChevronDown, ChevronUp, Package, Image as ImageIcon, Settings, MapPin, Gift, BarChart2, UtensilsCrossed, RefreshCw, Calendar, DollarSign, ShieldCheck, Volume2, Palette, Bell } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type AdminTab = "menu" | "occasions" | "stock" | "banners" | "revenue" | "combos" | "zones" | "referrals" | "settings";
-type SettingsSection = "hours" | "payment" | "security" | "appearance" | "sounds" | "discounts";
+type SettingsSection = "hours" | "payment" | "security" | "appearance" | "sounds" | "discounts" | "notifications";
 
 interface ApiMenuItem { id: string; name: string; nameEn?: string; category: string; price: number; isAvailable: boolean; stock: number | null; imageUrl?: string; description?: string; }
 interface ApiOccasion { id: string; name: string; description?: string; imageUrl?: string; isActive: boolean; }
@@ -144,6 +144,11 @@ export default function Admin() {
   const [dcForm, setDcForm] = useState({ code: "", discountType: "percentage" as "percentage" | "fixed", value: "", minOrder: "", description: "", expiresAt: "", maxUsages: "" });
   const [dcSaving, setDcSaving] = useState(false);
 
+  // ── Settings: Notifications (Re-engagement) ──
+  const [reengagementDays, setReengagementDays] = useState(30);
+  const [reengagementDaysInput, setReengagementDaysInput] = useState("30");
+  const [reengagementSaving, setReengagementSaving] = useState(false);
+
   // ── Load PINs ─────────────────────────────────────────────────────────────
   useEffect(() => {
     apiGet<{ cashier?: string; admin?: string }>("/settings/pins")
@@ -243,15 +248,28 @@ export default function Admin() {
   };
   const loadSettings = async () => {
     try {
-      const [hours, payment, dc] = await Promise.all([
+      const [hours, payment, dc, reengagement] = await Promise.all([
         apiGet<{ enabled: boolean; hours: BranchHours[] }>("/branch-hours").catch(() => null),
         apiGet<{ cash: boolean; electronic: boolean; wallet: boolean }>("/settings/payment").catch(() => null),
         apiGet<DiscountCode[]>("/discount-codes").catch(() => []),
+        apiGet<{ days: number }>("/settings/reengagement").catch(() => null),
       ]);
       if (hours) { setHoursEnabled(hours.enabled); setBranchHours(hours.hours ?? []); }
       if (payment) { setPaymentCash(payment.cash); setPaymentElectronic(payment.electronic); setPaymentWallet(payment.wallet); }
       setDiscountCodes(dc as DiscountCode[]);
+      if (reengagement) { setReengagementDays(reengagement.days); setReengagementDaysInput(String(reengagement.days)); }
     } catch {}
+  };
+  const handleSaveReengagement = async () => {
+    const days = Math.max(1, Math.min(365, parseInt(reengagementDaysInput, 10) || 30));
+    setReengagementSaving(true);
+    try {
+      await apiPut("/settings/reengagement", { days });
+      setReengagementDays(days);
+      setReengagementDaysInput(String(days));
+      toast({ title: "✅ تم حفظ إعداد الإشعارات" });
+    } catch { toast({ title: "خطأ في الحفظ", variant: "destructive" }); }
+    finally { setReengagementSaving(false); }
   };
   const loadDiscounts = async () => {
     setDiscountsLoading(true);
@@ -1069,6 +1087,7 @@ export default function Admin() {
               { key: "discounts", icon: Gift, label: "الخصومات" },
               { key: "security", icon: ShieldCheck, label: "الأمان" },
               { key: "appearance", icon: Palette, label: "المظهر" },
+              { key: "notifications", icon: Bell, label: "الإشعارات" },
             ] as const).map(s => (
               <button key={s.key} onClick={() => setSettingsSection(s.key)}
                 className={cn(
@@ -1263,6 +1282,49 @@ export default function Admin() {
                 <Button onClick={handleSaveLogoBg} disabled={logoBgSaving}
                   className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold">
                   {logoBgSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "حفظ"}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* ── Notifications ── */}
+          {settingsSection === "notifications" && (
+            <div className="bg-card border border-border rounded-2xl p-4 space-y-4">
+              <h3 className="font-bold text-sm text-foreground flex items-center gap-2">
+                <Bell className="h-4 w-4 text-amber-500" /> إشعارات إعادة التفاعل
+              </h3>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                يُرسل النظام تلقائياً إشعاراً لكل عميل لم يفتح التطبيق منذ فترة معيّنة، مرة واحدة فقط لكل دورة غياب.
+                الرسالة: «وحشتنا يا [الاسم] 👋 مرت فترة ما زرتنا فيها، تعال شوف عروضنا الجديدة 🍗»
+              </p>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="text-sm font-medium text-foreground">عدد أيام الغياب قبل الإشعار</label>
+                    <div className="text-xs text-muted-foreground mt-0.5">
+                      الحالي: <span className="font-bold text-amber-500">{reengagementDays} يوم</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="number"
+                    min={1}
+                    max={365}
+                    value={reengagementDaysInput}
+                    onChange={e => setReengagementDaysInput(e.target.value)}
+                    className="w-24 border border-border rounded-lg h-9 px-3 text-sm bg-background text-foreground text-center"
+                    dir="ltr"
+                  />
+                  <span className="text-sm text-muted-foreground">يوم</span>
+                </div>
+                <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 text-xs text-amber-700 dark:text-amber-300 leading-relaxed space-y-1">
+                  <div>⏰ يعمل الجدول يومياً في الساعة 2:00 صباحاً (توقيت الرياض)</div>
+                  <div>✅ يُعاد ضبط حالة الإشعار تلقائياً عند فتح العميل للتطبيق من جديد</div>
+                </div>
+                <Button onClick={handleSaveReengagement} disabled={reengagementSaving}
+                  className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold">
+                  {reengagementSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "💾 حفظ الإعداد"}
                 </Button>
               </div>
             </div>

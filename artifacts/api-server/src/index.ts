@@ -5,8 +5,9 @@ import { seedMenu } from "./routes/menu";
 import { seedOccasions } from "./routes/occasions";
 import { cleanupExpiredDiscountCodes } from "./routes/discounts";
 import { seedDashboardAdmin } from "./routes/dashboard-auth";
-import { sql } from "drizzle-orm";
-import { db } from "@workspace/db";
+import { sql, and, eq, isNull, isNotNull, lt } from "drizzle-orm";
+import { db, pushTokensTable, appSettingsTable } from "@workspace/db";
+import { sendPushToToken } from "./lib/sendPushNotification";
 
 const rawPort = process.env["PORT"];
 
@@ -294,6 +295,9 @@ async function runMigrationsAndSeed() {
   // ── Column additions (idempotent — for tables that existed before new columns) ──
   await db.execute(sql`ALTER TABLE push_tokens ADD COLUMN IF NOT EXISTS fcm_token TEXT`);
   await db.execute(sql`ALTER TABLE push_tokens ADD COLUMN IF NOT EXISTS driver_id INTEGER`);
+  await db.execute(sql`ALTER TABLE push_tokens ADD COLUMN IF NOT EXISTS customer_name TEXT`);
+  await db.execute(sql`ALTER TABLE push_tokens ADD COLUMN IF NOT EXISTS last_active_at TIMESTAMP`);
+  await db.execute(sql`ALTER TABLE push_tokens ADD COLUMN IF NOT EXISTS re_engagement_sent_at TIMESTAMP`);
   await db.execute(sql`ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS sizes JSONB NOT NULL DEFAULT '[]'`);
   await db.execute(sql`ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS options JSONB NOT NULL DEFAULT '[]'`);
   await db.execute(sql`ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS calories INTEGER`);
@@ -336,6 +340,57 @@ runMigrationsAndSeed()
         { timezone: "Asia/Riyadh" },
       );
       logger.info("Scheduled daily discount-code cleanup at midnight (Riyadh time)");
+
+      schedule(
+        "0 2 * * *",
+        async () => {
+          try {
+            const [setting] = await db
+              .select()
+              .from(appSettingsTable)
+              .where(eq(appSettingsTable.key, "reengagement_days"));
+            const days = Math.max(1, parseInt(setting?.value ?? "30", 10) || 30);
+            const cutoff = new Date();
+            cutoff.setDate(cutoff.getDate() - days);
+
+            const inactive = await db
+              .select()
+              .from(pushTokensTable)
+              .where(
+                and(
+                  eq(pushTokensTable.role, "customer"),
+                  isNotNull(pushTokensTable.lastActiveAt),
+                  isNull(pushTokensTable.reEngagementSentAt),
+                  lt(pushTokensTable.lastActiveAt, cutoff),
+                ),
+              );
+
+            logger.info({ count: inactive.length, days }, "Re-engagement: found inactive customers");
+
+            for (const row of inactive) {
+              const name = row.customerName?.trim() || "عزيزنا";
+              try {
+                await sendPushToToken(row.token, {
+                  title: "روابي المندي 🍗",
+                  body: `وحشتنا يا ${name} 👋 مرت فترة ما زرتنا فيها، تعال شوف عروضنا الجديدة 🍗`,
+                  data: { type: "reengagement" },
+                });
+                await db
+                  .update(pushTokensTable)
+                  .set({ reEngagementSentAt: new Date() })
+                  .where(eq(pushTokensTable.token, row.token));
+                logger.info({ token: row.token.slice(0, 20), name }, "Re-engagement: notification sent");
+              } catch (e) {
+                logger.error({ err: e, token: row.token.slice(0, 20) }, "Re-engagement: failed to send notification");
+              }
+            }
+          } catch (e) {
+            logger.error({ err: e }, "Re-engagement cron: unexpected error");
+          }
+        },
+        { timezone: "Asia/Riyadh" },
+      );
+      logger.info("Scheduled daily re-engagement notifications at 02:00 (Riyadh time)");
     });
   })
   .catch((e) => {

@@ -25,7 +25,9 @@ import { LanguageProvider } from "@/context/LanguageContext";
 import { AppConfigProvider } from "@/context/AppConfigContext";
 import { FavoritesProvider } from "@/context/FavoritesContext";
 import { MusicProvider } from "@/context/MusicContext";
-import { registerCustomerNotifications } from "@/hooks/useCustomerPushToken";
+import { registerCustomerNotifications, TOKEN_KEY } from "@/hooks/useCustomerPushToken";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { apiPost } from "@/constants/api";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -212,11 +214,24 @@ const updateStyles = StyleSheet.create({
   },
 });
 
+function HeartbeatEffect() {
+  const { user } = useUser();
+  useEffect(() => {
+    if (!user) return;
+    AsyncStorage.getItem(TOKEN_KEY).then((token) => {
+      if (!token) return;
+      apiPost("/push-tokens/heartbeat", { token, name: user.name }).catch(() => {});
+    });
+  }, [user]);
+  return null;
+}
+
 function RootLayoutNav() {
   return (
     <>
       <NotificationSetup />
       <UpdateChecker />
+      <HeartbeatEffect />
       <AuthGate />
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="onboarding" options={{ headerShown: false, animation: "fade" }} />
