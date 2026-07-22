@@ -237,17 +237,17 @@ function StatusDelivered({
   const [selected, setSelected]   = useState<number>(existingRating ?? 0);
   const [submitted, setSubmitted] = useState(!!existingRating);
   const [loading, setLoading]     = useState(false);
+  const [comment, setComment]     = useState("");
 
   useEffect(() => {
     Animated.spring(scale, { toValue: 1, useNativeDriver: true, friction: 4, tension: 60 }).start();
   }, [scale]);
 
-  const submitRating = async (stars: number) => {
-    if (submitted || loading) return;
+  const submitRating = async () => {
+    if (submitted || loading || selected === 0) return;
     setLoading(true);
     try {
-      await apiPost(`/orders/${orderId}/driver-rating`, { stars });
-      setSelected(stars);
+      await apiPost(`/orders/${orderId}/driver-rating`, { stars: selected, comment: comment.trim() || null });
       setSubmitted(true);
     } catch {}
     setLoading(false);
@@ -298,7 +298,7 @@ function StatusDelivered({
           {[1, 2, 3, 4, 5].map((star) => (
             <TouchableOpacity
               key={star}
-              onPress={() => !submitted && submitRating(star)}
+              onPress={() => { if (!submitted) setSelected(star); }}
               activeOpacity={submitted ? 1 : 0.7}
               disabled={loading}
             >
@@ -309,16 +309,56 @@ function StatusDelivered({
           ))}
         </View>
 
+        {!submitted && selected > 0 && (
+          <TextInput
+            value={comment}
+            onChangeText={setComment}
+            placeholder={isEn ? "Add a comment (optional)" : "أضف تعليقاً (اختياري)"}
+            placeholderTextColor={colors.mutedForeground}
+            multiline
+            maxLength={200}
+            style={{
+              width: "100%",
+              minHeight: 70,
+              backgroundColor: colors.background,
+              borderRadius: 10,
+              borderWidth: 1,
+              borderColor: colors.border,
+              padding: 10,
+              color: colors.foreground,
+              fontFamily: F.regular,
+              fontSize: 13,
+              textAlignVertical: "top",
+              textAlign: isEn ? "left" : "right",
+              marginBottom: 12,
+            }}
+          />
+        )}
+
         {!submitted && (
-          <TouchableOpacity
-            onPress={onReturn}
-            style={{ paddingVertical: 10, alignItems: "center" }}
-            activeOpacity={0.7}
-          >
-            <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 13, textDecorationLine: "underline" }}>
-              {isEn ? "Skip rating" : "تخطي التقييم"}
-            </Text>
-          </TouchableOpacity>
+          <View style={{ width: "100%", gap: 8 }}>
+            {selected > 0 && (
+              <TouchableOpacity
+                onPress={submitRating}
+                disabled={loading}
+                activeOpacity={0.85}
+                style={{ backgroundColor: colors.gold, borderRadius: 10, paddingVertical: 12, alignItems: "center" }}
+              >
+                <Text style={{ color: "#0B0F14", fontFamily: F.bold, fontSize: 14 }}>
+                  {loading ? "..." : (isEn ? "Submit Rating" : "إرسال التقييم")}
+                </Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              onPress={onReturn}
+              style={{ paddingVertical: 10, alignItems: "center" }}
+              activeOpacity={0.7}
+            >
+              <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 13, textDecorationLine: "underline" }}>
+                {isEn ? "Skip rating" : "تخطي التقييم"}
+              </Text>
+            </TouchableOpacity>
+          </View>
         )}
       </View>
 

@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { db, deliveryDriversTable, orderDriverAssignmentsTable, ordersTable, appSettingsTable, messagesTable } from "@workspace/db";
-import { eq, desc, and, gte, lt, ne } from "drizzle-orm";
+import { db, deliveryDriversTable, orderDriverAssignmentsTable, ordersTable, appSettingsTable, messagesTable, driverRatingsTable } from "@workspace/db";
+import { eq, desc, and, gte, lt, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 import { sendPushToDriver, sendPushToToken } from "../lib/sendPushNotification.js";
 
@@ -583,13 +583,57 @@ router.post("/orders/:id/driver-rating", async (req, res) => {
   if (isNaN(stars) || stars < 1 || stars > 5) {
     res.status(400).json({ error: "تقييم غير صحيح (1-5)" }); return;
   }
-  const [row] = await db
+  const comment: string | null = typeof req.body.comment === "string" && req.body.comment.trim() ? req.body.comment.trim() : null;
+
+  const [assignment] = await db
     .update(orderDriverAssignmentsTable)
     .set({ driverRating: stars })
     .where(eq(orderDriverAssignmentsTable.orderId, orderId))
     .returning();
-  if (!row) { res.status(404).json({ error: "لم يُوجد تعيين" }); return; }
+  if (!assignment) { res.status(404).json({ error: "لم يُوجد تعيين" }); return; }
+
+  await db
+    .insert(driverRatingsTable)
+    .values({ orderId, driverId: assignment.driverId, stars, comment })
+    .onConflictDoUpdate({
+      target: driverRatingsTable.orderId,
+      set: { stars, comment, createdAt: new Date() },
+    });
+
   res.json({ ok: true, stars });
+});
+
+// ── GET /ratings/drivers ──────────────────────────────────────────────────────
+router.get("/ratings/drivers", async (_req, res) => {
+  const rows = await db.execute(sql`
+    SELECT
+      d.id,
+      d.name,
+      d.phone,
+      d.photo_url   AS "photoUrl",
+      d.active,
+      COUNT(da.id) FILTER (WHERE da.status = 'delivered') AS "completedDeliveries",
+      COUNT(dr.id)                                         AS "totalRatings",
+      ROUND(AVG(dr.stars)::numeric, 1)                     AS "avgStars",
+      COALESCE(
+        JSON_AGG(
+          JSON_BUILD_OBJECT(
+            'orderId',   dr.order_id,
+            'stars',     dr.stars,
+            'comment',   dr.comment,
+            'createdAt', dr.created_at
+          ) ORDER BY dr.created_at DESC
+        ) FILTER (WHERE dr.id IS NOT NULL),
+        '[]'
+      )                                                    AS "recentReviews"
+    FROM delivery_drivers d
+    LEFT JOIN order_driver_assignments da ON da.driver_id = d.id
+    LEFT JOIN driver_ratings           dr ON dr.driver_id = d.id
+    WHERE d.active = TRUE
+    GROUP BY d.id, d.name, d.phone, d.photo_url, d.active
+    ORDER BY "avgStars" DESC NULLS LAST, "completedDeliveries" DESC
+  `);
+  res.json(rows.rows);
 });
 
 // ── GET /settings/ui-density ──────────────────────────────────────────────────

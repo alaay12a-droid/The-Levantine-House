@@ -303,6 +303,56 @@ paths:
                 items:
                   $ref: "#/components/schemas/DriverDailySummary"
 
+  # ── Ratings ───────────────────────────────────────────────────────────
+  /orders/{id}/driver-rating:
+    post:
+      operationId: submitDriverRating
+      tags: [ratings]
+      summary: Submit a driver rating after delivery
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DriverRatingInput"
+      responses:
+        "200":
+          description: Rating saved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  stars:
+                    type: integer
+        "400":
+          description: Invalid rating
+        "404":
+          description: Assignment not found
+
+  /ratings/drivers:
+    get:
+      operationId: getDriverRankings
+      tags: [ratings]
+      summary: Get all drivers ranked by average rating
+      responses:
+        "200":
+          description: Driver rankings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DriverRankingEntry"
+
 components:
   schemas:
     HealthStatus:
@@ -605,3 +655,56 @@ components:
         electronicTotal:
           type: integer
       required: [driverId, name, orderCount, cashTotal, electronicTotal]
+
+    DriverRatingInput:
+      type: object
+      properties:
+        stars:
+          type: integer
+          minimum: 1
+          maximum: 5
+        comment:
+          type: string
+          nullable: true
+      required: [stars]
+
+    DriverReview:
+      type: object
+      properties:
+        orderId:
+          type: integer
+        stars:
+          type: integer
+        comment:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+      required: [orderId, stars]
+
+    DriverRankingEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        phone:
+          type: string
+        photoUrl:
+          type: string
+          nullable: true
+        active:
+          type: boolean
+        completedDeliveries:
+          type: integer
+        totalRatings:
+          type: integer
+        avgStars:
+          type: number
+          nullable: true
+        recentReviews:
+          type: array
+          items:
+            $ref: "#/components/schemas/DriverReview"
+      required: [id, name, phone, active, completedDeliveries, totalRatings, recentReviews]

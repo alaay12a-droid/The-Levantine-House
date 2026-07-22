@@ -11,15 +11,16 @@ interface LayoutProps {
 }
 
 const PAGE_TITLES: Record<string, string> = {
-  "/":           "الرئيسية",
-  "/orders":     "الطلبات",
-  "/drivers":    "المناديب",
-  "/menu":       "القائمة",
-  "/reports":    "تقارير المبيعات",
-  "/broadcast":  "إشعار جماعي",
-  "/cashier":    "لوحة الكاشير",
-  "/admin":            "لوحة الإدارة",
-  "/auth-diagnostics": "تشخيص المصادقة",
+  "/":                  "الرئيسية",
+  "/orders":            "الطلبات",
+  "/drivers":           "المناديب",
+  "/drivers/rankings":  "ترتيب المناديب",
+  "/menu":              "القائمة",
+  "/reports":           "تقارير المبيعات",
+  "/broadcast":         "إشعار جماعي",
+  "/cashier":           "لوحة الكاشير",
+  "/admin":             "لوحة الإدارة",
+  "/auth-diagnostics":  "تشخيص المصادقة",
 };
 
 export function Layout({ children }: LayoutProps) {

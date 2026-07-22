@@ -2,7 +2,7 @@ import { useGetRevenue, useListOrders, getGetRevenueQueryKey, getListOrdersQuery
 import { formatCurrency, formatEasternNumber } from "@/lib/format";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
-import { ListOrdered, Users, UtensilsCrossed, BarChart2, ChevronLeft, ShoppingBag, Banknote, TrendingUp, Bell, Monitor, Settings2, ShieldCheck } from "lucide-react";
+import { ListOrdered, Users, UtensilsCrossed, BarChart2, ChevronLeft, ShoppingBag, Banknote, TrendingUp, Bell, Monitor, Settings2, ShieldCheck, Star } from "lucide-react";
 
 export default function Home() {
   const { data: revenue, isLoading: isRevenueLoading } = useGetRevenue({
@@ -140,6 +140,17 @@ export default function Home() {
       accent: "from-cyan-500 to-teal-600",
       bg: "bg-cyan-50 hover:bg-cyan-100 border-cyan-200",
       iconBg: "bg-cyan-600",
+      badge: null,
+      badgeColor: "",
+    },
+    {
+      href: "/drivers/rankings",
+      icon: Star,
+      title: "ترتيب المناديب",
+      desc: "تصنيف المناديب حسب تقييمات العملاء وآخر التعليقات",
+      accent: "from-amber-400 to-yellow-500",
+      bg: "bg-amber-50 hover:bg-amber-100 border-amber-200",
+      iconBg: "bg-amber-500",
       badge: null,
       badgeColor: "",
     },

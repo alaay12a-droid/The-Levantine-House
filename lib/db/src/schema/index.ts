@@ -178,6 +178,17 @@ export const orderRatingsTable = pgTable("order_ratings", {
 
 export type OrderRating = typeof orderRatingsTable.$inferSelect;
 
+export const driverRatingsTable = pgTable("driver_ratings", {
+  id: serial("id").primaryKey(),
+  orderId: integer("order_id").notNull().unique(),
+  driverId: integer("driver_id").notNull(),
+  stars: integer("stars").notNull(),
+  comment: text("comment"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type DriverRating = typeof driverRatingsTable.$inferSelect;
+
 export const deliveryDriversTable = pgTable("delivery_drivers", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),

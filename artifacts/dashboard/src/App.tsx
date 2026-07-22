@@ -16,6 +16,7 @@ import Cashier from "@/pages/cashier";
 import AdminPanel from "@/pages/admin";
 import AuthDiagnostics from "@/pages/auth-diagnostics";
 import PrivacyPolicy from "@/pages/privacy-policy";
+import DriverRankings from "@/pages/driver-rankings";
 import { setBaseUrl } from "@workspace/api-client-react";
 
 const apiBase = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "";
@@ -63,6 +64,9 @@ function Router() {
       </Route>
       <Route path="/auth-diagnostics">
         <Layout><AuthDiagnostics /></Layout>
+      </Route>
+      <Route path="/drivers/rankings">
+        <Layout><DriverRankings /></Layout>
       </Route>
       <Route component={NotFound} />
     </Switch>

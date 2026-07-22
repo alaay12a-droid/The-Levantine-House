@@ -189,6 +189,17 @@ async function runMigrationsAndSeed() {
   `);
 
   await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS driver_ratings (
+      id SERIAL PRIMARY KEY,
+      order_id INTEGER NOT NULL UNIQUE,
+      driver_id INTEGER NOT NULL,
+      stars INTEGER NOT NULL,
+      comment TEXT,
+      created_at TIMESTAMP DEFAULT NOW() NOT NULL
+    )
+  `);
+
+  await db.execute(sql`
     CREATE TABLE IF NOT EXISTS delivery_drivers (
       id SERIAL PRIMARY KEY,
       name TEXT NOT NULL,
