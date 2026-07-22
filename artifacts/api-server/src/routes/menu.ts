@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, menuItemsTable } from "@workspace/db";
-import { eq, asc } from "drizzle-orm";
+import { eq, asc, sql } from "drizzle-orm";
 import { z } from "zod";
 import { randomUUID } from "crypto";
 import { ObjectStorageService } from "../lib/objectStorage";
@@ -67,16 +67,19 @@ const INITIAL_ITEMS = [
 ];
 
 export async function seedMenu() {
+  // Only seed when the table is completely empty (first-time setup).
+  // This prevents re-inserting items that were intentionally deleted from the dashboard.
+  const [countRow] = await db
+    .select({ count: sql<number>`COUNT(*)` })
+    .from(menuItemsTable);
+  if (countRow && Number(countRow.count) > 0) {
+    return; // Table already has data — skip seeding entirely
+  }
   for (const item of INITIAL_ITEMS) {
     await db
       .insert(menuItemsTable)
       .values({ ...item, available: true })
       .onConflictDoNothing();
-    // Update English name for existing rows that were seeded before nameEn existed
-    await db
-      .update(menuItemsTable)
-      .set({ nameEn: item.nameEn })
-      .where(eq(menuItemsTable.itemId, item.itemId));
   }
 }
 
