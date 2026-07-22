@@ -3,7 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { getListOrdersQueryKey } from "@workspace/api-client-react";
 import { apiGet, apiPost, apiPatch, apiPut, apiDel } from "@/lib/api";
 import {
-  RefreshCw, Bell, Phone, MapPin, Printer, Clock, Truck,
+  RefreshCw, Bell, BellOff, Phone, MapPin, Printer, Clock, Truck,
   Package, MessageCircle, X, ChevronRight, ChevronLeft,
   User, Send, CheckCircle, ChevronDown, Search, Check,
   TrendingUp, DollarSign, CreditCard, Banknote, Store,
@@ -329,6 +329,12 @@ export default function Orders() {
 
   const [clock, setClock] = useState("");
 
+  const audioRef      = useRef<HTMLAudioElement | null>(null);
+  const [soundEnabled, setSoundEnabled] = useState<boolean>(() => {
+    try { return localStorage.getItem("cashier_sound") !== "0"; } catch { return true; }
+  });
+  const [audioBlocked, setAudioBlocked] = useState(false);
+
   const fetchOrders = useCallback(async (silent = false) => {
     if (!silent) setLoading(true); else setFetching(true);
     try {
@@ -339,6 +345,10 @@ export default function Orders() {
           setHasNewOrder(true);
           setTimeout(() => setHasNewOrder(false), 5000);
           document.title = `(${data.filter(o => o.status === "pending").length}) طلب جديد 🔔 | الطلبات`;
+          if (soundEnabled && audioRef.current) {
+            audioRef.current.currentTime = 0;
+            audioRef.current.play().catch(() => setAudioBlocked(true));
+          }
         }
       } else {
         const p = data.filter(o => o.status === "pending").length;
@@ -524,6 +534,17 @@ export default function Orders() {
     link.href = "https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap";
     document.head.appendChild(link);
     return () => { document.head.removeChild(link); };
+  }, []);
+
+  useEffect(() => {
+    const audio = new Audio("/dashboard/sounds/notification.wav");
+    audio.preload = "auto";
+    audioRef.current = audio;
+    const unlock = () => {
+      audio.play().then(() => { audio.pause(); audio.currentTime = 0; setAudioBlocked(false); }).catch(() => {});
+    };
+    document.addEventListener("click", unlock, { once: true });
+    return () => { document.removeEventListener("click", unlock); };
   }, []);
 
   const toggleCard   = (id: number) => setExpandedCards(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
@@ -1273,13 +1294,29 @@ export default function Orders() {
             </div>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: C.sub, fontVariantNumeric: "tabular-nums", letterSpacing: 1 }} dir="ltr">{clock}</div>
             {hasNewOrder && (
               <div className="animate-bounce" style={{ display: "flex", alignItems: "center", gap: 5, background: C.red, color: "#fff", fontSize: 11, fontWeight: 700, padding: "5px 10px", borderRadius: 9999 }}>
                 <Bell size={11} /> طلب جديد!
               </div>
             )}
+            <button
+              title={soundEnabled ? "إيقاف صوت التنبيه" : "تفعيل صوت التنبيه"}
+              onClick={() => {
+                const next = !soundEnabled;
+                setSoundEnabled(next);
+                setAudioBlocked(false);
+                try { localStorage.setItem("cashier_sound", next ? "1" : "0"); } catch {}
+                if (next && audioRef.current) {
+                  audioRef.current.currentTime = 0;
+                  audioRef.current.play().catch(() => {});
+                }
+              }}
+              style={{ width: 36, height: 36, borderRadius: 10, border: `1px solid ${soundEnabled ? C.amber + "66" : C.border}`, background: soundEnabled ? C.amber + "18" : C.surface, color: soundEnabled ? C.amber : C.muted, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", transition: "all .2s" }}
+            >
+              {soundEnabled ? <Bell size={15} /> : <BellOff size={15} />}
+            </button>
             <button
               onClick={() => fetchOrders()}
               disabled={fetching}
