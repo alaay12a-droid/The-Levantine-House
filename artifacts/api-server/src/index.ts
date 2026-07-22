@@ -22,26 +22,15 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-app.listen(port, "0.0.0.0", (err) => {
-  if (err) {
-    logger.error({ err }, "Error listening on port");
-    process.exit(1);
-  }
+async function runMigrationsAndSeed() {
+  // Run all schema migrations sequentially before seeding
+  await db.execute(sql`ALTER TABLE push_tokens ADD COLUMN IF NOT EXISTS fcm_token TEXT`);
+  logger.info("Migration: push_tokens.fcm_token ensured");
 
-  logger.info({ port }, "Server listening");
+  await db.execute(sql`ALTER TABLE push_tokens ADD COLUMN IF NOT EXISTS driver_id INTEGER`);
+  logger.info("Migration: push_tokens.driver_id ensured");
 
-  // Auto-migrate: add fcm_token column if missing (idempotent)
-  db.execute(sql`ALTER TABLE push_tokens ADD COLUMN IF NOT EXISTS fcm_token TEXT`)
-    .then(() => logger.info("Migration: push_tokens.fcm_token ensured"))
-    .catch((e) => logger.warn({ err: e }, "Migration: push_tokens.fcm_token skipped"));
-
-  // Auto-migrate: add driver_id column if missing (idempotent)
-  db.execute(sql`ALTER TABLE push_tokens ADD COLUMN IF NOT EXISTS driver_id INTEGER`)
-    .then(() => logger.info("Migration: push_tokens.driver_id ensured"))
-    .catch((e) => logger.warn({ err: e }, "Migration: push_tokens.driver_id skipped"));
-
-  // Auto-migrate: create referrals table if missing
-  db.execute(sql`
+  await db.execute(sql`
     CREATE TABLE IF NOT EXISTS referrals (
       id SERIAL PRIMARY KEY,
       referrer_phone TEXT NOT NULL,
@@ -54,30 +43,36 @@ app.listen(port, "0.0.0.0", (err) => {
       created_at TIMESTAMP DEFAULT NOW() NOT NULL,
       rewarded_at TIMESTAMP
     )
-  `)
-    .then(() => logger.info("Migration: referrals table ensured"))
-    .catch((e) => logger.warn({ err: e }, "Migration: referrals table skipped"));
+  `);
+  logger.info("Migration: referrals table ensured");
 
-  // Auto-migrate: add sizes/options/calories/walking_minutes to menu_items (idempotent)
-  db.execute(sql`ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS sizes JSONB NOT NULL DEFAULT '[]'`)
-    .then(() => logger.info("Migration: menu_items.sizes ensured"))
-    .catch((e) => logger.warn({ err: e }, "Migration: menu_items.sizes skipped"));
+  await db.execute(sql`ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS sizes JSONB NOT NULL DEFAULT '[]'`);
+  logger.info("Migration: menu_items.sizes ensured");
 
-  db.execute(sql`ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS options JSONB NOT NULL DEFAULT '[]'`)
-    .then(() => logger.info("Migration: menu_items.options ensured"))
-    .catch((e) => logger.warn({ err: e }, "Migration: menu_items.options skipped"));
+  await db.execute(sql`ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS options JSONB NOT NULL DEFAULT '[]'`);
+  logger.info("Migration: menu_items.options ensured");
 
-  db.execute(sql`ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS calories INTEGER`)
-    .then(() => logger.info("Migration: menu_items.calories ensured"))
-    .catch((e) => logger.warn({ err: e }, "Migration: menu_items.calories skipped"));
+  await db.execute(sql`ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS calories INTEGER`);
+  logger.info("Migration: menu_items.calories ensured");
 
-  db.execute(sql`ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS walking_minutes INTEGER`)
-    .then(() => logger.info("Migration: menu_items.walking_minutes ensured"))
-    .catch((e) => logger.warn({ err: e }, "Migration: menu_items.walking_minutes skipped"));
+  await db.execute(sql`ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS walking_minutes INTEGER`);
+  logger.info("Migration: menu_items.walking_minutes ensured");
 
-  seedMenu().catch((e) => logger.error({ err: e }, "Menu seed failed"));
-  seedOccasions().catch((e) => logger.error({ err: e }, "Occasions seed failed"));
-  seedDashboardAdmin().catch((e) => logger.error({ err: e }, "Dashboard admin seed failed"));
+  // Seed data after all migrations complete
+  await seedMenu().catch((e) => logger.error({ err: e }, "Menu seed failed"));
+  await seedOccasions().catch((e) => logger.error({ err: e }, "Occasions seed failed"));
+  await seedDashboardAdmin().catch((e) => logger.error({ err: e }, "Dashboard admin seed failed"));
+}
+
+app.listen(port, "0.0.0.0", (err) => {
+  if (err) {
+    logger.error({ err }, "Error listening on port");
+    process.exit(1);
+  }
+
+  logger.info({ port }, "Server listening");
+
+  runMigrationsAndSeed().catch((e) => logger.error({ err: e }, "Startup migration/seed failed"));
 
   schedule(
     "0 0 * * *",
