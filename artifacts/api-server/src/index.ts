@@ -305,24 +305,29 @@ async function runMigrationsAndSeed() {
   await seedDashboardAdmin().catch((e) => logger.error({ err: e }, "Dashboard admin seed failed"));
 }
 
-app.listen(port, "0.0.0.0", (err) => {
-  if (err) {
-    logger.error({ err }, "Error listening on port");
+runMigrationsAndSeed()
+  .then(() => {
+    app.listen(port, "0.0.0.0", (err) => {
+      if (err) {
+        logger.error({ err }, "Error listening on port");
+        process.exit(1);
+      }
+
+      logger.info({ port }, "Server listening");
+
+      schedule(
+        "0 0 * * *",
+        () => {
+          cleanupExpiredDiscountCodes()
+            .then((n) => logger.info({ deleted: n }, "Scheduled cleanup: expired discount codes removed"))
+            .catch((e) => logger.error({ err: e }, "Scheduled cleanup: failed to remove expired discount codes"));
+        },
+        { timezone: "Asia/Riyadh" },
+      );
+      logger.info("Scheduled daily discount-code cleanup at midnight (Riyadh time)");
+    });
+  })
+  .catch((e) => {
+    logger.error({ err: e }, "Migration failed — server refusing to start");
     process.exit(1);
-  }
-
-  logger.info({ port }, "Server listening");
-
-  runMigrationsAndSeed().catch((e) => logger.error({ err: e }, "Startup migration/seed failed"));
-
-  schedule(
-    "0 0 * * *",
-    () => {
-      cleanupExpiredDiscountCodes()
-        .then((n) => logger.info({ deleted: n }, "Scheduled cleanup: expired discount codes removed"))
-        .catch((e) => logger.error({ err: e }, "Scheduled cleanup: failed to remove expired discount codes"));
-    },
-    { timezone: "Asia/Riyadh" },
-  );
-  logger.info("Scheduled daily discount-code cleanup at midnight (Riyadh time)");
-});
+  });
