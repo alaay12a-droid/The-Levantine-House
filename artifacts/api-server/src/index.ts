@@ -294,6 +294,8 @@ async function runMigrationsAndSeed() {
   await db.execute(sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_push_token TEXT`);
   await db.execute(sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS notes TEXT`);
   await db.execute(sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_method TEXT NOT NULL DEFAULT 'cash'`);
+  await db.execute(sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS order_type order_type DEFAULT 'delivery' NOT NULL`);
+  await db.execute(sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS status order_status DEFAULT 'pending' NOT NULL`);
 
   logger.info("All migrations complete");
 

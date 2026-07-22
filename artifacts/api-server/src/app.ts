@@ -1,4 +1,4 @@
-import express, { type Express } from "express";
+import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import pinoHttp from "pino-http";
@@ -44,6 +44,13 @@ const dashboardDist = path.resolve(__dirname, "../../dashboard/dist/public");
 app.use("/dashboard", express.static(dashboardDist));
 app.get(["/dashboard", "/dashboard/", "/dashboard/*splat"], (_req, res) => {
   res.sendFile(path.join(dashboardDist, "index.html"));
+});
+
+// JSON error handler — must have 4 params for Express to treat it as error middleware
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+app.use((err: Error, req: Request, res: Response, _next: NextFunction) => {
+  logger.error({ err, method: req.method, url: req.url }, "Unhandled error");
+  res.status(500).json({ error: err.message || "Internal server error" });
 });
 
 export default app;
