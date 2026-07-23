@@ -285,3 +285,14 @@ export const referralsTable = pgTable("referrals", {
 });
 
 export type Referral = typeof referralsTable.$inferSelect;
+
+// ── Deleted Accounts ──────────────────────────────────────────────────────────
+// Minimal record kept after account deletion for the 30-day re-registration
+// cooldown. Contains ONLY the phone number and deletion timestamp — no name,
+// address, or other personal profile data.
+export const deletedAccountsTable = pgTable("deleted_accounts", {
+  phone: text("phone").primaryKey(),
+  deletedAt: timestamp("deleted_at").defaultNow().notNull(),
+});
+
+export type DeletedAccount = typeof deletedAccountsTable.$inferSelect;

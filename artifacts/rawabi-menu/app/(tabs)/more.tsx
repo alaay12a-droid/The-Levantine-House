@@ -28,7 +28,7 @@ import { useLanguage } from "@/context/LanguageContext";
 import { useTranslation } from "@/hooks/useTranslation";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-import { apiGet, apiPost, apiPatch, apiDelete } from "@/constants/api";
+import { apiGet, apiPost, apiPatch } from "@/constants/api";
 import { TOKEN_KEY } from "@/hooks/useCustomerPushToken";
 import { useChatUnreadAlert } from "@/hooks/useChatSound";
 
@@ -175,8 +175,8 @@ export default function MoreScreen() {
     Alert.alert(
       isEn ? "Delete Account" : "حذف الحساب",
       isEn
-        ? "This will permanently delete your account and all local data. This action cannot be undone."
-        : "سيتم حذف حسابك وجميع بياناتك المحلية بشكل نهائي ولا يمكن التراجع عن هذا الإجراء.",
+        ? "This will permanently delete your account and all personal data from our servers. Past orders are kept for accounting but will no longer be linked to your name or phone. This action cannot be undone."
+        : "سيتم حذف حسابك وجميع بياناتك الشخصية من خوادمنا بشكل نهائي. تبقى الطلبات السابقة لأغراض المحاسبة لكنها لن تُربط باسمك أو رقمك. لا يمكن التراجع عن هذا الإجراء.",
       [
         { text: isEn ? "Cancel" : "إلغاء", style: "cancel" },
         {
@@ -185,9 +185,10 @@ export default function MoreScreen() {
           onPress: async () => {
             try {
               const token = await AsyncStorage.getItem(TOKEN_KEY);
-              if (token) {
-                await apiDelete(`/push-tokens/${encodeURIComponent(token)}`).catch(() => {});
-              }
+              const phone = user?.phone ?? "";
+              // Hard-delete: removes push token, wallet, referrals, discount
+              // usage history, and anonymises orders on the server.
+              await apiPost("/account/delete", { token: token ?? "", phone }).catch(() => {});
               await AsyncStorage.clear();
               await clearUser();
               router.replace("/onboarding");

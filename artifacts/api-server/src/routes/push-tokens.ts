@@ -1,6 +1,16 @@
 import { Router } from "express";
-import { db, pushTokensTable, appSettingsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import {
+  db,
+  pushTokensTable,
+  appSettingsTable,
+  ordersTable,
+  walletsTable,
+  walletTransactionsTable,
+  referralsTable,
+  discountCodeUsagesTable,
+  deletedAccountsTable,
+} from "@workspace/db";
+import { eq, or } from "drizzle-orm";
 import { z } from "zod";
 
 const router = Router();
@@ -102,6 +112,70 @@ router.delete("/push-tokens/:token", async (req, res) => {
     res.json({ ok: true });
   } catch {
     res.status(500).json({ error: "تعذر الحذف" });
+  }
+});
+
+// ── Hard account deletion ──────────────────────────────────────────────────────
+// Permanently removes the customer's personal data from every table.
+// Orders are anonymised (not deleted) so accounting records remain intact.
+// A minimal tombstone row (phone + timestamp) is written to deleted_accounts
+// to enforce the 30-day re-registration cooldown.
+const deleteAccountSchema = z.object({
+  token: z.string().min(1),
+  phone: z.string().min(1),
+});
+
+router.post("/account/delete", async (req, res) => {
+  const parsed = deleteAccountSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "بيانات غير صحيحة" });
+    return;
+  }
+  const { token, phone } = parsed.data;
+  try {
+    // 1. Anonymise orders — keep for business accounting, strip personal info
+    await db
+      .update(ordersTable)
+      .set({
+        customerName: "حساب محذوف",
+        customerPhone: `deleted_${Date.now()}`,
+        customerAddress: null,
+        customerPushToken: null,
+      })
+      .where(eq(ordersTable.customerPhone, phone));
+
+    // 2. Delete wallet balance (personal financial account)
+    await db.delete(walletsTable).where(eq(walletsTable.phone, phone));
+
+    // 3. Delete wallet transaction history
+    await db.delete(walletTransactionsTable).where(eq(walletTransactionsTable.phone, phone));
+
+    // 4. Delete referral records (contains name + phone of both parties)
+    await db
+      .delete(referralsTable)
+      .where(
+        or(eq(referralsTable.referrerPhone, phone), eq(referralsTable.referredPhone, phone))
+      );
+
+    // 5. Delete discount code usage history
+    await db.delete(discountCodeUsagesTable).where(eq(discountCodeUsagesTable.phone, phone));
+
+    // 6. Delete push token (device notification token + customer name)
+    await db.delete(pushTokensTable).where(eq(pushTokensTable.token, token));
+
+    // 7. Record tombstone for 30-day re-registration cooldown
+    await db
+      .insert(deletedAccountsTable)
+      .values({ phone })
+      .onConflictDoUpdate({
+        target: deletedAccountsTable.phone,
+        set: { deletedAt: new Date() },
+      });
+
+    res.json({ ok: true });
+  } catch (err) {
+    req.log.error({ err }, "account deletion failed");
+    res.status(500).json({ error: "تعذر حذف الحساب" });
   }
 });
 
