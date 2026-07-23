@@ -4,9 +4,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { apiGet } from "@/constants/api";
 import { MENU_CATEGORIES, FOOD_IMAGES, type MenuItem } from "@/constants/menu";
 
-// v3: shorter TTL so image replacements propagate faster
 const MENU_CACHE_KEY = "@rawabi_menu_cache_v3";
-const MENU_CACHE_TTL_MS = 90 * 1000; // 90 seconds — catches image updates quickly
+const MENU_CACHE_TTL_MS = 90 * 1000; // 90 seconds
 
 interface MenuCache {
   items: ApiMenuItem[];
@@ -133,31 +132,12 @@ export function useMenu() {
   const [loading, setLoading] = useState(true);
   const [apiItems, setApiItems] = useState<ApiMenuItem[]>([]);
 
-  // On mount: load cached data (only if still fresh) then always fetch from server
-  useEffect(() => {
-    AsyncStorage.getItem(MENU_CACHE_KEY).then((raw) => {
-      if (raw) {
-        try {
-          const parsed: MenuCache = JSON.parse(raw);
-          const isFresh = Date.now() - parsed.savedAt < MENU_CACHE_TTL_MS;
-          if (isFresh && Array.isArray(parsed.items) && parsed.items.length > 0) {
-            setCategories(buildCategories(parsed.items));
-            setApiItems(parsed.items);
-          } else {
-            // Cache expired — show static fallback until fresh fetch completes
-            setCategories(staticFallback());
-          }
-        } catch {
-          setCategories(staticFallback());
-        }
-      } else {
-        setCategories(staticFallback());
-      }
-    }).catch(() => {
-      setCategories(staticFallback());
-    });
-  }, []);
-
+  // Fetch fresh data from the server and update the cache.
+  // NOTE: We intentionally do NOT pre-populate categories from the cache on
+  // initial mount.  Showing cached (potentially stale) data first causes
+  // deleted items to flash briefly before the server response arrives.
+  // loading=true is held until this fetch settles, so the UI shows a
+  // skeleton instead of stale content.
   const fetch = useCallback(async () => {
     try {
       const data = await apiGet<ApiMenuItem[]>("/menu");
@@ -166,12 +146,16 @@ export function useMenu() {
       const cache: MenuCache = { items: data, savedAt: Date.now() };
       AsyncStorage.setItem(MENU_CACHE_KEY, JSON.stringify(cache)).catch(() => {});
     } catch {
-      // fallback to cached/static data (already set)
+      // Network failed — fall back to static bundle so the menu is never blank
+      setCategories((prev) => (prev.length > 0 ? prev : staticFallback()));
     } finally {
       setLoading(false);
     }
   }, []);
 
+  // refreshIfStale is used by tab-focus and app-foreground listeners.
+  // It DOES use the cache TTL: if the user just fetched data a few seconds
+  // ago there is no need to hit the server again.
   const refreshIfStale = useCallback(async () => {
     try {
       const raw = await AsyncStorage.getItem(MENU_CACHE_KEY);
@@ -183,6 +167,7 @@ export function useMenu() {
     }
   }, [fetch]);
 
+  // Always fetch on mount — never show cached data as the first render
   useEffect(() => {
     fetch();
   }, [fetch]);

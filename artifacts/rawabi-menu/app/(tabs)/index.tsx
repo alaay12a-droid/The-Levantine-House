@@ -131,7 +131,7 @@ export default function MenuScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useUser();
-  const { categories, refresh: refreshMenu, refreshIfStale } = useMenu();
+  const { categories, loading: menuLoading, refresh: refreshMenu, refreshIfStale } = useMenu();
   const { occasions } = useOccasions();
   const { banners, refresh: refreshBanners } = useBanners();
   const { combos } = useCombos();
@@ -865,6 +865,23 @@ export default function MenuScreen() {
             </TouchableOpacity>
           ))}
         </Animated.ScrollView>
+      ) : menuLoading ? (
+        /* ── LOADING SKELETON — shown while fresh menu data is fetched ── */
+        /* Prevents stale cached data (e.g. deleted items) from flashing   */
+        <View style={{ flex: 1, paddingHorizontal: 14, paddingTop: 10 }}>
+          {[90, 90, 90, 90, 90, 70].map((h, i) => (
+            <View
+              key={i}
+              style={{
+                height: h,
+                borderRadius: 16,
+                backgroundColor: colors.card,
+                marginBottom: 10,
+                opacity: 0.55,
+              }}
+            />
+          ))}
+        </View>
       ) : (
         /* ── REGULAR MENU — FlashList (RecyclerView virtualization) ── */
         <View
