@@ -551,16 +551,6 @@ export default function OnboardingScreen() {
           </TouchableOpacity>
         )}
 
-        {step === "location" && (
-          <TouchableOpacity
-            onPress={() => {
-              setAddress("غير محدد");
-              setTimeout(handleSave, 100);
-            }}
-          >
-            <Text style={[styles.skipText, { color: C.muted }]}>تخطي الآن وتحديده لاحقاً</Text>
-          </TouchableOpacity>
-        )}
       </ScrollView>
 
       {/* ── Country Picker Modal ── */}

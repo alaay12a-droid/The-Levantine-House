@@ -28,7 +28,8 @@ import { useLanguage } from "@/context/LanguageContext";
 import { useTranslation } from "@/hooks/useTranslation";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-import { apiGet, apiPost, apiPatch } from "@/constants/api";
+import { apiGet, apiPost, apiPatch, apiDelete } from "@/constants/api";
+import { TOKEN_KEY } from "@/hooks/useCustomerPushToken";
 import { useChatUnreadAlert } from "@/hooks/useChatSound";
 
 const F = {
@@ -170,6 +171,38 @@ export default function MoreScreen() {
     router.replace("/onboarding");
   };
 
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      isEn ? "Delete Account" : "حذف الحساب",
+      isEn
+        ? "This will permanently delete your account and all local data. This action cannot be undone."
+        : "سيتم حذف حسابك وجميع بياناتك المحلية بشكل نهائي ولا يمكن التراجع عن هذا الإجراء.",
+      [
+        { text: isEn ? "Cancel" : "إلغاء", style: "cancel" },
+        {
+          text: isEn ? "Delete Permanently" : "حذف نهائياً",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              const token = await AsyncStorage.getItem(TOKEN_KEY);
+              if (token) {
+                await apiDelete(`/push-tokens/${encodeURIComponent(token)}`).catch(() => {});
+              }
+              await AsyncStorage.clear();
+              await clearUser();
+              router.replace("/onboarding");
+            } catch {
+              Alert.alert(
+                isEn ? "Error" : "خطأ",
+                isEn ? "Could not delete account. Please try again." : "تعذر حذف الحساب، حاول مرة أخرى."
+              );
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const menuItems: MenuItem[] = [
     {
       icon: "message-circle",
@@ -220,7 +253,10 @@ export default function MoreScreen() {
       action: () => router.push("/terms"),
     },
     ...(user
-      ? [{ icon: "log-out", label: t("clearData"), action: handleLogout, danger: true } as MenuItem]
+      ? [
+          { icon: "log-out", label: t("clearData"), action: handleLogout, danger: true } as MenuItem,
+          { icon: "trash-2", label: isEn ? "Delete Account" : "حذف الحساب", action: handleDeleteAccount, danger: true } as MenuItem,
+        ]
       : []),
   ];
 
