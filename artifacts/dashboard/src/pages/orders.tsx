@@ -130,7 +130,8 @@ table{width:100%;border-collapse:collapse;font-size:13px}thead th{background:#8B
 tbody tr:nth-child(even){background:#fafafa}hr{border:none;border-top:1px dashed #bbb;margin:8px 0}
 .total{font-size:16px;font-weight:800;text-align:left}@media print{body{padding:5mm}}</style></head><body>
 <h1>روابي المندي للمذاق فن وأصول</h1>
-<div class="sub">تبوك — المملكة العربية السعودية</div>
+<div class="sub">تبوك، الروضة، 47711 — المملكة العربية السعودية</div>
+<div class="sub">الرقم الضريبي: 302282730200003</div>
 <div class="daily">طلب اليوم #${order.dailyNumber ?? order.id}</div>
 <hr/>
 <p style="font-size:13px;margin-bottom:3px"><strong>الاسم:</strong> ${order.customerName}</p>
@@ -159,7 +160,9 @@ function printBulk(orders: Order[]) {
     const pf = getOrderPriceFactor(o);
     const itemsRows = o.items.map(i => `<tr><td style="padding:3px 6px">${i.name} × ${i.quantity}</td><td style="padding:3px 6px;text-align:left">${fmt2(i.price*i.quantity*pf)} ر.س</td></tr>`).join("");
     return `<div style="page-break-after:always;padding:8mm;font-family:Cairo,sans-serif;direction:rtl">
-<h2 style="text-align:center;color:#8B4513;font-size:16px;margin-bottom:4px">روابي المندي</h2>
+<h2 style="text-align:center;color:#8B4513;font-size:16px;margin-bottom:2px">روابي المندي</h2>
+<p style="text-align:center;font-size:10px;color:#888;margin-bottom:2px">الرقم الضريبي: 302282730200003</p>
+<p style="text-align:center;font-size:10px;color:#888;margin-bottom:6px">تبوك، الروضة، 47711</p>
 <p style="text-align:center;font-size:14px;font-weight:700;margin-bottom:8px">طلب اليوم #${o.dailyNumber ?? o.id} — ${o.customerName}</p>
 <p style="font-size:12px;color:#666;margin-bottom:6px">${time} · ${o.paymentMethod === "cash" ? "نقدي" : "إلكتروني"}</p>
 <table style="width:100%;border-collapse:collapse;font-size:13px">${itemsRows}

@@ -1056,6 +1056,8 @@ export default function Cashier() {
             <div className="space-y-3 print:block" id="print-receipt">
               <div className="text-center border-b pb-3">
                 <div className="font-black text-lg">روابي المندي</div>
+                <div className="text-xs text-muted-foreground">الرقم الضريبي: 302282730200003</div>
+                <div className="text-xs text-muted-foreground">العنوان: تبوك، الروضة، 47711</div>
                 <div className="text-xs text-muted-foreground">طلب #{printOrder.dailyNumber ?? printOrder.id}</div>
                 <div className="text-xs text-muted-foreground">{fmtDate(printOrder.createdAt)} — {fmtTime(printOrder.createdAt)}</div>
               </div>
