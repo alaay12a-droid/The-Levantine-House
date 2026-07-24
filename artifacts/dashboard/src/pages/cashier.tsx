@@ -468,7 +468,7 @@ export default function Cashier() {
             <CheckCircle className="h-4 w-4" /> تم التسليم
           </button>
         )}
-        {isActive && !assignmentInfo && order.status !== "pending" && (
+        {isActive && !assignmentInfo && order.status !== "pending" && !(!order.customerAddress || order.customerAddress.trim() === "") && (
           <button onClick={() => setAssigningOrderId(order.id)}
             className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold py-2 px-3 rounded-xl flex items-center gap-1 transition-colors">
             <Truck className="h-4 w-4" /> تعيين مندوب
