@@ -207,6 +207,10 @@ ${discount > 0 ? `<p style="font-size:12px;color:#C8171A;text-align:left;">- ${f
 <p style="font-size:13px;color:#555;">الدفع: ${order.paymentMethod === "cash" ? "نقدي" : "إلكتروني"}</p>
 </div>
 ${order.notes ? `<p style="margin-top:8px;font-size:12px;color:#555;"><strong>ملاحظات:</strong> ${order.notes}</p>` : ""}
+<div style="text-align:center;margin-top:16px;">
+<img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(`روابي المندي - طلب رقم ${order.dailyNumber ?? order.id} - ${fmt(totalPaid)} ر.س`)}" width="100" height="100" alt="QR"/>
+<p style="font-size:10px;color:#aaa;margin-top:4px;">طلب #${order.dailyNumber ?? order.id}</p>
+</div>
 <script>window.onload=function(){window.print();}</script></body></html>`;
     const win = window.open("", "_blank", "width=500,height=700");
     if (win) { win.document.write(html); win.document.close(); }

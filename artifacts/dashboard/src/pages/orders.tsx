@@ -148,6 +148,10 @@ ${discount > 0.005 ? `<p style="font-size:12px;color:#C8171A;text-align:left">- 
 <p class="total">${fmt2(totalPaid)} ر.س — الإجمالي</p>
 ${order.notes ? `<p style="margin-top:8px;font-size:12px;color:#555"><strong>ملاحظات:</strong> ${order.notes}</p>` : ""}
 <p style="text-align:center;margin-top:14px;font-size:11px;color:#888">شكراً لاختيارك روابي المندي 🍗</p>
+<div style="text-align:center;margin-top:16px;">
+<img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(`روابي المندي - طلب رقم ${order.dailyNumber ?? order.id} - ${fmt2(totalPaid)} ر.س`)}" width="100" height="100" alt="QR"/>
+<p style="font-size:10px;color:#aaa;margin-top:4px;">طلب #${order.dailyNumber ?? order.id}</p>
+</div>
 <script>window.onload=function(){window.print();}</script></body></html>`;
   const win = window.open("", "_blank", "width=500,height=700");
   if (win) { win.document.write(html); win.document.close(); }
@@ -167,7 +171,12 @@ function printBulk(orders: Order[]) {
 <p style="font-size:12px;color:#666;margin-bottom:6px">${time} · ${o.paymentMethod === "cash" ? "نقدي" : "إلكتروني"}</p>
 <table style="width:100%;border-collapse:collapse;font-size:13px">${itemsRows}
 <tr><td colspan="2" style="border-top:1px dashed #ccc;padding-top:6px;font-weight:700;font-size:15px">${fmt2(o.totalPrice/100)} ر.س</td></tr>
-</table></div>`;
+</table>
+<div style="text-align:center;margin-top:12px;">
+<img src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(`روابي المندي - طلب رقم ${o.dailyNumber ?? o.id} - ${fmt2(o.totalPrice/100)} ر.س`)}" width="80" height="80" alt="QR"/>
+<p style="font-size:9px;color:#aaa;margin-top:2px;">طلب #${o.dailyNumber ?? o.id}</p>
+</div>
+</div>`;
   }).join("");
   const win = window.open("", "_blank", "width=600,height=800");
   if (win) {

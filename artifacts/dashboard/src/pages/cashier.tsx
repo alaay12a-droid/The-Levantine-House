@@ -1100,6 +1100,13 @@ export default function Cashier() {
                   )}
                 </div>
               )}
+              <div className="flex flex-col items-center gap-1 py-1">
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(`روابي المندي - طلب رقم ${printOrder.dailyNumber ?? printOrder.id} - ${(printOrder.totalPrice / 100).toFixed(2)} ر.س`)}`}
+                  width={90} height={90} alt="QR"
+                />
+                <span className="text-[10px] text-muted-foreground">طلب #{printOrder.dailyNumber ?? printOrder.id}</span>
+              </div>
               <Button onClick={handlePrint} className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold">
                 <Printer className="h-4 w-4 ml-2" /> طباعة
               </Button>
