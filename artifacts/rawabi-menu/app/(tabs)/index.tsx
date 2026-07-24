@@ -631,7 +631,7 @@ export default function MenuScreen() {
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.iconBtn, { backgroundColor: colors.isLight ? "#EDE0CE" : "#2A1508" }]}
-                onPress={() => setSearchQuery("")}
+                onPress={() => menuFlashListRef.current?.scrollToOffset({ offset: 0, animated: true })}
               >
                 <Feather name="heart" size={18} color={colors.gold} />
               </TouchableOpacity>

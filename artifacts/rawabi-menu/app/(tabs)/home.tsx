@@ -107,6 +107,7 @@ export default function HomeScreen() {
   const handleSelectItem = useCallback((item: RawItem) => setSelectedItem(item), []);
   const handleCloseDetail = useCallback(() => setSelectedItem(null), []);
   const searchRef = useRef<TextInput>(null);
+  const listRef = useRef<FlashList<ListEntry>>(null);
 
   useFocusEffect(useCallback(() => { refreshMenu(); }, [refreshMenu]));
   useEffect(() => { refreshBanners(); }, [refreshBanners]);
@@ -252,7 +253,7 @@ export default function HomeScreen() {
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.iconBtn, { backgroundColor: colors.card }]}
-              onPress={() => {}}
+              onPress={() => listRef.current?.scrollToOffset({ offset: 0, animated: true })}
             >
               <Feather name="heart" size={17} color={favorites.length > 0 ? "#C8171A" : colors.mutedForeground} />
               {favorites.length > 0 && (
@@ -346,6 +347,7 @@ export default function HomeScreen() {
       ) : (
         /* ── VIRTUALIZED LIST (FlashList) ── */
         <FlashList
+          ref={listRef}
           data={listData}
           renderItem={renderItem}
           keyExtractor={keyExtractor}
