@@ -25,10 +25,6 @@ services:
         value: 8080
       - key: LOG_LEVEL
         value: info
-      - key: PRIVATE_OBJECT_DIR
-        value: skip
-      - key: PUBLIC_OBJECT_SEARCH_PATHS
-        value: skip
       - key: DATABASE_URL
         sync: false
       - key: DASHBOARD_JWT_SECRET
@@ -44,6 +40,4 @@ services:
       - key: EMAIL_PASS
         sync: false
       - key: FIREBASE_SERVICE_ACCOUNT
-        sync: false
-      - key: DEFAULT_OBJECT_STORAGE_BUCKET_ID
         sync: false
