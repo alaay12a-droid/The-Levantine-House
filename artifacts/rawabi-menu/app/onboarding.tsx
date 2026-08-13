@@ -409,18 +409,23 @@ export default function OnboardingScreen() {
               {/* OTP boxes */}
               <View style={{ flexDirection: "row", justifyContent: "center", gap: otpLength === 6 ? 8 : 12 }}>
                 {Array.from({ length: otpLength }, (_, i) => (
-                  <View key={i} style={{
-                    width: otpLength === 6 ? 44 : 54, height: 60, borderRadius: 12, borderWidth: 2,
-                    borderColor: otpCode[i] ? C.gold : C.border,
-                    backgroundColor: C.surface,
-                    alignItems: "center", justifyContent: "center",
-                  }}>
+                  <TouchableOpacity
+                    key={i}
+                    activeOpacity={1}
+                    onPress={() => otpRef.current?.focus()}
+                    style={{
+                      width: otpLength === 6 ? 44 : 54, height: 60, borderRadius: 12, borderWidth: 2,
+                      borderColor: otpCode[i] ? C.gold : C.border,
+                      backgroundColor: C.surface,
+                      alignItems: "center", justifyContent: "center",
+                    }}
+                  >
                     <Text style={{ fontFamily: F.bold, fontSize: otpLength === 6 ? 20 : 24, color: C.gold }}>
                       {otpCode[i] ?? ""}
                     </Text>
-                  </View>
+                  </TouchableOpacity>
                 ))}
-                {/* hidden input capturing digits */}
+                {/* hidden input capturing digits — opacity 0.01 (not 0) so iOS allows focus */}
                 <TextInput
                   ref={otpRef}
                   value={otpCode}
@@ -430,7 +435,10 @@ export default function OnboardingScreen() {
                   }}
                   keyboardType="number-pad"
                   maxLength={otpLength}
-                  style={{ position: "absolute", opacity: 0, width: "100%", height: "100%" }}
+                  textContentType="oneTimeCode"
+                  autoComplete="one-time-code"
+                  caretHidden
+                  style={{ position: "absolute", opacity: 0.01, width: "100%", height: "100%" }}
                   onSubmitEditing={handleVerifyOtp}
                 />
               </View>
