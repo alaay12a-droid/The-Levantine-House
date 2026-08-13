@@ -165,10 +165,17 @@ async function removeStaleExpoTokens(tokens: string[]): Promise<void> {
 async function removeStaleByFCMToken(fcmTokens: string[]): Promise<void> {
   if (fcmTokens.length === 0) return;
   try {
-    await db.delete(pushTokensTable).where(inArray(pushTokensTable.fcmToken, fcmTokens));
-    logger.info({ count: fcmTokens.length }, "Removed stale FCM token rows");
+    // Null out only the fcmToken column — do NOT delete the row.
+    // iOS devices store a raw APNs token as fcmToken (Firebase rejects it),
+    // but their ExponentPushToken is still valid for Expo Push API delivery.
+    // Deleting the whole row would permanently kill their Expo fallback too.
+    await db
+      .update(pushTokensTable)
+      .set({ fcmToken: null })
+      .where(inArray(pushTokensTable.fcmToken, fcmTokens));
+    logger.info({ count: fcmTokens.length }, "Nulled stale FCM tokens (row preserved for Expo fallback)");
   } catch (err) {
-    logger.warn({ err }, "Failed to remove stale FCM rows");
+    logger.warn({ err }, "Failed to null stale FCM tokens");
   }
 }
 

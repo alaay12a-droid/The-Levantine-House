@@ -49,13 +49,18 @@ async function registerForPushNotifications(): Promise<void> {
     // Get Expo push token (used as stable key per device)
     const { data: expoToken } = await Notifications.getExpoPushTokenAsync({ projectId: PROJECT_ID });
 
-    // Get native FCM token for direct Firebase Admin SDK delivery
+    // Get native FCM token for direct Firebase Admin SDK delivery.
+    // iOS: skip this — without GoogleService-Info.plist, getDevicePushTokenAsync()
+    // returns a raw APNs device token (not an FCM token). Sending that to Firebase
+    // triggers invalid-registration-token errors. Expo Push API handles iOS natively.
     let fcmToken: string | null = null;
-    try {
-      const deviceToken = await Notifications.getDevicePushTokenAsync();
-      fcmToken = deviceToken.data as string;
-    } catch {
-      // FCM token unavailable (e.g. emulator without Play Services)
+    if (Platform.OS === "android") {
+      try {
+        const deviceToken = await Notifications.getDevicePushTokenAsync();
+        fcmToken = deviceToken.data as string;
+      } catch {
+        // FCM token unavailable (e.g. emulator without Play Services)
+      }
     }
 
     // Register with server (cashier role = default)

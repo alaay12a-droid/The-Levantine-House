@@ -50,13 +50,18 @@ export async function registerCustomerNotifications(): Promise<string | null> {
     const { data: expoToken } = await Notifications.getExpoPushTokenAsync({ projectId: PROJECT_ID });
     await AsyncStorage.setItem(TOKEN_KEY, expoToken);
 
-    // Get native FCM token for direct Firebase Admin SDK delivery
+    // Get native FCM token for direct Firebase Admin SDK delivery.
+    // iOS: skip this — without GoogleService-Info.plist, getDevicePushTokenAsync()
+    // returns a raw APNs device token (not an FCM token). Sending that to Firebase
+    // triggers invalid-registration-token errors. Expo Push API handles iOS natively.
     let fcmToken: string | null = null;
-    try {
-      const deviceToken = await Notifications.getDevicePushTokenAsync();
-      fcmToken = deviceToken.data as string;
-    } catch {
-      // FCM token unavailable (e.g. emulator without Play Services)
+    if (Platform.OS === "android") {
+      try {
+        const deviceToken = await Notifications.getDevicePushTokenAsync();
+        fcmToken = deviceToken.data as string;
+      } catch {
+        // FCM token unavailable (e.g. emulator without Play Services)
+      }
     }
 
     // Always register with server on every launch — keeps FCM token current
