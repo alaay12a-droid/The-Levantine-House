@@ -924,6 +924,9 @@ export default function Orders() {
                           onClick={() => handleUpdateStatus(o, stage.next!)}
                         />
                       )}
+                      {stage.status === "pending" && (
+                        <IconBtn icon={X} label="" tone="bad" small onClick={() => handleCancelOrder(o)} />
+                      )}
                     </div>
                   </div>
                 ))}
