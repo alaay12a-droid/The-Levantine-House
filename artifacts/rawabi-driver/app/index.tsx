@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect, useRef } from "react";
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, TextInput,
   ActivityIndicator, StatusBar, Platform, RefreshControl, Image,
-  Alert, Modal, Vibration, KeyboardAvoidingView, Linking,
+  Alert, Modal, Vibration, KeyboardAvoidingView, Linking, Switch,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
@@ -41,6 +41,7 @@ async function registerDriverPushToken(driverId: number): Promise<void> {
 }
 
 const LOCATION_DISCLOSURE_KEY = "driver_location_disclosure_accepted_v1";
+const DRIVER_ONLINE_KEY = "driver_is_online_v1";
 
 // ── Fixed theme (replaces useColors) ─────────────────────────────────────────
 const C = {
@@ -229,6 +230,39 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
   const [showLocationDisclosure, setShowLocationDisclosure] = useState(false);
   const locationDisclosureAcceptedRef = useRef(false);
   const pendingDisclosureOrderIdRef = useRef<number | null>(null);
+
+  // ── Online / Offline status ──────────────────────────────────────────────
+  const [isOnline, setIsOnline] = useState(false);
+  const isOnlineRef = useRef(false);
+  const [togglingOnline, setTogglingOnline] = useState(false);
+
+  // Restore online status from AsyncStorage on mount, then sync with server
+  useEffect(() => {
+    AsyncStorage.getItem(DRIVER_ONLINE_KEY).then(async (v) => {
+      const savedOnline = v === "true";
+      isOnlineRef.current = savedOnline;
+      setIsOnline(savedOnline);
+      // Sync saved state to server (handles app restart)
+      try {
+        await apiPut(`/drivers/${driver.id}/online-status`, { isOnline: savedOnline });
+      } catch {}
+    }).catch(() => {});
+  }, [driver.id]);
+
+  const handleToggleOnline = useCallback(async () => {
+    if (togglingOnline) return;
+    const next = !isOnlineRef.current;
+    setTogglingOnline(true);
+    try {
+      await apiPut(`/drivers/${driver.id}/online-status`, { isOnline: next });
+      isOnlineRef.current = next;
+      setIsOnline(next);
+      await AsyncStorage.setItem(DRIVER_ONLINE_KEY, String(next));
+    } catch {
+      Alert.alert("خطأ", "تعذّر تحديث الحالة، تحقق من الاتصال");
+    }
+    setTogglingOnline(false);
+  }, [driver.id, togglingOnline]);
 
   useEffect(() => {
     registerDriverPushToken(driver.id).catch(() => {});
@@ -499,7 +533,8 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
     if (!silent) setLoading(true);
     try {
       const data = await apiGet<Row[]>(`/drivers/${driver.id}/orders`);
-      if (silent && soundEnabled.current) {
+      if (silent && soundEnabled.current && isOnlineRef.current) {
+        // Only play sound/notification for new orders when the driver is online
         const newOnes = data.filter((r) => !knownAssignmentIds.current.has(r.assignment.orderId));
         if (newOnes.length > 0) {
           playOrderSound();
@@ -565,12 +600,35 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
               <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12 }}>{driver.phone}</Text>
             </View>
           </View>
-          <TouchableOpacity onPress={() => Alert.alert("تسجيل الخروج", "هل تريد الخروج؟", [
-            { text: "إلغاء", style: "cancel" },
-            { text: "خروج", style: "destructive", onPress: onLogout },
-          ])}>
-            <Feather name="log-out" size={20} color={colors.mutedForeground} />
-          </TouchableOpacity>
+          <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 12 }}>
+            {/* Online / Offline toggle */}
+            <View style={{ flexDirection: "row-reverse", alignItems: "center", gap: 6 }}>
+              <Switch
+                value={isOnline}
+                onValueChange={handleToggleOnline}
+                disabled={togglingOnline}
+                thumbColor={isOnline ? "#fff" : "#888"}
+                trackColor={{ false: "#3A3A3A", true: "#2E7D32" }}
+                ios_backgroundColor="#3A3A3A"
+              />
+              <Text style={{
+                color: isOnline ? "#4CAF50" : colors.mutedForeground,
+                fontFamily: F.bold,
+                fontSize: 12,
+                minWidth: 44,
+                textAlign: "right",
+              }}>
+                {togglingOnline ? "..." : isOnline ? "متصل" : "غير متصل"}
+              </Text>
+            </View>
+
+            <TouchableOpacity onPress={() => Alert.alert("تسجيل الخروج", "هل تريد الخروج؟", [
+              { text: "إلغاء", style: "cancel" },
+              { text: "خروج", style: "destructive", onPress: onLogout },
+            ])}>
+              <Feather name="log-out" size={20} color={colors.mutedForeground} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {sharingLocation && !locationError && (

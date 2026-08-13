@@ -199,6 +199,7 @@ export const deliveryDriversTable = pgTable("delivery_drivers", {
   photoUrl: text("photo_url"),
   photoKey: text("photo_key"),
   active: boolean("active").notNull().default(true),
+  isOnline: boolean("is_online").notNull().default(false),
   pin: text("pin").notNull().default("0000"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

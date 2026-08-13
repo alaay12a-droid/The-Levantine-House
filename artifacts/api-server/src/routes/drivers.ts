@@ -69,6 +69,21 @@ router.delete("/drivers/:id", async (req, res) => {
   res.json({ ok: true });
 });
 
+// ── PUT /drivers/:id/online-status ───────────────────────────────────────────
+router.put("/drivers/:id/online-status", async (req, res) => {
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) { res.status(400).json({ error: "معرّف غير صحيح" }); return; }
+  const { isOnline } = req.body;
+  if (typeof isOnline !== "boolean") { res.status(400).json({ error: "isOnline must be boolean" }); return; }
+  const [driver] = await db
+    .update(deliveryDriversTable)
+    .set({ isOnline })
+    .where(eq(deliveryDriversTable.id, id))
+    .returning();
+  if (!driver) { res.status(404).json({ error: "مندوب غير موجود" }); return; }
+  res.json({ id: driver.id, isOnline: driver.isOnline });
+});
+
 // ── POST /drivers/login ───────────────────────────────────────────────────────
 router.post("/drivers/login", async (req, res) => {
   const { phone, pin } = req.body;

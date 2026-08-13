@@ -212,6 +212,9 @@ async function runMigrationsAndSeed() {
       created_at TIMESTAMP DEFAULT NOW() NOT NULL
     )
   `);
+  await db.execute(sql`
+    ALTER TABLE delivery_drivers ADD COLUMN IF NOT EXISTS is_online BOOLEAN NOT NULL DEFAULT FALSE
+  `);
 
   await db.execute(sql`
     CREATE TABLE IF NOT EXISTS order_driver_assignments (

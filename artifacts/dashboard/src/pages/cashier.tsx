@@ -29,7 +29,7 @@ interface Order {
   createdAt: string;
 }
 
-interface Driver { id: number; name: string; phone: string; active: boolean; }
+interface Driver { id: number; name: string; phone: string; active: boolean; isOnline: boolean; }
 interface ActiveAssignment {
   orderId: number; driverId: number; pickedUpAt: string | null;
   driverName: string; driverPhone: string; dailyNumber: number | null;
@@ -1015,18 +1015,26 @@ export default function Cashier() {
             <DialogTitle>🛵 تعيين مندوب</DialogTitle>
           </DialogHeader>
           <div className="space-y-2">
-            {drivers.filter(d => d.active).map(d => (
+            {drivers.filter(d => d.active && d.isOnline).map(d => (
               <button key={d.id} onClick={() => assigningOrderId && handleAssignDriver(assigningOrderId, d.id)}
                 className="w-full flex items-center gap-3 p-3 bg-card border border-border rounded-xl hover:border-amber-500/50 hover:bg-amber-500/5 transition-colors text-right">
-                <div className="h-10 w-10 rounded-full bg-green-500/10 flex items-center justify-center text-lg">🛵</div>
+                <div className="relative h-10 w-10 rounded-full bg-green-500/10 flex items-center justify-center text-lg">
+                  🛵
+                  <span className="absolute bottom-0 right-0 h-3 w-3 bg-green-500 rounded-full border-2 border-background" />
+                </div>
                 <div>
                   <div className="font-semibold text-sm text-foreground">{d.name}</div>
                   <div className="text-xs text-muted-foreground" dir="ltr">{d.phone}</div>
                 </div>
               </button>
             ))}
-            {drivers.filter(d => d.active).length === 0 && (
-              <p className="text-center text-muted-foreground text-sm py-4">لا يوجد مناديب نشطون</p>
+            {drivers.filter(d => d.active && d.isOnline).length === 0 && (
+              <p className="text-center text-muted-foreground text-sm py-4">لا يوجد مناديب متاحون الآن</p>
+            )}
+            {drivers.filter(d => d.active && !d.isOnline).length > 0 && (
+              <p className="text-xs text-muted-foreground text-center pt-1">
+                {drivers.filter(d => d.active && !d.isOnline).length} مندوب غير متصل حالياً
+              </p>
             )}
           </div>
         </DialogContent>
