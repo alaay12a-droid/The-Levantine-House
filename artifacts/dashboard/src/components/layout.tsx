@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 
 interface LayoutProps {
   children: ReactNode;
+  fullWidth?: boolean;
 }
 
 const PAGE_TITLES: Record<string, string> = {
@@ -23,7 +24,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/auth-diagnostics":  "تشخيص المصادقة",
 };
 
-export function Layout({ children }: LayoutProps) {
+export function Layout({ children, fullWidth = false }: LayoutProps) {
   const [location, setLocation] = useLocation();
   const { mutate: logout } = useDashboardLogout();
   const queryClient = useQueryClient();
@@ -98,7 +99,7 @@ export function Layout({ children }: LayoutProps) {
 
       {/* ── Main content ───────────────────────────────────────────────────── */}
       <main className="flex-1 p-4 lg:p-6 overflow-auto">
-        <div className="mx-auto w-full max-w-5xl">
+        <div className={fullWidth ? "w-full" : "mx-auto w-full max-w-5xl"}>
           {children}
         </div>
       </main>

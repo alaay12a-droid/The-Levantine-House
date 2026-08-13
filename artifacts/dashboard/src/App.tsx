@@ -36,7 +36,7 @@ function Router() {
         </Layout>
       </Route>
       <Route path="/orders">
-        <Layout>
+        <Layout fullWidth>
           <Orders />
         </Layout>
       </Route>
