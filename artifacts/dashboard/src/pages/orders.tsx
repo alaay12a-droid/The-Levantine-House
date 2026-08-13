@@ -770,12 +770,24 @@ export default function Orders() {
               {(nextStatus || order.status === "ready" || order.status === "out_for_delivery") && (
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {nextStatus && nextLabel && (
-                    <button
-                      onClick={() => handleUpdateStatus(order, nextStatus)}
-                      style={{ background: STATUS_CARD_COLOR[nextStatus] + "22", border: `1px solid ${STATUS_CARD_COLOR[nextStatus]}55`, borderRadius: 10, padding: "11px", color: STATUS_CARD_COLOR[nextStatus], fontWeight: 700, fontSize: 13.5, cursor: "pointer", width: "100%", fontFamily: "inherit" }}
-                    >
-                      {nextLabel}
-                    </button>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button
+                        onClick={() => handleUpdateStatus(order, nextStatus)}
+                        style={{ flex: 1, background: STATUS_CARD_COLOR[nextStatus] + "22", border: `1px solid ${STATUS_CARD_COLOR[nextStatus]}55`, borderRadius: 10, padding: "11px", color: STATUS_CARD_COLOR[nextStatus], fontWeight: 700, fontSize: 13.5, cursor: "pointer", fontFamily: "inherit" }}
+                      >
+                        {nextLabel}
+                      </button>
+                      {!driverPickedUp && (
+                        <button
+                          onClick={() => handleCancelOrder(order)}
+                          title="إلغاء الطلب"
+                          style={{ background: "#F7A9A914", border: "1px solid #F7A9A940", borderRadius: 10, padding: "11px 14px", color: "#F7A9A9", fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 5, whiteSpace: "nowrap" }}
+                        >
+                          <X size={14} />
+                          إلغاء
+                        </button>
+                      )}
+                    </div>
                   )}
                   {order.status === "ready" && isPickup && (
                     <button
@@ -837,15 +849,6 @@ export default function Orders() {
                   <Printer size={15} />
                   طباعة
                 </button>
-                {!["done","cancelled"].includes(order.status) && !driverPickedUp && (
-                  <button
-                    onClick={() => handleCancelOrder(order)}
-                    style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: C.surface, border: `1px solid ${C.border}`, color: "#F7A9A9", borderRadius: 10, padding: 10, fontSize: 12.5, fontFamily: "inherit", fontWeight: 600, cursor: "pointer" }}
-                  >
-                    <X size={15} />
-                    إلغاء
-                  </button>
-                )}
               </div>
             </div>
           </div>
