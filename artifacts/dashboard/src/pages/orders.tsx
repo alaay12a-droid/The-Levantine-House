@@ -849,6 +849,15 @@ export default function Orders() {
                   <Printer size={15} />
                   طباعة
                 </button>
+                {isDelivery && !["done","cancelled"].includes(order.status) && !driverPickedUp && (
+                  <button
+                    onClick={() => handleCancelOrder(order)}
+                    style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: C.surface, border: `1px solid ${C.border}`, color: "#F7A9A9", borderRadius: 10, padding: 10, fontSize: 12.5, fontFamily: "inherit", fontWeight: 600, cursor: "pointer" }}
+                  >
+                    <X size={15} />
+                    إلغاء
+                  </button>
+                )}
               </div>
             </div>
           </div>
