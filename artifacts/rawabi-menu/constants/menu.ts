@@ -29,6 +29,8 @@ export interface MenuItem {
   stock?: number | null;
   sizes?: MenuItemSize[];
   options?: MenuItemOptionGroup[];
+  riceTypes?: MenuItemOptionChoice[];
+  additions?: MenuItemOptionChoice[];
   calories?: number | null;
   walkingMinutes?: number | null;
 }

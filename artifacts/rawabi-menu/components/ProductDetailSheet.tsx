@@ -107,6 +107,10 @@ export function ProductDetailSheet({ item, visible, onClose }: Props) {
   const [riceIdx, setRiceIdx] = useState(0);
   const [addonIdx, setAddonIdx] = useState(0);
 
+  // DB-driven rice type / addition selection (when admin has configured them)
+  const [dbRiceTypeName, setDbRiceTypeName] = useState<string>("");
+  const [dbAdditionName, setDbAdditionName] = useState<string>("");
+
   // selectedOptions: map of groupName → chosen choice name
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
 
@@ -120,6 +124,12 @@ export function ProductDetailSheet({ item, visible, onClose }: Props) {
     choices: g.choices.filter(c => c.available),
   })).filter(g => g.choices.length > 0);
   const hasOptionGroups = optionGroups.length > 0;
+
+  // DB-driven rice types and additions (available entries only)
+  const dbRiceTypes = (item?.riceTypes ?? []).filter(r => r.available);
+  const hasDbRiceTypes = dbRiceTypes.length > 0;
+  const dbAdditions = (item?.additions ?? []).filter(a => a.available);
+  const hasDbAdditions = dbAdditions.length > 0;
 
   useEffect(() => {
     if (visible && item) {
@@ -140,15 +150,25 @@ export function ProductDetailSheet({ item, visible, onClose }: Props) {
         }
       }
       setSelectedOptions(defaults);
+      // Auto-select first DB rice type / addition
+      const dbRt = (item.riceTypes ?? []).filter(r => r.available);
+      setDbRiceTypeName(dbRt.length > 0 ? dbRt[0].name : "");
+      const dbAdd = (item.additions ?? []).filter(a => a.available);
+      setDbAdditionName(dbAdd.length > 0 ? dbAdd[0].name : "");
     }
   }, [visible, item?.id]);
 
   if (!item) return null;
 
   const showCustomization = itemNeedsCustomization(item);
-  const showRiceOptions = showCustomization && !item.name.includes("مضغوط");
-  const selectedRice = showRiceOptions ? RICE_OPTIONS[riceIdx] : null;
-  const selectedAddon = showCustomization ? ADDON_OPTIONS[addonIdx] : null;
+  // Use DB-driven rice types if defined, else fall back to hardcoded
+  const showRiceOptions = hasDbRiceTypes || (showCustomization && !item.name.includes("مضغوط"));
+  const selectedRice = !hasDbRiceTypes && showRiceOptions ? RICE_OPTIONS[riceIdx] : null;
+  const selectedDbRice = hasDbRiceTypes ? dbRiceTypes.find(r => r.name === dbRiceTypeName) ?? dbRiceTypes[0] : null;
+  // Use DB-driven additions if defined, else fall back to hardcoded
+  const showAddons = hasDbAdditions || showCustomization;
+  const selectedAddon = !hasDbAdditions && showCustomization ? ADDON_OPTIONS[addonIdx] : null;
+  const selectedDbAddition = hasDbAdditions ? dbAdditions.find(a => a.name === dbAdditionName) ?? dbAdditions[0] : null;
 
   // Legacy size selectors only shown if no DB sizes defined
   const sizes = !hasDbSizes ? getChickenSizes(item) : null;
@@ -173,8 +193,8 @@ export function ProductDetailSheet({ item, visible, onClose }: Props) {
         ? meatSizePrices[meatSizeIdx]
         : item.price;
 
-  const riceExtra = selectedRice?.extra ?? 0;
-  const addonExtra = selectedAddon?.extra ?? 0;
+  const riceExtra = selectedDbRice?.extraPrice ?? selectedRice?.extra ?? 0;
+  const addonExtra = selectedDbAddition?.extraPrice ?? selectedAddon?.extra ?? 0;
 
   // Sum extra prices from selected options
   const optionsExtra = optionGroups.reduce((sum, g) => {
@@ -215,11 +235,11 @@ export function ProductDetailSheet({ item, visible, onClose }: Props) {
       : undefined;
 
     const customization: CartCustomization | undefined =
-      (hasDbSizes || showSizeSelector || showMeatSizeSelector || showCustomization || hasOptionGroups)
+      (hasDbSizes || showSizeSelector || showMeatSizeSelector || showCustomization || hasOptionGroups || hasDbRiceTypes || hasDbAdditions)
         ? {
             size: sizeLabel,
-            riceType: selectedRice?.label,
-            addon: selectedAddon?.label,
+            riceType: selectedDbRice?.name ?? selectedRice?.label,
+            addon: selectedDbAddition?.name ?? selectedAddon?.label,
             extraPrice: totalExtra,
             selectedOptions: pickedOptions,
           }
@@ -466,73 +486,111 @@ export function ProductDetailSheet({ item, visible, onClose }: Props) {
               </View>
             ))}
 
-            {/* ── Rice Type ── */}
+            {/* ── Rice Type (DB-driven or legacy hardcoded) ── */}
             {showRiceOptions && (
               <View style={{ gap: 10 }}>
                 <Text style={[styles.sectionTitle, { color: colors.foreground }]}>أنواع الأرز</Text>
-                {RICE_OPTIONS.map((opt, i) => (
-                  <TouchableOpacity
-                    key={i}
-                    onPress={() => { setRiceIdx(i); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
-                    style={styles.optionRow}
-                    activeOpacity={0.7}
-                  >
-                    <View style={[
-                      styles.radio,
-                      { borderColor: riceIdx === i ? "#E8920C" : colors.border },
-                      riceIdx === i && { backgroundColor: "#E8920C22" },
-                    ]}>
-                      {riceIdx === i && (
-                        <View style={[styles.radioDot, { backgroundColor: "#E8920C" }]} />
-                      )}
-                    </View>
-                    <Text style={{ flex: 1, color: colors.foreground, fontFamily: riceIdx === i ? F.bold : F.regular, fontSize: 15, textAlign: "right" }}>
-                      {opt.label}
-                    </Text>
-                    {opt.extra > 0 && (
-                      <View style={styles.extraBadge}>
-                        <Text style={{ color: "#E8920C", fontFamily: F.bold, fontSize: 12 }}>
-                          + {opt.extra} ر.س
+                {hasDbRiceTypes
+                  ? dbRiceTypes.map((opt) => {
+                      const active = dbRiceTypeName === opt.name;
+                      return (
+                        <TouchableOpacity
+                          key={opt.name}
+                          onPress={() => { setDbRiceTypeName(opt.name); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
+                          style={styles.optionRow}
+                          activeOpacity={0.7}
+                        >
+                          <View style={[styles.radio, { borderColor: active ? "#E8920C" : colors.border }, active && { backgroundColor: "#E8920C22" }]}>
+                            {active && <View style={[styles.radioDot, { backgroundColor: "#E8920C" }]} />}
+                          </View>
+                          <Text style={{ flex: 1, color: colors.foreground, fontFamily: active ? F.bold : F.regular, fontSize: 15, textAlign: "right" }}>
+                            {opt.name}
+                          </Text>
+                          {opt.extraPrice > 0 && (
+                            <View style={styles.extraBadge}>
+                              <Text style={{ color: "#E8920C", fontFamily: F.bold, fontSize: 12 }}>
+                                + {priceStr(opt.extraPrice)} ر.س
+                              </Text>
+                            </View>
+                          )}
+                        </TouchableOpacity>
+                      );
+                    })
+                  : RICE_OPTIONS.map((opt, i) => (
+                      <TouchableOpacity
+                        key={i}
+                        onPress={() => { setRiceIdx(i); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
+                        style={styles.optionRow}
+                        activeOpacity={0.7}
+                      >
+                        <View style={[styles.radio, { borderColor: riceIdx === i ? "#E8920C" : colors.border }, riceIdx === i && { backgroundColor: "#E8920C22" }]}>
+                          {riceIdx === i && <View style={[styles.radioDot, { backgroundColor: "#E8920C" }]} />}
+                        </View>
+                        <Text style={{ flex: 1, color: colors.foreground, fontFamily: riceIdx === i ? F.bold : F.regular, fontSize: 15, textAlign: "right" }}>
+                          {opt.label}
                         </Text>
-                      </View>
-                    )}
-                  </TouchableOpacity>
-                ))}
+                        {opt.extra > 0 && (
+                          <View style={styles.extraBadge}>
+                            <Text style={{ color: "#E8920C", fontFamily: F.bold, fontSize: 12 }}>+ {opt.extra} ر.س</Text>
+                          </View>
+                        )}
+                      </TouchableOpacity>
+                    ))
+                }
               </View>
             )}
 
-            {/* ── Add-ons ── */}
-            {showCustomization && (
+            {/* ── Add-ons (DB-driven or legacy hardcoded) ── */}
+            {showAddons && (
               <View style={{ gap: 10 }}>
                 <Text style={[styles.sectionTitle, { color: colors.foreground }]}>الإضافات</Text>
-                {ADDON_OPTIONS.map((opt, i) => (
-                  <TouchableOpacity
-                    key={i}
-                    onPress={() => { setAddonIdx(i); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
-                    style={styles.optionRow}
-                    activeOpacity={0.7}
-                  >
-                    <View style={[
-                      styles.radio,
-                      { borderColor: addonIdx === i ? "#E8920C" : colors.border },
-                      addonIdx === i && { backgroundColor: "#E8920C22" },
-                    ]}>
-                      {addonIdx === i && (
-                        <View style={[styles.radioDot, { backgroundColor: "#E8920C" }]} />
-                      )}
-                    </View>
-                    <Text style={{ flex: 1, color: colors.foreground, fontFamily: addonIdx === i ? F.bold : F.regular, fontSize: 15, textAlign: "right" }}>
-                      {opt.label}
-                    </Text>
-                    {opt.extra > 0 && (
-                      <View style={styles.extraBadge}>
-                        <Text style={{ color: "#E8920C", fontFamily: F.bold, fontSize: 12 }}>
-                          + {opt.extra} ر.س
+                {hasDbAdditions
+                  ? dbAdditions.map((opt) => {
+                      const active = dbAdditionName === opt.name;
+                      return (
+                        <TouchableOpacity
+                          key={opt.name}
+                          onPress={() => { setDbAdditionName(opt.name); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
+                          style={styles.optionRow}
+                          activeOpacity={0.7}
+                        >
+                          <View style={[styles.radio, { borderColor: active ? "#E8920C" : colors.border }, active && { backgroundColor: "#E8920C22" }]}>
+                            {active && <View style={[styles.radioDot, { backgroundColor: "#E8920C" }]} />}
+                          </View>
+                          <Text style={{ flex: 1, color: colors.foreground, fontFamily: active ? F.bold : F.regular, fontSize: 15, textAlign: "right" }}>
+                            {opt.name}
+                          </Text>
+                          {opt.extraPrice > 0 && (
+                            <View style={styles.extraBadge}>
+                              <Text style={{ color: "#E8920C", fontFamily: F.bold, fontSize: 12 }}>
+                                + {priceStr(opt.extraPrice)} ر.س
+                              </Text>
+                            </View>
+                          )}
+                        </TouchableOpacity>
+                      );
+                    })
+                  : ADDON_OPTIONS.map((opt, i) => (
+                      <TouchableOpacity
+                        key={i}
+                        onPress={() => { setAddonIdx(i); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
+                        style={styles.optionRow}
+                        activeOpacity={0.7}
+                      >
+                        <View style={[styles.radio, { borderColor: addonIdx === i ? "#E8920C" : colors.border }, addonIdx === i && { backgroundColor: "#E8920C22" }]}>
+                          {addonIdx === i && <View style={[styles.radioDot, { backgroundColor: "#E8920C" }]} />}
+                        </View>
+                        <Text style={{ flex: 1, color: colors.foreground, fontFamily: addonIdx === i ? F.bold : F.regular, fontSize: 15, textAlign: "right" }}>
+                          {opt.label}
                         </Text>
-                      </View>
-                    )}
-                  </TouchableOpacity>
-                ))}
+                        {opt.extra > 0 && (
+                          <View style={styles.extraBadge}>
+                            <Text style={{ color: "#E8920C", fontFamily: F.bold, fontSize: 12 }}>+ {opt.extra} ر.س</Text>
+                          </View>
+                        )}
+                      </TouchableOpacity>
+                    ))
+                }
               </View>
             )}
           </ScrollView>

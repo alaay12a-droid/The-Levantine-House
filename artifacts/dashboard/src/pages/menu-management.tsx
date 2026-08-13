@@ -36,6 +36,12 @@ interface OptionGroup {
   collapsed?: boolean;
 }
 
+interface SimpleChoice {
+  name: string;
+  extraPrice: string;
+  available: boolean;
+}
+
 interface MenuItem {
   itemId: string;
   name: string;
@@ -48,6 +54,8 @@ interface MenuItem {
   stock?: number | null;
   sizes: { name: string; price: number; enabled: boolean }[];
   options: { groupName: string; required: boolean; choices: { name: string; extraPrice: number; available: boolean }[] }[];
+  riceTypes?: { name: string; extraPrice: number; available: boolean }[];
+  additions?: { name: string; extraPrice: number; available: boolean }[];
   calories?: number | null;
   walkingMinutes?: number | null;
 }
@@ -91,6 +99,8 @@ interface ItemForm {
   stock: string;
   sizes: SizeOption[];
   options: OptionGroup[];
+  riceTypes: SimpleChoice[];
+  additions: SimpleChoice[];
   calories: string;
   walkingMinutes: string;
 }
@@ -100,6 +110,8 @@ const emptyForm = (): ItemForm => ({
   imageUrl: "", available: true, stock: "",
   sizes: defaultSizesForCategory("chicken"),
   options: [],
+  riceTypes: [],
+  additions: [],
   calories: "",
   walkingMinutes: "",
 });
@@ -194,6 +206,17 @@ export default function MenuManagement() {
       })),
     }));
 
+    const riceTypes: SimpleChoice[] = (item.riceTypes ?? []).map(r => ({
+      name: r.name,
+      extraPrice: r.extraPrice > 0 ? String(r.extraPrice / 100) : "0",
+      available: r.available,
+    }));
+    const additions: SimpleChoice[] = (item.additions ?? []).map(a => ({
+      name: a.name,
+      extraPrice: a.extraPrice > 0 ? String(a.extraPrice / 100) : "0",
+      available: a.available,
+    }));
+
     setForm({
       itemId: item.itemId,
       name: item.name,
@@ -206,6 +229,8 @@ export default function MenuManagement() {
       stock: item.stock === null || item.stock === undefined ? "" : String(item.stock),
       sizes,
       options,
+      riceTypes,
+      additions,
       calories: item.calories != null ? String(item.calories) : "",
       walkingMinutes: item.walkingMinutes != null ? String(item.walkingMinutes) : "",
     });
@@ -238,6 +263,18 @@ export default function MenuManagement() {
   const removeSize = (idx: number) => {
     setForm(f => ({ ...f, sizes: f.sizes.filter((_, i) => i !== idx) }));
   };
+
+  // ── Rice type helpers ──
+  const addRiceType = () => setForm(f => ({ ...f, riceTypes: [...f.riceTypes, { name: "", extraPrice: "0", available: true }] }));
+  const removeRiceType = (idx: number) => setForm(f => ({ ...f, riceTypes: f.riceTypes.filter((_, i) => i !== idx) }));
+  const updateRiceType = (idx: number, field: keyof SimpleChoice, value: string | boolean) =>
+    setForm(f => ({ ...f, riceTypes: f.riceTypes.map((r, i) => i === idx ? { ...r, [field]: value } : r) }));
+
+  // ── Addition helpers ──
+  const addAddition = () => setForm(f => ({ ...f, additions: [...f.additions, { name: "", extraPrice: "0", available: true }] }));
+  const removeAddition = (idx: number) => setForm(f => ({ ...f, additions: f.additions.filter((_, i) => i !== idx) }));
+  const updateAddition = (idx: number, field: keyof SimpleChoice, value: string | boolean) =>
+    setForm(f => ({ ...f, additions: f.additions.map((a, i) => i === idx ? { ...a, [field]: value } : a) }));
 
   // ── Option group helpers ──
   const addOptionGroup = () => {
@@ -312,6 +349,18 @@ export default function MenuManagement() {
         }
       }
     }
+    for (const r of form.riceTypes) {
+      if (!r.name.trim()) { setFormError("أدخل اسم نوع الأرز"); return; }
+      if (isNaN(parseFloat(r.extraPrice)) || parseFloat(r.extraPrice) < 0) {
+        setFormError("سعر إضافي غير صحيح في أنواع الأرز"); return;
+      }
+    }
+    for (const a of form.additions) {
+      if (!a.name.trim()) { setFormError("أدخل اسم الإضافة"); return; }
+      if (isNaN(parseFloat(a.extraPrice)) || parseFloat(a.extraPrice) < 0) {
+        setFormError("سعر إضافي غير صحيح في الإضافات"); return;
+      }
+    }
     setSaving(true);
     setFormError("");
     try {
@@ -340,6 +389,16 @@ export default function MenuManagement() {
         stock: form.stock.trim() === "" ? null : parseInt(form.stock),
         sizes,
         options,
+        riceTypes: form.riceTypes.map(r => ({
+          name: r.name,
+          extraPrice: parseFloat(r.extraPrice) || 0,
+          available: r.available,
+        })),
+        additions: form.additions.map(a => ({
+          name: a.name,
+          extraPrice: parseFloat(a.extraPrice) || 0,
+          available: a.available,
+        })),
         calories: form.calories.trim() === "" ? null : parseInt(form.calories),
         walkingMinutes: form.walkingMinutes.trim() === "" ? null : parseInt(form.walkingMinutes),
       };
@@ -864,6 +923,78 @@ export default function MenuManagement() {
                 <p className="text-xs text-muted-foreground">
                   فعّل الأحجام التي تريد إظهارها للعميل. الأحجام المعطّلة لن تظهر.
                 </p>
+              )}
+            </div>
+
+            {/* ── Rice Types Section ── */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Button type="button" variant="outline" size="sm" className="gap-1.5 h-7 text-xs" onClick={addRiceType}>
+                  <Plus className="h-3 w-3" />
+                  إضافة نوع أرز
+                </Button>
+                <Label className="text-sm font-semibold">أنواع الأرز</Label>
+              </div>
+              {form.riceTypes.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-2 border rounded-lg border-dashed">
+                  لا توجد أنواع — مثال: أرز بشاور أبيض، أرز مندي
+                </p>
+              ) : (
+                <div className="rounded-lg border divide-y">
+                  {form.riceTypes.map((rt, idx) => (
+                    <div key={idx} className="flex items-center gap-2 px-3 py-2.5">
+                      <button type="button" onClick={() => removeRiceType(idx)}
+                        className="text-muted-foreground hover:text-destructive transition-colors shrink-0">
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                      <Switch checked={rt.available} onCheckedChange={v => updateRiceType(idx, "available", v)} className="scale-75 shrink-0" />
+                      <Input value={rt.name} onChange={e => updateRiceType(idx, "name", e.target.value)}
+                        placeholder="مثال: أرز بشاور أبيض" className="h-8 text-sm flex-1 min-w-[80px]" />
+                      <div className="flex items-center gap-1 shrink-0">
+                        <span className="text-xs text-muted-foreground">+</span>
+                        <Input value={rt.extraPrice} onChange={e => updateRiceType(idx, "extraPrice", e.target.value)}
+                          placeholder="0" dir="ltr" type="number" min="0" step="any" className="h-8 text-sm w-20" />
+                        <span className="text-xs text-muted-foreground">ر.س</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* ── Additions Section ── */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Button type="button" variant="outline" size="sm" className="gap-1.5 h-7 text-xs" onClick={addAddition}>
+                  <Plus className="h-3 w-3" />
+                  إضافة خيار
+                </Button>
+                <Label className="text-sm font-semibold">الإضافات</Label>
+              </div>
+              {form.additions.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-2 border rounded-lg border-dashed">
+                  لا توجد إضافات — مثال: بدون كشنة، زيادة كشنة
+                </p>
+              ) : (
+                <div className="rounded-lg border divide-y">
+                  {form.additions.map((add, idx) => (
+                    <div key={idx} className="flex items-center gap-2 px-3 py-2.5">
+                      <button type="button" onClick={() => removeAddition(idx)}
+                        className="text-muted-foreground hover:text-destructive transition-colors shrink-0">
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                      <Switch checked={add.available} onCheckedChange={v => updateAddition(idx, "available", v)} className="scale-75 shrink-0" />
+                      <Input value={add.name} onChange={e => updateAddition(idx, "name", e.target.value)}
+                        placeholder="مثال: بدون كشنة" className="h-8 text-sm flex-1 min-w-[80px]" />
+                      <div className="flex items-center gap-1 shrink-0">
+                        <span className="text-xs text-muted-foreground">+</span>
+                        <Input value={add.extraPrice} onChange={e => updateAddition(idx, "extraPrice", e.target.value)}
+                          placeholder="0" dir="ltr" type="number" min="0" step="any" className="h-8 text-sm w-20" />
+                        <span className="text-xs text-muted-foreground">ر.س</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
 

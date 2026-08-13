@@ -95,6 +95,12 @@ const optionChoiceSchema = z.object({
   available: z.boolean(),
 });
 
+const simpleChoiceSchema = z.object({
+  name: z.string().min(1),
+  extraPrice: z.number().min(0),
+  available: z.boolean(),
+});
+
 const optionGroupSchema = z.object({
   groupName: z.string().min(1),
   required: z.boolean(),
@@ -111,6 +117,8 @@ const createSchema = z.object({
   stock: z.number().int().min(0).nullable().optional(),
   sizes: z.array(sizeOptionSchema).optional(),
   options: z.array(optionGroupSchema).optional(),
+  riceTypes: z.array(simpleChoiceSchema).optional(),
+  additions: z.array(simpleChoiceSchema).optional(),
   calories: z.number().int().min(0).nullable().optional(),
   walkingMinutes: z.number().int().min(0).nullable().optional(),
 });
@@ -126,6 +134,8 @@ const updateSchema = z.object({
   stock: z.number().int().min(0).nullable().optional(),
   sizes: z.array(sizeOptionSchema).optional(),
   options: z.array(optionGroupSchema).optional(),
+  riceTypes: z.array(simpleChoiceSchema).optional(),
+  additions: z.array(simpleChoiceSchema).optional(),
   calories: z.number().int().min(0).nullable().optional(),
   walkingMinutes: z.number().int().min(0).nullable().optional(),
 });
@@ -160,6 +170,8 @@ router.post("/menu", async (req, res) => {
       ...g,
       choices: g.choices.map(c => ({ ...c, extraPrice: Math.round(c.extraPrice * 100) })),
     })),
+    riceTypes: (data.riceTypes ?? []).map(r => ({ ...r, extraPrice: Math.round(r.extraPrice * 100) })),
+    additions: (data.additions ?? []).map(a => ({ ...a, extraPrice: Math.round(a.extraPrice * 100) })),
     calories: data.calories ?? null,
     walkingMinutes: data.walkingMinutes ?? null,
     sortOrder: 999,
@@ -189,6 +201,8 @@ router.put("/menu/:itemId", async (req, res) => {
     ...g,
     choices: g.choices.map(c => ({ ...c, extraPrice: Math.round(c.extraPrice * 100) })),
   }));
+  if (data.riceTypes !== undefined) updates.riceTypes = data.riceTypes.map(r => ({ ...r, extraPrice: Math.round(r.extraPrice * 100) }));
+  if (data.additions !== undefined) updates.additions = data.additions.map(a => ({ ...a, extraPrice: Math.round(a.extraPrice * 100) }));
   if (data.calories !== undefined) updates.calories = data.calories;
   if (data.walkingMinutes !== undefined) updates.walkingMinutes = data.walkingMinutes;
   if (data.stock !== undefined) {

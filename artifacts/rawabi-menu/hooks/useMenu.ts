@@ -30,6 +30,12 @@ export interface ApiMenuItemOptionGroup {
   choices: ApiMenuItemOptionChoice[];
 }
 
+export interface ApiMenuItemSimpleChoice {
+  name: string;
+  extraPrice: number;
+  available: boolean;
+}
+
 export interface ApiMenuItem {
   id: number;
   itemId: string;
@@ -43,6 +49,8 @@ export interface ApiMenuItem {
   stock: number | null;
   sizes: ApiMenuItemSize[];
   options: ApiMenuItemOptionGroup[];
+  riceTypes: ApiMenuItemSimpleChoice[];
+  additions: ApiMenuItemSimpleChoice[];
   calories: number | null;
   walkingMinutes: number | null;
   sortOrder: number;
@@ -91,6 +99,8 @@ function buildCategories(apiItems: ApiMenuItem[]): MenuCategoryWithApi[] {
         ...g,
         choices: g.choices.map(c => ({ ...c, extraPrice: c.extraPrice / 100 })),
       })),
+      riceTypes: (item.riceTypes ?? []).map(r => ({ ...r, extraPrice: r.extraPrice / 100 })),
+      additions: (item.additions ?? []).map(a => ({ ...a, extraPrice: a.extraPrice / 100 })),
       calories: item.calories ?? undefined,
       walkingMinutes: item.walkingMinutes ?? undefined,
     });

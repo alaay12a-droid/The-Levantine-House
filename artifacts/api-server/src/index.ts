@@ -305,6 +305,8 @@ async function runMigrationsAndSeed() {
   await db.execute(sql`ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS options JSONB NOT NULL DEFAULT '[]'`);
   await db.execute(sql`ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS calories INTEGER`);
   await db.execute(sql`ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS walking_minutes INTEGER`);
+  await db.execute(sql`ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS rice_types JSONB NOT NULL DEFAULT '[]'`);
+  await db.execute(sql`ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS additions JSONB NOT NULL DEFAULT '[]'`);
   await db.execute(sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS daily_number INTEGER NOT NULL DEFAULT 0`);
   await db.execute(sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_fee INTEGER NOT NULL DEFAULT 0`);
   await db.execute(sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount_code TEXT`);
