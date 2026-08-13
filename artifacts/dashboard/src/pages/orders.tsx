@@ -777,7 +777,7 @@ export default function Orders() {
                       >
                         {nextLabel}
                       </button>
-                      {!driverPickedUp && (
+                      {order.status === "pending" && (
                         <button
                           onClick={() => handleCancelOrder(order)}
                           title="إلغاء الطلب"
