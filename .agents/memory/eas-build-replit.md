@@ -25,6 +25,11 @@ EAS_PROJECT_ROOT=$(pwd) TMPDIR=/tmp EAS_NO_VCS=1 EAS_BUILD_NO_EXPO_GO_WARNING=tr
 ## Why the /tmp/ standalone approach fails
 npm/pnpm/yarn install in /tmp/ all exit with code -1 (OOM, no output). Replit doesn't have enough memory for full package installation outside the workspace.
 
+## rawabi-menu iOS build — critical rules
+- Always use `EAS_PROJECT_ROOT=$(pwd) EAS_NO_VCS=1` when running from inside `artifacts/rawabi-menu/`
+- **Never add `"packageManager"` to root `package.json`** — it causes EAS to lose the monorepo project path; all iOS builds fail with "package.json does not exist in /Users/expo/workingdir/build/artifacts/rawabi-menu"
+- Symptom of missing EAS_PROJECT_ROOT: build fails in PRE_INSTALL_HOOK within ~60 seconds with "package.json does not exist"
+
 ## .easignore location
 Must be in `artifacts/rawabi-menu/.easignore` (already exists). Key entries: `node_modules/`, `dist/`, `server/`, `.expo/`.
 
