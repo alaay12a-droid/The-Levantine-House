@@ -74,7 +74,7 @@ export function BannerCarousel({ banners }: Props) {
               source={{ uri: item.imageUrl }}
               style={styles.img}
               contentFit="cover"
-              cachePolicy="memory"
+              cachePolicy="memory-disk"
               transition={300}
             />
             {item.title ? (

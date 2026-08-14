@@ -280,6 +280,7 @@ export function ProductDetailSheet({ item, visible, onClose }: Props) {
                 style={styles.heroImg}
                 contentFit="cover"
                 transition={200}
+                cachePolicy="memory-disk"
               />
             ) : null}
 
