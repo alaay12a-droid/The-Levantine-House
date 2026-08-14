@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db, ordersTable, menuItemsTable, appSettingsTable, orderDriverAssignmentsTable, deliveryDriversTable } from "@workspace/db";
 import { eq, desc, gte, lt, count, and, ne } from "drizzle-orm";
-import { sendPushToCashiers, sendPushToToken } from "../lib/sendPushNotification.js";
+import { sendPushToCashiers, sendPushToToken, sendPushToDriver } from "../lib/sendPushNotification.js";
 import { sendSms } from "../lib/sendSms.js";
 import { z } from "zod";
 import { processReferralReward } from "./referrals.js";
@@ -260,6 +260,27 @@ router.patch("/orders/:id/status", async (req, res) => {
         data: { orderId: String(order.id), status },
         channelId: "order-status",
       }).catch((err) => req.log.warn({ err, orderId: order.id }, "Customer status push failed"));
+    }
+  }
+
+  // Notify assigned driver when order is cancelled
+  if (status === "cancelled") {
+    const [driverAsgn] = await db
+      .select({ driverId: orderDriverAssignmentsTable.driverId })
+      .from(orderDriverAssignmentsTable)
+      .where(and(
+        eq(orderDriverAssignmentsTable.orderId, order.id),
+        ne(orderDriverAssignmentsTable.status, "delivered"),
+      ))
+      .limit(1);
+    if (driverAsgn) {
+      sendPushToDriver(driverAsgn.driverId, {
+        title: "❌ تم إلغاء الطلب",
+        body: `تم إلغاء طلب #${order.dailyNumber} من قِبل المطعم — لا داعي للتوجه إليه`,
+        sound: "default",
+        data: { orderId: String(order.id), type: "order_cancelled" },
+        channelId: "orders",
+      }).catch(() => {});
     }
   }
 

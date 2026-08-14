@@ -424,7 +424,10 @@ router.get("/drivers/:id/orders", async (req, res) => {
     })
     .from(orderDriverAssignmentsTable)
     .leftJoin(ordersTable, eq(orderDriverAssignmentsTable.orderId, ordersTable.id))
-    .where(eq(orderDriverAssignmentsTable.driverId, id))
+    .where(and(
+      eq(orderDriverAssignmentsTable.driverId, id),
+      ne(ordersTable.status, "cancelled"),
+    ))
     .orderBy(desc(orderDriverAssignmentsTable.assignedAt));
   res.json(rows);
 });

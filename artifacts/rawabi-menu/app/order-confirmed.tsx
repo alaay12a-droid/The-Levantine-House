@@ -657,6 +657,41 @@ function DriverCard({ row, colors, isEn, orderId }: { row: AssignmentRow; colors
   );
 }
 
+/* ─── Cancelled panel ─────────────────────────────────────── */
+
+function StatusCancelled({ colors, isEn, onReturn }: { colors: ReturnType<typeof useColors>; isEn: boolean; onReturn: () => void }) {
+  const scale = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.spring(scale, { toValue: 1, useNativeDriver: true, friction: 5 }).start();
+  }, [scale]);
+  return (
+    <View style={styles.statusWrap}>
+      <Animated.View style={{ transform: [{ scale }], marginBottom: 16 }}>
+        <View style={[styles.iconCircle, { backgroundColor: "#3A1A1A", borderColor: "#EF5350" }]}>
+          <Feather name="x-circle" size={60} color="#EF5350" />
+        </View>
+      </Animated.View>
+      <Text style={[styles.statusTitle, { color: "#EF5350", fontFamily: F.extra }]}>
+        {isEn ? "Order Cancelled ❌" : "تم إلغاء الطلب ❌"}
+      </Text>
+      <Text style={[styles.statusDesc, { color: colors.mutedForeground, fontFamily: F.regular }]}>
+        {isEn
+          ? "We're sorry, your order was cancelled by the restaurant.\nPlease contact us for more information."
+          : "نأسف، تم إلغاء طلبك من قِبل المطعم.\nللاستفسار تواصل معنا مباشرة."}
+      </Text>
+      <TouchableOpacity
+        onPress={onReturn}
+        style={[styles.returnBtn, { backgroundColor: "#EF5350", marginTop: 28 }]}
+        activeOpacity={0.85}
+      >
+        <Text style={[styles.returnBtnText, { fontFamily: F.bold }]}>
+          {isEn ? "Back to Menu" : "العودة للقائمة"}
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
 /* ─── Main screen ─────────────────────────────────────────── */
 
 export default function OrderConfirmedScreen() {
@@ -761,7 +796,7 @@ export default function OrderConfirmedScreen() {
     return status;
   };
   const panel = showPanel();
-  const isDonePanel = panel === "done" || panel === "delivered";
+  const isDonePanel = panel === "done" || panel === "delivered" || panel === "cancelled";
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: topInset, paddingBottom: bottomInset }]}>
@@ -854,6 +889,7 @@ export default function OrderConfirmedScreen() {
           {panel === "ready"      && <StatusReady      colors={colors} isDelivery={isDelivery} isEn={isEn} />}
           {panel === "on_the_way" && <StatusOnTheWay   colors={colors} isEn={isEn} compact={!!(assignment && isDelivery)} />}
           {panel === "done"       && <StatusDone       colors={colors} onReturn={handleReturn} isEn={isEn} isDelivery={isDelivery} />}
+          {panel === "cancelled"  && <StatusCancelled  colors={colors} onReturn={handleReturn} isEn={isEn} />}
         </View>
       )}
 
