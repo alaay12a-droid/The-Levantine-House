@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, deliveryDriversTable, orderDriverAssignmentsTable, ordersTable, appSettingsTable, messagesTable, driverRatingsTable } from "@workspace/db";
-import { eq, desc, and, gte, lt, ne, sql, inArray, isNotNull } from "drizzle-orm";
+import { eq, desc, and, gte, lt, ne, sql, inArray, isNotNull, or, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { sendPushToDriver, sendPushToToken, sendPushToCashiers } from "../lib/sendPushNotification.js";
 
@@ -426,7 +426,9 @@ router.get("/drivers/:id/orders", async (req, res) => {
     .leftJoin(ordersTable, eq(orderDriverAssignmentsTable.orderId, ordersTable.id))
     .where(and(
       eq(orderDriverAssignmentsTable.driverId, id),
-      ne(ordersTable.status, "cancelled"),
+      // Use OR to handle NULL safely: leftJoin may yield null status if order
+      // row is missing; NULL != 'cancelled' evaluates to NULL (falsy) in SQL.
+      or(isNull(ordersTable.status), ne(ordersTable.status, "cancelled")),
     ))
     .orderBy(desc(orderDriverAssignmentsTable.assignedAt));
   res.json(rows);
@@ -482,6 +484,24 @@ router.post("/orders/:id/assign-driver", async (req, res) => {
   }).catch(() => {});
 });
 
+// ── PUT /drivers/:id/location ─────────────────────────────────────────────────
+// Called by the driver app when going online so auto-assign can find them.
+router.put("/drivers/:id/location", async (req, res) => {
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) { res.status(400).json({ error: "معرّف غير صحيح" }); return; }
+  const { lat, lng } = req.body;
+  if (typeof lat !== "number" || typeof lng !== "number") {
+    res.status(400).json({ error: "إحداثيات غير صحيحة" }); return;
+  }
+  const [driver] = await db
+    .update(deliveryDriversTable)
+    .set({ lastLat: lat, lastLng: lng, lastLocationAt: new Date() })
+    .where(eq(deliveryDriversTable.id, id))
+    .returning({ id: deliveryDriversTable.id });
+  if (!driver) { res.status(404).json({ error: "مندوب غير موجود" }); return; }
+  res.json({ ok: true });
+});
+
 // ── POST /orders/:id/auto-assign-driver ──────────────────────────────────────
 // Finds the closest eligible driver and assigns them automatically.
 // Returns { ok: true, driverId, driverName } or { ok: false, error }.
@@ -494,16 +514,14 @@ router.post("/orders/:id/auto-assign-driver", async (req, res) => {
   const GPS_STALE_MS = 15 * 60 * 1000; // 15 minutes
   const cutoff = new Date(Date.now() - GPS_STALE_MS);
 
-  // 1. All online+active drivers with a fresh GPS reading
+  // 1. All online+active drivers (GPS no longer mandatory — drivers without
+  //    recent GPS are still eligible and sorted to the end of the list)
   const onlineDrivers = await db
     .select()
     .from(deliveryDriversTable)
     .where(and(
       eq(deliveryDriversTable.isOnline, true),
       eq(deliveryDriversTable.active, true),
-      isNotNull(deliveryDriversTable.lastLat),
-      isNotNull(deliveryDriversTable.lastLng),
-      gte(deliveryDriversTable.lastLocationAt, cutoff),
     ));
 
   if (onlineDrivers.length === 0) {
@@ -519,10 +537,18 @@ router.post("/orders/:id/auto-assign-driver", async (req, res) => {
 
   const busyIds = new Set(activeAssigns.map(a => a.driverId));
 
-  // 3. Keep only free drivers, sorted by distance from restaurant (closest first)
+  // 3. Keep only free drivers, sorted by distance from restaurant (closest first).
+  //    Drivers without a recent GPS fix are eligible too — they go to the end.
   const eligible = onlineDrivers
     .filter(d => !busyIds.has(d.id))
-    .map(d => ({ ...d, distKm: haversineKmServer(AUTO_RESTAURANT_LAT, AUTO_RESTAURANT_LNG, d.lastLat!, d.lastLng!) }))
+    .map(d => {
+      const hasGps = d.lastLat != null && d.lastLng != null &&
+        d.lastLocationAt != null && d.lastLocationAt >= cutoff;
+      const distKm = hasGps
+        ? haversineKmServer(AUTO_RESTAURANT_LAT, AUTO_RESTAURANT_LNG, d.lastLat!, d.lastLng!)
+        : 9999; // No GPS — put at end, still eligible
+      return { ...d, distKm };
+    })
     .sort((a, b) => a.distKm - b.distKm);
 
   if (eligible.length === 0) {

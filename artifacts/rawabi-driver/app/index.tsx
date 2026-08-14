@@ -258,6 +258,22 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
       isOnlineRef.current = next;
       setIsOnline(next);
       await AsyncStorage.setItem(DRIVER_ONLINE_KEY, String(next));
+
+      // When going online, send current GPS so auto-assign can find this driver.
+      // Fire-and-forget — don't block the toggle if location fails.
+      if (next) {
+        (async () => {
+          try {
+            const { status } = await Location.requestForegroundPermissionsAsync();
+            if (status !== "granted") return;
+            const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+            await apiPut(`/drivers/${driver.id}/location`, {
+              lat: loc.coords.latitude,
+              lng: loc.coords.longitude,
+            });
+          } catch {}
+        })();
+      }
     } catch {
       Alert.alert("خطأ", "تعذّر تحديث الحالة، تحقق من الاتصال");
     }
