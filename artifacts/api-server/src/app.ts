@@ -60,8 +60,13 @@ app.get(["/", "/invite", "/ref"], (req: Request, res: Response) => {
 // JSON error handler — must have 4 params for Express to treat it as error middleware
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 app.use((err: Error, req: Request, res: Response, _next: NextFunction) => {
-  logger.error({ err, method: req.method, url: req.url }, "Unhandled error");
-  res.status(500).json({ error: err.message || "Internal server error" });
+  // Log the full technical error (including SQL details) server-side only
+  logger.error(
+    { err, pgMessage: (err as any)?.cause?.message ?? (err as any)?.detail, method: req.method, url: req.url },
+    "Unhandled error"
+  );
+  // Return a generic Arabic message — never expose raw SQL or stack traces to clients
+  res.status(500).json({ error: "حدث خطأ في الخادم، يرجى المحاولة مرة أخرى" });
 });
 
 export default app;

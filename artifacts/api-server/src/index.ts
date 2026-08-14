@@ -320,6 +320,25 @@ async function runMigrationsAndSeed() {
   await db.execute(sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS order_type order_type DEFAULT 'delivery' NOT NULL`);
   await db.execute(sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS status order_status DEFAULT 'pending' NOT NULL`);
 
+  // ── Branches table (added after initial deploy) ───────────────────────────
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS branches (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      address TEXT,
+      phone TEXT,
+      maps_url TEXT,
+      active BOOLEAN NOT NULL DEFAULT TRUE,
+      lat REAL,
+      lng REAL,
+      created_at TIMESTAMP DEFAULT NOW() NOT NULL
+    )
+  `);
+
+  // ── Branch columns on orders (added after initial deploy) ─────────────────
+  await db.execute(sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS branch_id INTEGER`);
+  await db.execute(sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS branch_name TEXT`);
+
   logger.info("All migrations complete");
 
   // ── Seed data (only after all schema is ready) ───────────────────────────────
