@@ -1,10 +1,20 @@
 import { Router } from "express";
 import { db, deliveryDriversTable, orderDriverAssignmentsTable, ordersTable, appSettingsTable, messagesTable, driverRatingsTable } from "@workspace/db";
-import { eq, desc, and, gte, lt, ne, sql } from "drizzle-orm";
+import { eq, desc, and, gte, lt, ne, sql, inArray, isNotNull } from "drizzle-orm";
 import { z } from "zod";
 import { sendPushToDriver, sendPushToToken } from "../lib/sendPushNotification.js";
 
 const router = Router();
+
+// ── Haversine distance (km) — used for auto-assign proximity calculation ──────
+function haversineKmServer(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
 
 const cleanPhone = (p: string) => p.replace(/[^\d+]/g, "").trim();
 
@@ -469,6 +479,124 @@ router.post("/orders/:id/assign-driver", async (req, res) => {
   }).catch(() => {});
 });
 
+// ── POST /orders/:id/auto-assign-driver ──────────────────────────────────────
+// Finds the closest eligible driver and assigns them automatically.
+// Returns { ok: true, driverId, driverName } or { ok: false, error }.
+router.post("/orders/:id/auto-assign-driver", async (req, res) => {
+  const orderId = parseInt(req.params.id);
+  if (isNaN(orderId)) { res.status(400).json({ error: "معرّف غير صحيح" }); return; }
+
+  const AUTO_RESTAURANT_LAT = 28.410769;
+  const AUTO_RESTAURANT_LNG = 36.532353;
+  const GPS_STALE_MS = 15 * 60 * 1000; // 15 minutes
+  const cutoff = new Date(Date.now() - GPS_STALE_MS);
+
+  // 1. All online+active drivers with a fresh GPS reading
+  const onlineDrivers = await db
+    .select()
+    .from(deliveryDriversTable)
+    .where(and(
+      eq(deliveryDriversTable.isOnline, true),
+      eq(deliveryDriversTable.active, true),
+      isNotNull(deliveryDriversTable.lastLat),
+      isNotNull(deliveryDriversTable.lastLng),
+      gte(deliveryDriversTable.lastLocationAt, cutoff),
+    ));
+
+  if (onlineDrivers.length === 0) {
+    res.json({ ok: false, error: "لا يوجد مندوب متاح حاليًا للتعيين التلقائي." });
+    return;
+  }
+
+  // 2. Drivers who are already handling an order
+  const activeAssigns = await db
+    .select({ driverId: orderDriverAssignmentsTable.driverId })
+    .from(orderDriverAssignmentsTable)
+    .where(inArray(orderDriverAssignmentsTable.status, ["assigned", "picked_up"]));
+
+  const busyIds = new Set(activeAssigns.map(a => a.driverId));
+
+  // 3. Keep only free drivers, sorted by distance from restaurant (closest first)
+  const eligible = onlineDrivers
+    .filter(d => !busyIds.has(d.id))
+    .map(d => ({ ...d, distKm: haversineKmServer(AUTO_RESTAURANT_LAT, AUTO_RESTAURANT_LNG, d.lastLat!, d.lastLng!) }))
+    .sort((a, b) => a.distKm - b.distKm);
+
+  if (eligible.length === 0) {
+    res.json({ ok: false, error: "لا يوجد مندوب متاح حاليًا للتعيين التلقائي." });
+    return;
+  }
+
+  // 4. Try each candidate in order — transaction prevents double-assigning same driver
+  let assignedDriver: typeof eligible[0] | null = null;
+  for (const candidate of eligible) {
+    const result = await db.transaction(async (tx) => {
+      // Re-check inside transaction (guards against two simultaneous requests)
+      const [conflict] = await tx
+        .select({ id: orderDriverAssignmentsTable.id })
+        .from(orderDriverAssignmentsTable)
+        .where(and(
+          eq(orderDriverAssignmentsTable.driverId, candidate.id),
+          inArray(orderDriverAssignmentsTable.status, ["assigned", "picked_up"]),
+        ))
+        .limit(1);
+      if (conflict) return null; // Driver was just taken — try next
+
+      const [assignment] = await tx
+        .insert(orderDriverAssignmentsTable)
+        .values({ orderId, driverId: candidate.id, status: "assigned" })
+        .onConflictDoUpdate({
+          target: orderDriverAssignmentsTable.orderId,
+          set: { driverId: candidate.id, status: "assigned", assignedAt: new Date() },
+        })
+        .returning();
+      return assignment;
+    }).catch(() => null);
+
+    if (result) { assignedDriver = candidate; break; }
+  }
+
+  if (!assignedDriver) {
+    res.json({ ok: false, error: "لا يوجد مندوب متاح حاليًا للتعيين التلقائي." });
+    return;
+  }
+
+  // 5. Move order to out_for_delivery
+  await db
+    .update(ordersTable)
+    .set({ status: "out_for_delivery" })
+    .where(and(eq(ordersTable.id, orderId), ne(ordersTable.status, "done"), ne(ordersTable.status, "cancelled")));
+
+  // 6. Fetch order info for notifications
+  const [order] = await db
+    .select({ customerPushToken: ordersTable.customerPushToken, dailyNumber: ordersTable.dailyNumber, customerName: ordersTable.customerName })
+    .from(ordersTable)
+    .where(eq(ordersTable.id, orderId))
+    .limit(1);
+
+  res.json({ ok: true, driverId: assignedDriver.id, driverName: assignedDriver.name });
+
+  // 7. Push to customer
+  if (order?.customerPushToken) {
+    sendPushToToken(order.customerPushToken, {
+      title: "🛵 تم تعيين مندوب لطلبك",
+      body: `جاري تجهيز طلبك رقم #${order.dailyNumber} وسيصل إليك قريباً`,
+      sound: "default",
+      data: { orderId: String(orderId), driverStatus: "assigned" },
+      channelId: "order-status",
+    }).catch(() => {});
+  }
+
+  // 8. Push to driver (failure does NOT cancel the assignment)
+  sendPushToDriver(assignedDriver.id, {
+    title: "🛵 طلب جديد!",
+    body: `طلب #${order?.dailyNumber ?? orderId}${order?.customerName ? ` — ${order.customerName}` : ""}`,
+    sound: "default",
+    data: { orderId: String(orderId), type: "new_assignment" },
+    channelId: "orders",
+  }).catch(() => {});
+});
+
 // ── DELETE /orders/:id/assign-driver ─────────────────────────────────────────
 router.delete("/orders/:id/assign-driver", async (req, res) => {
   const orderId = parseInt(req.params.id);
@@ -588,6 +716,13 @@ router.put("/orders/:id/driver-location", async (req, res) => {
     .where(eq(orderDriverAssignmentsTable.orderId, orderId))
     .returning();
   res.json(assignment);
+  // Also update driver's last known location so auto-assign can find them when they're free
+  if (assignment?.driverId) {
+    db.update(deliveryDriversTable)
+      .set({ lastLat: lat, lastLng: lng, lastLocationAt: new Date() })
+      .where(eq(deliveryDriversTable.id, assignment.driverId))
+      .catch(() => {});
+  }
 });
 
 // ── POST /orders/:id/driver-rating ────────────────────────────────────────────

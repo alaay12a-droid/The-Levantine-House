@@ -204,6 +204,9 @@ export const deliveryDriversTable = pgTable("delivery_drivers", {
   isOnline: boolean("is_online").notNull().default(false),
   pin: text("pin").notNull().default("0000"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  lastLat: real("last_lat"),
+  lastLng: real("last_lng"),
+  lastLocationAt: timestamp("last_location_at"),
 });
 
 export type DeliveryDriver = typeof deliveryDriversTable.$inferSelect;

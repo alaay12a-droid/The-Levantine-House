@@ -151,6 +151,10 @@ export default function Cashier() {
   // Print receipt
   const [printCash, setPrintCash] = useState("");
 
+  // Auto-assign toggle (persisted across sessions)
+  const [autoAssign, setAutoAssign] = useState(() => localStorage.getItem("cashier_auto_assign") === "true");
+  const [autoAssigning, setAutoAssigning] = useState(false);
+
   // Polling refs
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -308,6 +312,35 @@ export default function Cashier() {
     } catch { toast({ title: "خطأ", description: "فشل تحديث الحالة", variant: "destructive" }); }
   };
 
+  // ── Accept + optional auto-assign ────────────────────────────────────────
+  const handleAcceptAndAutoAssign = async (order: Order) => {
+    try {
+      await apiPatch(`/orders/${order.id}/status`, { status: "preparing" });
+      setOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: "preparing" } : o));
+    } catch {
+      toast({ title: "خطأ", description: "فشل تحديث الحالة", variant: "destructive" });
+      return;
+    }
+    // Auto-assign only for delivery orders
+    if (!autoAssign || !order.customerAddress?.trim()) return;
+    setAutoAssigning(true);
+    try {
+      const result = await apiPost<{ ok: boolean; driverName?: string; error?: string }>(
+        `/orders/${order.id}/auto-assign-driver`, {}
+      );
+      if (result.ok) {
+        fetchDeliveries(drvSelectedDate);
+        toast({ title: "✅ تم التعيين التلقائي", description: `تم تعيين المندوب: ${result.driverName}` });
+      } else {
+        toast({ title: "⚠️ لا يوجد مندوب متاح", description: result.error ?? "لا يوجد مندوب متاح حاليًا للتعيين التلقائي.", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "⚠️ لا يوجد مندوب متاح", description: "لا يوجد مندوب متاح حاليًا للتعيين التلقائي.", variant: "destructive" });
+    } finally {
+      setAutoAssigning(false);
+    }
+  };
+
   const handleCancelOrder = async (order: Order) => {
     if (!window.confirm(`إلغاء الطلب #${order.dailyNumber ?? order.id}؟`)) return;
     try {
@@ -451,9 +484,10 @@ export default function Cashier() {
     return (
       <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-border/50">
         {order.status === "pending" && (
-          <button onClick={() => handleUpdateStatus(order, "preparing")}
-            className="flex-1 min-w-0 bg-amber-500 hover:bg-amber-600 text-white text-sm font-bold py-2 px-3 rounded-xl flex items-center justify-center gap-1 transition-colors">
-            <CheckCircle className="h-4 w-4" /> قبول الطلب
+          <button onClick={() => handleAcceptAndAutoAssign(order)} disabled={autoAssigning}
+            className="flex-1 min-w-0 bg-amber-500 hover:bg-amber-600 disabled:opacity-60 text-white text-sm font-bold py-2 px-3 rounded-xl flex items-center justify-center gap-1 transition-colors">
+            {autoAssigning ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
+            قبول الطلب
           </button>
         )}
         {order.status === "preparing" && (
@@ -646,6 +680,30 @@ export default function Cashier() {
             {totalUnread > 0 && <span className="text-xs bg-red-500 text-white rounded-full px-1.5 py-0">{totalUnread}</span>}
           </button>
         </div>
+      </div>
+
+      {/* ── Auto-assign toggle ────────────────────────────────────────────── */}
+      <div className={cn(
+        "flex items-center justify-between px-4 py-2.5 rounded-xl border transition-colors",
+        autoAssign
+          ? "bg-blue-500/10 border-blue-500/30"
+          : "bg-zinc-100 dark:bg-zinc-800 border-transparent"
+      )}>
+        <div className="flex items-center gap-2">
+          <Truck className={cn("h-4 w-4", autoAssign ? "text-blue-600 dark:text-blue-400" : "text-muted-foreground")} />
+          <div>
+            <p className={cn("text-sm font-semibold leading-tight", autoAssign ? "text-blue-700 dark:text-blue-300" : "text-foreground")}>
+              التعيين التلقائي للمندوب
+            </p>
+            <p className="text-[11px] text-muted-foreground leading-tight mt-0.5">
+              {autoAssign ? "يعيّن أقرب مندوب متاح عند قبول الطلب تلقائياً" : "التعيين يدوي — كما هو الآن"}
+            </p>
+          </div>
+        </div>
+        <Switch
+          checked={autoAssign}
+          onCheckedChange={v => { setAutoAssign(v); localStorage.setItem("cashier_auto_assign", String(v)); }}
+        />
       </div>
 
       {/* ── Tab navigation ────────────────────────────────────────────────── */}
