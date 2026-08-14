@@ -118,7 +118,8 @@ export default function CheckoutScreen() {
     }).catch(() => {});
   }, [user?.phone]);
   const [cooldownSeconds, setCooldownSeconds] = useState(0);
-  const cooldownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const cooldownRef    = useRef<ReturnType<typeof setInterval> | null>(null);
+  const submittingRef  = useRef(false); // sync guard — prevents double-submit before loading state re-renders
 
   const [forOtherExpanded, setForOtherExpanded] = useState(false);
   const [otherName, setOtherName] = useState("");
@@ -337,6 +338,7 @@ export default function CheckoutScreen() {
   };
 
   const submitOrder = async () => {
+    if (submittingRef.current) return; // block any second tap before state re-renders
     if (!user) return;
     if (paymentMethod === "moyasar") {
       Alert.alert(isEn ? "Coming Soon" : "قريباً", isEn ? "Online payment will be available soon. Please choose Cash on Delivery." : "الدفع الإلكتروني سيكون متاحاً قريباً. يرجى اختيار الدفع عند الاستلام.", [{ text: isEn ? "OK" : "حسناً" }]);
@@ -348,6 +350,7 @@ export default function CheckoutScreen() {
         return;
       }
     }
+    submittingRef.current = true;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setLoading(true);
     try {
@@ -459,6 +462,7 @@ export default function CheckoutScreen() {
       );
     } finally {
       setLoading(false);
+      submittingRef.current = false;
     }
   };
 
