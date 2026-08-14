@@ -2,7 +2,7 @@ import { Router } from "express";
 import { db, deliveryDriversTable, orderDriverAssignmentsTable, ordersTable, appSettingsTable, messagesTable, driverRatingsTable } from "@workspace/db";
 import { eq, desc, and, gte, lt, ne, sql, inArray, isNotNull } from "drizzle-orm";
 import { z } from "zod";
-import { sendPushToDriver, sendPushToToken } from "../lib/sendPushNotification.js";
+import { sendPushToDriver, sendPushToToken, sendPushToCashiers } from "../lib/sendPushNotification.js";
 
 const router = Router();
 
@@ -641,7 +641,7 @@ router.put("/orders/:id/driver-status", async (req, res) => {
 
   // Send push notification to customer
   const [order] = await db
-    .select({ customerPushToken: ordersTable.customerPushToken, id: ordersTable.id })
+    .select({ customerPushToken: ordersTable.customerPushToken, id: ordersTable.id, dailyNumber: ordersTable.dailyNumber })
     .from(ordersTable)
     .where(eq(ordersTable.id, orderId))
     .limit(1);
@@ -663,6 +663,16 @@ router.put("/orders/:id/driver-status", async (req, res) => {
         channelId: "order-status",
       }).catch(() => {});
     }
+  }
+  // Notify cashier dashboard when driver picks up from restaurant
+  if (status === "picked_up") {
+    sendPushToCashiers({
+      title: "📦 المندوب استلم الطلب",
+      body: `المندوب استلم طلب #${order?.dailyNumber ?? orderId} من المطعم وهو في الطريق للعميل`,
+      sound: "default",
+      data: { orderId: String(orderId), type: "driver_picked_up" },
+      channelId: "orders",
+    }).catch(() => {});
   }
 });
 

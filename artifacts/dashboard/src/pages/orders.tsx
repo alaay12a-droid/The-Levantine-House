@@ -464,6 +464,12 @@ export default function Orders() {
       );
       if (result.ok) {
         fetchAssignments();
+        // Immediately reflect out_for_delivery in local state — don't wait for next poll
+        setOrders(prev => prev.map(o =>
+          o.id === order.id && o.status !== "done" && o.status !== "cancelled"
+            ? { ...o, status: "out_for_delivery" as OrderStatus }
+            : o
+        ));
       } else {
         alert(result.error ?? "لا يوجد مندوب متاح حاليًا للتعيين التلقائي.");
       }
@@ -730,11 +736,19 @@ export default function Orders() {
         )}
 
         {aRow && !isExpanded && order.status !== "pending" && (
-          <div style={{ padding: "0 14px 10px" }}>
+          <div style={{ padding: "0 14px 10px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: CLR_DELIVERING_DIM, color: C.blue, fontSize: 11.5, fontWeight: 600, padding: "5px 10px", borderRadius: 8 }}>
               <User size={12} />
               المندوب: {aRow.driverName}
             </div>
+            {!driverPickedUp && !["done","cancelled"].includes(order.status) && (
+              <button
+                onClick={e => { e.stopPropagation(); setAssigningOrder(order); }}
+                style={{ background: "none", border: `1px solid ${C.blue}55`, borderRadius: 6, padding: "3px 8px", color: C.blue, fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}
+              >
+                تغيير
+              </button>
+            )}
           </div>
         )}
 
@@ -792,6 +806,14 @@ export default function Orders() {
                   المندوب: {aRow.driverName}
                   {driverPickedUp && <span style={{ fontSize: 11, opacity: 0.8 }}>— في الطريق</span>}
                   {!driverPickedUp && aRow.status === "assigned" && <span style={{ fontSize: 11, opacity: 0.8 }}>— بانتظار الاستلام</span>}
+                  {!driverPickedUp && !["done","cancelled"].includes(order.status) && (
+                    <button
+                      onClick={() => setAssigningOrder(order)}
+                      style={{ marginRight: "auto", background: "none", border: `1px solid ${C.blue}55`, borderRadius: 6, padding: "2px 8px", color: C.blue, fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}
+                    >
+                      تغيير
+                    </button>
+                  )}
                 </div>
               )}
 
