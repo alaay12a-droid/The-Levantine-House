@@ -1,23 +1,33 @@
 import React, { useRef, useEffect, useState, useCallback } from "react";
-import { View, FlatList, Text, Dimensions, StyleSheet } from "react-native";
+import {
+  View, FlatList, Text, Dimensions,
+  StyleSheet, Animated, Easing,
+} from "react-native";
 import { Image } from "expo-image";
 import type { ApiBanner } from "@/hooks/useBanners";
 
 const { width: SW } = Dimensions.get("window");
-const CARD_WIDTH = SW - 32;
+const CARD_WIDTH  = SW - 32;
 const CARD_HEIGHT = 160;
+const ENTRY_MS    = 450; // entry animation duration
 
-interface Props {
-  banners: ApiBanner[];
-}
+// Total expanded height = card + optional dots row (marginTop 8 + dot height 6 + gap ≈ 24)
+const EXPANDED_H = (withDots: boolean) => CARD_HEIGHT + (withDots ? 24 : 0);
+
+interface Props { banners: ApiBanner[] }
 
 export function BannerCarousel({ banners }: Props) {
   const active = banners.filter((b) => b.active);
-  const flatRef = useRef<FlatList>(null);
+  const flatRef    = useRef<FlatList>(null);
   const [current, setCurrent] = useState(0);
-  const currentRef = useRef(0);
+  const currentRef  = useRef(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // ── Entry animation values ───────────────────────────────────────────────
+  const heightAnim  = useRef(new Animated.Value(0)).current;
+  const opacityAnim = useRef(new Animated.Value(0)).current;
+
+  // ── Auto-scroll (unchanged logic) ────────────────────────────────────────
   const scrollToIndex = useCallback((index: number) => {
     flatRef.current?.scrollToOffset({ offset: index * CARD_WIDTH, animated: true });
     setCurrent(index);
@@ -32,16 +42,43 @@ export function BannerCarousel({ banners }: Props) {
     }, 4000);
   }, [active.length, scrollToIndex]);
 
+  // ── Mount: entry animation → then start auto-scroll ──────────────────────
   useEffect(() => {
-    if (active.length <= 1) return;
-    startAutoScroll();
+    if (active.length === 0) return;
+
+    // 1. Expand height + fade in (ease-out, 450ms)
+    Animated.parallel([
+      Animated.timing(heightAnim, {
+        toValue: EXPANDED_H(active.length > 1),
+        duration: ENTRY_MS,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: false, // height cannot use native driver
+      }),
+      Animated.timing(opacityAnim, {
+        toValue: 1,
+        duration: ENTRY_MS,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: false,
+      }),
+    ]).start(({ finished }) => {
+      // 2. Auto-scroll begins ONLY after entry animation finishes
+      if (finished && active.length > 1) startAutoScroll();
+    });
+
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-  }, [active.length, startAutoScroll]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // run once on mount
 
   if (active.length === 0) return null;
 
   return (
-    <View style={styles.wrapper}>
+    // Animated.View controls height & opacity — pushes content below it down
+    <Animated.View
+      style={[
+        styles.wrapper,
+        { height: heightAnim, opacity: opacityAnim, overflow: "hidden" },
+      ]}
+    >
       <FlatList
         ref={flatRef}
         data={active}
@@ -93,7 +130,7 @@ export function BannerCarousel({ banners }: Props) {
           ))}
         </View>
       )}
-    </View>
+    </Animated.View>
   );
 }
 
@@ -116,9 +153,7 @@ const styles = StyleSheet.create({
   },
   overlay: {
     position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
+    bottom: 0, left: 0, right: 0,
     backgroundColor: "#00000088",
     paddingHorizontal: 14,
     paddingVertical: 8,
@@ -137,8 +172,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   dot: {
-    width: 6,
-    height: 6,
+    width: 6, height: 6,
     borderRadius: 3,
     backgroundColor: "#5A3A1A",
   },
