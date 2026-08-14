@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getOrderPriceFactor } from "@/lib/format";
+import { Switch } from "@/components/ui/switch";
 
 type OrderStatus = "pending" | "preparing" | "ready" | "out_for_delivery" | "done" | "cancelled";
 type OrderType = "delivery" | "pickup";
@@ -345,6 +346,8 @@ export default function Orders() {
   const [soundEnabled, setSoundEnabled] = useState<boolean>(() => {
     try { return localStorage.getItem("cashier_sound") !== "0"; } catch { return true; }
   });
+  const [autoAssign, setAutoAssign]     = useState(() => { try { return localStorage.getItem("cashier_auto_assign") === "true"; } catch { return false; } });
+  const [autoAssigning, setAutoAssigning] = useState(false);
   const [audioBlocked, setAudioBlocked] = useState(false);
 
   const fetchOrders = useCallback(async (silent = false) => {
@@ -446,6 +449,30 @@ export default function Orders() {
       queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
     } catch { alert("تعذر تحديث الحالة"); }
   }, [queryClient]);
+
+  const handleAcceptAndAutoAssign = useCallback(async (order: Order) => {
+    try {
+      const updated = await apiPatch<Order>(`/orders/${order.id}/status`, { status: "preparing" });
+      setOrders(prev => prev.map(o => o.id === updated.id ? updated : o));
+      queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
+    } catch { alert("تعذر تحديث الحالة"); return; }
+    if (!autoAssign || order.orderType !== "delivery") return;
+    setAutoAssigning(true);
+    try {
+      const result = await apiPost<{ ok: boolean; driverName?: string; error?: string }>(
+        `/orders/${order.id}/auto-assign-driver`, {}
+      );
+      if (result.ok) {
+        fetchAssignments();
+      } else {
+        alert(result.error ?? "لا يوجد مندوب متاح حاليًا للتعيين التلقائي.");
+      }
+    } catch {
+      alert("لا يوجد مندوب متاح حاليًا للتعيين التلقائي.");
+    } finally {
+      setAutoAssigning(false);
+    }
+  }, [autoAssign, queryClient, fetchAssignments]);
 
   const handleCancelOrder = useCallback(async (order: Order) => {
     if (!window.confirm(`إلغاء طلب #${order.dailyNumber} — ${order.customerName}؟`)) return;
@@ -685,8 +712,9 @@ export default function Orders() {
         {order.status === "pending" && !isExpanded && (
           <div style={{ padding: "0 12px 12px", display: "flex", gap: 8 }}>
             <button
-              onClick={e => { e.stopPropagation(); handleUpdateStatus(order, "preparing"); }}
-              style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 7, padding: "11px 8px", background: C.green + "22", border: `1.5px solid ${C.green}55`, borderRadius: 10, color: C.green, fontFamily: "inherit", fontWeight: 800, fontSize: 14, cursor: "pointer" }}
+              onClick={e => { e.stopPropagation(); handleAcceptAndAutoAssign(order); }}
+              disabled={autoAssigning}
+              style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 7, padding: "11px 8px", background: C.green + "22", border: `1.5px solid ${C.green}55`, borderRadius: 10, color: C.green, fontFamily: "inherit", fontWeight: 800, fontSize: 14, cursor: "pointer", opacity: autoAssigning ? 0.6 : 1 }}
             >
               <Check size={16} strokeWidth={2.5} />
               قبول
@@ -1414,6 +1442,14 @@ export default function Orders() {
                   </button>
                 );
               })}
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: autoAssign ? C.amber + "14" : C.card, border: `1px solid ${autoAssign ? C.amber + "55" : C.border}`, borderRadius: 10, padding: "10px 14px" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                <span style={{ color: autoAssign ? C.amber : C.text, fontWeight: 700, fontSize: 13 }}>🛵 التعيين التلقائي للمندوب</span>
+                <span style={{ color: C.muted, fontSize: 11 }}>{autoAssign ? "يعيّن أقرب مندوب متاح عند قبول الطلب" : "التعيين يدوي — كما هو الآن"}</span>
+              </div>
+              <Switch checked={autoAssign} onCheckedChange={v => { setAutoAssign(v); try { localStorage.setItem("cashier_auto_assign", String(v)); } catch {} }} />
             </div>
 
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
