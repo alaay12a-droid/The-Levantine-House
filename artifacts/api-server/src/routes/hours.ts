@@ -41,7 +41,17 @@ const DEFAULT: BranchHours = {
 async function getHours(): Promise<BranchHours> {
   const rows = await db.select().from(appSettingsTable).where(eq(appSettingsTable.key, KEY));
   if (rows.length && rows[0].value) {
-    try { return JSON.parse(rows[0].value) as BranchHours; } catch {}
+    try {
+      const parsed = JSON.parse(rows[0].value) as Partial<BranchHours>;
+      // Guard: days must be an array of exactly 7 entries; fall back to defaults if malformed
+      const days = Array.isArray(parsed.days) && parsed.days.length === 7
+        ? parsed.days
+        : DEFAULT.days;
+      return {
+        enabled: typeof parsed.enabled === "boolean" ? parsed.enabled : DEFAULT.enabled,
+        days,
+      };
+    } catch {}
   }
   return DEFAULT;
 }
