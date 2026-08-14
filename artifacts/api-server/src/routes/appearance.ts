@@ -89,6 +89,41 @@ router.put("/settings/pins", async (req, res) => {
   res.json({ ok: true });
 });
 
+// ── GET /settings/payment ──────────────────────────────────────────────────
+const PAYMENT_PREFIX = "payment_";
+const PAYMENT_DEFAULTS: Record<string, string> = {
+  payment_cash:       "true",
+  payment_electronic: "false",
+  payment_wallet:     "false",
+};
+
+router.get("/settings/payment", async (_req, res) => {
+  const rows = await db.select().from(appSettingsTable).where(like(appSettingsTable.key, `${PAYMENT_PREFIX}%`));
+  const result = { ...PAYMENT_DEFAULTS };
+  for (const row of rows) result[row.key] = row.value;
+  res.json({
+    cash:       result.payment_cash       === "true",
+    electronic: result.payment_electronic === "true",
+    wallet:     result.payment_wallet     === "true",
+  });
+});
+
+// ── PUT /settings/payment ──────────────────────────────────────────────────
+router.put("/settings/payment", async (req, res) => {
+  const { cash, electronic, wallet } = req.body as { cash?: boolean; electronic?: boolean; wallet?: boolean };
+  const updates: Record<string, string> = {};
+  if (cash       !== undefined) updates.payment_cash       = String(cash);
+  if (electronic !== undefined) updates.payment_electronic = String(electronic);
+  if (wallet     !== undefined) updates.payment_wallet     = String(wallet);
+  for (const [key, value] of Object.entries(updates)) {
+    await db
+      .insert(appSettingsTable)
+      .values({ key, value })
+      .onConflictDoUpdate({ target: appSettingsTable.key, set: { value, updatedAt: new Date() } });
+  }
+  res.json({ ok: true });
+});
+
 // ── GET /settings/sounds ──────────────────────────────────────────────────
 const SOUND_PREFIX = "sound_";
 const SOUND_DEFAULTS: Record<string, string> = {
