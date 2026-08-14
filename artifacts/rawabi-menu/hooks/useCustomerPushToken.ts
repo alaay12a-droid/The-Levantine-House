@@ -56,7 +56,24 @@ export async function registerCustomerNotifications(): Promise<string | null> {
     }
 
     // Get Expo push token (used as stable key per device)
-    const { data: expoToken } = await Notifications.getExpoPushTokenAsync({ projectId: PROJECT_ID });
+    let expoToken: string;
+    try {
+      const result = await Notifications.getExpoPushTokenAsync({ projectId: PROJECT_ID });
+      expoToken = result.data;
+    } catch (tokenErr) {
+      // iOS-only: report the exact error to the server so it appears in Render logs
+      if (Platform.OS === "ios") {
+        const errMsg = tokenErr instanceof Error ? tokenErr.message : String(tokenErr);
+        const errStack = tokenErr instanceof Error ? (tokenErr.stack ?? "").slice(0, 400) : "";
+        apiPost("/push-token-error", {
+          step: "getExpoPushTokenAsync",
+          error: errMsg,
+          stack: errStack,
+          projectId: PROJECT_ID,
+        }).catch(() => {});
+      }
+      return null;
+    }
     await AsyncStorage.setItem(TOKEN_KEY, expoToken);
 
     // Get native FCM token for direct Firebase Admin SDK delivery.

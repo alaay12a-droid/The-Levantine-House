@@ -179,4 +179,12 @@ router.post("/account/delete", async (req, res) => {
   }
 });
 
+// ── iOS push-token debug logger ───────────────────────────────────────────────
+// Receives the error thrown by getExpoPushTokenAsync on the device and writes
+// it to the server log so it appears in Render's log stream.
+router.post("/push-token-error", (req, res) => {
+  req.log.error({ payload: req.body }, "iOS push-token registration failed on device");
+  res.json({ ok: true });
+});
+
 export default router;
