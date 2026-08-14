@@ -95,7 +95,27 @@ export async function registerCustomerNotifications(): Promise<string | null> {
       token: expoToken,
       fcmToken: fcmToken ?? undefined,
       role: "customer",
-    }).catch(() => {});
+    }).catch((regErr) => {
+      // iOS-only: report server registration failure to Render logs
+      if (Platform.OS === "ios") {
+        const msg = regErr instanceof Error ? regErr.message : String(regErr);
+        apiPost("/push-token-error", {
+          step: "POST /push-tokens",
+          error: msg,
+          token: expoToken.slice(0, 30),
+          platform: "ios",
+        }).catch(() => {});
+      }
+    });
+
+    // iOS-only: log successful token retrieval so we can confirm the step
+    if (Platform.OS === "ios") {
+      apiPost("/push-token-error", {
+        step: "SUCCESS",
+        token: expoToken.slice(0, 30),
+        platform: "ios",
+      }).catch(() => {});
+    }
 
     return expoToken;
   } catch {
