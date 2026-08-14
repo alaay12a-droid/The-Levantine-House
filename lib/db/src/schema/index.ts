@@ -28,6 +28,8 @@ export const ordersTable = pgTable("orders", {
   paymentMethod: text("payment_method").default("cash").notNull(),
   notes: text("notes"),
   customerPushToken: text("customer_push_token"),
+  branchId: integer("branch_id"),
+  branchName: text("branch_name"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -302,3 +304,15 @@ export const deletedAccountsTable = pgTable("deleted_accounts", {
 });
 
 export type DeletedAccount = typeof deletedAccountsTable.$inferSelect;
+
+// ── Branches ──────────────────────────────────────────────────────────────────
+export const branchesTable = pgTable("branches", {
+  id:        serial("id").primaryKey(),
+  name:      text("name").notNull(),
+  address:   text("address"),
+  phone:     text("phone"),
+  mapsUrl:   text("maps_url"),
+  active:    boolean("active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+export type Branch = typeof branchesTable.$inferSelect;

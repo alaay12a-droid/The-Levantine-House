@@ -2,7 +2,7 @@ import { useGetRevenue, useListOrders, getGetRevenueQueryKey, getListOrdersQuery
 import { formatCurrency, formatEasternNumber } from "@/lib/format";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
-import { ListOrdered, Users, UtensilsCrossed, BarChart2, ChevronLeft, ShoppingBag, Banknote, TrendingUp, Bell, Monitor, Settings2, ShieldCheck, Star } from "lucide-react";
+import { ListOrdered, Users, UtensilsCrossed, BarChart2, ChevronLeft, ShoppingBag, Banknote, TrendingUp, Bell, Monitor, Settings2, ShieldCheck, Star, GitBranch } from "lucide-react";
 
 export default function Home() {
   const { data: revenue, isLoading: isRevenueLoading } = useGetRevenue({
@@ -151,6 +151,17 @@ export default function Home() {
       accent: "from-amber-400 to-yellow-500",
       bg: "bg-amber-50 hover:bg-amber-100 border-amber-200",
       iconBg: "bg-amber-500",
+      badge: null,
+      badgeColor: "",
+    },
+    {
+      href: "/branches",
+      icon: GitBranch,
+      title: "الفروع",
+      desc: "إضافة فروع المطعم — يختار العميل الفرع عند الاستلام",
+      accent: "from-teal-500 to-teal-600",
+      bg: "bg-teal-50 hover:bg-teal-100 border-teal-200",
+      iconBg: "bg-teal-600",
       badge: null,
       badgeColor: "",
     },

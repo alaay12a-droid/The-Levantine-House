@@ -1,0 +1,65 @@
+import { Router } from "express";
+import { db, branchesTable } from "@workspace/db";
+import { eq, desc } from "drizzle-orm";
+import { z } from "zod";
+
+const router = Router();
+
+const branchSchema = z.object({
+  name:    z.string().min(1),
+  address: z.string().nullable().optional(),
+  phone:   z.string().nullable().optional(),
+  mapsUrl: z.string().nullable().optional(),
+  active:  z.boolean().optional(),
+});
+
+// ── GET /branches ─────────────────────────────────────────────────────────────
+router.get("/branches", async (_req, res) => {
+  const branches = await db
+    .select()
+    .from(branchesTable)
+    .orderBy(desc(branchesTable.createdAt));
+  res.json(branches);
+});
+
+// ── POST /branches ────────────────────────────────────────────────────────────
+router.post("/branches", async (req, res) => {
+  const parsed = branchSchema.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "بيانات غير صحيحة" }); return; }
+  const [branch] = await db
+    .insert(branchesTable)
+    .values({
+      name:    parsed.data.name,
+      address: parsed.data.address ?? null,
+      phone:   parsed.data.phone   ?? null,
+      mapsUrl: parsed.data.mapsUrl ?? null,
+      active:  parsed.data.active  ?? true,
+    })
+    .returning();
+  res.json(branch);
+});
+
+// ── PUT /branches/:id ─────────────────────────────────────────────────────────
+router.put("/branches/:id", async (req, res) => {
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) { res.status(400).json({ error: "معرّف غير صحيح" }); return; }
+  const parsed = branchSchema.partial().safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "بيانات غير صحيحة" }); return; }
+  const [branch] = await db
+    .update(branchesTable)
+    .set(parsed.data)
+    .where(eq(branchesTable.id, id))
+    .returning();
+  if (!branch) { res.status(404).json({ error: "فرع غير موجود" }); return; }
+  res.json(branch);
+});
+
+// ── DELETE /branches/:id ──────────────────────────────────────────────────────
+router.delete("/branches/:id", async (req, res) => {
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) { res.status(400).json({ error: "معرّف غير صحيح" }); return; }
+  await db.delete(branchesTable).where(eq(branchesTable.id, id));
+  res.json({ ok: true });
+});
+
+export default router;

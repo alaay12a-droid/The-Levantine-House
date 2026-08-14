@@ -28,6 +28,8 @@ const createOrderSchema = z.object({
   paymentMethod: z.enum(["cash", "moyasar", "wallet"]).default("cash"),
   notes: z.string().nullable().optional(),
   customerPushToken: z.string().nullable().optional(),
+  branchId:   z.number().int().nullable().optional(),
+  branchName: z.string().nullable().optional(),
 });
 
 router.post("/orders", async (req, res) => {
@@ -114,6 +116,8 @@ router.post("/orders", async (req, res) => {
     notes: data.notes ?? null,
     status: "pending",
     customerPushToken: data.customerPushToken ?? null,
+    branchId:   data.branchId   ?? null,
+    branchName: data.branchName ?? null,
   }).returning();
 
   for (const item of data.items) {

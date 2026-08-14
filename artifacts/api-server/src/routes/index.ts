@@ -23,6 +23,7 @@ import deliveryZonesRouter from "./delivery-zones";
 import dashboardAuthRouter from "./dashboard-auth";
 import referralsRouter from "./referrals";
 import appVersionRouter from "./app-version";
+import branchesRouter from "./branches";
 
 const router: IRouter = Router();
 
@@ -50,5 +51,6 @@ router.use(deliveryZonesRouter);
 router.use(dashboardAuthRouter);
 router.use(referralsRouter);
 router.use(appVersionRouter);
+router.use(branchesRouter);
 
 export default router;

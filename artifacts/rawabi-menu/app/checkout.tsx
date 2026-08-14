@@ -78,6 +78,18 @@ export default function CheckoutScreen() {
   const [promoError, setPromoError] = useState("");
   const [orderType, setOrderType] = useState<"delivery" | "pickup">("delivery");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
+
+  // ── Branch selection (only shown when 2+ active branches) ─────────────────
+  interface Branch { id: number; name: string; address: string | null; mapsUrl: string | null; active: boolean; }
+  const [branches, setBranches]           = useState<Branch[]>([]);
+  const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null);
+  useEffect(() => {
+    apiGet<Branch[]>("/branches").then(data => {
+      const active = data.filter(b => b.active);
+      setBranches(active);
+      if (active.length === 1) setSelectedBranch(active[0]); // auto-select when only one
+    }).catch(() => {});
+  }, []);
   const [loading, setLoading] = useState(false);
   const [locationUrl, setLocationUrl] = useState<string | null>(null);
   const [locationLoading, setLocationLoading] = useState(false);
@@ -388,6 +400,8 @@ export default function CheckoutScreen() {
         customerPhone: user.phone,
         customerAddress: orderType === "delivery" ? (locationUrl || user.address || null) : null,
         orderType,
+        branchId:   selectedBranch?.id   ?? null,
+        branchName: selectedBranch?.name ?? null,
         items: items.map((ci) => {
           const extra = ci.customization?.extraPrice ?? 0;
           const displayName = resolveCartItemName(ci.item.name, ci.customization);
@@ -405,7 +419,11 @@ export default function CheckoutScreen() {
         discountAmount: appliedDiscount > 0 ? appliedDiscount : null,
         paymentMethod,
         notes: [
-          orderType === "delivery" ? "🚗 توصيل" : "🏪 استلام من الفرع",
+          orderType === "delivery"
+            ? "🚗 توصيل"
+            : selectedBranch
+              ? `🏪 استلام من فرع: ${selectedBranch.name}`
+              : "🏪 استلام من الفرع",
           paymentMethod === "wallet" ? "💰 محفظة" : null,
           appliedDiscount > 0 ? `🏷️ خصم ${appliedDiscount} ر.س (${appliedCodeLabel})` : null,
           forOtherExpanded && (otherName.trim() || otherPhone.trim())
@@ -641,6 +659,58 @@ export default function CheckoutScreen() {
             </TouchableOpacity>
           </View>
         </View>
+
+        {/* ── Branch picker — only when pickup + 2 or more active branches ── */}
+        {orderType === "pickup" && branches.length >= 2 && (
+          <View style={[styles.listCard, dyn.card, { backgroundColor: colors.card, borderColor: colors.border, padding: 12 }]}>
+            <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 12, textAlign: "right", marginBottom: 8 }}>
+              {isEn ? "Select Branch" : "اختر الفرع"}
+            </Text>
+            <View style={{ gap: 8 }}>
+              {branches.map(b => {
+                const selected = selectedBranch?.id === b.id;
+                return (
+                  <TouchableOpacity
+                    key={b.id}
+                    activeOpacity={0.8}
+                    onPress={() => setSelectedBranch(b)}
+                    style={{
+                      borderRadius: 12,
+                      borderWidth: 1.5,
+                      borderColor: selected ? colors.primary : colors.border,
+                      backgroundColor: selected ? colors.primary + "18" : colors.secondary,
+                      padding: 12,
+                      flexDirection: "row-reverse",
+                      alignItems: "center",
+                      gap: 10,
+                    }}
+                  >
+                    <View style={{
+                      width: 20, height: 20, borderRadius: 10,
+                      borderWidth: 2,
+                      borderColor: selected ? colors.primary : colors.mutedForeground,
+                      backgroundColor: selected ? colors.primary : "transparent",
+                      alignItems: "center", justifyContent: "center",
+                    }}>
+                      {selected && <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: "#fff" }} />}
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: colors.foreground, fontFamily: F.bold, fontSize: 14, textAlign: "right" }}>
+                        {isEn ? b.name : b.name}
+                      </Text>
+                      {b.address ? (
+                        <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12, textAlign: "right", marginTop: 2 }}>
+                          {b.address}
+                        </Text>
+                      ) : null}
+                    </View>
+                    <Text style={{ fontSize: 20 }}>🏪</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+        )}
 
         {/* ── Zone check badge ── */}
         {orderType === "delivery" && effectiveLat && effectiveLng && (
