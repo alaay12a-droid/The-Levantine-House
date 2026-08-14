@@ -6,6 +6,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import router from "./routes";
 import { logger } from "./lib/logger";
+import { buildReferralPage } from "./lib/referralLanding";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -44,6 +45,16 @@ const dashboardDist = path.resolve(__dirname, "../../dashboard/dist/public");
 app.use("/dashboard", express.static(dashboardDist));
 app.get(["/dashboard", "/dashboard/", "/dashboard/*splat"], (_req, res) => {
   res.sendFile(path.join(dashboardDist, "index.html"));
+});
+
+// ── Root landing page — referral deep link fallback ──────────────────────────
+// Handles: https://mandi-menu-1-640o.onrender.com?ref=REFxxxxxx
+// Also handles any unmatched path so WhatsApp/browsers don't show a white screen.
+app.get(["/", "/invite", "/ref"], (req: Request, res: Response) => {
+  const ref = (req.query.ref as string | undefined) ?? (req.query.code as string | undefined);
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Cache-Control", "no-cache");
+  res.send(buildReferralPage(ref));
 });
 
 // JSON error handler — must have 4 params for Express to treat it as error middleware
