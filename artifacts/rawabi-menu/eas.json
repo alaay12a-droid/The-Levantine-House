@@ -26,7 +26,8 @@
       },
       "ios": {
         "image": "latest",
-        "credentialsSource": "local"
+        "credentialsSource": "local",
+        "channel": "production"
       },
       "node": "22.15.0",
       "env": {
