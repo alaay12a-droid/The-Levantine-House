@@ -227,17 +227,6 @@ export const MENU_CATEGORIES: MenuCategory[] = [
     ],
   },
   {
-    id: "dhabiha",
-    name: "الذبائح",
-    nameEn: "Whole Animal",
-    icon: "🐑",
-    isDhabiha: true,
-    items: [
-      { id: "dh1", name: "ذبيحة كاملة - تيس بلدي",    nameEn: "Whole Goat - Local Breed",      price: 0, category: "dhabiha", description: "اتصل للسعر",                       descriptionEn: "Call for price",                   imageKey: "dhabiha" },
-      { id: "dh2", name: "ذبيحة العيد والمناسبات",     nameEn: "Occasion & Eid Whole Animal",    price: 0, category: "dhabiha", description: "الطبق الملكي لمناسباتكم",         descriptionEn: "The royal dish for your occasions", imageKey: "dhabiha" },
-    ],
-  },
-  {
     id: "occasions",
     name: "عروض المناسبات",
     nameEn: "Special Offers",
