@@ -30,6 +30,7 @@ npm/pnpm/yarn install in /tmp/ all exit with code -1 (OOM, no output). Replit do
 - **Never add `"packageManager"` to root `package.json`** — it causes EAS to lose the monorepo project path; all iOS builds fail with "package.json does not exist in /Users/expo/workingdir/build/artifacts/rawabi-menu"
 - Symptom of missing EAS_PROJECT_ROOT: build fails in PRE_INSTALL_HOOK within ~60 seconds with "package.json does not exist"
 - **Never add `ios.entitlements.aps-environment` to app.json** — causes Apple error 90112; Expo reads push capability from the provisioning profile automatically; adding it explicitly conflicts and fails Apple validation
+- **rawabi-driver Android builds also require `EAS_PROJECT_ROOT=$(pwd) EAS_NO_VCS=1 TMPDIR=/tmp`** — root `package.json` workspaces only lists `rawabi-menu`; without EAS_PROJECT_ROOT EAS archives from git root and fails in Prebuild within 60s
 - **Never add `remote-notifications` to UIBackgroundModes in app.json** — Apple error 90112 ("UIBackgroundModes contains invalid value: remote-notifications") fires when the signed binary lacks `aps-environment` in its code-signing entitlements, which happens with `credentialsSource: local` + `EAS_NO_VCS=1`; removing it fixes validation without affecting foreground/locked-screen push delivery
 
 ## .easignore location
