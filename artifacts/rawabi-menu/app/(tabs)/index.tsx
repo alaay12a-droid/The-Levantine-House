@@ -463,7 +463,7 @@ export default function MenuScreen() {
           <View style={{ height: 3, backgroundColor: occ.textColor + "55" }} />
         </View>
       )}
-      <Animated.View style={bannerStyle} onLayout={(e) => { const h = e.nativeEvent.layout.height; if (h > 10 && bannerH.value === 0) bannerH.value = h; }}>
+      <Animated.View style={bannerStyle} onLayout={(e) => { const h = e.nativeEvent.layout.height; if (h > bannerH.value) bannerH.value = h; }}>
         <BannerCarousel banners={banners} />
       </Animated.View>
       {favItems.length > 0 && (
