@@ -11,6 +11,8 @@ const branchSchema = z.object({
   phone:   z.string().nullable().optional(),
   mapsUrl: z.string().nullable().optional(),
   active:  z.boolean().optional(),
+  lat:     z.number().nullable().optional(),
+  lng:     z.number().nullable().optional(),
 });
 
 // ── GET /branches ─────────────────────────────────────────────────────────────
@@ -34,6 +36,8 @@ router.post("/branches", async (req, res) => {
       phone:   parsed.data.phone   ?? null,
       mapsUrl: parsed.data.mapsUrl ?? null,
       active:  parsed.data.active  ?? true,
+      lat:     parsed.data.lat     ?? null,
+      lng:     parsed.data.lng     ?? null,
     })
     .returning();
   res.json(branch);
@@ -47,7 +51,15 @@ router.put("/branches/:id", async (req, res) => {
   if (!parsed.success) { res.status(400).json({ error: "بيانات غير صحيحة" }); return; }
   const [branch] = await db
     .update(branchesTable)
-    .set(parsed.data)
+    .set({
+      ...(parsed.data.name    !== undefined ? { name:    parsed.data.name }    : {}),
+      ...(parsed.data.address !== undefined ? { address: parsed.data.address } : {}),
+      ...(parsed.data.phone   !== undefined ? { phone:   parsed.data.phone }   : {}),
+      ...(parsed.data.mapsUrl !== undefined ? { mapsUrl: parsed.data.mapsUrl } : {}),
+      ...(parsed.data.active  !== undefined ? { active:  parsed.data.active }  : {}),
+      ...(parsed.data.lat     !== undefined ? { lat:     parsed.data.lat }     : {}),
+      ...(parsed.data.lng     !== undefined ? { lng:     parsed.data.lng }     : {}),
+    })
     .where(eq(branchesTable.id, id))
     .returning();
   if (!branch) { res.status(404).json({ error: "فرع غير موجود" }); return; }

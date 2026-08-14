@@ -34,6 +34,7 @@ import { useTranslation } from "@/hooks/useTranslation";
 import { useLanguage } from "@/context/LanguageContext";
 import { useUIDensity } from "@/hooks/useUIDensity";
 import { MapPickerModal } from "@/components/MapPickerModal";
+import BranchPickerModal, { type PickerBranch } from "@/components/BranchPickerModal";
 
 const F = {
   regular: "Cairo_400Regular",
@@ -79,15 +80,14 @@ export default function CheckoutScreen() {
   const [orderType, setOrderType] = useState<"delivery" | "pickup">("delivery");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
 
-  // ── Branch selection (only shown when 2+ active branches) ─────────────────
-  interface Branch { id: number; name: string; address: string | null; mapsUrl: string | null; active: boolean; }
-  const [branches, setBranches]           = useState<Branch[]>([]);
-  const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null);
+  // ── Branch selection ───────────────────────────────────────────────────────
+  const [branches, setBranches]             = useState<PickerBranch[]>([]);
+  const [selectedBranch, setSelectedBranch] = useState<PickerBranch | null>(null);
+  const [branchModalVisible, setBranchModalVisible] = useState(false);
   useEffect(() => {
-    apiGet<Branch[]>("/branches").then(data => {
+    apiGet<PickerBranch[]>("/branches").then(data => {
       const active = data.filter(b => b.active);
       setBranches(active);
-      if (active.length === 1) setSelectedBranch(active[0]); // auto-select when only one
     }).catch(() => {});
   }, []);
   const [loading, setLoading] = useState(false);
@@ -505,6 +505,12 @@ export default function CheckoutScreen() {
     if (!user) return;
     if (items.length === 0) return;
 
+    // ── تحقق من اختيار فرع الاستلام ─────────────────────────────────────────
+    if (orderType === "pickup" && branches.length > 0 && !selectedBranch) {
+      setBranchModalVisible(true);
+      return;
+    }
+
     // ── الحد الأدنى للطلب ──────────────────────────────────────────────────────
     if (totalPrice < 15) {
       Alert.alert(
@@ -641,7 +647,11 @@ export default function CheckoutScreen() {
               )}
             </TouchableOpacity>
             <TouchableOpacity
-              onPress={() => { setOrderType("pickup"); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
+              onPress={() => {
+                setOrderType("pickup");
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                if (branches.length > 0) setBranchModalVisible(true);
+              }}
               activeOpacity={0.8}
               style={[
                 styles.orderTypeBtn,
@@ -660,56 +670,49 @@ export default function CheckoutScreen() {
           </View>
         </View>
 
-        {/* ── Branch picker — only when pickup + 2 or more active branches ── */}
-        {orderType === "pickup" && branches.length >= 2 && (
-          <View style={[styles.listCard, dyn.card, { backgroundColor: colors.card, borderColor: colors.border, padding: 12 }]}>
-            <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 12, textAlign: "right", marginBottom: 8 }}>
-              {isEn ? "Select Branch" : "اختر الفرع"}
-            </Text>
-            <View style={{ gap: 8 }}>
-              {branches.map(b => {
-                const selected = selectedBranch?.id === b.id;
-                return (
-                  <TouchableOpacity
-                    key={b.id}
-                    activeOpacity={0.8}
-                    onPress={() => setSelectedBranch(b)}
-                    style={{
-                      borderRadius: 12,
-                      borderWidth: 1.5,
-                      borderColor: selected ? colors.primary : colors.border,
-                      backgroundColor: selected ? colors.primary + "18" : colors.secondary,
-                      padding: 12,
-                      flexDirection: "row-reverse",
-                      alignItems: "center",
-                      gap: 10,
-                    }}
-                  >
-                    <View style={{
-                      width: 20, height: 20, borderRadius: 10,
-                      borderWidth: 2,
-                      borderColor: selected ? colors.primary : colors.mutedForeground,
-                      backgroundColor: selected ? colors.primary : "transparent",
-                      alignItems: "center", justifyContent: "center",
-                    }}>
-                      {selected && <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: "#fff" }} />}
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ color: colors.foreground, fontFamily: F.bold, fontSize: 14, textAlign: "right" }}>
-                        {isEn ? b.name : b.name}
-                      </Text>
-                      {b.address ? (
-                        <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12, textAlign: "right", marginTop: 2 }}>
-                          {b.address}
-                        </Text>
-                      ) : null}
-                    </View>
-                    <Text style={{ fontSize: 20 }}>🏪</Text>
-                  </TouchableOpacity>
-                );
-              })}
+        {/* ── Branch status card (when pickup selected) ── */}
+        {orderType === "pickup" && (
+          <TouchableOpacity
+            activeOpacity={branches.length > 0 ? 0.8 : 1}
+            onPress={() => branches.length > 0 && setBranchModalVisible(true)}
+            style={[styles.listCard, dyn.card, {
+              backgroundColor: colors.card,
+              borderColor: selectedBranch ? "#4CAF50" : (branches.length === 0 ? colors.border : colors.primary + "60"),
+              padding: 14,
+              flexDirection: "row-reverse",
+              alignItems: "center",
+              gap: 12,
+            }]}
+          >
+            <Text style={{ fontSize: 22 }}>🏪</Text>
+            <View style={{ flex: 1 }}>
+              {branches.length === 0 ? (
+                <Text style={{ color: colors.mutedForeground, fontFamily: F.semi, fontSize: 13, textAlign: "right" }}>
+                  {isEn ? "No branches available" : "لا توجد فروع متاحة حالياً"}
+                </Text>
+              ) : selectedBranch ? (
+                <>
+                  <Text style={{ color: "#4CAF50", fontFamily: F.bold, fontSize: 14, textAlign: "right" }}>
+                    {selectedBranch.name}
+                  </Text>
+                  {selectedBranch.address ? (
+                    <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12, textAlign: "right", marginTop: 2 }}>
+                      {selectedBranch.address}
+                    </Text>
+                  ) : null}
+                </>
+              ) : (
+                <Text style={{ color: colors.primary, fontFamily: F.semi, fontSize: 13, textAlign: "right" }}>
+                  {isEn ? "Tap to choose pickup branch" : "اضغط لاختيار فرع الاستلام"}
+                </Text>
+              )}
             </View>
-          </View>
+            {branches.length > 0 && (
+              <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 12 }}>
+                {selectedBranch ? (isEn ? "Change" : "تغيير") : "›"}
+              </Text>
+            )}
+          </TouchableOpacity>
         )}
 
         {/* ── Zone check badge ── */}
@@ -1485,6 +1488,21 @@ export default function CheckoutScreen() {
           </View>
         </View>
       )}
+
+      {/* ── Branch Picker Modal ── */}
+      <BranchPickerModal
+        visible={branchModalVisible}
+        branches={branches}
+        selected={selectedBranch}
+        userLat={effectiveLat}
+        userLng={effectiveLng}
+        onSelect={setSelectedBranch}
+        onConfirm={b => { setSelectedBranch(b); setBranchModalVisible(false); }}
+        onClose={() => setBranchModalVisible(false)}
+        colors={colors}
+        fontFamily={F}
+        isEn={isEn}
+      />
 
       {/* ── Map Picker Modal ── */}
       <MapPickerModal

@@ -313,6 +313,8 @@ export const branchesTable = pgTable("branches", {
   phone:     text("phone"),
   mapsUrl:   text("maps_url"),
   active:    boolean("active").notNull().default(true),
+  lat:       real("lat"),
+  lng:       real("lng"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 export type Branch = typeof branchesTable.$inferSelect;

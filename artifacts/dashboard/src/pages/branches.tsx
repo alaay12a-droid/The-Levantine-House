@@ -18,6 +18,8 @@ interface Branch {
   phone: string | null;
   mapsUrl: string | null;
   active: boolean;
+  lat: number | null;
+  lng: number | null;
   createdAt: string;
 }
 
@@ -28,10 +30,12 @@ interface BranchForm {
   phone: string;
   mapsUrl: string;
   active: boolean;
+  lat: string;
+  lng: string;
 }
 
 const emptyForm = (): BranchForm => ({
-  name: "", address: "", phone: "", mapsUrl: "", active: true,
+  name: "", address: "", phone: "", mapsUrl: "", active: true, lat: "", lng: "",
 });
 
 export default function Branches() {
@@ -71,6 +75,8 @@ export default function Branches() {
       phone: b.phone ?? "",
       mapsUrl: b.mapsUrl ?? "",
       active: b.active,
+      lat: b.lat != null ? String(b.lat) : "",
+      lng: b.lng != null ? String(b.lng) : "",
     });
     setFormError("");
     setDialogOpen(true);
@@ -81,12 +87,16 @@ export default function Branches() {
     if (!form.name.trim()) { setFormError("اسم الفرع مطلوب"); return; }
     setSaving(true);
     try {
+      const latVal = parseFloat(form.lat);
+      const lngVal = parseFloat(form.lng);
       const payload = {
         name:    form.name.trim(),
         address: form.address.trim() || null,
         phone:   form.phone.trim()   || null,
         mapsUrl: form.mapsUrl.trim() || null,
         active:  form.active,
+        lat:     !isNaN(latVal) ? latVal : null,
+        lng:     !isNaN(lngVal) ? lngVal : null,
       };
       if (form.id) {
         await apiPut(`/branches/${form.id}`, payload);
@@ -280,6 +290,41 @@ export default function Branches() {
                 onChange={e => setForm(f => ({ ...f, mapsUrl: e.target.value }))}
                 dir="ltr"
               />
+            </div>
+            {/* Coordinates — needed for map marker and distance sorting */}
+            <div className="space-y-1">
+              <Label className="flex items-center gap-1">
+                <MapPin className="w-3.5 h-3.5 text-muted-foreground" />
+                إحداثيات الموقع
+                <span className="text-muted-foreground text-xs font-normal mr-1">(اختياري — لعرض الخريطة وترتيب الفروع حسب المسافة)</span>
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                افتح الموقع على Google Maps ← اضغط على النقطة ← انسخ الإحداثيات من الأسفل (مثال: 28.3835, 36.5662)
+              </p>
+              <div className="flex gap-2">
+                <div className="flex-1 space-y-1">
+                  <Label className="text-xs text-muted-foreground">خط العرض (Latitude)</Label>
+                  <Input
+                    placeholder="مثال: 28.3835"
+                    value={form.lat}
+                    onChange={e => setForm(f => ({ ...f, lat: e.target.value }))}
+                    dir="ltr"
+                    type="number"
+                    step="any"
+                  />
+                </div>
+                <div className="flex-1 space-y-1">
+                  <Label className="text-xs text-muted-foreground">خط الطول (Longitude)</Label>
+                  <Input
+                    placeholder="مثال: 36.5662"
+                    value={form.lng}
+                    onChange={e => setForm(f => ({ ...f, lng: e.target.value }))}
+                    dir="ltr"
+                    type="number"
+                    step="any"
+                  />
+                </div>
+              </div>
             </div>
             <div className="flex items-center gap-2">
               <Switch
