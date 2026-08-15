@@ -451,37 +451,43 @@ router.post("/orders/:id/assign-driver", async (req, res) => {
     .returning();
   res.json(assignment);
 
-  // Assigning a driver automatically moves the order to "قيد التوصيل" (out for delivery),
-  // unless it's already finished/cancelled — never downgrade a completed order.
-  await db
-    .update(ordersTable)
-    .set({ status: "out_for_delivery" })
-    .where(and(eq(ordersTable.id, orderId), ne(ordersTable.status, "done"), ne(ordersTable.status, "cancelled")));
+  // Everything below runs after the response is already sent.
+  // Errors here must never propagate to Express (would trigger ERR_HTTP_HEADERS_SENT).
+  try {
+    // Move order to "قيد التوصيل" (out_for_delivery) unless already finished/cancelled.
+    await db
+      .update(ordersTable)
+      .set({ status: "out_for_delivery" })
+      .where(and(eq(ordersTable.id, orderId), ne(ordersTable.status, "done"), ne(ordersTable.status, "cancelled")));
 
-  // Notify customer + driver
-  const [order] = await db
-    .select({ customerPushToken: ordersTable.customerPushToken, dailyNumber: ordersTable.dailyNumber, customerName: ordersTable.customerName })
-    .from(ordersTable)
-    .where(eq(ordersTable.id, orderId))
-    .limit(1);
+    // Notify customer + driver
+    const [order] = await db
+      .select({ customerPushToken: ordersTable.customerPushToken, dailyNumber: ordersTable.dailyNumber, customerName: ordersTable.customerName })
+      .from(ordersTable)
+      .where(eq(ordersTable.id, orderId))
+      .limit(1);
 
-  if (order?.customerPushToken) {
-    sendPushToToken(order.customerPushToken, {
-      title: "🛵 تم تعيين مندوب لطلبك",
-      body: `جاري تجهيز طلبك رقم #${order.dailyNumber} وسيصل إليك قريباً`,
+    if (order?.customerPushToken) {
+      sendPushToToken(order.customerPushToken, {
+        title: "🛵 تم تعيين مندوب لطلبك",
+        body: `جاري تجهيز طلبك رقم #${order.dailyNumber} وسيصل إليك قريباً`,
+        sound: "default",
+        data: { orderId: String(orderId), driverStatus: "assigned" },
+        channelId: "order-status",
+      }).catch(() => {});
+    }
+
+    sendPushToDriver(driverIdInt, {
+      title: "🛵 طلب جديد!",
+      body: `طلب #${order?.dailyNumber ?? orderId}${order?.customerName ? ` — ${order.customerName}` : ""}`,
       sound: "default",
-      data: { orderId: String(orderId), driverStatus: "assigned" },
-      channelId: "order-status",
+      data: { orderId: String(orderId), type: "new_assignment" },
+      channelId: "orders",
     }).catch(() => {});
+  } catch (postErr) {
+    // Log but never re-throw — response is already sent.
+    logger.error({ err: postErr, orderId }, "assign-driver: post-response update failed");
   }
-
-  sendPushToDriver(driverIdInt, {
-    title: "🛵 طلب جديد!",
-    body: `طلب #${order?.dailyNumber ?? orderId}${order?.customerName ? ` — ${order.customerName}` : ""}`,
-    sound: "default",
-    data: { orderId: String(orderId), type: "new_assignment" },
-    channelId: "orders",
-  }).catch(() => {});
 });
 
 // ── PUT /drivers/:id/location ─────────────────────────────────────────────────

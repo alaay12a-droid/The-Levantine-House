@@ -30,6 +30,13 @@ async function runMigrationsAndSeed() {
       CREATE TYPE order_status AS ENUM ('pending','preparing','ready','out_for_delivery','done','cancelled');
     EXCEPTION WHEN duplicate_object THEN NULL; END $$
   `);
+  // Idempotent: adds 'out_for_delivery' to existing enums that predate this value.
+  // ADD VALUE IF NOT EXISTS is purely additive and safe to run repeatedly.
+  await db.execute(sql`
+    DO $$ BEGIN
+      ALTER TYPE order_status ADD VALUE IF NOT EXISTS 'out_for_delivery' BEFORE 'done';
+    EXCEPTION WHEN others THEN NULL; END $$
+  `);
   await db.execute(sql`
     DO $$ BEGIN
       CREATE TYPE order_type AS ENUM ('delivery','pickup');
