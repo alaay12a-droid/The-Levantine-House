@@ -10,7 +10,7 @@ import {
   discountCodeUsagesTable,
   deletedAccountsTable,
 } from "@workspace/db";
-import { eq, or } from "drizzle-orm";
+import { and, desc, eq, isNull, or } from "drizzle-orm";
 import { sendPushToToken } from "../lib/sendPushNotification.js";
 import { z } from "zod";
 
@@ -209,6 +209,49 @@ router.post("/push-tokens/test-send", async (req, res) => {
     data: { test: "true", ts: Date.now().toString() },
     channelId: "order-status",
   }).catch((err) => req.log.error({ err }, "push-tokens/test-send delivery error"));
+});
+
+// ── Diagnostic: send test push to the most recently registered iOS token ────────
+// POST /debug/push-latest-ios
+// Queries the DB for the newest iOS customer token (no fcm_token = iOS path),
+// then fires a full sendPushToToken call including the 60 s receipt check.
+// Receipt appears in server logs ~60 s later.
+// Masked token logged so we can correlate receipt with device.
+router.post("/debug/push-latest-ios", async (req, res) => {
+  try {
+    const rows = await db
+      .select({ token: pushTokensTable.token, createdAt: pushTokensTable.createdAt })
+      .from(pushTokensTable)
+      .where(
+        and(
+          eq(pushTokensTable.role, "customer"),
+          isNull(pushTokensTable.fcmToken),
+        ),
+      )
+      .orderBy(desc(pushTokensTable.createdAt))
+      .limit(1);
+
+    if (!rows[0]) {
+      res.status(404).json({ error: "No iOS customer token found in DB" });
+      return;
+    }
+
+    const { token, createdAt } = rows[0];
+    const masked = token.slice(0, 30) + "…";
+    req.log.info({ masked, createdAt }, "debug/push-latest-ios — found token, dispatching push");
+    res.json({ ok: true, masked, createdAt, message: "Push dispatched — receipt fires in ~60 s" });
+
+    sendPushToToken(token, {
+      title: "🔔 اختبار App Store iOS",
+      body: "هذا إشعار تشخيصي — " + new Date().toISOString().slice(11, 19),
+      sound: "default",
+      data: { test: "true", ts: Date.now().toString() },
+      channelId: "order-status",
+    }).catch((err) => req.log.error({ err }, "debug/push-latest-ios delivery error"));
+  } catch (err) {
+    req.log.error({ err }, "debug/push-latest-ios failed");
+    res.status(500).json({ error: String(err) });
+  }
 });
 
 export default router;
