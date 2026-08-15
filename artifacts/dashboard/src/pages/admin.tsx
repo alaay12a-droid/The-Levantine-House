@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Plus, Trash2, Pencil, X, ChevronDown, ChevronUp, Package, Image as ImageIcon, Settings, MapPin, Gift, BarChart2, UtensilsCrossed, RefreshCw, Calendar, DollarSign, ShieldCheck, Volume2, Palette, Bell } from "lucide-react";
+import { Loader2, Plus, Trash2, Pencil, X, ChevronDown, ChevronUp, Package, Image as ImageIcon, Settings, MapPin, Gift, BarChart2, UtensilsCrossed, RefreshCw, Calendar, DollarSign, ShieldCheck, Volume2, Palette, Bell, Upload, Link } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type AdminTab = "menu" | "occasions" | "stock" | "banners" | "revenue" | "combos" | "zones" | "referrals" | "settings";
@@ -19,7 +19,7 @@ type SettingsSection = "hours" | "payment" | "security" | "appearance" | "sounds
 
 interface ApiMenuItem { id: string; name: string; nameEn?: string; category: string; price: number; isAvailable: boolean; stock: number | null; imageUrl?: string; description?: string; }
 interface ApiOccasion { id: string; name: string; description?: string; imageUrl?: string; isActive: boolean; }
-interface ApiBanner { id: string; imageUrl: string; title?: string; isVisible: boolean; createdAt: string; }
+interface ApiBanner { bannerId: string; imageUrl: string; title?: string | null; active: boolean; createdAt: string; }
 interface ApiCombo { id: string; name: string; price: number; description?: string; imageUrl?: string; isAvailable: boolean; components: { name: string; quantity: number }[]; }
 interface ApiZone { id: number; name: string; deliveryFee: number; minOrder: number; enabled: boolean; polygon?: LatLng[]; sortOrder?: number; }
 interface ReferralSettings { enabled: boolean; ratePerReferral: number; }
@@ -78,6 +78,8 @@ export default function Admin() {
   const [bannerImageUrl, setBannerImageUrl] = useState("");
   const [bannerTitle, setBannerTitle] = useState("");
   const [bannerSaving, setBannerSaving] = useState(false);
+  const [bannerUploadMode, setBannerUploadMode] = useState<"url" | "file">("file");
+  const [bannerUploading, setBannerUploading] = useState(false);
 
   // ── Revenue ──
   const [revenueData, setRevenueData] = useState<RevenueData | null>(null);
@@ -367,20 +369,55 @@ export default function Admin() {
   };
 
   // ── Banners ───────────────────────────────────────────────────────────────
+  const handleBannerFileUpload = async (file: File) => {
+    setBannerUploading(true);
+    try {
+      const ext = (file.name.split(".").pop() ?? "jpg").toLowerCase().replace("jpeg", "jpg");
+      const contentType = file.type || `image/${ext === "jpg" ? "jpeg" : ext}`;
+      const apiBase = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "";
+      const urlRes = await fetch(`${apiBase}/api/storage/uploads/request-url`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: `banner-${Date.now()}.${ext}`, size: file.size, contentType }),
+      });
+      if (!urlRes.ok) throw new Error("فشل طلب رابط الرفع");
+      const { uploadURL, objectPath } = await urlRes.json() as { uploadURL: string; objectPath: string };
+      await fetch(uploadURL, { method: "PUT", headers: { "Content-Type": contentType }, body: file });
+      setBannerImageUrl(`${apiBase}/api/storage${objectPath}`);
+    } catch {
+      toast({ title: "خطأ في رفع الصورة، حاول مرة أخرى", variant: "destructive" });
+    } finally {
+      setBannerUploading(false);
+    }
+  };
   const handleAddBanner = async () => {
     if (!bannerImageUrl.trim()) return;
     setBannerSaving(true);
-    try { await apiPost("/banners", { imageUrl: bannerImageUrl, title: bannerTitle }); await loadBanners(); setBannerImageUrl(""); setBannerTitle(""); toast({ title: "تمت الإضافة" }); }
+    try {
+      await apiPost("/banners", { imageUrl: bannerImageUrl, title: bannerTitle || null });
+      await loadBanners();
+      setBannerImageUrl("");
+      setBannerTitle("");
+      toast({ title: "تمت الإضافة" });
+    }
     catch { toast({ title: "خطأ", variant: "destructive" }); }
     finally { setBannerSaving(false); }
   };
   const handleToggleBanner = async (b: ApiBanner) => {
-    try { await apiPut(`/banners/${b.id}`, { isVisible: !b.isVisible }); setBanners(prev => prev.map(x => x.id === b.id ? { ...x, isVisible: !x.isVisible } : x)); }
+    try {
+      await apiPut(`/banners/${b.bannerId}`, { active: !b.active });
+      setBanners(prev => prev.map(x => x.bannerId === b.bannerId ? { ...x, active: !x.active } : x));
+    }
     catch { toast({ title: "خطأ", variant: "destructive" }); }
   };
-  const handleDeleteBanner = async (id: string) => {
+  const handleDeleteBanner = async (bannerId: string) => {
     if (!window.confirm("حذف البانر؟")) return;
-    try { await apiDel(`/banners/${id}`); setBanners(prev => prev.filter(b => b.id !== id)); toast({ title: "تم الحذف" }); }
+    try {
+      await apiDel(`/banners/${bannerId}`);
+      setBanners(prev => prev.filter(b => b.bannerId !== bannerId));
+      toast({ title: "تم الحذف" });
+    }
     catch { toast({ title: "خطأ", variant: "destructive" }); }
   };
 
@@ -745,10 +782,49 @@ export default function Admin() {
           {/* Add banner */}
           <div className="bg-card border border-border rounded-2xl p-4 space-y-3">
             <h3 className="font-semibold text-sm text-foreground">إضافة بانر جديد</h3>
-            <Input placeholder="رابط الصورة (URL)" value={bannerImageUrl} onChange={e => setBannerImageUrl(e.target.value)} dir="ltr" />
+            {/* Mode toggle */}
+            <div className="flex rounded-xl border border-border overflow-hidden">
+              <button
+                onClick={() => { setBannerUploadMode("file"); setBannerImageUrl(""); }}
+                className={cn("flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold transition-colors",
+                  bannerUploadMode === "file" ? "bg-amber-500 text-white" : "bg-background text-muted-foreground hover:bg-muted")}
+              >
+                <Upload className="h-3.5 w-3.5" /> رفع من الجهاز
+              </button>
+              <button
+                onClick={() => { setBannerUploadMode("url"); setBannerImageUrl(""); }}
+                className={cn("flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold transition-colors",
+                  bannerUploadMode === "url" ? "bg-amber-500 text-white" : "bg-background text-muted-foreground hover:bg-muted")}
+              >
+                <Link className="h-3.5 w-3.5" /> رابط URL
+              </button>
+            </div>
+            {/* File upload */}
+            {bannerUploadMode === "file" && (
+              <label className={cn(
+                "flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-xl p-6 cursor-pointer transition-colors",
+                bannerUploading ? "border-amber-400 bg-amber-50 dark:bg-amber-950/20" : "border-border hover:border-amber-400 hover:bg-amber-50/50 dark:hover:bg-amber-950/10"
+              )}>
+                <input type="file" accept="image/*" className="hidden" disabled={bannerUploading}
+                  onChange={e => { const f = e.target.files?.[0]; if (f) handleBannerFileUpload(f); e.target.value = ""; }} />
+                {bannerUploading ? (
+                  <><Loader2 className="h-6 w-6 animate-spin text-amber-500" /><span className="text-xs text-amber-600 font-medium">جاري الرفع…</span></>
+                ) : bannerImageUrl ? (
+                  <><img src={bannerImageUrl} alt="preview" className="w-full h-32 object-cover rounded-lg" /><span className="text-xs text-green-600 font-medium">✅ تم رفع الصورة — اضغط للتغيير</span></>
+                ) : (
+                  <><Upload className="h-8 w-8 text-muted-foreground/40" /><span className="text-sm font-medium text-muted-foreground">اضغط لاختيار صورة</span><span className="text-xs text-muted-foreground/60">JPG, PNG, WebP</span></>
+                )}
+              </label>
+            )}
+            {/* URL input */}
+            {bannerUploadMode === "url" && (
+              <>
+                <Input placeholder="https://..." value={bannerImageUrl} onChange={e => setBannerImageUrl(e.target.value)} dir="ltr" />
+                {bannerImageUrl && <img src={bannerImageUrl} alt="preview" className="w-full h-32 object-cover rounded-xl" onError={e => (e.currentTarget.style.display = "none")} />}
+              </>
+            )}
             <Input placeholder="العنوان (اختياري)" value={bannerTitle} onChange={e => setBannerTitle(e.target.value)} />
-            {bannerImageUrl && <img src={bannerImageUrl} alt="preview" className="w-full h-32 object-cover rounded-xl" onError={e => (e.currentTarget.style.display = "none")} />}
-            <Button onClick={handleAddBanner} disabled={bannerSaving || !bannerImageUrl.trim()}
+            <Button onClick={handleAddBanner} disabled={bannerSaving || bannerUploading || !bannerImageUrl.trim()}
               className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold">
               {bannerSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "إضافة البانر"}
             </Button>
@@ -757,18 +833,18 @@ export default function Admin() {
           {bannersLoading ? <div className="flex justify-center py-6"><Loader2 className="h-6 w-6 animate-spin text-amber-500" /></div> : (
             <div className="space-y-2">
               {banners.map(b => (
-                <div key={b.id} className="bg-card border border-border rounded-2xl overflow-hidden">
-                  <img src={b.imageUrl} alt={b.title} className="w-full h-32 object-cover" />
+                <div key={b.bannerId} className="bg-card border border-border rounded-2xl overflow-hidden">
+                  <img src={b.imageUrl} alt={b.title ?? ""} className="w-full h-32 object-cover" />
                   <div className="flex items-center justify-between p-3">
                     <div>
                       {b.title && <div className="font-medium text-sm text-foreground">{b.title}</div>}
-                      <div className={cn("text-xs font-medium", b.isVisible ? "text-green-600" : "text-zinc-400")}>
-                        {b.isVisible ? "✅ ظاهر" : "🚫 مخفي"}
+                      <div className={cn("text-xs font-medium", b.active ? "text-green-600" : "text-zinc-400")}>
+                        {b.active ? "✅ ظاهر" : "🚫 مخفي"}
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Switch checked={b.isVisible} onCheckedChange={() => handleToggleBanner(b)} />
-                      <button onClick={() => handleDeleteBanner(b.id)} className="h-8 w-8 rounded-lg bg-red-100 dark:bg-red-900/20 text-red-600 flex items-center justify-center hover:bg-red-200 transition-colors">
+                      <Switch checked={b.active} onCheckedChange={() => handleToggleBanner(b)} />
+                      <button onClick={() => handleDeleteBanner(b.bannerId)} className="h-8 w-8 rounded-lg bg-red-100 dark:bg-red-900/20 text-red-600 flex items-center justify-center hover:bg-red-200 transition-colors">
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
                     </div>
