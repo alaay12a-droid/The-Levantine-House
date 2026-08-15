@@ -26,7 +26,7 @@ import { useColors } from "@/hooks/useColors";
 import { useCart } from "@/context/CartContext";
 import { useUser } from "@/context/UserContext";
 import { apiPost, apiGet } from "@/constants/api";
-import { useCustomerPushToken } from "@/hooks/useCustomerPushToken";
+import { useCustomerPushToken, registerCustomerNotifications } from "@/hooks/useCustomerPushToken";
 import { useOrderBadge } from "@/context/OrderBadgeContext";
 import { usePaymentSettings } from "@/hooks/usePaymentSettings";
 import { ORDERS_STORAGE_KEY, StoredOrder } from "./(tabs)/orders";
@@ -395,6 +395,15 @@ export default function CheckoutScreen() {
         }
       } catch { /* if stock check fails, let backend validate */ }
 
+      // Wait up to 4 seconds for push token if not ready yet (fresh install race condition)
+      let finalPushToken = customerPushToken;
+      if (!finalPushToken) {
+        finalPushToken = await Promise.race([
+          registerCustomerNotifications(),
+          new Promise<null>((resolve) => setTimeout(() => resolve(null), 4000)),
+        ]);
+      }
+
       const order = await apiPost<Order>("/orders", {
         customerName: user.name,
         customerPhone: user.phone,
@@ -431,7 +440,7 @@ export default function CheckoutScreen() {
             : null,
           notes.trim() || null,
         ].filter(Boolean).join(" | ") || null,
-        customerPushToken: customerPushToken ?? null,
+        customerPushToken: finalPushToken ?? null,
       });
       if (paymentMethod === "wallet") {
         try {

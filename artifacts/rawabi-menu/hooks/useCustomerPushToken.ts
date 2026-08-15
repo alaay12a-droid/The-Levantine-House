@@ -55,21 +55,32 @@ export async function registerCustomerNotifications(): Promise<string | null> {
       });
     }
 
-    // Get Expo push token (used as stable key per device)
-    let expoToken: string;
-    try {
-      const result = await Notifications.getExpoPushTokenAsync({ projectId: PROJECT_ID });
-      expoToken = result.data;
-    } catch (tokenErr) {
+    // Get Expo push token — retry up to 3 times with 2s delay on failure
+    let expoToken: string | null = null;
+    let lastTokenErr: unknown = null;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const result = await Notifications.getExpoPushTokenAsync({ projectId: PROJECT_ID });
+        expoToken = result.data;
+        break;
+      } catch (err) {
+        lastTokenErr = err;
+        if (attempt < 3) {
+          await new Promise((r) => setTimeout(r, 2000 * attempt));
+        }
+      }
+    }
+    if (!expoToken) {
       // iOS-only: report the exact error to the server so it appears in Render logs
       if (Platform.OS === "ios") {
-        const errMsg = tokenErr instanceof Error ? tokenErr.message : String(tokenErr);
-        const errStack = tokenErr instanceof Error ? (tokenErr.stack ?? "").slice(0, 400) : "";
+        const errMsg = lastTokenErr instanceof Error ? lastTokenErr.message : String(lastTokenErr);
+        const errStack = lastTokenErr instanceof Error ? (lastTokenErr.stack ?? "").slice(0, 400) : "";
         apiPost("/push-token-error", {
           step: "getExpoPushTokenAsync",
           error: errMsg,
           stack: errStack,
           projectId: PROJECT_ID,
+          attempts: 3,
         }).catch(() => {});
       }
       return null;
