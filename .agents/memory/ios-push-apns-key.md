@@ -3,7 +3,7 @@ name: iOS push APNs key for com.rwabi.almndi
 description: History of APNs Auth Key used for iOS push — what went wrong and current state
 ---
 
-## Current State (Active)
+## Current State (Active — confirmed working 2026-08-15)
 
 - **APNs Key ID**: `6ANLN5RM62`
 - **Key file**: `certs/AuthKey_6ANLN5RM62.p8`
