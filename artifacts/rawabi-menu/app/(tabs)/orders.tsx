@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
+import * as Notifications from "expo-notifications";
 import {
   View,
   Text,
@@ -49,7 +50,7 @@ export interface StoredOrder {
   customerName: string;
 }
 
-type OrderStatus = "pending" | "preparing" | "ready" | "done" | "cancelled";
+type OrderStatus = "pending" | "preparing" | "ready" | "out_for_delivery" | "done" | "cancelled";
 
 interface LiveOrder {
   id:     number;
@@ -57,35 +58,39 @@ interface LiveOrder {
 }
 
 const STATUS_LABEL_AR: Record<OrderStatus, string> = {
-  pending:   "في الانتظار",
-  preparing: "جاري التحضير",
-  ready:     "جاهز للاستلام",
-  done:      "مكتمل",
-  cancelled: "ملغى",
+  pending:          "في الانتظار",
+  preparing:        "جاري التحضير",
+  ready:            "جاهز للاستلام",
+  out_for_delivery: "🛵 المندوب في الطريق",
+  done:             "مكتمل",
+  cancelled:        "ملغى",
 };
 
 const STATUS_LABEL_EN: Record<OrderStatus, string> = {
-  pending:   "Pending",
-  preparing: "Preparing",
-  ready:     "Ready for Pickup",
-  done:      "Completed",
-  cancelled: "Cancelled",
+  pending:          "Pending",
+  preparing:        "Preparing",
+  ready:            "Ready for Pickup",
+  out_for_delivery: "🛵 On the way",
+  done:             "Completed",
+  cancelled:        "Cancelled",
 };
 
 const STATUS_COLOR: Record<OrderStatus, string> = {
-  pending:   "#E8920C",
-  preparing: "#3B82F6",
-  ready:     "#22C55E",
-  done:      "#9A7A5A",
-  cancelled: "#E53935",
+  pending:          "#E8920C",
+  preparing:        "#3B82F6",
+  ready:            "#22C55E",
+  out_for_delivery: "#8B5CF6",
+  done:             "#9A7A5A",
+  cancelled:        "#E53935",
 };
 
 const STATUS_ICON: Record<OrderStatus, string> = {
-  pending:   "clock",
-  preparing: "loader",
-  ready:     "check-circle",
-  done:      "archive",
-  cancelled: "x-circle",
+  pending:          "clock",
+  preparing:        "loader",
+  ready:            "check-circle",
+  out_for_delivery: "truck",
+  done:             "archive",
+  cancelled:        "x-circle",
 };
 
 function formatDate(iso: string, isEn: boolean) {
@@ -225,7 +230,7 @@ export default function OrdersScreen() {
     return ordersRef.current
       .filter((o) => {
         const s = liveRef.current[o.id];
-        return !s || s === "pending" || s === "preparing" || s === "ready";
+        return !s || s === "pending" || s === "preparing" || s === "ready" || s === "out_for_delivery";
       })
       .map((o) => o.id);
   }, []);
@@ -287,7 +292,7 @@ export default function OrdersScreen() {
       const ids = stored
         .filter((o) => {
           const s = liveRef.current[o.id];
-          return !s || s === "pending" || s === "preparing" || s === "ready";
+          return !s || s === "pending" || s === "preparing" || s === "ready" || s === "out_for_delivery";
         })
         .map((o) => o.id);
 
@@ -384,6 +389,25 @@ export default function OrdersScreen() {
     }
     setActiveDriver(null);
   }, []);
+
+  // ── foreground notification listener — refresh status immediately on driver push ──
+  useEffect(() => {
+    let sub: Notifications.EventSubscription | null = null;
+    try {
+      sub = Notifications.addNotificationReceivedListener((notification) => {
+        const data = notification.request.content.data as Record<string, unknown> | undefined;
+        const orderId = data?.orderId ? Number(data.orderId) : null;
+        if (orderId != null && !isNaN(orderId)) {
+          // Immediately refresh this order's status and check active driver banner
+          fetchStatuses([orderId]).catch(() => {});
+          checkActiveDriver().catch(() => {});
+        }
+      });
+    } catch {
+      // Not supported in this environment — safe to ignore
+    }
+    return () => { try { sub?.remove(); } catch {} };
+  }, [fetchStatuses, checkActiveDriver]);
 
   // ── screen focus / blur lifecycle ────────────────────────────────────────
   useFocusEffect(
