@@ -11,7 +11,7 @@ import {
   deletedAccountsTable,
 } from "@workspace/db";
 import { and, desc, eq, isNull, or } from "drizzle-orm";
-import { sendPushToToken } from "../lib/sendPushNotification.js";
+import { sendPushToToken, getLastReceiptResult } from "../lib/sendPushNotification.js";
 import { z } from "zod";
 
 const router = Router();
@@ -239,17 +239,22 @@ router.post("/debug/push-latest-ios", async (req, res) => {
     const ts = new Date().toISOString().slice(11, 19);
     const summary = rows.map((r) => ({ masked: r.token.slice(0, 30) + "…", createdAt: r.createdAt }));
     req.log.info({ tokens: summary }, "debug/push-latest-ios — dispatching to all iOS tokens");
-    res.json({ ok: true, count: rows.length, tokens: summary, message: "Pushed to all iOS tokens — receipts fire in ~60 s" });
 
-    for (const { token } of rows) {
+    // Send to all tokens then wait 65 s for the Expo receipt check to fire
+    await Promise.all(rows.map(({ token }) =>
       sendPushToToken(token, {
         title: "🔔 اختبار App Store iOS",
         body: "هذا إشعار تشخيصي — " + ts,
         sound: "default",
         data: { test: "true", ts: Date.now().toString() },
         channelId: "order-status",
-      }).catch((err) => req.log.error({ err, masked: token.slice(0, 30) }, "debug/push-latest-ios delivery error"));
-    }
+      }).catch((err) => req.log.error({ err, masked: token.slice(0, 30) }, "debug/push-latest-ios delivery error"))
+    ));
+
+    // Wait for the deferred receipt check (fires at 60 s, give 5 s buffer)
+    await new Promise((r) => setTimeout(r, 65_000));
+    const receipt = getLastReceiptResult();
+    res.json({ ok: true, count: rows.length, tokens: summary, receipt });
   } catch (err) {
     req.log.error({ err }, "debug/push-latest-ios failed");
     res.status(500).json({ error: String(err) });

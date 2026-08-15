@@ -179,6 +179,17 @@ async function sendViaExpo(expoTokens: string[], msg: PushMessage): Promise<stri
   return invalid;
 }
 
+// ── Last receipt result (in-memory, debug use only) ──────────────────────────
+// Written by checkExpoReceipts so the debug endpoint can read it synchronously.
+export interface ReceiptResult {
+  ok: number;
+  fail: number;
+  entries: Array<{ status: string; message?: string; apnsError?: string; token: string }>;
+  checkedAt: string;
+}
+let _lastReceiptResult: ReceiptResult | null = null;
+export function getLastReceiptResult(): ReceiptResult | null { return _lastReceiptResult; }
+
 // ── Expo receipt checker ──────────────────────────────────────────────────────
 // Called 60 s after sending to read APNs delivery status from Expo's servers.
 // receiptToToken: Map<receiptId, maskedToken> — used to correlate failures with devices.
@@ -219,14 +230,25 @@ async function checkExpoReceipts(receiptToToken: Map<string, string>): Promise<v
         );
       }
     });
+    const okCount = entries.filter(([, r]) => r.status === "ok").length;
+    const failCount = entries.filter(([, r]) => r.status === "error").length;
     logger.info(
-      {
-        total: entries.length,
-        ok: entries.filter(([, r]) => r.status === "ok").length,
-        fail: entries.filter(([, r]) => r.status === "error").length,
-      },
+      { total: entries.length, ok: okCount, fail: failCount },
       "Expo receipts check complete",
     );
+
+    // Store for synchronous debug endpoint readback
+    _lastReceiptResult = {
+      ok: okCount,
+      fail: failCount,
+      entries: entries.map(([receiptId, r]) => ({
+        status: r.status,
+        message: r.message,
+        apnsError: r.details?.error,
+        token: receiptToToken.get(receiptId) ?? "unknown",
+      })),
+      checkedAt: new Date().toISOString(),
+    };
   } catch (err) {
     logger.error({ err }, "Expo receipts fetch error");
   }
