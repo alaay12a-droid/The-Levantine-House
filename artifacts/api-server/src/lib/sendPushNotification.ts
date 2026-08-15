@@ -322,6 +322,8 @@ export async function sendPushToToken(
 ): Promise<void> {
   if (!expoToken) return;
   try {
+    logger.info({ expoToken: expoToken.slice(0, 35), title: msg.title }, "sendPushToToken — attempting delivery");
+
     // Look up the associated FCM token
     const rows = await db
       .select({ fcmToken: pushTokensTable.fcmToken })
@@ -330,6 +332,11 @@ export async function sendPushToToken(
       .limit(1);
 
     const fcmToken = rows[0]?.fcmToken ?? null;
+
+    logger.info(
+      { expoToken: expoToken.slice(0, 35), hasFcm: !!fcmToken, rowFound: rows.length > 0 },
+      "sendPushToToken — DB lookup result",
+    );
 
     let fcmDelivered = false;
     if (fcmToken) {
@@ -341,12 +348,14 @@ export async function sendPushToToken(
     // Fall back to Expo Push API when FCM is not available or failed
     if (!fcmDelivered && expoToken.startsWith("ExponentPushToken[")) {
       if (fcmToken) {
-        logger.warn({ expoToken }, "FCM failed — falling back to Expo Push API");
+        logger.warn({ expoToken: expoToken.slice(0, 35) }, "FCM failed — falling back to Expo Push API");
+      } else {
+        logger.info({ expoToken: expoToken.slice(0, 35) }, "sendPushToToken — no FCM token, sending via Expo Push API (iOS path)");
       }
       const stale = await sendViaExpo([expoToken], msg);
       await removeStaleExpoTokens(stale);
     } else if (!fcmDelivered && !expoToken.startsWith("ExponentPushToken[")) {
-      logger.warn({ expoToken }, "No valid delivery token — targeted push skipped");
+      logger.warn({ expoToken: expoToken.slice(0, 35) }, "No valid delivery token — targeted push skipped");
     }
   } catch (err) {
     logger.error({ err }, "Error in sendPushToToken");
