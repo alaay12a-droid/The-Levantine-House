@@ -211,12 +211,12 @@ router.post("/push-tokens/test-send", async (req, res) => {
   }).catch((err) => req.log.error({ err }, "push-tokens/test-send delivery error"));
 });
 
-// ── Diagnostic: send test push to the most recently registered iOS token ────────
+// ── Diagnostic: send test push to the 5 most recently registered iOS tokens ──────
 // POST /debug/push-latest-ios
-// Queries the DB for the newest iOS customer token (no fcm_token = iOS path),
-// then fires a full sendPushToToken call including the 60 s receipt check.
-// Receipt appears in server logs ~60 s later.
-// Masked token logged so we can correlate receipt with device.
+// Queries the DB for the 5 newest iOS customer tokens (no fcm_token = iOS path),
+// fires sendPushToToken for each. This covers both Expo Go tokens and App Store
+// build tokens since they look identical in the DB.
+// Receipts appear in server logs ~60 s later — each row logs its masked token.
 router.post("/debug/push-latest-ios", async (req, res) => {
   try {
     const rows = await db
@@ -229,25 +229,27 @@ router.post("/debug/push-latest-ios", async (req, res) => {
         ),
       )
       .orderBy(desc(pushTokensTable.createdAt))
-      .limit(1);
+      .limit(5);
 
-    if (!rows[0]) {
+    if (!rows.length) {
       res.status(404).json({ error: "No iOS customer token found in DB" });
       return;
     }
 
-    const { token, createdAt } = rows[0];
-    const masked = token.slice(0, 30) + "…";
-    req.log.info({ masked, createdAt }, "debug/push-latest-ios — found token, dispatching push");
-    res.json({ ok: true, masked, createdAt, message: "Push dispatched — receipt fires in ~60 s" });
+    const ts = new Date().toISOString().slice(11, 19);
+    const summary = rows.map((r) => ({ masked: r.token.slice(0, 30) + "…", createdAt: r.createdAt }));
+    req.log.info({ tokens: summary }, "debug/push-latest-ios — dispatching to all iOS tokens");
+    res.json({ ok: true, count: rows.length, tokens: summary, message: "Pushed to all iOS tokens — receipts fire in ~60 s" });
 
-    sendPushToToken(token, {
-      title: "🔔 اختبار App Store iOS",
-      body: "هذا إشعار تشخيصي — " + new Date().toISOString().slice(11, 19),
-      sound: "default",
-      data: { test: "true", ts: Date.now().toString() },
-      channelId: "order-status",
-    }).catch((err) => req.log.error({ err }, "debug/push-latest-ios delivery error"));
+    for (const { token } of rows) {
+      sendPushToToken(token, {
+        title: "🔔 اختبار App Store iOS",
+        body: "هذا إشعار تشخيصي — " + ts,
+        sound: "default",
+        data: { test: "true", ts: Date.now().toString() },
+        channelId: "order-status",
+      }).catch((err) => req.log.error({ err, masked: token.slice(0, 30) }, "debug/push-latest-ios delivery error"));
+    }
   } catch (err) {
     req.log.error({ err }, "debug/push-latest-ios failed");
     res.status(500).json({ error: String(err) });
