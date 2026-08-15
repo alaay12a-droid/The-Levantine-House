@@ -187,4 +187,36 @@ router.post("/push-token-error", (req, res) => {
   res.json({ ok: true });
 });
 
+// ── Direct push test — for diagnosing iOS delivery without placing a real order ──
+// POST /push-tokens/test-send  { token: "ExponentPushToken[...]" }
+// Returns the Expo Push API ticket so you can see if Expo accepted the push.
+router.post("/push-tokens/test-send", async (req, res) => {
+  const { token, title, body } = req.body as { token?: string; title?: string; body?: string };
+  if (!token || !token.startsWith("ExponentPushToken[")) {
+    res.status(400).json({ error: "Provide a valid ExponentPushToken" });
+    return;
+  }
+  try {
+    const msg = {
+      to: token,
+      title: title ?? "🔔 اختبار إشعار",
+      body: body ?? "وصل هذا الإشعار بنجاح إلى الجهاز",
+      sound: "default" as const,
+      priority: "high",
+      data: { test: true },
+    };
+    const resp = await fetch("https://exp.host/--/api/v2/push/send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify([msg]),
+    });
+    const json = await resp.json() as { data: unknown[] };
+    req.log.info({ token: token.slice(0, 35), ticket: json.data?.[0] }, "push-tokens/test-send result");
+    res.json({ ok: true, ticket: json.data?.[0] });
+  } catch (err) {
+    req.log.error({ err }, "push-tokens/test-send failed");
+    res.status(500).json({ error: String(err) });
+  }
+});
+
 export default router;

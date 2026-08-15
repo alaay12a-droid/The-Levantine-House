@@ -130,7 +130,15 @@ router.post("/orders", async (req, res) => {
     }
   }
 
-  req.log.info({ orderId: order.id }, "New order created");
+  req.log.info(
+    {
+      orderId: order.id,
+      dailyNumber,
+      hasPushToken: !!data.customerPushToken,
+      pushTokenPrefix: data.customerPushToken ? data.customerPushToken.slice(0, 35) : null,
+    },
+    "New order created",
+  );
   res.status(201).json(order);
 
   // Process referral reward for the referred customer (fire and forget)
