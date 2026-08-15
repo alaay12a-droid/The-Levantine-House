@@ -12,6 +12,7 @@
 - [EAS FCM V1 SenderId mismatch diagnosis](eas-fcm-sender-mismatch.md) — push works in Expo Go but fails in prod APK if EAS's FCM V1 credential project differs from google-services.json's project
 - [EAS iOS PKCS12 format](eas-ios-pkcs12-format.md) — use OpenSSL legacy (3DES+SHA-1) NOT Python cryptography; also: credentialsSource at top-level, ascAppId must be numeric (6792793006)
 - [iOS push — Expo fallback fix](ios-push-expo-fallback.md) — APNs token stored as fcmToken caused row deletion; fix: null fcmToken only + skip getDevicePushTokenAsync on iOS
+- [iOS Expo Push Credentials missing](ios-expo-push-credentials.md) — credentialsSource:local does NOT upload APNs key to Expo Push Service; must upload separately via GraphQL API
 - [iOS push APNs key missing](ios-push-apns-key.md) — pushKey must be in credentials.json (keyP8Path+keyId+teamId) or Expo Push Service has no APNs creds; key exists at certs/AuthKey_L3432Q48N5.p8
 - [Auto-assign driver GPS source](auto-assign-gps.md) — driver GPS is per-assignment only; added last_lat/lng/location_at to delivery_drivers, updated on every PUT /orders/:id/driver-location; staleness limit 15 min
 - [Migration ALTER TABLE rule](migration-alter-table-rule.md) — new columns on existing tables MUST have ALTER TABLE ADD COLUMN IF NOT EXISTS in index.ts; CREATE TABLE IF NOT EXISTS is a no-op for existing tables
