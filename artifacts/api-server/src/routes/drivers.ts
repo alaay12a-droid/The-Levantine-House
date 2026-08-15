@@ -48,7 +48,8 @@ router.post("/drivers", async (req, res) => {
     }).returning();
     res.json(driver);
   } catch (e: any) {
-    if (e?.code === "23505") { res.status(409).json({ error: "رقم الجوال مسجل مسبقاً لدى مندوب آخر" }); return; }
+    const pgCode = e?.code ?? e?.cause?.code ?? e?.cause?.cause?.code;
+    if (pgCode === "23505") { res.status(409).json({ error: "رقم الجوال مسجل مسبقاً لدى مندوب آخر" }); return; }
     throw e;
   }
 });
@@ -64,7 +65,8 @@ router.put("/drivers/:id", async (req, res) => {
     const [driver] = await db.update(deliveryDriversTable).set(updateData).where(eq(deliveryDriversTable.id, id)).returning();
     res.json(driver);
   } catch (e: any) {
-    if (e?.code === "23505") { res.status(409).json({ error: "رقم الجوال مسجل مسبقاً لدى مندوب آخر" }); return; }
+    const pgCode = e?.code ?? e?.cause?.code ?? e?.cause?.cause?.code;
+    if (pgCode === "23505") { res.status(409).json({ error: "رقم الجوال مسجل مسبقاً لدى مندوب آخر" }); return; }
     throw e;
   }
 });

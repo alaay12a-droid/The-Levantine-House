@@ -154,7 +154,8 @@ router.post("/discount-codes", async (req, res) => {
     const [row] = await db.insert(discountCodesTable).values(insertData).returning();
     res.status(201).json({ ...row, usageCount: 0 });
   } catch (e: any) {
-    if (e?.code === "23505") { res.status(409).json({ error: "الكود موجود مسبقاً" }); return; }
+    const pgCode = e?.code ?? e?.cause?.code ?? e?.cause?.cause?.code;
+    if (pgCode === "23505") { res.status(409).json({ error: "الكود موجود مسبقاً" }); return; }
     throw e;
   }
 });
