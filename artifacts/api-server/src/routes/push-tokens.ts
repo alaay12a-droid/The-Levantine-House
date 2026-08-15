@@ -11,7 +11,7 @@ import {
   deletedAccountsTable,
 } from "@workspace/db";
 import { and, desc, eq, isNull, or } from "drizzle-orm";
-import { sendPushToToken, getLastReceiptResult } from "../lib/sendPushNotification.js";
+import { sendPushToToken } from "../lib/sendPushNotification.js";
 import { z } from "zod";
 
 const router = Router();
@@ -240,23 +240,39 @@ router.post("/debug/push-latest-ios", async (req, res) => {
     const summary = rows.map((r) => ({ masked: r.token.slice(0, 30) + "…", createdAt: r.createdAt }));
     req.log.info({ tokens: summary }, "debug/push-latest-ios — dispatching to all iOS tokens");
 
-    // Send to all tokens then wait 65 s for the Expo receipt check to fire
-    await Promise.all(rows.map(({ token }) =>
+    res.json({ ok: true, count: rows.length, tokens: summary, message: "Pushed — receipt stored in DB in ~60 s, GET /debug/push-receipt-stored to read" });
+
+    // Dispatch after response so caller doesn't wait
+    for (const { token } of rows) {
       sendPushToToken(token, {
         title: "🔔 اختبار App Store iOS",
         body: "هذا إشعار تشخيصي — " + ts,
         sound: "default",
         data: { test: "true", ts: Date.now().toString() },
         channelId: "order-status",
-      }).catch((err) => req.log.error({ err, masked: token.slice(0, 30) }, "debug/push-latest-ios delivery error"))
-    ));
-
-    // Wait for the deferred receipt check (fires at 60 s, give 5 s buffer)
-    await new Promise((r) => setTimeout(r, 65_000));
-    const receipt = getLastReceiptResult();
-    res.json({ ok: true, count: rows.length, tokens: summary, receipt });
+      }).catch((err) => req.log.error({ err, masked: token.slice(0, 30) }, "debug/push-latest-ios delivery error"));
+    }
   } catch (err) {
     req.log.error({ err }, "debug/push-latest-ios failed");
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+// ── Diagnostic: read last receipt result stored by checkExpoReceipts ───────────
+// GET /debug/push-receipt-stored
+// Returns the APNs delivery result written 60 s after the last debug push.
+router.get("/debug/push-receipt-stored", async (_req, res) => {
+  try {
+    const [row] = await db
+      .select({ value: appSettingsTable.value, updatedAt: appSettingsTable.updatedAt })
+      .from(appSettingsTable)
+      .where(eq(appSettingsTable.key, "push_debug_last_receipt"));
+    if (!row) {
+      res.status(404).json({ error: "No receipt stored yet — send a test push first and wait 60 s" });
+      return;
+    }
+    res.json({ receipt: JSON.parse(row.value), storedAt: row.updatedAt });
+  } catch (err) {
     res.status(500).json({ error: String(err) });
   }
 });

@@ -1,4 +1,4 @@
-import { db, pushTokensTable } from "@workspace/db";
+import { db, pushTokensTable, appSettingsTable } from "@workspace/db";
 import { and, eq, inArray } from "drizzle-orm";
 import { logger } from "./logger.js";
 import { getFCMMessaging } from "./firebase.js";
@@ -237,7 +237,7 @@ async function checkExpoReceipts(receiptToToken: Map<string, string>): Promise<v
       "Expo receipts check complete",
     );
 
-    // Store for synchronous debug endpoint readback
+    // Store for synchronous debug endpoint readback (in-memory)
     _lastReceiptResult = {
       ok: okCount,
       fail: failCount,
@@ -249,6 +249,19 @@ async function checkExpoReceipts(receiptToToken: Map<string, string>): Promise<v
       })),
       checkedAt: new Date().toISOString(),
     };
+
+    // Also persist to DB so the result survives even if we read it late
+    try {
+      await db
+        .insert(appSettingsTable)
+        .values({ key: "push_debug_last_receipt", value: JSON.stringify(_lastReceiptResult) })
+        .onConflictDoUpdate({
+          target: appSettingsTable.key,
+          set: { value: JSON.stringify(_lastReceiptResult), updatedAt: new Date() },
+        });
+    } catch (dbErr) {
+      logger.warn({ dbErr }, "Failed to persist receipt result to DB");
+    }
   } catch (err) {
     logger.error({ err }, "Expo receipts fetch error");
   }
