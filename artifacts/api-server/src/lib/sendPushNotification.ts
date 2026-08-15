@@ -124,10 +124,15 @@ async function sendViaExpo(expoTokens: string[], msg: PushMessage): Promise<stri
       }
 
       const json = (await resp.json()) as { data: ExpoTicket[] };
+
+      // Collect receipt IDs for the deferred receipt check
+      const receiptIds: string[] = [];
       json.data.forEach((ticket, idx) => {
-        if (ticket.status === "error") {
+        if (ticket.status === "ok" && ticket.id) {
+          receiptIds.push(ticket.id);
+        } else if (ticket.status === "error") {
           const errCode = ticket.details?.error ?? "";
-          logger.warn({ errCode, token: chunk[idx] }, "Expo push failed for token");
+          logger.warn({ errCode, token: chunk[idx]?.slice(0, 35) }, "Expo push ticket error");
           if (errCode === "DeviceNotRegistered" || errCode === "InvalidCredentials") {
             invalid.push(chunk[idx]!);
           }
@@ -139,15 +144,76 @@ async function sendViaExpo(expoTokens: string[], msg: PushMessage): Promise<stri
           ok: json.data.filter((t) => t.status === "ok").length,
           fail: json.data.filter((t) => t.status === "error").length,
           chunk: chunk.length,
+          receiptIds,
+          tokens: chunk.map((t) => t.slice(0, 35)),
         },
         "Expo push chunk sent",
       );
+
+      // ── Deferred receipt check (60 s) ──────────────────────────────────────
+      // APNs delivers asynchronously; Expo exposes delivery status via the
+      // receipts API.  We fire this check in the background so it does NOT
+      // block the HTTP response.  The result appears in Render logs ~60 s later.
+      if (receiptIds.length > 0) {
+        setTimeout(() => {
+          checkExpoReceipts(receiptIds).catch((e) =>
+            logger.error({ err: e }, "Expo receipt check threw unexpectedly"),
+          );
+        }, 60_000);
+      }
     } catch (err) {
       logger.error({ err }, "Expo push fetch error");
     }
   }
 
   return invalid;
+}
+
+// ── Expo receipt checker ──────────────────────────────────────────────────────
+// Called 60 s after sending to read APNs delivery status from Expo's servers.
+async function checkExpoReceipts(ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+  try {
+    const resp = await fetch("https://exp.host/--/api/v2/push/getReceipts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ ids }),
+    });
+    if (!resp.ok) {
+      logger.error({ status: resp.status }, "Expo receipts API HTTP error");
+      return;
+    }
+    const json = (await resp.json()) as { data: Record<string, ExpoTicket> };
+    const entries = Object.entries(json.data);
+    entries.forEach(([receiptId, receipt]) => {
+      if (receipt.status === "ok") {
+        logger.info(
+          { receiptId, status: "ok" },
+          "Expo receipt — APNs/FCM confirmed delivery ✅",
+        );
+      } else {
+        logger.error(
+          {
+            receiptId,
+            status: receipt.status,
+            message: receipt.message,
+            error: receipt.details?.error,
+          },
+          "Expo receipt — delivery FAILED ❌",
+        );
+      }
+    });
+    logger.info(
+      {
+        total: entries.length,
+        ok: entries.filter(([, r]) => r.status === "ok").length,
+        fail: entries.filter(([, r]) => r.status === "error").length,
+      },
+      "Expo receipts check complete",
+    );
+  } catch (err) {
+    logger.error({ err }, "Expo receipts fetch error");
+  }
 }
 
 // ── Stale token cleanup ───────────────────────────────────────────────────────
