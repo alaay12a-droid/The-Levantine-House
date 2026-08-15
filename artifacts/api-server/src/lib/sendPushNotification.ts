@@ -125,14 +125,24 @@ async function sendViaExpo(expoTokens: string[], msg: PushMessage): Promise<stri
 
       const json = (await resp.json()) as { data: ExpoTicket[] };
 
-      // Collect receipt IDs for the deferred receipt check
-      const receiptIds: string[] = [];
+      // Collect receipt IDs → masked token mapping for the deferred receipt check.
+      // Masking: first 30 chars of the token (safe to log, not a secret).
+      const receiptToToken = new Map<string, string>();
       json.data.forEach((ticket, idx) => {
+        const maskedToken = chunk[idx]?.slice(0, 30) ?? "unknown";
         if (ticket.status === "ok" && ticket.id) {
-          receiptIds.push(ticket.id);
+          receiptToToken.set(ticket.id, maskedToken);
         } else if (ticket.status === "error") {
           const errCode = ticket.details?.error ?? "";
-          logger.warn({ errCode, token: chunk[idx]?.slice(0, 35) }, "Expo push ticket error");
+          logger.warn(
+            {
+              errCode,
+              message: ticket.message,
+              details: ticket.details,
+              token: maskedToken,
+            },
+            "Expo push ticket error",
+          );
           if (errCode === "DeviceNotRegistered" || errCode === "InvalidCredentials") {
             invalid.push(chunk[idx]!);
           }
@@ -144,8 +154,8 @@ async function sendViaExpo(expoTokens: string[], msg: PushMessage): Promise<stri
           ok: json.data.filter((t) => t.status === "ok").length,
           fail: json.data.filter((t) => t.status === "error").length,
           chunk: chunk.length,
-          receiptIds,
-          tokens: chunk.map((t) => t.slice(0, 35)),
+          receiptIds: [...receiptToToken.keys()],
+          tokens: chunk.map((t) => t.slice(0, 30)),
         },
         "Expo push chunk sent",
       );
@@ -154,9 +164,9 @@ async function sendViaExpo(expoTokens: string[], msg: PushMessage): Promise<stri
       // APNs delivers asynchronously; Expo exposes delivery status via the
       // receipts API.  We fire this check in the background so it does NOT
       // block the HTTP response.  The result appears in Render logs ~60 s later.
-      if (receiptIds.length > 0) {
+      if (receiptToToken.size > 0) {
         setTimeout(() => {
-          checkExpoReceipts(receiptIds).catch((e) =>
+          checkExpoReceipts(receiptToToken).catch((e) =>
             logger.error({ err: e }, "Expo receipt check threw unexpectedly"),
           );
         }, 60_000);
@@ -171,8 +181,10 @@ async function sendViaExpo(expoTokens: string[], msg: PushMessage): Promise<stri
 
 // ── Expo receipt checker ──────────────────────────────────────────────────────
 // Called 60 s after sending to read APNs delivery status from Expo's servers.
-async function checkExpoReceipts(ids: string[]): Promise<void> {
-  if (ids.length === 0) return;
+// receiptToToken: Map<receiptId, maskedToken> — used to correlate failures with devices.
+async function checkExpoReceipts(receiptToToken: Map<string, string>): Promise<void> {
+  if (receiptToToken.size === 0) return;
+  const ids = [...receiptToToken.keys()];
   try {
     const resp = await fetch("https://exp.host/--/api/v2/push/getReceipts", {
       method: "POST",
@@ -186,18 +198,22 @@ async function checkExpoReceipts(ids: string[]): Promise<void> {
     const json = (await resp.json()) as { data: Record<string, ExpoTicket> };
     const entries = Object.entries(json.data);
     entries.forEach(([receiptId, receipt]) => {
+      const maskedToken = receiptToToken.get(receiptId) ?? "unknown";
       if (receipt.status === "ok") {
         logger.info(
-          { receiptId, status: "ok" },
+          { receiptId, status: "ok", token: maskedToken },
           "Expo receipt — APNs/FCM confirmed delivery ✅",
         );
       } else {
+        // Log every field Expo returns so we can diagnose the exact APNs failure.
         logger.error(
           {
             receiptId,
+            token: maskedToken,
             status: receipt.status,
             message: receipt.message,
-            error: receipt.details?.error,
+            apnsError: receipt.details?.error,
+            details: receipt.details,
           },
           "Expo receipt — delivery FAILED ❌",
         );

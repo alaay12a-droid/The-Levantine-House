@@ -11,6 +11,7 @@ import {
   deletedAccountsTable,
 } from "@workspace/db";
 import { eq, or } from "drizzle-orm";
+import { sendPushToToken } from "../lib/sendPushNotification.js";
 import { z } from "zod";
 
 const router = Router();
@@ -188,35 +189,26 @@ router.post("/push-token-error", (req, res) => {
 });
 
 // ── Direct push test — for diagnosing iOS delivery without placing a real order ──
-// POST /push-tokens/test-send  { token: "ExponentPushToken[...]" }
-// Returns the Expo Push API ticket so you can see if Expo accepted the push.
+// POST /push-tokens/test-send  { token: "ExponentPushToken[...]", title?, body? }
+// Uses the full sendPushToToken flow (FCM → Expo fallback + 60 s receipt check).
+// Receipt result appears in server logs ~60 s after this call.
 router.post("/push-tokens/test-send", async (req, res) => {
   const { token, title, body } = req.body as { token?: string; title?: string; body?: string };
   if (!token || !token.startsWith("ExponentPushToken[")) {
     res.status(400).json({ error: "Provide a valid ExponentPushToken" });
     return;
   }
-  try {
-    const msg = {
-      to: token,
-      title: title ?? "🔔 اختبار إشعار",
-      body: body ?? "وصل هذا الإشعار بنجاح إلى الجهاز",
-      sound: "default" as const,
-      priority: "high",
-      data: { test: true },
-    };
-    const resp = await fetch("https://exp.host/--/api/v2/push/send", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify([msg]),
-    });
-    const json = await resp.json() as { data: unknown[] };
-    req.log.info({ token: token.slice(0, 35), ticket: json.data?.[0] }, "push-tokens/test-send result");
-    res.json({ ok: true, ticket: json.data?.[0] });
-  } catch (err) {
-    req.log.error({ err }, "push-tokens/test-send failed");
-    res.status(500).json({ error: String(err) });
-  }
+  req.log.info({ token: token.slice(0, 30) }, "push-tokens/test-send — starting full delivery flow");
+  res.json({ ok: true, message: "Push dispatched — receipt check fires in ~60 s, see server logs" });
+
+  // Run after response so the caller doesn't wait for delivery
+  sendPushToToken(token, {
+    title: title ?? "🔔 اختبار إشعار",
+    body: body ?? "وصل هذا الإشعار بنجاح إلى الجهاز — " + new Date().toISOString().slice(11, 19),
+    sound: "default",
+    data: { test: "true", ts: Date.now().toString() },
+    channelId: "order-status",
+  }).catch((err) => req.log.error({ err }, "push-tokens/test-send delivery error"));
 });
 
 export default router;
