@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, deliveryDriversTable, orderDriverAssignmentsTable, ordersTable, appSettingsTable, messagesTable, driverRatingsTable } from "@workspace/db";
-import { eq, desc, and, gte, lt, ne, sql, inArray, isNotNull, or, isNull } from "drizzle-orm";
+import { eq, desc, and, gte, lt, ne, sql, inArray, notInArray, isNotNull, or, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { sendPushToDriver, sendPushToToken, sendPushToCashiers } from "../lib/sendPushNotification.js";
 
@@ -537,11 +537,17 @@ router.post("/orders/:id/auto-assign-driver", async (req, res) => {
     return;
   }
 
-  // 2. Drivers who are already handling an order
+  // 2. Drivers who are already handling an ACTIVE order.
+  //    Join with ordersTable so stale "assigned" records for done/cancelled orders
+  //    do NOT block the driver from being picked up again.
   const activeAssigns = await db
     .select({ driverId: orderDriverAssignmentsTable.driverId })
     .from(orderDriverAssignmentsTable)
-    .where(inArray(orderDriverAssignmentsTable.status, ["assigned", "picked_up"]));
+    .innerJoin(ordersTable, eq(orderDriverAssignmentsTable.orderId, ordersTable.id))
+    .where(and(
+      inArray(orderDriverAssignmentsTable.status, ["assigned", "picked_up"]),
+      notInArray(ordersTable.status, ["done", "cancelled"]),
+    ));
 
   const busyIds = new Set(activeAssigns.map(a => a.driverId));
 
