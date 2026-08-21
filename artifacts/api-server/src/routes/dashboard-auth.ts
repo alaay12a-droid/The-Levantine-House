@@ -59,7 +59,13 @@ export const requireSameOriginDashboardRequest: RequestHandler = (req, res, next
     return;
   }
   try {
-    if (new URL(origin).host !== requestHost) {
+    const allowedDashboardOrigins = new Set(
+      (process.env.CORS_ALLOWED_ORIGINS ?? "")
+        .split(",")
+        .map((value) => value.trim())
+        .filter(Boolean),
+    );
+    if (new URL(origin).host !== requestHost && !allowedDashboardOrigins.has(origin)) {
       res.status(403).json({ error: "مصدر الطلب غير مصرح به" });
       return;
     }

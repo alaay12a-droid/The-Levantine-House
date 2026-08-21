@@ -5,7 +5,10 @@
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://the-levantine-house.onrender.com"
+      }
     },
     "preview": {
       "distribution": "internal",
@@ -14,7 +17,9 @@
         "image": "latest"
       },
       "node": "22.15.0",
-      "env": {}
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://the-levantine-house.onrender.com"
+      }
     },
     "production": {
       "android": {
@@ -28,7 +33,9 @@
         "channel": "production"
       },
       "node": "22.15.0",
-      "env": {}
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://the-levantine-house.onrender.com"
+      }
     }
   },
   "submit": {

@@ -17,13 +17,13 @@
 
 ## الخطوات المطلوبة منك
 
-### الخطوة 1: نشر الـ API على Replit
-- اضغط **Deploy** في Replit
-- بعد النشر ستحصل على رابط مثل: `https://rawabi-menu-xxx.replit.app`
-- شغّل الأمر التالي لتحديث رابط الإنتاج:
+### الخطوة 1: التأكد من API الإنتاج
+- استخدم API الإنتاج المعتمد على Render: `https://the-levantine-house.onrender.com`
+- لا تستخدم أي رابط Replit أو رابط المشروع القديم.
+- إذا احتجت للتحقق من الإعداد قبل البناء:
 ```bash
 cd artifacts/rawabi-menu
-bash set-production-url.sh https://YOUR_DEPLOYED_URL.replit.app
+bash set-production-url.sh https://the-levantine-house.onrender.com
 ```
 
 ### الخطوة 2: تثبيت EAS CLI وتسجيل الدخول

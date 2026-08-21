@@ -106,7 +106,7 @@ function NotificationSetup() {
   return null;
 }
 
-const API_BASE = process.env.EXPO_PUBLIC_API_BASE_URL ?? "";
+const API_BASE = "https://the-levantine-house.onrender.com";
 
 function isNewer(latest: string, current: string): boolean {
   const p = (v: string) => v.split(".").map(Number);

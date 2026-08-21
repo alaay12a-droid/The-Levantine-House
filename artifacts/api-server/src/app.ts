@@ -12,11 +12,10 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app: Express = express();
 const allowedCorsOrigins = new Set(
-  (process.env.REPLIT_DOMAINS ?? "")
+  (process.env.CORS_ALLOWED_ORIGINS ?? "")
     .split(",")
     .map((domain) => domain.trim())
     .filter(Boolean)
-    .flatMap((domain) => [`https://${domain}`, `http://${domain}`]),
 );
 
 app.use(cookieParser());
@@ -42,7 +41,8 @@ app.use(
 app.use(cors({
   origin(origin, callback) {
     // Same-origin requests need no CORS header. Only explicitly configured
-    // Replit domains may receive credentialed cross-origin CORS responses.
+    // Only explicitly configured production dashboard origins may receive
+    // credentialed cross-origin CORS responses.
     callback(null, !origin || allowedCorsOrigins.has(origin));
   },
   credentials: true,
