@@ -35,7 +35,7 @@ const F = {
 };
 
 const BRANCH_ADDRESS = "CG5F+JHG، المتنبي، الروضة، تبوك 47711";
-const BRANCH_MAPS_URL = "https://www.google.com/maps/search/?api=1&query=CG5F%2BJHG%2C%20Al-Mutanabbi%2C%20Al-Rawdah%2C%20Tabuk%2047711";
+const BRANCH_MAPS_URL = "https://maps.app.goo.gl/hLBQahQV8j8F62Mx8?g_st=ac";
 
 type OrderMode = "delivery" | "pickup";
 type RawItem = MenuItem & { available?: boolean; nameEn?: string; descriptionEn?: string; stock?: number | null };

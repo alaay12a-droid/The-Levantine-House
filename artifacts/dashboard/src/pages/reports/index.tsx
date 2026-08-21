@@ -55,7 +55,7 @@ export default function ReportsPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold">البيت الشامي</h1>
-            <p className="text-sm text-gray-500">تبوك — حي الروضة | 0530707042</p>
+            <p className="text-sm text-gray-500">CG5F+JHG، المتنبي، الروضة، تبوك 47711 | 0530707042</p>
           </div>
           <div className="text-xs text-gray-500 text-left">
             <p className="font-bold text-sm">تقرير المبيعات اليومي</p>

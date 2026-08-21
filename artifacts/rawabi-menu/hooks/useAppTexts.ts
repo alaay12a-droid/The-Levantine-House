@@ -33,7 +33,7 @@ export const DEFAULT_TEXTS: AppTexts = {
   dhabihaPhone:     RESTAURANT_INFO.dhabihaPhone,
   dhabihaWhatsapp:  RESTAURANT_INFO.dhabihaWhatsapp,
   announcement:     "",
-  deliveryArea:     "تبوك - حي الروضة وما حولها",
+  deliveryArea:     "CG5F+JHG، المتنبي، الروضة، تبوك 47711",
   snapchat:         "",
   tiktok:           "",
 };

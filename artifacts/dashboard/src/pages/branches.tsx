@@ -268,7 +268,7 @@ export default function Branches() {
             <div className="space-y-1">
               <Label>العنوان</Label>
               <Input
-                placeholder="مثال: تبوك — حي الروضة، شارع الملك سلمان"
+                placeholder="مثال: CG5F+JHG، المتنبي، الروضة، تبوك 47711"
                 value={form.address}
                 onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
               />
