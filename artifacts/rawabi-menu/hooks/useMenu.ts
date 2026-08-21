@@ -5,13 +5,14 @@ import { apiGet } from "@/constants/api";
 import { MENU_CATEGORIES, FOOD_IMAGES, type MenuItem } from "@/constants/menu";
 
 // ── Cache key (unchanged — backward compatible) ─────────────────────────────
-const MENU_CACHE_KEY   = "@rawabi_menu_cache_v3";
+const MENU_CACHE_KEY   = "@rawabi_menu_cache_v4";
 const OFFLINE_RETRY_MS = 30_000; // retry every 30 s while offline
 
 interface MenuCache {
   items:     ApiMenuItem[];
+  categories: ApiMenuCategoryDefinition[];
   savedAt:   number;
-  dataHash?: string; // lightweight freshness signature added in v2
+  dataHash?: string;
 }
 
 // ── Interfaces (unchanged) ──────────────────────────────────────────────────
@@ -61,33 +62,31 @@ export interface ApiMenuItem {
   createdAt:      string;
 }
 
+export interface ApiMenuCategoryDefinition {
+  id: string;
+  name: string;
+  nameEn: string;
+  icon: string;
+  imageUrl: string | null;
+  isVisible: boolean;
+  sortOrder: number;
+}
+
 export interface MenuCategoryWithApi {
   id:            string;
   name:          string;
   nameEn:        string;
   icon:          string;
+  imageUrl?:     string | null;
   isDelivery?:   boolean;
   isDhabiha?:    boolean;
   isOccasions?:  boolean;
   items: (MenuItem & { available: boolean; nameEn?: string; stock?: number | null })[];
 }
 
-// ── Category metadata (unchanged) ──────────────────────────────────────────
+// ── Helpers ─────────────────────────────────────────────────────────────────
 
-const CATEGORY_META: Record<string, { name: string; nameEn: string; icon: string; isDelivery?: boolean; isDhabiha?: boolean; isOccasions?: boolean }> = {
-  chicken:  { name: "الدجاج",              nameEn: "Chicken",        icon: "🍗" },
-  meat:     { name: "اللحوم",              nameEn: "Meat",           icon: "🥩" },
-  mains:    { name: "الأطباق الرئيسية",    nameEn: "Main Dishes",    icon: "🍽️" },
-  sides:    { name: "الإيدامات",           nameEn: "Sides",          icon: "🥘" },
-  salads:   { name: "السلطات",             nameEn: "Salads",         icon: "🥗" },
-  desserts: { name: "الحلويات",            nameEn: "Desserts",       icon: "🍮" },
-  drinks:   { name: "المشروبات",           nameEn: "Drinks",         icon: "🥤" },
-  extras:   { name: "إضافات",              nameEn: "Extras",         icon: "✨" },
-};
-
-// ── Helpers (unchanged) ─────────────────────────────────────────────────────
-
-function buildCategories(apiItems: ApiMenuItem[]): MenuCategoryWithApi[] {
+function buildCategories(apiItems: ApiMenuItem[], definitions: ApiMenuCategoryDefinition[]): MenuCategoryWithApi[] {
   const categoryMap = new Map<string, (MenuItem & { available: boolean; nameEn?: string })[]>();
 
   for (const item of apiItems) {
@@ -116,13 +115,19 @@ function buildCategories(apiItems: ApiMenuItem[]): MenuCategoryWithApi[] {
   }
 
   const result: MenuCategoryWithApi[] = [];
-  for (const [catId, items] of categoryMap.entries()) {
-    const meta = CATEGORY_META[catId];
-    if (meta) result.push({ id: catId, ...meta, items });
+  for (const definition of [...definitions].sort((a, b) => a.sortOrder - b.sortOrder)) {
+    const items = categoryMap.get(definition.id) ?? [];
+    if (definition.isVisible && items.length > 0) {
+      result.push({
+        id: definition.id,
+        name: definition.name,
+        nameEn: definition.nameEn || definition.name,
+        icon: definition.icon || "🍽️",
+        imageUrl: definition.imageUrl,
+        items,
+      });
+    }
   }
-
-  const order = ["chicken", "meat", "mains", "sides", "salads", "desserts", "drinks", "extras"];
-  result.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
 
   const staticSpecial = MENU_CATEGORIES.filter(
     (c) => c.isDelivery || c.isDhabiha || c.isOccasions
@@ -145,11 +150,16 @@ const staticFallback = (): MenuCategoryWithApi[] =>
 // ── Lightweight freshness hash ───────────────────────────────────────────────
 // Covers every field the customer can see: name, price, availability, image, order.
 // Changing any of these in the dashboard produces a different hash → UI updates.
-function computeHash(items: ApiMenuItem[]): string {
+function computeHash(items: ApiMenuItem[], categories: ApiMenuCategoryDefinition[]): string {
   const sorted = [...items].sort((a, b) => a.itemId.localeCompare(b.itemId));
   let h = 5381;
-  for (const it of sorted) {
-    const sig = `${it.itemId}|${it.price}|${it.available ? 1 : 0}|${it.name}|${it.imageUrl ?? ""}|${it.sortOrder}|${it.stock ?? ""}`;
+  const signatures = [
+    ...sorted.map((it) => `${it.itemId}|${it.price}|${it.available ? 1 : 0}|${it.name}|${it.imageUrl ?? ""}|${it.sortOrder}|${it.stock ?? ""}`),
+    ...[...categories].sort((a, b) => a.id.localeCompare(b.id)).map((category) =>
+      `category|${category.id}|${category.name}|${category.nameEn}|${category.icon}|${category.imageUrl ?? ""}|${category.isVisible ? 1 : 0}|${category.sortOrder}`,
+    ),
+  ];
+  for (const sig of signatures) {
     for (let i = 0; i < sig.length; i++) {
       h = (Math.imul(31, h) + sig.charCodeAt(i)) | 0;
     }
@@ -180,18 +190,19 @@ export function useMenu() {
    */
   const doFetch = useCallback(async (): Promise<boolean> => {
     try {
-      const data = await apiGet<ApiMenuItem[]>("/menu");
-      const hash = computeHash(data);
+      const [data, definitions] = await Promise.all([
+        apiGet<ApiMenuItem[]>("/menu"),
+        apiGet<ApiMenuCategoryDefinition[]>("/menu/categories"),
+      ]);
+      const hash = computeHash(data, definitions);
 
       if (hash !== lastHashRef.current) {
-        // Something changed (price, name, availability, image, new/removed item)
         lastHashRef.current = hash;
         setApiItems(data);
-        setCategories(buildCategories(data));
+        setCategories(buildCategories(data, definitions));
       }
 
-      // Always overwrite cache so savedAt stays current
-      const cache: MenuCache = { items: data, savedAt: Date.now(), dataHash: hash };
+      const cache: MenuCache = { items: data, categories: definitions, savedAt: Date.now(), dataHash: hash };
       AsyncStorage.setItem(MENU_CACHE_KEY, JSON.stringify(cache)).catch(() => {});
 
       stopRetry(); // we're online — cancel any retry loop
@@ -210,11 +221,11 @@ export function useMenu() {
       try {
         const raw = await AsyncStorage.getItem(MENU_CACHE_KEY);
         if (alive && raw) {
-          const { items, dataHash } = JSON.parse(raw) as MenuCache;
-          if (items?.length > 0) {
-            lastHashRef.current = dataHash ?? computeHash(items);
+          const { items, categories: cachedCategories, dataHash } = JSON.parse(raw) as Partial<MenuCache>;
+          if (Array.isArray(items) && Array.isArray(cachedCategories)) {
+            lastHashRef.current = dataHash ?? computeHash(items, cachedCategories);
             setApiItems(items);
-            setCategories(buildCategories(items));
+            setCategories(buildCategories(items, cachedCategories));
             setLoading(false); // show cached menu right away
           }
         }

@@ -11,6 +11,13 @@ import { buildReferralPage } from "./lib/referralLanding";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app: Express = express();
+const allowedCorsOrigins = new Set(
+  (process.env.REPLIT_DOMAINS ?? "")
+    .split(",")
+    .map((domain) => domain.trim())
+    .filter(Boolean)
+    .flatMap((domain) => [`https://${domain}`, `http://${domain}`]),
+);
 
 app.use(cookieParser());
 app.use(
@@ -33,7 +40,11 @@ app.use(
   }),
 );
 app.use(cors({
-  origin: true,
+  origin(origin, callback) {
+    // Same-origin requests need no CORS header. Only explicitly configured
+    // Replit domains may receive credentialed cross-origin CORS responses.
+    callback(null, !origin || allowedCorsOrigins.has(origin));
+  },
   credentials: true,
 }));
 app.use(express.json({ limit: "10mb" }));

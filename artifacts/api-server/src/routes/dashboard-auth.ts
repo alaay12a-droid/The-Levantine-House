@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, type RequestHandler } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { db } from "@workspace/db";
@@ -36,6 +36,39 @@ function verifyToken(token: string): { userId: number; role: string } | null {
     return null;
   }
 }
+
+export const requireDashboardAdmin: RequestHandler = (req, res, next) => {
+  const token = req.cookies?.[COOKIE_NAME] as string | undefined;
+  const payload = token ? verifyToken(token) : null;
+  if (!payload) {
+    res.status(401).json({ error: "غير مصرح" });
+    return;
+  }
+  if (payload.role !== "admin") {
+    res.status(403).json({ error: "لا تملك صلاحية إدارة الأقسام" });
+    return;
+  }
+  next();
+};
+
+export const requireSameOriginDashboardRequest: RequestHandler = (req, res, next) => {
+  const origin = req.get("origin");
+  const requestHost = req.get("host");
+  if (!origin || !requestHost) {
+    res.status(403).json({ error: "طلب إداري غير آمن" });
+    return;
+  }
+  try {
+    if (new URL(origin).host !== requestHost) {
+      res.status(403).json({ error: "مصدر الطلب غير مصرح به" });
+      return;
+    }
+  } catch {
+    res.status(403).json({ error: "مصدر الطلب غير صحيح" });
+    return;
+  }
+  next();
+};
 
 router.post("/dashboard/auth/login", async (req, res) => {
   const { username, password } = req.body as { username?: string; password?: string };
