@@ -1,6 +1,6 @@
 services:
   - type: static
-    name: mandi-dashboard
+    name: the-levantine-house-dashboard
     buildCommand: npm install -g pnpm@9 && pnpm install --no-frozen-lockfile && BASE_PATH=/ pnpm --filter @workspace/dashboard run build
     staticPublishPath: artifacts/dashboard/dist/public
     pullRequestPreviewsEnabled: false
@@ -13,7 +13,7 @@ services:
         value: ""
 
   - type: web
-    name: mandi-menu-1
+    name: the-levantine-house-api
     runtime: docker
     region: oregon
     plan: free
