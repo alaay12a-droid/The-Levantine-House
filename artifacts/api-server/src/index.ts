@@ -349,9 +349,13 @@ async function runMigrationsAndSeed() {
   logger.info("All migrations complete");
 
   // ── Seed data (only after all schema is ready) ───────────────────────────────
-  await seedMenu().catch((e) => logger.error({ err: e }, "Menu seed failed"));
-  await seedOccasions().catch((e) => logger.error({ err: e }, "Occasions seed failed"));
-  await seedDashboardAdmin().catch((e) => logger.error({ err: e }, "Dashboard admin seed failed"));
+  if (process.env.SEED_LEGACY_DATA !== "false") {
+    await seedMenu().catch((e) => logger.error({ err: e }, "Menu seed failed"));
+    await seedOccasions().catch((e) => logger.error({ err: e }, "Occasions seed failed"));
+    await seedDashboardAdmin().catch((e) => logger.error({ err: e }, "Dashboard admin seed failed"));
+  } else {
+    logger.info("Legacy data seed skipped by SEED_LEGACY_DATA=false");
+  }
 }
 
 runMigrationsAndSeed()
