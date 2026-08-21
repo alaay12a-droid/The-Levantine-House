@@ -4,9 +4,9 @@ import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { apiPost } from "@/constants/api";
 
-export const TOKEN_KEY = "@rawabi_customer_push_token";
+export const TOKEN_KEY = "@thelevantinehouse_customer_push_token";
 
-const PROJECT_ID = "75492716-d1d5-4871-bfd9-18c7ef3982c7";
+const PROJECT_ID = (process.env.EXPO_PUBLIC_EAS_PROJECT_ID as string | undefined)?.trim();
 
 // Must be wrapped in try/catch — throws in Expo Go and some emulators
 try {
@@ -60,7 +60,9 @@ export async function registerCustomerNotifications(): Promise<string | null> {
     let lastTokenErr: unknown = null;
     for (let attempt = 1; attempt <= 3; attempt++) {
       try {
-        const result = await Notifications.getExpoPushTokenAsync({ projectId: PROJECT_ID });
+        const result = await Notifications.getExpoPushTokenAsync(
+          PROJECT_ID ? { projectId: PROJECT_ID } : undefined,
+        );
         expoToken = result.data;
         break;
       } catch (err) {

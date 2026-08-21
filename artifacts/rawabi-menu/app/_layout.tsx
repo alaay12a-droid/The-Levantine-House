@@ -140,7 +140,7 @@ function UpdateChecker() {
         <View style={updateStyles.card}>
           <Text style={updateStyles.title}>🎉 يوجد تحديث جديد</Text>
           <Text style={updateStyles.body}>
-            يتوفر إصدار جديد من تطبيق روابي المندي يحتوي على تحسينات وميزات جديدة.
+            يتوفر إصدار جديد من تطبيق البيت الشامي يحتوي على تحسينات وميزات جديدة.
           </Text>
           {update.downloadUrl ? (
             <TouchableOpacity

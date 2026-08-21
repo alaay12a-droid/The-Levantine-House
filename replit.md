@@ -28,29 +28,24 @@ See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and pa
 
 ---
 
-## Rawabi Al-Mandi Restaurant App (`artifacts/rawabi-menu`)
+## The Levantine House Restaurant App (`artifacts/rawabi-menu`)
 
 Premium Arabic mobile restaurant ordering app built with Expo React Native.
 
 ### Restaurant Info
-- **Name**: روابي المندي للمذاق فن وأصول
+- **Name**: البيت الشامي
 - **WhatsApp**: 966530707042
 - **Phone**: 0530707042
 - **Location**: تبوك - حي الروضة
 - **Expo Account**: 021837ala
-- **Expo Slug**: rawabi-menu
-- **Project ID**: 75492716-d1d5-4871-bfd9-18c7ef3982c7
-- **Android Package**: com.rwabi.almndi
-- **iOS Bundle ID**: com.rwabi.almndi
-- **App Store Connect App ID**: 6792793006
-- **Apple Team ID**: 27476VAG8Z
-- **Distribution Cert ID** (Apple): 7T47T4U76B (expires 2027-07-20)
-- **Provisioning Profile**: RawabiAlmandi AppStore v2 (with aps-environment)
-- **Certs directory**: `artifacts/rawabi-menu/certs/` — dist_cert.p12 (legacy OpenSSL 3DES+SHA-1), rawabi.mobileprovision, AuthKey_L3432Q48N5.p8
-- **EAS Build (iOS v1.2.0)**: `8c2549c4-a82a-467a-ab3c-1b5f553ed49a` — finished ✅ — IPA at https://expo.dev/artifacts/eas/aoc3yqKgV25icMvQ7URDzfin_RmLAVlsaGdYB5hgjgM.ipa
+- **Expo Slug**: the-levantine-house
+- **EAS Project**: intentionally unlinked; create a new project for this app
+- **Android Package**: com.thelevantinehouse.menu
+- **iOS Bundle ID**: com.thelevantinehouse.menu
+- **Firebase / database**: separate credentials and `NEON_DATABASE_URL`; never use the original deployment
 
 ### Design System
-- **Colors**: dark red `#C8171A`, gold `#E8920C`, dark background `#0F0A05`
+- **Colors**: deep burgundy and warm neutrals derived from the البيت الشامي logo
 - **Font**: Cairo (Regular 400, SemiBold 600, Bold 700, ExtraBold 800)
 - **Layout**: RTL Arabic throughout
 

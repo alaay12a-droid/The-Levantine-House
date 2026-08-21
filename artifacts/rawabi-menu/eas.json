@@ -14,9 +14,7 @@
         "image": "latest"
       },
       "node": "22.15.0",
-      "env": {
-        "EXPO_PUBLIC_API_BASE_URL": "https://mandi-menu-1-640o.onrender.com"
-      }
+      "env": {}
     },
     "production": {
       "android": {
@@ -30,9 +28,7 @@
         "channel": "production"
       },
       "node": "22.15.0",
-      "env": {
-        "EXPO_PUBLIC_API_BASE_URL": "https://mandi-menu-1-640o.onrender.com"
-      }
+      "env": {}
     }
   },
   "submit": {
@@ -40,7 +36,7 @@
       "android": {
         "track": "internal",
         "serviceAccountKeyPath": "./google-play-service-account.json",
-        "applicationId": "com.rwabi.almndi"
+        "applicationId": "com.thelevantinehouse.menu"
       },
       "ios": {
         "appleId": "ala73812079773@gmail.com",

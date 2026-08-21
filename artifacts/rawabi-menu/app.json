@@ -1,22 +1,22 @@
 {
   "expo": {
-    "name": "روابي المندي",
-    "slug": "rawabi-menu",
+    "name": "البيت الشامي",
+    "slug": "the-levantine-house",
     "owner": "021837ala",
     "version": "1.4.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
-    "scheme": "rawabi-menu",
+    "icon": "./assets/images/thelevantine-house-logo.jpg",
+    "scheme": "thelevantinehouse",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/images/icon.png",
+      "image": "./assets/images/thelevantine-house-logo.jpg",
       "resizeMode": "contain",
       "backgroundColor": "#0F0A05"
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.rwabi.almndi",
+      "bundleIdentifier": "com.thelevantinehouse.menu",
       "buildNumber": "6",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "نحتاج موقعك لتحديد عنوان التوصيل وتوفير خدمة أفضل",
@@ -27,11 +27,10 @@
       }
     },
     "android": {
-      "package": "com.rwabi.almndi",
+      "package": "com.thelevantinehouse.menu",
       "versionCode": 32,
-      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive_icon.png",
+        "foregroundImage": "./assets/images/thelevantine-house-logo.jpg",
         "backgroundColor": "#0F0A05"
       },
       "permissions": [
@@ -49,7 +48,7 @@
       "ios"
     ],
     "web": {
-      "favicon": "./assets/images/icon.png"
+      "favicon": "./assets/images/thelevantine-house-logo.jpg"
     },
     "plugins": [
       "expo-router",
@@ -79,16 +78,8 @@
     "experiments": {
       "typedRoutes": true
     },
-    "extra": {
-      "eas": {
-        "projectId": "75492716-d1d5-4871-bfd9-18c7ef3982c7"
-      }
-    },
     "runtimeVersion": {
       "policy": "appVersion"
-    },
-    "updates": {
-      "url": "https://u.expo.dev/75492716-d1d5-4871-bfd9-18c7ef3982c7"
     }
   }
 }

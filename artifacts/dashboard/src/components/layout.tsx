@@ -77,8 +77,8 @@ export function Layout({ children, fullWidth = false }: LayoutProps) {
           {/* Logo / brand */}
           <div className="flex items-center gap-2">
             <img
-              src={`${import.meta.env.BASE_URL}logo.png`}
-              alt="روابي المندي"
+              src={`${import.meta.env.BASE_URL}thelevantine-house-logo.jpg`}
+              alt="البيت الشامي"
               className="h-9 w-auto object-contain"
             />
             {!isHome && (

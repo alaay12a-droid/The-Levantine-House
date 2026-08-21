@@ -8,6 +8,7 @@ import { seedDashboardAdmin } from "./routes/dashboard-auth";
 import { sql, and, eq, isNull, isNotNull, lt } from "drizzle-orm";
 import { db, pushTokensTable, appSettingsTable } from "@workspace/db";
 import { sendPushToToken } from "./lib/sendPushNotification";
+import { validateFirebaseProjectIsolation } from "./lib/firebase";
 
 const rawPort = process.env["PORT"];
 
@@ -24,6 +25,10 @@ if (Number.isNaN(port) || port <= 0) {
 }
 
 async function runMigrationsAndSeed() {
+  // Refuse to start if the secure Firebase credential was accidentally copied
+  // from the original Rawabi deployment.
+  validateFirebaseProjectIsolation();
+
   // ── Enums ────────────────────────────────────────────────────────────────────
   await db.execute(sql`
     DO $$ BEGIN
@@ -416,7 +421,7 @@ runMigrationsAndSeed()
               const name = row.customerName?.trim() || "عزيزنا";
               try {
                 await sendPushToToken(row.token, {
-                  title: "روابي المندي 🍗",
+                  title: "البيت الشامي",
                   body: `وحشتنا يا ${name} 👋 مرت فترة ما زرتنا فيها، تعال شوف عروضنا الجديدة 🍗`,
                   data: { type: "reengagement" },
                 });

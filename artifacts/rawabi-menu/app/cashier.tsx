@@ -489,7 +489,7 @@ export default function CashierScreen() {
 
   const customerUrl = Platform.OS === "web"
     ? (typeof window !== "undefined" ? window.location.origin + "/" : "")
-    : (process.env.EXPO_PUBLIC_API_BASE_URL || "https://mandi-menu-1-640o.onrender.com") + "/";
+    : API_BASE + "/";
 
   const handleCopyLink = () => {
     if (Platform.OS === "web" && typeof navigator !== "undefined" && navigator.clipboard) {
@@ -503,7 +503,7 @@ export default function CashierScreen() {
 
   const handleShareLink = async () => {
     try {
-      await Share.share({ message: `اطلب من روابي المندي: ${customerUrl}`, url: customerUrl });
+      await Share.share({ message: `اطلب من البيت الشامي: ${customerUrl}`, url: customerUrl });
     } catch { /* silent */ }
   };
 
@@ -531,7 +531,7 @@ export default function CashierScreen() {
         const pendingCount = newPending.length;
         document.title = pendingCount > 0
           ? `(${pendingCount}) طلب جديد 🔔 | الكاشير`
-          : "الكاشير | روابي المندي";
+          : "الكاشير | البيت الشامي";
       }
 
       setOrders(data);
@@ -557,7 +557,7 @@ export default function CashierScreen() {
       clearInterval(interval);
       clearTimeout(initTimer);
       if (Platform.OS === "web" && typeof document !== "undefined") {
-        document.title = "روابي المندي";
+        document.title = "البيت الشامي";
       }
     };
   }, [authenticated, fetchOrders]);
@@ -709,9 +709,9 @@ export default function CashierScreen() {
 
   <!-- Header -->
   <div class="logo-wrap">
-    <img src="data:image/png;base64,${LOGO_B64}" alt="روابي المندي"/>
+    <img src="data:image/png;base64,${LOGO_B64}" alt="البيت الشامي"/>
   </div>
-  <div class="restaurant-name">روابي المندي للمذاق فن وأصول</div>
+  <div class="restaurant-name">البيت الشامي</div>
   <div class="restaurant-sub">تبوك — المملكة العربية السعودية</div>
 
   <hr class="divider-solid"/>
@@ -769,7 +769,7 @@ export default function CashierScreen() {
 
   <hr class="divider"/>
   <div class="footer">
-    شكراً لاختيارك روابي المندي 🍗<br/>
+    شكراً لاختيارك البيت الشامي 🍗<br/>
     نتمنى لك وجبة شهية!
   </div>
 </div>
@@ -847,7 +847,7 @@ export default function CashierScreen() {
   tbody tr:nth-child(even){background:#fafafa;}
   @media print{body{padding:4mm;}.driver-block{page-break-inside:avoid;}}
 </style></head><body>
-<h1>روابي المندي — تقرير مناديب التوصيل</h1>
+<h1>البيت الشامي — تقرير مناديب التوصيل</h1>
 <div class="sub">📅 ${dateLabel} | طُبع في ${now}</div>
 <div class="summary">
   <div class="card"><div class="v" style="color:#E8920C;">${rows.length}</div><div style="font-size:10px;">إجمالي الطلبات</div></div>
@@ -916,7 +916,7 @@ ${driverSections}
   tbody tr:nth-child(even){background:#fafafa;}
   @media print{body{padding:4mm;}.day-block{page-break-inside:avoid;}}
 </style></head><body>
-<h1>روابي المندي — تقرير المندوب: ${driverName}</h1>
+<h1>البيت الشامي — تقرير المندوب: ${driverName}</h1>
 <div class="sub">📱 ${driverPhone} | الفترة: ${tabLabel} | طُبع في ${now}</div>
 ${totals ? `
 <div class="summary">
@@ -977,7 +977,7 @@ ${daySections}
   tbody tr:nth-child(even){background:#fafafa;}
   @media print{body{padding:5mm 5mm;}button{display:none!important;}}
 </style></head><body>
-<h1>روابي المندي — ${title}</h1>
+<h1>البيت الشامي — ${title}</h1>
 <div class="sub">طُبع في ${now}</div>
 <div class="summary">
   <div class="card"><div class="val" style="color:#2e7d32;">${fmt(totalDone)} ر.س</div><div style="font-size:11px;">إجمالي الإيرادات</div></div>

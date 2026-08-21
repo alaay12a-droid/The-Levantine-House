@@ -1,16 +1,20 @@
 import { Platform } from "react-native";
 
-const PRODUCTION_API = "https://mandi-menu-1-640o.onrender.com";
+const configuredApi = (process.env.EXPO_PUBLIC_API_BASE_URL as string | undefined)?.trim();
 
 export const API_BASE =
-  (process.env.EXPO_PUBLIC_API_BASE_URL as string | undefined) ||
-  (Platform.OS === "web" ? "" : PRODUCTION_API);
+  configuredApi || "";
+
+if (Platform.OS !== "web" && !configuredApi) {
+  throw new Error(
+    "EXPO_PUBLIC_API_BASE_URL is required for The Levantine House. Refusing to connect to a legacy API.",
+  );
+}
 
 // Always an absolute URL — used when saving storage URLs to the DB so the
 // APK (which cannot resolve relative URLs) can load images correctly.
 export const STORAGE_BASE_URL =
-  (process.env.EXPO_PUBLIC_API_BASE_URL as string | undefined) ||
-  PRODUCTION_API;
+  configuredApi || "";
 
 // Log API base on startup so it's visible in logcat / Metro
 console.log(`[API] BASE_URL = "${API_BASE}" | EXPO_PUBLIC_API_BASE_URL = "${process.env.EXPO_PUBLIC_API_BASE_URL ?? "(not set)"}"`);

@@ -206,7 +206,7 @@ router.get("/sms-settings", async (_req, res) => {
     enabled: enabled === "true",
     apiKey:  apiKey ? "***" : "",
     hasApiKey: !!apiKey,
-    sender:  sender ?? "روابي",
+    sender:  sender ?? "البيت الشامي",
     provider: (provider ?? "msegat") as Provider,
     method:   method ?? "sms",
   });
@@ -278,8 +278,8 @@ router.post("/sms/send-otp", async (req, res) => {
   const code = String(Math.floor(1000 + Math.random() * 9000));
   await storeOtp(phone, code);
 
-  const senderName = sender ?? "روابي";
-  const message = `${code} رمز التحقق الخاص بطلبك في روابي المندي. صالح 5 دقائق.`;
+  const senderName = sender ?? "البيت الشامي";
+  const message = `${code} رمز التحقق الخاص بطلبك في البيت الشامي. صالح 5 دقائق.`;
 
   req.log.info({ phone, provider, senderName }, "Sending OTP");
   const { success, response } = await sendSmsViaProvider(provider, apiKey, senderName, phone, message, method);
@@ -366,7 +366,7 @@ router.post("/sms/test", async (req, res) => {
   const provider   = (providerRaw ?? "msegat") as Provider;
   const method     = methodRaw ?? "sms";
   const phone      = parsed.data.phone.replace(/[\s+]/g, "");
-  const senderName = sender ?? "روابي";
+  const senderName = sender ?? "البيت الشامي";
 
   req.log.info({ phone, provider, senderName }, "Test SMS requested");
 
@@ -374,7 +374,7 @@ router.post("/sms/test", async (req, res) => {
   if (provider === "authentica") {
     ({ success, response } = await sendViaAuthentica(apiKey, phone, method));
   } else {
-    ({ success, response } = await sendSmsViaProvider(provider, apiKey, senderName, phone, "اختبار — روابي المندي. نظام الرسائل يعمل ✅", method));
+    ({ success, response } = await sendSmsViaProvider(provider, apiKey, senderName, phone, "اختبار — البيت الشامي. نظام الرسائل يعمل ✅", method));
   }
 
   if (success) {

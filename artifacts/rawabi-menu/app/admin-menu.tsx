@@ -590,7 +590,7 @@ export default function AdminMenuScreen() {
   const [smsEnabled, setSmsEnabled] = useState(false);
   const [smsHasKey, setSmsHasKey] = useState(false);
   const [smsApiKey, setSmsApiKey] = useState("");
-  const [smsSender, setSmsSender] = useState("روابي المندي");
+  const [smsSender, setSmsSender] = useState("البيت الشامي");
   const [smsLoading, setSmsLoading] = useState(false);
   const [smsProvider, setSmsProvider] = useState<"msegat"|"taqnyat"|"4jawaly"|"unifonic"|"twilio"|"authentica">("msegat");
   const [smsMethod, setSmsMethod] = useState<"sms"|"whatsapp">("sms");
@@ -697,7 +697,7 @@ export default function AdminMenuScreen() {
   .pay-item .l{font-size:10px;color:#888;}
   @media print{body{padding:5mm;}}
 </style></head><body>
-<h1>روابي المندي — التقرير المالي</h1>
+<h1>البيت الشامي — التقرير المالي</h1>
 <div class="sub">الفترة: ${label} | طُبع في ${now}</div>
 ${kpiBlock}${payBlock}${sumBlock}
 <script>window.onload=function(){window.print();}</script>
@@ -748,7 +748,7 @@ ${kpiBlock}${payBlock}${sumBlock}
       const r = await apiGet<{ enabled: boolean; hasApiKey: boolean; sender: string; provider: "msegat"|"taqnyat"|"4jawaly"|"unifonic"|"twilio"|"authentica"; method: "sms"|"whatsapp" }>("/sms-settings");
       setSmsEnabled(r.enabled);
       setSmsHasKey(r.hasApiKey);
-      setSmsSender(r.sender ?? "روابي المندي");
+      setSmsSender(r.sender ?? "البيت الشامي");
       setSmsProvider(r.provider ?? "msegat");
       setSmsMethod(r.method ?? "sms");
     } catch {}
@@ -3625,7 +3625,7 @@ ${kpiBlock}${payBlock}${sumBlock}
             <TextInput
               value={smsSender}
               onChangeText={setSmsSender}
-              placeholder="روابي"
+              placeholder="البيت الشامي"
               placeholderTextColor={colors.mutedForeground}
               style={{ backgroundColor: colors.secondary, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, color: colors.foreground, fontFamily: F.regular, textAlign: "right", borderWidth: 1, borderColor: colors.border }}
             />
@@ -4063,7 +4063,7 @@ ${kpiBlock}${payBlock}${sumBlock}
           <View style={{ backgroundColor: colors.card, borderRadius: 14, borderWidth: 1, borderColor: colors.border, padding: 16, alignItems: "center", gap: 10 }}>
             <Text style={{ color: colors.mutedForeground, fontFamily: F.bold, fontSize: 13 }}>معاينة مباشرة</Text>
             <Image
-              source={require("@/assets/images/logo.png")}
+              source={require("@/assets/images/thelevantine-house-logo.jpg")}
               style={{ width: 90, height: 90, borderRadius: 45, backgroundColor: logoBg as any }}
               resizeMode="contain"
             />
