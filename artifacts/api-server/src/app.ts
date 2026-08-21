@@ -7,6 +7,7 @@ import { fileURLToPath } from "url";
 import router from "./routes";
 import { logger } from "./lib/logger";
 import { buildReferralPage } from "./lib/referralLanding";
+import { buildPrivacyPolicyPage } from "./lib/privacyPolicyPage";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -66,6 +67,12 @@ app.get(["/", "/invite", "/ref"], (req: Request, res: Response) => {
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.setHeader("Cache-Control", "no-cache");
   res.send(buildReferralPage(ref));
+});
+
+app.get(["/privacy", "/privacy-policy"], (_req: Request, res: Response) => {
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Cache-Control", "public, max-age=3600");
+  res.send(buildPrivacyPolicyPage());
 });
 
 // JSON error handler — must have 4 params for Express to treat it as error middleware

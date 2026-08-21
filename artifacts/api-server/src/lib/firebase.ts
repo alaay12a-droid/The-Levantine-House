@@ -1,4 +1,4 @@
-import { initializeApp, getApps, cert } from "firebase-admin/app";
+import { initializeApp, getApps, cert, type ServiceAccount } from "firebase-admin/app";
 import { getMessaging, type Messaging } from "firebase-admin/messaging";
 import { logger } from "./logger.js";
 
@@ -40,6 +40,18 @@ function parseServiceAccount(raw: string): FirebaseServiceAccount | null {
   }
 
   return null;
+}
+
+function toServiceAccountCredential(serviceAccount: FirebaseServiceAccount): ServiceAccount {
+  const projectId = typeof serviceAccount.project_id === "string" ? serviceAccount.project_id : null;
+  const clientEmail = typeof serviceAccount.client_email === "string" ? serviceAccount.client_email : null;
+  const privateKey = typeof serviceAccount.private_key === "string" ? serviceAccount.private_key : null;
+
+  if (!projectId || !clientEmail || !privateKey) {
+    throw new Error("FIREBASE_SERVICE_ACCOUNT is missing required credential fields");
+  }
+
+  return { projectId, clientEmail, privateKey };
 }
 
 /**
@@ -86,7 +98,7 @@ export function getFCMMessaging(): Messaging | null {
       );
     }
     if (getApps().length === 0) {
-      initializeApp({ credential: cert(serviceAccount) });
+      initializeApp({ credential: cert(toServiceAccountCredential(serviceAccount)) });
     }
     _messaging = getMessaging();
     logger.info("Firebase Admin SDK initialised — FCM ready");
