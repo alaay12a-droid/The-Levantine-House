@@ -194,7 +194,7 @@ table{width:100%;border-collapse:collapse;font-size:13px}thead th{background:#8B
 tbody tr:nth-child(even){background:#fafafa}.summary{border-top:2px solid #aaa;padding-top:8px;margin-top:8px}
 @media print{body{padding:5mm}}</style></head><body>
 <h1>البيت الشامي</h1>
-<div class="sub">الرقم الضريبي: 302282730200003 | العنوان: تبوك، الروضة، 47711</div>
+<div class="sub">السجل التجاري: 7025357547 | العنوان: CG5F+JHG، المتنبي، الروضة، تبوك 47711</div>
 <div class="sub">إيصال طلب #${formatEasternNumber(order.dailyNumber ?? order.id)} — ${dateStr} ${timeStr}</div>
 <p style="font-size:13px;margin-bottom:4px;"><strong>العميل:</strong> ${order.customerName || "عميل"}</p>
 ${order.customerPhone ? `<p style="font-size:13px;margin-bottom:4px;" dir="ltr"><strong>الجوال:</strong> ${order.customerPhone}</p>` : ""}

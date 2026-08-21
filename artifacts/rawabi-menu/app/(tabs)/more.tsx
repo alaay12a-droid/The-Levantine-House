@@ -242,7 +242,7 @@ export default function MoreScreen() {
     {
       icon: "map-pin",
       label: `${t("location")} — ${info.location}`,
-      action: () => Linking.openURL("https://maps.app.goo.gl/DiAZzzLKBAmGNv19A"),
+      action: () => Linking.openURL("https://www.google.com/maps/search/?api=1&query=CG5F%2BJHG%2C%20Al-Mutanabbi%2C%20Al-Rawdah%2C%20Tabuk%2047711"),
     },
     {
       icon: "info",

@@ -36,7 +36,7 @@ Premium Arabic mobile restaurant ordering app built with Expo React Native.
 - **Name**: البيت الشامي
 - **WhatsApp**: 966530707042
 - **Phone**: 0530707042
-- **Location**: تبوك - حي الروضة
+- **Location**: CG5F+JHG، المتنبي، الروضة، تبوك 47711
 - **Expo Account**: 021837ala
 - **Expo Slug**: the-levantine-house
 - **EAS Project**: intentionally unlinked; create a new project for this app
