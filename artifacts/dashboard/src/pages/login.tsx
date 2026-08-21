@@ -164,8 +164,8 @@ export default function Login() {
       <Card className="w-full max-w-md z-10 shadow-2xl border-primary/20">
         <CardHeader className="space-y-3 text-center pt-8">
           <img
-            src={`${import.meta.env.BASE_URL}logo.png`}
-            alt="روابي المندي"
+            src={`${import.meta.env.BASE_URL}thelevantine-house-logo.jpg`}
+            alt="البيت الشامي"
             className="mx-auto h-24 w-auto object-contain"
           />
           <CardTitle className="text-2xl font-bold">

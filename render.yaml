@@ -1,6 +1,6 @@
 services:
   - type: static
-    name: mandi-dashboard
+    name: the-levantine-house-dashboard
     buildCommand: npm install -g pnpm@9 && pnpm install --no-frozen-lockfile && BASE_PATH=/ pnpm --filter @workspace/dashboard run build
     staticPublishPath: artifacts/dashboard/dist/public
     pullRequestPreviewsEnabled: false
@@ -10,10 +10,10 @@ services:
         destination: /index.html
     envVars:
       - key: VITE_API_BASE_URL
-        value: https://mandi-menu-1-640o.onrender.com
+        value: ""
 
   - type: web
-    name: mandi-menu-1
+    name: the-levantine-house-api
     runtime: docker
     region: oregon
     plan: free
@@ -25,7 +25,7 @@ services:
         value: 8080
       - key: LOG_LEVEL
         value: info
-      - key: DATABASE_URL
+      - key: NEON_DATABASE_URL
         sync: false
       - key: DASHBOARD_JWT_SECRET
         sync: false

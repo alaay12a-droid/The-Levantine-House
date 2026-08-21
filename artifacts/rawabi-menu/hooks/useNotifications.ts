@@ -3,7 +3,7 @@ import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 import { apiPost } from "@/constants/api";
 
-const PROJECT_ID = "75492716-d1d5-4871-bfd9-18c7ef3982c7";
+const PROJECT_ID = (process.env.EXPO_PUBLIC_EAS_PROJECT_ID as string | undefined)?.trim();
 
 // Must be wrapped in try/catch — throws in Expo Go and some emulators
 try {
@@ -56,7 +56,9 @@ async function registerForPushNotifications(): Promise<void> {
     }
 
     // Get Expo push token (used as stable key per device)
-    const { data: expoToken } = await Notifications.getExpoPushTokenAsync({ projectId: PROJECT_ID });
+    const { data: expoToken } = await Notifications.getExpoPushTokenAsync(
+      PROJECT_ID ? { projectId: PROJECT_ID } : undefined,
+    );
 
     // Get native FCM token for direct Firebase Admin SDK delivery.
     // iOS: skip this — without GoogleService-Info.plist, getDevicePushTokenAsync()

@@ -151,7 +151,7 @@ router.post("/orders", async (req, res) => {
     title: `🔔 طلب جديد #${dailyNumber}`,
     body: `${data.customerName} — ${itemsSummary}`,
     sound: "default",
-    data: { orderId: order.id },
+    data: { orderId: String(order.id) },
   });
 });
 
@@ -191,7 +191,7 @@ router.get("/orders", async (req, res) => {
   res.json(orders);
 });
 
-const RESTAURANT_NAME = "روابي المندي";
+const RESTAURANT_NAME = "البيت الشامي";
 
 function buildCustomerStatusMessage(status: string, dailyNumber: number, isDelivery: boolean): { title: string; body: string } | null {
   switch (status) {
@@ -300,7 +300,7 @@ router.patch("/orders/:id/status", async (req, res) => {
   if (status === "cancelled" && order.customerPhone) {
     sendSms(
       order.customerPhone,
-      `عزيزنا ${order.customerName}، نأسف لإبلاغك بأنه تم إلغاء طلبك رقم #${order.dailyNumber} من روابي المندي. للاستفسار تواصل معنا مباشرة. شكراً لتفهمك 🙏`
+      `عزيزنا ${order.customerName}، نأسف لإبلاغك بأنه تم إلغاء طلبك رقم #${order.dailyNumber} من البيت الشامي. للاستفسار تواصل معنا مباشرة. شكراً لتفهمك 🙏`
     ).catch(() => {});
   }
 });

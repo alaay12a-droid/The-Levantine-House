@@ -130,7 +130,7 @@ h1{text-align:center;font-size:18px;font-weight:800;color:#8B4513;margin-bottom:
 table{width:100%;border-collapse:collapse;font-size:13px}thead th{background:#8B4513;color:#fff;padding:7px 8px;text-align:center}
 tbody tr:nth-child(even){background:#fafafa}hr{border:none;border-top:1px dashed #bbb;margin:8px 0}
 .total{font-size:16px;font-weight:800;text-align:left}@media print{body{padding:5mm}}</style></head><body>
-<h1>روابي المندي للمذاق فن وأصول</h1>
+<h1>البيت الشامي</h1>
 <div class="sub">تبوك، الروضة، 47711 — المملكة العربية السعودية</div>
 <div class="sub">الرقم الضريبي: 302282730200003</div>
 <div class="daily">طلب اليوم #${order.dailyNumber ?? order.id}</div>
@@ -148,9 +148,9 @@ ${deliveryFee > 0 ? `<p style="font-size:12px;color:#555;text-align:left">${fmt2
 ${discount > 0.005 ? `<p style="font-size:12px;color:#C8171A;text-align:left">- ${fmt2(discount)} ر.س خصم</p>` : ""}
 <p class="total">${fmt2(totalPaid)} ر.س — الإجمالي</p>
 ${order.notes ? `<p style="margin-top:8px;font-size:12px;color:#555"><strong>ملاحظات:</strong> ${order.notes}</p>` : ""}
-<p style="text-align:center;margin-top:14px;font-size:11px;color:#888">شكراً لاختيارك روابي المندي 🍗</p>
+<p style="text-align:center;margin-top:14px;font-size:11px;color:#888">شكراً لاختيارك البيت الشامي 🍗</p>
 <div style="text-align:center;margin-top:16px;">
-<img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(`روابي المندي - طلب رقم ${order.dailyNumber ?? order.id} - ${fmt2(totalPaid)} ر.س`)}" width="100" height="100" alt="QR"/>
+<img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(`البيت الشامي - طلب رقم ${order.dailyNumber ?? order.id} - ${fmt2(totalPaid)} ر.س`)}" width="100" height="100" alt="QR"/>
 <p style="font-size:10px;color:#aaa;margin-top:4px;">طلب #${order.dailyNumber ?? order.id}</p>
 </div>
 <script>window.onload=function(){window.print();}</script></body></html>`;
@@ -165,7 +165,7 @@ function printBulk(orders: Order[]) {
     const pf = getOrderPriceFactor(o);
     const itemsRows = o.items.map(i => `<tr><td style="padding:3px 6px">${i.name} × ${i.quantity}</td><td style="padding:3px 6px;text-align:left">${fmt2(i.price*i.quantity*pf)} ر.س</td></tr>`).join("");
     return `<div style="page-break-after:always;padding:8mm;font-family:Cairo,sans-serif;direction:rtl">
-<h2 style="text-align:center;color:#8B4513;font-size:16px;margin-bottom:2px">روابي المندي</h2>
+<h2 style="text-align:center;color:#8B4513;font-size:16px;margin-bottom:2px">البيت الشامي</h2>
 <p style="text-align:center;font-size:10px;color:#888;margin-bottom:2px">الرقم الضريبي: 302282730200003</p>
 <p style="text-align:center;font-size:10px;color:#888;margin-bottom:6px">تبوك، الروضة، 47711</p>
 <p style="text-align:center;font-size:14px;font-weight:700;margin-bottom:8px">طلب اليوم #${o.dailyNumber ?? o.id} — ${o.customerName}</p>
@@ -174,7 +174,7 @@ function printBulk(orders: Order[]) {
 <tr><td colspan="2" style="border-top:1px dashed #ccc;padding-top:6px;font-weight:700;font-size:15px">${fmt2(o.totalPrice/100)} ر.س</td></tr>
 </table>
 <div style="text-align:center;margin-top:12px;">
-<img src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(`روابي المندي - طلب رقم ${o.dailyNumber ?? o.id} - ${fmt2(o.totalPrice/100)} ر.س`)}" width="80" height="80" alt="QR"/>
+<img src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(`البيت الشامي - طلب رقم ${o.dailyNumber ?? o.id} - ${fmt2(o.totalPrice/100)} ر.س`)}" width="80" height="80" alt="QR"/>
 <p style="font-size:9px;color:#aaa;margin-top:2px;">طلب #${o.dailyNumber ?? o.id}</p>
 </div>
 </div>`;
@@ -535,7 +535,7 @@ export default function Orders() {
     }, 10000);
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
-      document.title = "روابي المندي";
+      document.title = "البيت الشامي";
     };
   }, [fetchOrders, fetchDriversData, fetchAssignments, fetchUnreadCounts]);
 

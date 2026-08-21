@@ -1,21 +1,21 @@
 {
   "expo": {
-    "name": "روابي - مندوب",
-    "slug": "rawabi-driver",
+    "name": "البيت الشامي - مندوب",
+    "slug": "the-levantine-house-driver",
     "version": "1.2.0",
     "orientation": "portrait",
-    "icon": "./assets/images/adaptive_icon.png",
-    "scheme": "rawabi-driver",
+    "icon": "./assets/images/thelevantine-house-logo.jpg",
+    "scheme": "thelevantinehouse-driver",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/images/adaptive_icon.png",
+      "image": "./assets/images/thelevantine-house-logo.jpg",
       "resizeMode": "contain",
       "backgroundColor": "#0F0A05"
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.rwabi.driver",
+      "bundleIdentifier": "com.thelevantinehouse.driver",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "نحتاج موقعك لإرسال موقعك للعميل أثناء التوصيل",
         "NSLocationAlwaysUsageDescription": "نحتاج موقعك في الخلفية لإرسال موقعك للعميل طوال رحلة التوصيل",
@@ -27,11 +27,10 @@
       }
     },
     "android": {
-      "package": "com.rwabi.driver",
+      "package": "com.thelevantinehouse.driver",
       "versionCode": 30,
-      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive_icon.png",
+        "foregroundImage": "./assets/images/thelevantine-house-logo.jpg",
         "backgroundColor": "#0F0A05"
       },
       "permissions": [
@@ -68,12 +67,8 @@
     "experiments": {
       "typedRoutes": true
     },
-    "owner": "021837ala",
     "extra": {
-      "router": {},
-      "eas": {
-        "projectId": "0c32b5e4-7c57-4c5a-b07e-57e5fd04043e"
-      }
+      "router": {}
     }
   }
 }

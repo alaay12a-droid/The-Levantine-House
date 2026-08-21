@@ -1,4 +1,4 @@
-package com.rwabi.driver
+package com.thelevantinehouse.driver
 import expo.modules.splashscreen.SplashScreenManager
 
 import android.os.Build

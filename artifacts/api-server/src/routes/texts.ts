@@ -5,21 +5,21 @@ import { like } from "drizzle-orm";
 const router = Router();
 
 const DEFAULTS: Record<string, string> = {
-  txt_name:             "روابي المندي",
-  txt_name_en:          "Rawabi Al Mandi",
-  txt_tagline:          "للمذاق فن وأصول",
-  txt_tagline_en:       "A Fine Art of Taste",
-  txt_phone:            "0530707042",
-  txt_whatsapp:         "966530707042",
-  txt_location:         "تبوك - حي الروضة",
-  txt_location_en:      "Tabuk - Al-Rawdah District",
-  txt_instagram:        "@rwabi-almndi",
-  txt_dhabiha_phone:    "0531555268",
-  txt_dhabiha_whatsapp: "966531555268",
+  txt_name:             "البيت الشامي",
+  txt_name_en:          "The Levantine House",
+  txt_tagline:          "طعم الشام في كل طبق",
+  txt_tagline_en:       "The taste of the Levant in every dish",
+  txt_phone:            "",
+  txt_whatsapp:         "",
+  txt_location:         "",
+  txt_location_en:      "",
+  txt_instagram:        "",
+  txt_dhabiha_phone:    "",
+  txt_dhabiha_whatsapp: "",
   txt_announcement:     "",
-  txt_delivery_area:    "تبوك - حي الروضة وما حولها",
-  txt_snapchat:         "rwabi-almndi",
-  txt_tiktok:           "rwabialmndi",
+  txt_delivery_area:    "",
+  txt_snapchat:         "",
+  txt_tiktok:           "",
 };
 
 // ── GET /app-texts ─────────────────────────────────────────────────────────────

@@ -47,15 +47,15 @@ export interface MenuCategory {
 }
 
 export const RESTAURANT_INFO = {
-  name: "روابي المندي",
+  name: "البيت الشامي",
   tagline: "للمذاق فن وأصول",
   taglineEn: "A Fine Art of Taste",
-  nameEn: "Rawabi Al Mandi",
+  nameEn: "The Levantine House",
   phone: "0530707042",
   whatsapp: "966530707042",
   location: "تبوك - حي الروضة",
   locationEn: "Tabuk - Al-Rawdah District",
-  instagram: "@rwabi-almndi",
+  instagram: "",
   dhabihaPhone: "0531555268",
   dhabihaWhatsapp: "966531555268",
 };

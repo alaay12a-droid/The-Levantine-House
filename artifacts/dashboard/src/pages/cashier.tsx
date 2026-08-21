@@ -1121,7 +1121,7 @@ export default function Cashier() {
           {printOrder && (
             <div className="space-y-3 print:block" id="print-receipt">
               <div className="text-center border-b pb-3">
-                <div className="font-black text-lg">روابي المندي</div>
+                <div className="font-black text-lg">البيت الشامي</div>
                 <div className="text-xs text-muted-foreground">الرقم الضريبي: 302282730200003</div>
                 <div className="text-xs text-muted-foreground">العنوان: تبوك، الروضة، 47711</div>
                 <div className="text-xs text-muted-foreground">طلب #{printOrder.dailyNumber ?? printOrder.id}</div>
@@ -1168,7 +1168,7 @@ export default function Cashier() {
               )}
               <div className="flex flex-col items-center gap-1 py-1">
                 <img
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(`روابي المندي - طلب رقم ${printOrder.dailyNumber ?? printOrder.id} - ${(printOrder.totalPrice / 100).toFixed(2)} ر.س`)}`}
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(`البيت الشامي - طلب رقم ${printOrder.dailyNumber ?? printOrder.id} - ${(printOrder.totalPrice / 100).toFixed(2)} ر.س`)}`}
                   width={90} height={90} alt="QR"
                 />
                 <span className="text-[10px] text-muted-foreground">طلب #{printOrder.dailyNumber ?? printOrder.id}</span>

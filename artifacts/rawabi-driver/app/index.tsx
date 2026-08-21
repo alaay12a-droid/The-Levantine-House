@@ -14,14 +14,16 @@ import * as Notifications from "expo-notifications";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LocationDisclosureModal } from "@/components/LocationDisclosureModal";
 
-const DRIVER_PROJECT_ID = "0c32b5e4-7c57-4c5a-b07e-57e5fd04043e";
+const DRIVER_PROJECT_ID = (process.env.EXPO_PUBLIC_EAS_PROJECT_ID as string | undefined)?.trim();
 
 async function registerDriverPushToken(driverId: number): Promise<void> {
   try {
     const { status } = await Notifications.requestPermissionsAsync();
     if (status !== "granted") return;
 
-    const expoTokenData = await Notifications.getExpoPushTokenAsync({ projectId: DRIVER_PROJECT_ID });
+    const expoTokenData = await Notifications.getExpoPushTokenAsync(
+      DRIVER_PROJECT_ID ? { projectId: DRIVER_PROJECT_ID } : undefined,
+    );
     const expoToken = expoTokenData.data;
 
     let fcmToken: string | undefined;
@@ -56,9 +58,15 @@ const C = {
 } as const;
 
 // ── API helpers ───────────────────────────────────────────────────────────────
-const PRODUCTION_API = "https://mandi-menu-1-640o.onrender.com";
+const configuredApi = (process.env.EXPO_PUBLIC_API_BASE_URL as string | undefined)?.trim();
 export const API_BASE: string =
-  (process.env.EXPO_PUBLIC_API_BASE_URL as string | undefined) ?? PRODUCTION_API;
+  configuredApi ?? "";
+
+if (!configuredApi) {
+  throw new Error(
+    "EXPO_PUBLIC_API_BASE_URL is required for The Levantine House driver app. Refusing to connect to a legacy API.",
+  );
+}
 
 async function apiPost<T>(path: string, body: unknown): Promise<T> {
   const url = `${API_BASE}/api${path}`;
@@ -119,7 +127,7 @@ if (!TaskManager.isTaskDefined(BG_LOCATION_TASK)) {
 // ── Assets ────────────────────────────────────────────────────────────────────
 const ORDER_SOUND   = require("../assets/sounds/notification_loop.wav");
 const MESSAGE_SOUND = require("../assets/sounds/notification.wav");
-const LOGO          = require("../assets/images/logo.png");
+const LOGO          = require("../assets/images/thelevantine-house-logo.jpg");
 
 const F = {
   regular: "Cairo_400Regular",
@@ -175,7 +183,7 @@ function LoginScreen({ onLogin }: { onLogin: (driver: Driver) => void }) {
           بوابة المناديب
         </Text>
         <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: 14, textAlign: "center" }}>
-          روابي المندي — دخول المناديب
+          البيت الشامي — دخول المناديب
         </Text>
 
         <View style={{ width: "100%", gap: 12 }}>
@@ -487,7 +495,7 @@ function DriverHome({ driver, onLogout }: { driver: Driver; onLogout: () => void
         distanceInterval: 20,
         pausesUpdatesAutomatically: false,
         foregroundService: {
-          notificationTitle: "روابي المندي",
+          notificationTitle: "البيت الشامي",
           notificationBody: "يتم إرسال موقعك للعميل أثناء التوصيل",
           notificationColor: "#E8920C",
         },

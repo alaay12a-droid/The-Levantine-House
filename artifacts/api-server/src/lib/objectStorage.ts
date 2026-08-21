@@ -19,6 +19,8 @@ import { logger } from "./logger.js";
 // failed everywhere else with "make sure you're running on Replit".
 let _storageClient: Storage | null = null;
 let _bucketName: string | null = null;
+const LEGACY_FIREBASE_PROJECT_ID = "rawabialmandi-4d78f";
+const LEGACY_FIREBASE_STORAGE_BUCKET = "rawabialmandi-4d78f.firebasestorage.app";
 
 interface FirebaseServiceAccount {
   project_id: string;
@@ -37,7 +39,13 @@ function getServiceAccount(): FirebaseServiceAccount {
     );
   }
   try {
-    return JSON.parse(raw) as FirebaseServiceAccount;
+    const serviceAccount = JSON.parse(raw) as FirebaseServiceAccount;
+    if (serviceAccount.project_id === LEGACY_FIREBASE_PROJECT_ID) {
+      throw new Error(
+        "Firebase isolation check failed: legacy Rawabi project credentials are not allowed",
+      );
+    }
+    return serviceAccount;
   } catch (err) {
     throw new Error("FIREBASE_SERVICE_ACCOUNT is not valid JSON — cannot initialize object storage");
   }
@@ -61,6 +69,11 @@ function getBucketName(): string {
   if (_bucketName) return _bucketName;
   const explicit = process.env.FIREBASE_STORAGE_BUCKET;
   if (explicit) {
+    if (explicit === LEGACY_FIREBASE_STORAGE_BUCKET) {
+      throw new Error(
+        "Firebase isolation check failed: the legacy Rawabi storage bucket is not allowed",
+      );
+    }
     _bucketName = explicit;
     return _bucketName;
   }

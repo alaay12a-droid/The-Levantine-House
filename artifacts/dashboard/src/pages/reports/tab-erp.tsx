@@ -336,7 +336,7 @@ export function TabErp({ orders, loading }: Props) {
 <div class="page">
   <div class="header">
     <div>
-      <div class="restaurant-name">روابي المندي</div>
+      <div class="restaurant-name">البيت الشامي</div>
       <div class="restaurant-sub">للمذاق فن وأصول — تبوك، حي الروضة</div>
     </div>
     <div class="report-meta">
@@ -353,7 +353,7 @@ export function TabErp({ orders, loading }: Props) {
   </div>
   ${tableHtml}
   <div class="footer">
-    <span>روابي المندي للمذاق فن وأصول</span>
+    <span>البيت الشامي</span>
     <span>تقرير آلي — جميع المبالغ بالريال السعودي</span>
   </div>
 </div>

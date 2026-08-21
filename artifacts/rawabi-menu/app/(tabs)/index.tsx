@@ -103,7 +103,7 @@ type MenuListItem =
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const AnimatedFlashList = Animated.createAnimatedComponent(FlashList as any) as any;
 
-const logo = require("@/assets/images/logo.png");
+const logo = require("@/assets/images/thelevantine-house-logo.jpg");
 const deliveryCar = require("@/assets/images/delivery_car.jpg");
 const dhabihaImg = require("@/assets/images/dhabiha.png");
 const dhabihaPoster = require("@/assets/images/dhabiha_poster.jpg");

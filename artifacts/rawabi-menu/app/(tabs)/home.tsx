@@ -8,7 +8,7 @@ import {
   Linking,
   StatusBar,
 } from "react-native";
-import { FlashList } from "@shopify/flash-list";
+import { FlashList, type FlashListRef } from "@shopify/flash-list";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
@@ -35,7 +35,7 @@ const F = {
 };
 
 const BRANCH_ADDRESS = "تبوك — حي الروضة";
-const BRANCH_MAPS_URL = "https://maps.google.com/?q=تبوك+حي+الروضة+روابي+المندي";
+const BRANCH_MAPS_URL = "https://maps.google.com/";
 
 type OrderMode = "delivery" | "pickup";
 type RawItem = MenuItem & { available?: boolean; nameEn?: string; descriptionEn?: string; stock?: number | null };
@@ -107,7 +107,7 @@ export default function HomeScreen() {
   const handleSelectItem = useCallback((item: RawItem) => setSelectedItem(item), []);
   const handleCloseDetail = useCallback(() => setSelectedItem(null), []);
   const searchRef = useRef<TextInput>(null);
-  const listRef = useRef<FlashList<ListEntry>>(null);
+  const listRef = useRef<FlashListRef<ListEntry>>(null);
 
   useFocusEffect(useCallback(() => { refreshMenu(); }, [refreshMenu]));
   useEffect(() => { refreshBanners(); }, [refreshBanners]);
@@ -265,7 +265,7 @@ export default function HomeScreen() {
           </View>
           <View style={styles.greetBlock}>
             <Text style={[styles.greetName, { color: colors.foreground, fontFamily: F.extra }]}>
-              {user?.name ? `مرحبا، ${user.name}` : "روابي المندي"}
+              {user?.name ? `مرحبا، ${user.name}` : "البيت الشامي"}
             </Text>
             <Text style={[styles.greetSub, { color: colors.gold, fontFamily: F.regular }]}>
               {greeting} 👋

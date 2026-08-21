@@ -58,9 +58,9 @@ export default function ReferralScreen() {
 
   const handleShare = async () => {
     if (!code) return;
-    const base = (process.env.EXPO_PUBLIC_API_BASE_URL ?? "https://mandi-menu-1-640o.onrender.com").replace(/\/+$/, "");
+    const base = API_BASE.replace(/\/+$/, "");
     const appLink = `${base}?ref=${code}`;
-    const msg = `🍖 جرّب روابي المندي — أشهى مطعم مندي في تبوك!\n\nحمّل التطبيق الآن واستمتع بتجربة الطلب:\n${appLink}\n\nكود الإحالة الخاص بك: ${code}`;
+    const msg = `🍖 جرّب البيت الشامي — أطيب أكل شامي!\n\nحمّل التطبيق الآن واستمتع بتجربة الطلب:\n${appLink}\n\nكود الإحالة الخاص بك: ${code}`;
     try {
       await Share.share({ message: msg, url: appLink });
     } catch {}

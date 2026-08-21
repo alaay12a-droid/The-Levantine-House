@@ -42,8 +42,8 @@ const F = {
 interface SocialLink { image: any; label: string; url: string; }
 
 const SOCIAL_LINKS: SocialLink[] = [
-  { image: snapchatLogo, label: "سناب شات", url: `https://www.snapchat.com/add/rwabi-almndi?share_id=3Bq3Hx1Ah3o&locale=ar-AE` },
-  { image: tiktokLogo,   label: "تيك توك",   url: `https://www.tiktok.com/@rwabialmndi?_r=1&_t=ZS-95zIV9lsc6R` },
+  { image: snapchatLogo, label: "سناب شات", url: "" },
+  { image: tiktokLogo,   label: "تيك توك",   url: "" },
 ];
 
 interface MenuItem { icon: string; label: string; action: () => void; danger?: boolean; highlight?: boolean; }
@@ -234,7 +234,7 @@ export default function MoreScreen() {
       label: t("aboutUs"),
       action: () =>
         Alert.alert(
-          "روابي المندي",
+          "البيت الشامي",
           `${info.tagline}\n\n${info.location}\nهاتف: ${info.phone}`
         ),
     },
@@ -387,7 +387,7 @@ export default function MoreScreen() {
         </View>
 
         <Text style={[styles.version, { color: colors.mutedForeground, fontFamily: F.regular }]}>
-          روابي المندي • نسخة 1.0
+          البيت الشامي • نسخة 1.0
         </Text>
 
         {/* ── بواسطة ── */}

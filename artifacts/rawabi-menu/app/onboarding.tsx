@@ -283,7 +283,7 @@ export default function OnboardingScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.brand}>
-          <Text style={styles.brandTitle}>روابي المندي</Text>
+          <Text style={styles.brandTitle}>البيت الشامي</Text>
           <Text style={styles.brandSub}>للمذاق فن وأصول</Text>
         </View>
 
@@ -304,7 +304,7 @@ export default function OnboardingScreen() {
           <View style={[styles.cardAccent, { backgroundColor: C.gold }]} />
 
           <Image
-            source={require("@/assets/images/rawabi_logo.jpg")}
+            source={require("@/assets/images/thelevantine-house-logo.jpg")}
             style={styles.logo}
             resizeMode="contain"
           />
