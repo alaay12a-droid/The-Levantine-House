@@ -1,6 +1,6 @@
 kind = "mobile"
 previewPath = "/"
-title = "روابي المندي"
+title = "البيت الشامي"
 version = "1.0.0"
 id = "artifacts/rawabi-menu"
 router = "expo-domain"
@@ -16,7 +16,7 @@ paths = [ "/" ]
 localPort = 26249
 
 [services.development]
-run = "pnpm --filter @workspace/rawabi-menu run dev"
+run = "pnpm --filter @workspace/the-levantine-house run dev"
 
 [services.env]
 PORT = "26249"

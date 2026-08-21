@@ -1,4 +1,4 @@
-# دليل رفع تطبيق روابي المندي على Google Play
+# دليل رفع تطبيق البيت الشامي على Google Play
 
 ## ما تم إعداده تلقائياً ✅
 
@@ -8,8 +8,8 @@
 | الأيقونة التكيفية (Adaptive Icon) | ✅ جاهز | 1024×1024 RGBA |
 | أيقونة الإشعارات | ✅ جاهز | 96×96 بيضاء شفافة |
 | Feature Graphic | ✅ جاهز | 1024×500 (في assets/store/) |
-| اسم الحزمة | ✅ جاهز | com.rawabialmandi.app |
-| إصدار التطبيق | ✅ جاهز | 1.0.0 (versionCode: 1) |
+| اسم الحزمة | ✅ جاهز | com.thelevantinehouse.menu |
+| إصدار التطبيق | ✅ جاهز | 1.4.0 (versionCode: 32) |
 | Android SDK | ✅ جاهز | min:26 / target:35 |
 | EAS Build | ✅ جاهز | ملف eas.json محضّر |
 
@@ -43,7 +43,7 @@ eas build --platform android --profile production
 ### الخطوة 4: رفع الـ AAB على Google Play Console
 **يدوياً:**
 1. افتح [play.google.com/console](https://play.google.com/console)
-2. أنشئ تطبيقاً جديداً باسم "روابي المندي"
+2. أنشئ تطبيقاً جديداً باسم "البيت الشامي"
 3. اذهب لـ **Production** ← **Create new release**
 4. ارفع ملف `.aab` الذي أنتجه EAS
 5. أضف **Feature Graphic** من `assets/store/feature_graphic.jpg`
@@ -59,8 +59,8 @@ eas submit --platform android --profile production
 
 ## معلومات التطبيق للـ Play Store
 
-- **اسم التطبيق:** روابي المندي
-- **اسم الحزمة:** com.rawabialmandi.app
+- **اسم التطبيق:** البيت الشامي
+- **اسم الحزمة:** com.thelevantinehouse.menu
 - **الفئة:** Food & Drink
 - **التصنيف:** للجميع (Everyone)
 - **اللغة الرئيسية:** العربية
@@ -69,7 +69,7 @@ eas submit --platform android --profile production
 
 **عربي:**
 ```
-تطبيق روابي المندي — اطلب وجبتك المفضلة من مطعم روابي المندي في تبوك بكل سهولة.
+تطبيق البيت الشامي — اطلب وجبتك المفضلة من مطعم البيت الشامي في تبوك بكل سهولة.
 تصفّح القائمة الكاملة، اختر وجبتك، وتتبع طلبك لحظة بلحظة حتى يصل إلى بابك.
 ```
 

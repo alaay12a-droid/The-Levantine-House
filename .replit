@@ -28,7 +28,7 @@ args = "Start Backend"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "artifacts/rawabi-driver: expo"
+args = "artifacts/the-levantine-house-driver: expo"
 
 [[workflows.workflow]]
 name = "Start Backend"
@@ -42,7 +42,7 @@ args = "cd /home/runner/workspace/artifacts/api-server && PORT=8080 node --enabl
 outputType = "console"
 
 [[workflows.workflow]]
-name = "artifacts/rawabi-driver: expo"
+name = "artifacts/the-levantine-house-driver: expo"
 author = "agent"
 
 [workflows.workflow.metadata]
@@ -50,7 +50,7 @@ outputType = "webview"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "PORT=8099 pnpm --filter @workspace/rawabi-driver run dev"
+args = "PORT=8099 pnpm --filter @workspace/the-levantine-house-driver run dev"
 
 [agent]
 stack = "PNPM_WORKSPACE"

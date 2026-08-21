@@ -28,7 +28,7 @@ See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and pa
 
 ---
 
-## The Levantine House Restaurant App (`artifacts/rawabi-menu`)
+## The Levantine House Restaurant App
 
 Premium Arabic mobile restaurant ordering app built with Expo React Native.
 

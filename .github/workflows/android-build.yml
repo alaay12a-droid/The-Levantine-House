@@ -1,4 +1,4 @@
-name: Android Build (Google Play AAB)
+name: The Levantine House Android Build (AAB)
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
 
 jobs:
   build-android:
-    name: Build Android AAB
+    name: Build The Levantine House Android AAB
     runs-on: ubuntu-latest
 
     steps:
