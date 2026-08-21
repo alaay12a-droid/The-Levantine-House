@@ -69,3 +69,5 @@ channel = "stable-25_05"
 [userenv.shared]
 VITE_API_BASE_URL = ""
 SEED_LEGACY_DATA = "false"
+ADMIN_USERNAME = "admin"
+SEED_ADMIN = "false"
