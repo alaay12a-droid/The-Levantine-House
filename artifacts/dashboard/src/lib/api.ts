@@ -15,4 +15,4 @@ export const apiGet  = <T>(path: string)                        => request<T>(pa
 export const apiPost = <T>(path: string, body?: unknown)        => request<T>(path, { method: "POST",  body: JSON.stringify(body) });
 export const apiPut  = <T>(path: string, body?: unknown)        => request<T>(path, { method: "PUT",   body: JSON.stringify(body) });
 export const apiPatch= <T>(path: string, body?: unknown)        => request<T>(path, { method: "PATCH", body: JSON.stringify(body) });
-export const apiDel  = <T>(path: string)                        => request<T>(path, { method: "DELETE" });
+export const apiDel  = <T>(path: string, body?: unknown)        => request<T>(path, { method: "DELETE", body: body === undefined ? undefined : JSON.stringify(body) });

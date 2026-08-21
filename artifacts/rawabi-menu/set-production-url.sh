@@ -1,9 +1,9 @@
 #!/bin/bash
-# تشغيل هذا السكريبت بعد نشر التطبيق على Replit لتحديث رابط API الإنتاجي
-# استخدام:  bash set-production-url.sh https://your-app.replit.app
+# عنوان API الإنتاجي المعتمد للبيت الشامي موجود في eas.json.
+# لا تستخدم أي نطاق Replit أو رابط مشروع قديم.
 
 if [ -z "$1" ]; then
-  echo "الاستخدام: bash set-production-url.sh https://your-deployed-url.replit.app"
+  echo "الاستخدام: bash set-production-url.sh https://the-levantine-house.onrender.com"
   exit 1
 fi
 

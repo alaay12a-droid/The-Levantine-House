@@ -103,7 +103,7 @@ type MenuListItem =
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const AnimatedFlashList = Animated.createAnimatedComponent(FlashList as any) as any;
 
-const logo = require("@/assets/images/thelevantine-house-logo.jpg");
+const logo = require("@/assets/images/logo.png");
 const deliveryCar = require("@/assets/images/delivery_car.jpg");
 const dhabihaImg = require("@/assets/images/dhabiha.png");
 const dhabihaPoster = require("@/assets/images/dhabiha_poster.jpg");
@@ -275,6 +275,15 @@ export default function MenuScreen() {
   const specialCat = categories.find((c) => c.id === activeCategory && (c.isDelivery || c.isDhabiha || c.isOccasions));
   const activeCat = categories.find((c) => c.id === activeCategory) ?? categories[0];
   const topInset = Platform.OS === "web" ? 60 : insets.top;
+
+  // Categories can be hidden or deleted remotely. Keep the active tab valid
+  // when the menu refreshes so the screen never points at a removed section.
+  useEffect(() => {
+    const selectable = categories.filter((category) => !category.isOccasions);
+    if (selectable.length > 0 && !selectable.some((category) => category.id === activeCategory)) {
+      setActiveCategory(selectable[0].id);
+    }
+  }, [categories, activeCategory]);
 
   // ── Sections data ────────────────────────────────────────────────────
   const sections = useMemo(() => regularCats.map((cat) => ({
@@ -689,7 +698,11 @@ export default function MenuScreen() {
                     : { backgroundColor: colors.isLight ? "#EDE0CE" : "#1A1008", borderColor: colors.isLight ? "#D4C4A8" : "#3A2410" },
                 ]}
               >
-                <Text style={styles.tabIcon}>{cat.icon}</Text>
+                {cat.imageUrl ? (
+                  <Image source={{ uri: cat.imageUrl }} style={styles.tabImage} contentFit="cover" />
+                ) : (
+                  <Text style={styles.tabIcon}>{cat.icon}</Text>
+                )}
                 <Text style={[styles.tabLabel, { color: active ? "#fff" : colors.mutedForeground, fontFamily: F.bold }]}>
                   {isEn ? (cat.nameEn ?? cat.name) : cat.name}
                 </Text>
@@ -1012,6 +1025,7 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   tabIcon: { fontSize: 15, fontFamily: Platform.OS === "web" ? "'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',sans-serif" : undefined },
+  tabImage: { width: 18, height: 18, borderRadius: 9 },
   tabLabel: { fontSize: 13 },
   sectionRow: {
     flexDirection: "row",

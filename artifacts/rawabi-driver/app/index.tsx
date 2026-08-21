@@ -58,15 +58,13 @@ const C = {
 } as const;
 
 // ── API helpers ───────────────────────────────────────────────────────────────
+const PRODUCTION_API_BASE_URL = "https://the-levantine-house.onrender.com";
 const configuredApi = (process.env.EXPO_PUBLIC_API_BASE_URL as string | undefined)?.trim();
-export const API_BASE: string =
-  configuredApi ?? "";
 
-if (!configuredApi) {
-  throw new Error(
-    "EXPO_PUBLIC_API_BASE_URL is required for The Levantine House driver app. Refusing to connect to a legacy API.",
-  );
+if (configuredApi && configuredApi !== PRODUCTION_API_BASE_URL) {
+  console.warn("Ignoring a non-production API URL; using the confirmed The Levantine House Render API.");
 }
+export const API_BASE: string = PRODUCTION_API_BASE_URL;
 
 async function apiPost<T>(path: string, body: unknown): Promise<T> {
   const url = `${API_BASE}/api${path}`;

@@ -14,10 +14,11 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, Plus, Trash2, Pencil, X, ChevronDown, ChevronUp, Package, Image as ImageIcon, Settings, MapPin, Gift, BarChart2, UtensilsCrossed, RefreshCw, Calendar, DollarSign, ShieldCheck, Volume2, Palette, Bell, Upload, Link } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-type AdminTab = "menu" | "occasions" | "stock" | "banners" | "revenue" | "combos" | "zones" | "referrals" | "settings";
+type AdminTab = "menu" | "categories" | "occasions" | "stock" | "banners" | "revenue" | "combos" | "zones" | "referrals" | "settings";
 type SettingsSection = "hours" | "payment" | "security" | "appearance" | "sounds" | "discounts" | "notifications";
 
 interface ApiMenuItem { id: string; name: string; nameEn?: string; category: string; price: number; isAvailable: boolean; stock: number | null; imageUrl?: string; description?: string; }
+interface ApiMenuCategory { id: string; name: string; nameEn: string; icon: string; imageUrl: string | null; isVisible: boolean; sortOrder: number; }
 interface ApiOccasion { id: string; name: string; description?: string; imageUrl?: string; isActive: boolean; }
 interface ApiBanner { bannerId: string; imageUrl: string; title?: string | null; active: boolean; createdAt: string; }
 interface ApiCombo { id: string; name: string; price: number; description?: string; imageUrl?: string; isAvailable: boolean; components: { name: string; quantity: number }[]; }
@@ -31,8 +32,6 @@ interface RevenueDayRow { date: string; total: number; delivery: number; items: 
 interface RevenueMonthRow { month: string; total: number; delivery: number; items: number; orders: number; tax: number; net: number; cancelledCount: number; cancelledValue: number; cashCount: number; onlineCount: number; }
 interface RevenueTopItem { id: string; name: string; qty: number; revenue: number; }
 interface RevenueData { today: RevenuePeriod; week: RevenuePeriod; month: RevenuePeriod; year: RevenuePeriod; dailyBreakdown: RevenueDayRow[]; monthlyBreakdown: RevenueMonthRow[]; topItems: RevenueTopItem[]; }
-
-const CATEGORIES = ["الدجاج", "اللحوم", "المشويات", "المقبلات", "السلطات", "المشروبات", "العصائر", "المناسبات"];
 
 function fmtPrice(riyals: number) { return `${(riyals).toFixed(2)} ر.س`; }
 
@@ -52,13 +51,21 @@ export default function Admin() {
 
   // ── Menu ──
   const [menuItems, setMenuItems] = useState<ApiMenuItem[]>([]);
+  const [menuCategories, setMenuCategories] = useState<ApiMenuCategory[]>([]);
   const [menuLoading, setMenuLoading] = useState(false);
   const [menuFilter, setMenuFilter] = useState("الكل");
   const [menuSearch, setMenuSearch] = useState("");
   const [showItemForm, setShowItemForm] = useState(false);
   const [editingItem, setEditingItem] = useState<ApiMenuItem | null>(null);
-  const [itemForm, setItemForm] = useState({ name: "", nameEn: "", category: CATEGORIES[0], price: "", stock: "", description: "", imageUrl: "", isAvailable: true });
+  const [itemForm, setItemForm] = useState({ name: "", nameEn: "", category: "", price: "", stock: "", description: "", imageUrl: "", isAvailable: true });
   const [itemFormSaving, setItemFormSaving] = useState(false);
+  const [showCategoryForm, setShowCategoryForm] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<ApiMenuCategory | null>(null);
+  const [categoryForm, setCategoryForm] = useState({ name: "", nameEn: "", icon: "🍽️", imageUrl: "", isVisible: true });
+  const [categorySaving, setCategorySaving] = useState(false);
+  const [deletingCategory, setDeletingCategory] = useState<ApiMenuCategory | null>(null);
+  const [moveProductsTo, setMoveProductsTo] = useState("");
+  const [categoryDeleting, setCategoryDeleting] = useState(false);
 
   // ── Stock ──
   const [stockEdits, setStockEdits] = useState<Record<string, string>>({});
@@ -162,8 +169,12 @@ export default function Admin() {
   const loadMenu = useCallback(async () => {
     setMenuLoading(true);
     try {
-      const data = await apiGet<ApiMenuItem[]>("/menu");
+      const [data, categories] = await Promise.all([
+        apiGet<ApiMenuItem[]>("/menu"),
+        apiGet<ApiMenuCategory[]>("/menu/categories"),
+      ]);
       setMenuItems(data);
+      setMenuCategories(categories);
       const edits: Record<string, string> = {};
       data.forEach(i => { edits[i.id] = i.stock != null ? String(i.stock) : ""; });
       setStockEdits(edits);
@@ -173,7 +184,7 @@ export default function Admin() {
 
   useEffect(() => {
     if (!authenticated) return;
-    if (activeTab === "menu" || activeTab === "stock") loadMenu();
+    if (activeTab === "menu" || activeTab === "categories" || activeTab === "stock") loadMenu();
     if (activeTab === "occasions") loadOccasions();
     if (activeTab === "banners") loadBanners();
     if (activeTab === "revenue") loadRevenue();
@@ -289,7 +300,7 @@ export default function Admin() {
   // ── Menu CRUD ─────────────────────────────────────────────────────────────
   const openAddItem = () => {
     setEditingItem(null);
-    setItemForm({ name: "", nameEn: "", category: CATEGORIES[0], price: "", stock: "", description: "", imageUrl: "", isAvailable: true });
+    setItemForm({ name: "", nameEn: "", category: menuCategories[0]?.id ?? "", price: "", stock: "", description: "", imageUrl: "", isAvailable: true });
     setShowItemForm(true);
   };
   const openEditItem = (item: ApiMenuItem) => {
@@ -329,6 +340,76 @@ export default function Admin() {
       await apiPut(`/menu/${item.id}`, { isAvailable: !item.isAvailable });
       setMenuItems(prev => prev.map(i => i.id === item.id ? { ...i, isAvailable: !i.isAvailable } : i));
     } catch { toast({ title: "خطأ", variant: "destructive" }); }
+  };
+
+  const openAddCategory = () => {
+    setEditingCategory(null);
+    setCategoryForm({ name: "", nameEn: "", icon: "🍽️", imageUrl: "", isVisible: true });
+    setShowCategoryForm(true);
+  };
+  const openEditCategory = (category: ApiMenuCategory) => {
+    setEditingCategory(category);
+    setCategoryForm({ name: category.name, nameEn: category.nameEn, icon: category.icon, imageUrl: category.imageUrl ?? "", isVisible: category.isVisible });
+    setShowCategoryForm(true);
+  };
+  const handleSaveCategory = async () => {
+    if (!categoryForm.name.trim()) return;
+    setCategorySaving(true);
+    const payload = {
+      name: categoryForm.name.trim(),
+      nameEn: categoryForm.nameEn.trim() || undefined,
+      icon: categoryForm.icon.trim() || "🍽️",
+      imageUrl: categoryForm.imageUrl.trim() || null,
+      isVisible: categoryForm.isVisible,
+    };
+    try {
+      if (editingCategory) await apiPut(`/menu/categories/${editingCategory.id}`, payload);
+      else await apiPost("/menu/categories", payload);
+      await loadMenu();
+      setShowCategoryForm(false);
+      toast({ title: editingCategory ? "تم تعديل القسم" : "تمت إضافة القسم" });
+    } catch { toast({ title: "تعذر حفظ القسم", variant: "destructive" }); }
+    finally { setCategorySaving(false); }
+  };
+  const handleToggleCategoryVisibility = async (category: ApiMenuCategory) => {
+    try {
+      await apiPut(`/menu/categories/${category.id}`, { isVisible: !category.isVisible });
+      setMenuCategories(prev => prev.map(item => item.id === category.id ? { ...item, isVisible: !item.isVisible } : item));
+    } catch { toast({ title: "تعذر تحديث ظهور القسم", variant: "destructive" }); }
+  };
+  const handleMoveCategory = async (categoryId: string, direction: -1 | 1) => {
+    const currentIndex = menuCategories.findIndex((category) => category.id === categoryId);
+    const targetIndex = currentIndex + direction;
+    if (currentIndex === -1 || targetIndex < 0 || targetIndex >= menuCategories.length) return;
+    const reordered = [...menuCategories];
+    [reordered[currentIndex], reordered[targetIndex]] = [reordered[targetIndex], reordered[currentIndex]];
+    setMenuCategories(reordered);
+    try {
+      const categories = await apiPut<ApiMenuCategory[]>("/menu/categories/order", { categoryIds: reordered.map((category) => category.id) });
+      setMenuCategories(categories);
+    } catch {
+      toast({ title: "تعذر حفظ ترتيب الأقسام", variant: "destructive" });
+      loadMenu();
+    }
+  };
+  const openDeleteCategory = (category: ApiMenuCategory) => {
+    const count = menuItems.filter((item) => item.category === category.id).length;
+    if (count === 0 && !window.confirm(`حذف قسم «${category.name}»؟`)) return;
+    setDeletingCategory(category);
+    setMoveProductsTo(menuCategories.find((item) => item.id !== category.id)?.id ?? "");
+  };
+  const handleDeleteCategory = async () => {
+    if (!deletingCategory) return;
+    const productCount = menuItems.filter((item) => item.category === deletingCategory.id).length;
+    if (productCount > 0 && !moveProductsTo) return;
+    setCategoryDeleting(true);
+    try {
+      await apiDel(`/menu/categories/${deletingCategory.id}`, productCount > 0 ? { moveProductsTo } : undefined);
+      await loadMenu();
+      setDeletingCategory(null);
+      toast({ title: productCount > 0 ? "تم نقل المنتجات وحذف القسم" : "تم حذف القسم" });
+    } catch { toast({ title: "تعذر حذف القسم", variant: "destructive" }); }
+    finally { setCategoryDeleting(false); }
   };
 
   // ── Stock ─────────────────────────────────────────────────────────────────
@@ -580,6 +661,7 @@ export default function Admin() {
   // ──────────────────────────────────────────────────────────────────────────
   const TABS: { key: AdminTab; icon: React.ElementType; label: string }[] = [
     { key: "menu", icon: UtensilsCrossed, label: "الأصناف" },
+      { key: "categories", icon: Package, label: "الأقسام" },
     { key: "occasions", icon: Calendar, label: "المناسبات" },
     { key: "stock", icon: Package, label: "المخزون" },
     { key: "banners", icon: ImageIcon, label: "البانر" },
@@ -629,15 +711,15 @@ export default function Admin() {
           <Input placeholder="بحث باسم الصنف..." value={menuSearch} onChange={e => setMenuSearch(e.target.value)} />
           {/* Category pills */}
           <div className="flex gap-2 overflow-x-auto pb-1">
-            {["الكل", ...CATEGORIES].map(cat => (
-              <button key={cat} onClick={() => setMenuFilter(cat)}
+            {["الكل", ...menuCategories.map(category => category.id)].map(categoryId => (
+              <button key={categoryId} onClick={() => setMenuFilter(categoryId)}
                 className={cn(
                   "whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors",
-                  menuFilter === cat ? "bg-amber-500 text-white border-amber-500" : "bg-card text-muted-foreground border-border hover:border-amber-500/50"
+                  menuFilter === categoryId ? "bg-amber-500 text-white border-amber-500" : "bg-card text-muted-foreground border-border hover:border-amber-500/50"
                 )}>
-                {cat}
-                {cat !== "الكل" && <span className="mr-1">({menuItems.filter(i => i.category === cat).length})</span>}
-                {cat === "الكل" && <span className="mr-1">({menuItems.length})</span>}
+                {categoryId === "الكل" ? "الكل" : menuCategories.find(category => category.id === categoryId)?.name ?? categoryId}
+                {categoryId !== "الكل" && <span className="mr-1">({menuItems.filter(item => item.category === categoryId).length})</span>}
+                {categoryId === "الكل" && <span className="mr-1">({menuItems.length})</span>}
               </button>
             ))}
           </div>
@@ -653,7 +735,7 @@ export default function Admin() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-bold text-sm text-foreground">{item.name}</span>
-                        <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">{item.category}</span>
+                        <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">{menuCategories.find(category => category.id === item.category)?.name ?? item.category}</span>
                       </div>
                       <div className="flex items-center gap-3 mt-1">
                         <span className="font-black text-amber-500 text-sm">{formatCurrency(item.price)}</span>
@@ -683,6 +765,59 @@ export default function Admin() {
                   <span className="text-sm">لا توجد أصناف</span>
                 </div>
               )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════════
+          CATEGORIES TAB
+         ══════════════════════════════════════════════════════════════════ */}
+      {activeTab === "categories" && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="font-bold text-base text-foreground">أقسام المنيو</h2>
+              <p className="text-xs text-muted-foreground mt-1">تظهر التعديلات في تطبيق العميل عند فتحه أو العودة إليه.</p>
+            </div>
+            <div className="flex gap-2">
+              <Button size="sm" onClick={() => loadMenu()} variant="outline" disabled={menuLoading}>
+                <RefreshCw className={cn("h-4 w-4", menuLoading && "animate-spin")} />
+              </Button>
+              <Button size="sm" onClick={openAddCategory} className="bg-amber-500 hover:bg-amber-600 text-white font-bold">
+                <Plus className="h-4 w-4 ml-1" /> إضافة قسم
+              </Button>
+            </div>
+          </div>
+          {menuLoading ? (
+            <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-amber-500" /></div>
+          ) : menuCategories.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-border p-10 text-center text-sm text-muted-foreground">لا توجد أقسام بعد</div>
+          ) : (
+            <div className="space-y-2">
+              {menuCategories.map((category, index) => {
+                const productCount = menuItems.filter(item => item.category === category.id).length;
+                return (
+                  <div key={category.id} className="flex items-center gap-3 rounded-2xl border border-border bg-card p-3">
+                    {category.imageUrl ? <img src={category.imageUrl} alt="" className="h-12 w-12 rounded-xl object-cover" /> : <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/10 text-2xl">{category.icon}</span>}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-bold text-sm text-foreground">{category.name}</span>
+                        {!category.isVisible && <Badge variant="secondary">مخفي</Badge>}
+                      </div>
+                      <p className="mt-1 text-xs text-muted-foreground" dir="ltr">{category.nameEn}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">{productCount} صنف</p>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Switch checked={category.isVisible} onCheckedChange={() => handleToggleCategoryVisibility(category)} />
+                      <button disabled={index === 0} onClick={() => handleMoveCategory(category.id, -1)} className="h-8 w-8 rounded-lg border border-border text-sm disabled:opacity-30">↑</button>
+                      <button disabled={index === menuCategories.length - 1} onClick={() => handleMoveCategory(category.id, 1)} className="h-8 w-8 rounded-lg border border-border text-sm disabled:opacity-30">↓</button>
+                      <button onClick={() => openEditCategory(category)} className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100 text-blue-600 hover:bg-blue-200 dark:bg-blue-900/20"><Pencil className="h-3.5 w-3.5" /></button>
+                      <button onClick={() => openDeleteCategory(category)} className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-100 text-red-600 hover:bg-red-200 dark:bg-red-900/20"><Trash2 className="h-3.5 w-3.5" /></button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -1412,6 +1547,78 @@ export default function Admin() {
           MODALS
          ══════════════════════════════════════════════════════════════════ */}
 
+      {/* ── Category Form Modal ───────────────────────────────────────────── */}
+      <Dialog open={showCategoryForm} onOpenChange={setShowCategoryForm}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>{editingCategory ? "تعديل القسم" : "إضافة قسم جديد"}</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div className="grid grid-cols-[1fr_84px] gap-3">
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-foreground">الاسم العربي *</label>
+                <Input value={categoryForm.name} onChange={event => setCategoryForm(form => ({ ...form, name: event.target.value }))} placeholder="مثال: المقبلات" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-foreground">الأيقونة</label>
+                <Input value={categoryForm.icon} onChange={event => setCategoryForm(form => ({ ...form, icon: event.target.value }))} className="text-center text-lg" maxLength={8} />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-foreground">الاسم الإنجليزي (اختياري)</label>
+              <Input value={categoryForm.nameEn} onChange={event => setCategoryForm(form => ({ ...form, nameEn: event.target.value }))} placeholder="Appetizers" dir="ltr" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-foreground">رابط صورة القسم (اختياري)</label>
+              <Input value={categoryForm.imageUrl} onChange={event => setCategoryForm(form => ({ ...form, imageUrl: event.target.value }))} placeholder="https://..." dir="ltr" />
+              {categoryForm.imageUrl && <img src={categoryForm.imageUrl} alt="" className="mt-2 h-24 w-full rounded-xl object-cover" onError={event => (event.currentTarget.style.display = "none")} />}
+            </div>
+            <div className="flex items-center justify-between rounded-xl bg-muted/60 p-3">
+              <div>
+                <p className="text-sm font-medium text-foreground">إظهار القسم في التطبيق</p>
+                <p className="text-xs text-muted-foreground">يمكنك إخفاء القسم دون حذف منتجاته.</p>
+              </div>
+              <Switch checked={categoryForm.isVisible} onCheckedChange={isVisible => setCategoryForm(form => ({ ...form, isVisible }))} />
+            </div>
+            <Button onClick={handleSaveCategory} disabled={categorySaving || !categoryForm.name.trim()} className="w-full bg-amber-500 font-bold text-white hover:bg-amber-600">
+              {categorySaving ? <Loader2 className="h-4 w-4 animate-spin" /> : editingCategory ? "حفظ التعديلات" : "إضافة القسم"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Safe category deletion ────────────────────────────────────────── */}
+      <Dialog open={Boolean(deletingCategory)} onOpenChange={open => { if (!open) setDeletingCategory(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>حذف القسم</DialogTitle></DialogHeader>
+          {deletingCategory && (() => {
+            const productCount = menuItems.filter(item => item.category === deletingCategory.id).length;
+            const targets = menuCategories.filter(category => category.id !== deletingCategory.id);
+            return (
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  {productCount > 0
+                    ? `يحتوي قسم «${deletingCategory.name}» على ${productCount} صنف. اختر القسم الذي ستُنقل إليه هذه المنتجات قبل الحذف.`
+                    : `سيُحذف قسم «${deletingCategory.name}» نهائيًا. لا توجد منتجات تحتاج للنقل.`}
+                </p>
+                {productCount > 0 && (
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium text-foreground">نقل المنتجات إلى</label>
+                    <Select value={moveProductsTo} onValueChange={setMoveProductsTo}>
+                      <SelectTrigger><SelectValue placeholder="اختر قسمًا" /></SelectTrigger>
+                      <SelectContent>
+                        {targets.map(category => <SelectItem key={category.id} value={category.id}>{category.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                <Button variant="destructive" onClick={handleDeleteCategory} disabled={categoryDeleting || (productCount > 0 && !moveProductsTo)} className="w-full font-bold">
+                  {categoryDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : productCount > 0 ? "نقل المنتجات وحذف القسم" : "حذف القسم"}
+                </Button>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
       {/* ── Item Form Modal ───────────────────────────────────────────────── */}
       <Dialog open={showItemForm} onOpenChange={setShowItemForm}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
@@ -1434,7 +1641,7 @@ export default function Admin() {
                 <label className="text-sm font-medium text-foreground">التصنيف *</label>
                 <Select value={itemForm.category} onValueChange={v => setItemForm(f => ({ ...f, category: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                  <SelectContent>{menuCategories.map(category => <SelectItem key={category.id} value={category.id}>{category.name}{!category.isVisible ? " (مخفي)" : ""}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
               <div className="space-y-1">
@@ -1463,7 +1670,7 @@ export default function Admin() {
               <Input value={itemForm.imageUrl} onChange={e => setItemForm(f => ({ ...f, imageUrl: e.target.value }))} placeholder="https://..." dir="ltr" />
               {itemForm.imageUrl && <img src={itemForm.imageUrl} alt="" className="w-full h-28 object-cover rounded-xl mt-2" onError={e => (e.currentTarget.style.display = "none")} />}
             </div>
-            <Button onClick={handleSaveItem} disabled={itemFormSaving || !itemForm.name.trim() || !itemForm.price}
+            <Button onClick={handleSaveItem} disabled={itemFormSaving || !itemForm.name.trim() || !itemForm.price || !itemForm.category}
               className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold">
               {itemFormSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : editingItem ? "حفظ التعديلات" : "إضافة الصنف"}
             </Button>

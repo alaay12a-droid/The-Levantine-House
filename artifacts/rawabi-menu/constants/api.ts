@@ -1,23 +1,18 @@
-import { Platform } from "react-native";
-
+const PRODUCTION_API_BASE_URL = "https://the-levantine-house.onrender.com";
 const configuredApi = (process.env.EXPO_PUBLIC_API_BASE_URL as string | undefined)?.trim();
 
-export const API_BASE =
-  configuredApi || "";
-
-if (Platform.OS !== "web" && !configuredApi) {
-  throw new Error(
-    "EXPO_PUBLIC_API_BASE_URL is required for The Levantine House. Refusing to connect to a legacy API.",
-  );
+if (configuredApi && configuredApi !== PRODUCTION_API_BASE_URL) {
+  console.warn("Ignoring a non-production API URL; using the confirmed The Levantine House Render API.");
 }
+
+export const API_BASE = PRODUCTION_API_BASE_URL;
 
 // Always an absolute URL — used when saving storage URLs to the DB so the
 // APK (which cannot resolve relative URLs) can load images correctly.
-export const STORAGE_BASE_URL =
-  configuredApi || "";
+export const STORAGE_BASE_URL = PRODUCTION_API_BASE_URL;
 
-// Log API base on startup so it's visible in logcat / Metro
-console.log(`[API] BASE_URL = "${API_BASE}" | EXPO_PUBLIC_API_BASE_URL = "${process.env.EXPO_PUBLIC_API_BASE_URL ?? "(not set)"}"`);
+// Log the enforced production API base on startup so it is visible in logcat / Metro.
+console.log(`[API] BASE_URL = "${API_BASE}"`);
 
 function logReq(method: string, url: string, status: number) {
   if (status >= 400) {

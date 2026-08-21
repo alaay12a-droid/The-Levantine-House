@@ -1,13 +1,119 @@
 import { Router } from "express";
-import { db, menuItemsTable } from "@workspace/db";
+import { db, appSettingsTable, menuItemsTable } from "@workspace/db";
 import { eq, asc, sql } from "drizzle-orm";
 import { z } from "zod";
 import { randomUUID } from "crypto";
 import { ObjectStorageService } from "../lib/objectStorage";
+import { requireDashboardAdmin, requireSameOriginDashboardRequest } from "./dashboard-auth";
 
 const objectStorageService = new ObjectStorageService();
 
 const router = Router();
+const CATEGORY_SETTINGS_KEY = "menu_categories_v1";
+
+type MenuCategory = {
+  id: string;
+  name: string;
+  nameEn: string;
+  icon: string;
+  imageUrl: string | null;
+  isVisible: boolean;
+  sortOrder: number;
+};
+
+const LEGACY_CATEGORY_META: Record<string, Omit<MenuCategory, "id" | "sortOrder">> = {
+  chicken: { name: "الدجاج", nameEn: "Chicken", icon: "🍗", imageUrl: null, isVisible: true },
+  meat: { name: "اللحوم", nameEn: "Meat", icon: "🥩", imageUrl: null, isVisible: true },
+  mains: { name: "الأطباق الرئيسية", nameEn: "Main Dishes", icon: "🍽️", imageUrl: null, isVisible: true },
+  sides: { name: "الإيدامات", nameEn: "Sides", icon: "🥘", imageUrl: null, isVisible: true },
+  salads: { name: "السلطات", nameEn: "Salads", icon: "🥗", imageUrl: null, isVisible: true },
+  desserts: { name: "الحلويات", nameEn: "Desserts", icon: "🍮", imageUrl: null, isVisible: true },
+  drinks: { name: "المشروبات", nameEn: "Drinks", icon: "🥤", imageUrl: null, isVisible: true },
+  extras: { name: "إضافات", nameEn: "Extras", icon: "✨", imageUrl: null, isVisible: true },
+  "الدجاج": { name: "الدجاج", nameEn: "Chicken", icon: "🍗", imageUrl: null, isVisible: true },
+  "اللحوم": { name: "اللحوم", nameEn: "Meat", icon: "🥩", imageUrl: null, isVisible: true },
+  "المشويات": { name: "المشويات", nameEn: "Grills", icon: "🔥", imageUrl: null, isVisible: true },
+  "المقبلات": { name: "المقبلات", nameEn: "Appetizers", icon: "🥙", imageUrl: null, isVisible: true },
+  "السلطات": { name: "السلطات", nameEn: "Salads", icon: "🥗", imageUrl: null, isVisible: true },
+  "المشروبات": { name: "المشروبات", nameEn: "Drinks", icon: "🥤", imageUrl: null, isVisible: true },
+  "العصائر": { name: "العصائر", nameEn: "Juices", icon: "🧃", imageUrl: null, isVisible: true },
+  "المناسبات": { name: "المناسبات", nameEn: "Occasions", icon: "🎉", imageUrl: null, isVisible: true },
+};
+
+const CATEGORY_ORDER = ["chicken", "meat", "mains", "sides", "salads", "desserts", "drinks", "extras"];
+
+function defaultCategory(id: string, sortOrder: number): MenuCategory {
+  const legacy = LEGACY_CATEGORY_META[id];
+  return {
+    id,
+    name: legacy?.name ?? id,
+    nameEn: legacy?.nameEn ?? id,
+    icon: legacy?.icon ?? "🍽️",
+    imageUrl: legacy?.imageUrl ?? null,
+    isVisible: legacy?.isVisible ?? true,
+    sortOrder,
+  };
+}
+
+function orderCategories(categories: MenuCategory[]): MenuCategory[] {
+  return [...categories].sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name, "ar"));
+}
+
+async function saveCategories(categories: MenuCategory[]) {
+  await db
+    .insert(appSettingsTable)
+    .values({ key: CATEGORY_SETTINGS_KEY, value: JSON.stringify(orderCategories(categories)) })
+    .onConflictDoUpdate({
+      target: appSettingsTable.key,
+      set: { value: JSON.stringify(orderCategories(categories)), updatedAt: new Date() },
+    });
+}
+
+async function getCategories(): Promise<MenuCategory[]> {
+  const [settingsRow, itemRows] = await Promise.all([
+    db.select().from(appSettingsTable).where(eq(appSettingsTable.key, CATEGORY_SETTINGS_KEY)),
+    db.select({ category: menuItemsTable.category }).from(menuItemsTable),
+  ]);
+
+  let savedCategories: MenuCategory[] = [];
+  try {
+    const parsed = JSON.parse(settingsRow[0]?.value ?? "[]");
+    if (Array.isArray(parsed)) {
+      savedCategories = parsed
+        .filter((category): category is Partial<MenuCategory> & { id: string; name: string } =>
+          typeof category?.id === "string" && typeof category.name === "string",
+        )
+        .map((category, index) => ({
+          ...defaultCategory(category.id, index),
+          ...category,
+          nameEn: typeof category.nameEn === "string" ? category.nameEn : category.name,
+          icon: typeof category.icon === "string" && category.icon.trim() ? category.icon : "🍽️",
+          imageUrl: typeof category.imageUrl === "string" ? category.imageUrl : null,
+          isVisible: category.isVisible !== false,
+          sortOrder: typeof category.sortOrder === "number" && Number.isInteger(category.sortOrder) ? category.sortOrder : index,
+        }));
+    }
+  } catch {
+    savedCategories = [];
+  }
+
+  const categoryIds = [...new Set(itemRows.map((row) => row.category))].sort((a, b) => {
+    const aIndex = CATEGORY_ORDER.indexOf(a);
+    const bIndex = CATEGORY_ORDER.indexOf(b);
+    return (aIndex === -1 ? Number.MAX_SAFE_INTEGER : aIndex) - (bIndex === -1 ? Number.MAX_SAFE_INTEGER : bIndex) || a.localeCompare(b, "ar");
+  });
+  const knownIds = new Set(savedCategories.map((category) => category.id));
+  const missing = categoryIds
+    .filter((id) => !knownIds.has(id))
+    .map((id, index) => defaultCategory(id, savedCategories.length + index));
+  const categories = orderCategories([...savedCategories, ...missing]);
+
+  if (!settingsRow[0] || missing.length > 0 || categories.length !== savedCategories.length) {
+    await saveCategories(categories);
+  }
+
+  return categories;
+}
 
 const INITIAL_ITEMS = [
   { itemId: "c1",   name: "مندي دجاج حبة كاملة مع الرز",    nameEn: "Whole Chicken Mandi with Rice",       category: "chicken",  price: 4400,   imageKey: "chicken_mandi_new",  sortOrder: 1  },
@@ -140,6 +246,26 @@ const updateSchema = z.object({
   walkingMinutes: z.number().int().min(0).nullable().optional(),
 });
 
+const categoryCreateSchema = z.object({
+  name: z.string().trim().min(1).max(80),
+  nameEn: z.string().trim().max(80).optional(),
+  icon: z.string().trim().min(1).max(24).optional(),
+  imageUrl: z.string().url().nullable().optional(),
+  isVisible: z.boolean().optional(),
+});
+
+const categoryUpdateSchema = categoryCreateSchema.partial();
+const categoryOrderSchema = z.object({
+  categoryIds: z.array(z.string().min(1)).min(1),
+});
+const categoryDeleteSchema = z.object({
+  moveProductsTo: z.string().min(1).optional(),
+});
+
+async function ensureCategoryExists(categoryId: string): Promise<boolean> {
+  return (await getCategories()).some((category) => category.id === categoryId);
+}
+
 router.get("/menu", async (req, res) => {
   res.setHeader("Cache-Control", "no-store");
   const items = await db
@@ -149,6 +275,145 @@ router.get("/menu", async (req, res) => {
   res.json(items);
 });
 
+router.get("/menu/categories", async (_req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  res.json(await getCategories());
+});
+
+router.post("/menu/categories", requireSameOriginDashboardRequest, requireDashboardAdmin, async (req, res) => {
+  const parsed = categoryCreateSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "بيانات القسم غير صحيحة", details: parsed.error.issues });
+    return;
+  }
+
+  const categories = await getCategories();
+  const data = parsed.data;
+  const category: MenuCategory = {
+    id: `category_${randomUUID().replaceAll("-", "")}`,
+    name: data.name,
+    nameEn: data.nameEn || data.name,
+    icon: data.icon || "🍽️",
+    imageUrl: data.imageUrl ?? null,
+    isVisible: data.isVisible ?? true,
+    sortOrder: categories.length,
+  };
+  await saveCategories([...categories, category]);
+  res.status(201).json(category);
+});
+
+router.put("/menu/categories/order", requireSameOriginDashboardRequest, requireDashboardAdmin, async (req, res) => {
+  const parsed = categoryOrderSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "ترتيب الأقسام غير صحيح", details: parsed.error.issues });
+    return;
+  }
+
+  const categories = await getCategories();
+  const knownIds = new Set(categories.map((category) => category.id));
+  const requestedIds = parsed.data.categoryIds;
+  if (new Set(requestedIds).size !== requestedIds.length || requestedIds.length !== categories.length || requestedIds.some((id) => !knownIds.has(id))) {
+    res.status(400).json({ error: "يجب إرسال جميع الأقسام مرة واحدة دون تكرار" });
+    return;
+  }
+
+  const sortOrderById = new Map(requestedIds.map((id, index) => [id, index]));
+  const updated = categories.map((category) => ({ ...category, sortOrder: sortOrderById.get(category.id)! }));
+  await saveCategories(updated);
+  res.json(orderCategories(updated));
+});
+
+router.put("/menu/categories/:categoryId", requireSameOriginDashboardRequest, requireDashboardAdmin, async (req, res) => {
+  const parsed = categoryUpdateSchema.safeParse(req.body);
+  if (!parsed.success || Object.keys(parsed.data ?? {}).length === 0) {
+    res.status(400).json({ error: "بيانات القسم غير صحيحة", details: parsed.success ? undefined : parsed.error.issues });
+    return;
+  }
+
+  const categories = await getCategories();
+  const categoryIndex = categories.findIndex((category) => category.id === req.params.categoryId);
+  if (categoryIndex === -1) {
+    res.status(404).json({ error: "القسم غير موجود" });
+    return;
+  }
+
+  const data = parsed.data;
+  const current = categories[categoryIndex];
+  const updated: MenuCategory = {
+    ...current,
+    ...(data.name !== undefined ? { name: data.name } : {}),
+    ...(data.nameEn !== undefined ? { nameEn: data.name || current.nameEn } : {}),
+    ...(data.icon !== undefined ? { icon: data.icon || "🍽️" } : {}),
+    ...(data.imageUrl !== undefined ? { imageUrl: data.imageUrl } : {}),
+    ...(data.isVisible !== undefined ? { isVisible: data.isVisible } : {}),
+  };
+  if (data.name !== undefined && data.nameEn === undefined && current.nameEn === current.name) {
+    updated.nameEn = data.name;
+  }
+  categories[categoryIndex] = updated;
+  await saveCategories(categories);
+  res.json(updated);
+});
+
+router.delete("/menu/categories/:categoryId", requireSameOriginDashboardRequest, requireDashboardAdmin, async (req, res) => {
+  const parsed = categoryDeleteSchema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    res.status(400).json({ error: "بيانات الحذف غير صحيحة", details: parsed.error.issues });
+    return;
+  }
+
+  const categoryId = req.params.categoryId;
+  if (typeof categoryId !== "string") {
+    res.status(400).json({ error: "معرّف القسم غير صحيح" });
+    return;
+  }
+
+  const categories = await getCategories();
+  const category = categories.find((item) => item.id === categoryId);
+  if (!category) {
+    res.status(404).json({ error: "القسم غير موجود" });
+    return;
+  }
+
+  const targetCategoryId = parsed.data.moveProductsTo;
+  const remaining = categories
+    .filter((item) => item.id !== categoryId)
+    .map((item, sortOrder) => ({ ...item, sortOrder }));
+
+  try {
+    const movedProducts = await db.transaction(async (tx) => {
+      const products = await tx
+        .select({ itemId: menuItemsTable.itemId })
+        .from(menuItemsTable)
+        .where(eq(menuItemsTable.category, categoryId));
+      if (products.length > 0) {
+        if (!targetCategoryId || targetCategoryId === categoryId || !categories.some((item) => item.id === targetCategoryId)) {
+          throw new Error("CATEGORY_MOVE_TARGET_REQUIRED");
+        }
+        await tx
+          .update(menuItemsTable)
+          .set({ category: targetCategoryId })
+          .where(eq(menuItemsTable.category, categoryId));
+      }
+      await tx
+        .insert(appSettingsTable)
+        .values({ key: CATEGORY_SETTINGS_KEY, value: JSON.stringify(orderCategories(remaining)) })
+        .onConflictDoUpdate({
+          target: appSettingsTable.key,
+          set: { value: JSON.stringify(orderCategories(remaining)), updatedAt: new Date() },
+        });
+      return products.length;
+    });
+    res.json({ success: true, movedProducts, categories: remaining });
+  } catch (error) {
+    if (error instanceof Error && error.message === "CATEGORY_MOVE_TARGET_REQUIRED") {
+      res.status(400).json({ error: "اختر قسمًا آخر لنقل المنتجات إليه قبل الحذف" });
+      return;
+    }
+    throw error;
+  }
+});
+
 router.post("/menu", async (req, res) => {
   const parsed = createSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -156,6 +421,10 @@ router.post("/menu", async (req, res) => {
     return;
   }
   const data = parsed.data;
+  if (!await ensureCategoryExists(data.category)) {
+    res.status(400).json({ error: "القسم المحدد غير موجود" });
+    return;
+  }
   const [item] = await db.insert(menuItemsTable).values({
     itemId: randomUUID(),
     name: data.name,
@@ -188,6 +457,10 @@ router.put("/menu/:itemId", async (req, res) => {
     return;
   }
   const data = parsed.data;
+  if (data.category !== undefined && !await ensureCategoryExists(data.category)) {
+    res.status(400).json({ error: "القسم المحدد غير موجود" });
+    return;
+  }
   const updates: Record<string, unknown> = {};
   if (data.name !== undefined) updates.name = data.name;
   if (data.nameEn !== undefined) updates.nameEn = data.nameEn;
