@@ -63,6 +63,8 @@ eas submit --platform android --profile production
 - **اسم التطبيق:** البيت الشامي
 - **اسم الحزمة:** com.thelevantinehouse.menu
 - **رابط سياسة الخصوصية:** https://jolly-pasca-488d71.netlify.app
+- **بريد الدعم:** alaay12a@gmail.com
+- **رقم الدعم/واتساب:** 0582011329
 - **الفئة:** Food & Drink
 - **التصنيف:** للجميع (Everyone)
 - **اللغة الرئيسية:** العربية

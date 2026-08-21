@@ -52,9 +52,9 @@ const sections = [
     ar: "حقوقك",
     en: "Your Rights",
     bodyAr:
-      "يمكنك طلب الوصول إلى بياناتك أو تصحيحها أو حذفها، كما يمكنك سحب أذونات الموقع من إعدادات جهازك. للتواصل: تُضاف قنوات الدعم الخاصة بالبيت الشامي لاحقًا.",
+      "يمكنك طلب الوصول إلى بياناتك أو تصحيحها أو حذفها، كما يمكنك سحب أذونات الموقع من إعدادات جهازك. للتواصل حول الخصوصية والبيانات: alaay12a@gmail.com أو واتساب 0582011329.",
     bodyEn:
-      "You may request access to, correction of, or deletion of your data, and you can revoke location permissions from your device settings. Support channels for The Levantine House will be added later.",
+      "You may request access to, correction of, or deletion of your data, and you can revoke location permissions from your device settings. For privacy and data questions, contact alaay12a@gmail.com or WhatsApp +966 58 201 1329.",
   },
 ];
 
