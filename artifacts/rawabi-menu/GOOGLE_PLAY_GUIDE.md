@@ -10,6 +10,7 @@
 | Feature Graphic | ✅ جاهز | 1024×500 (في assets/store/) |
 | اسم الحزمة | ✅ جاهز | com.thelevantinehouse.menu |
 | إصدار التطبيق | ✅ جاهز | 1.4.0 (versionCode: 32) |
+| سياسة الخصوصية | ✅ جاهز | https://jolly-pasca-488d71.netlify.app |
 | Android SDK | ✅ جاهز | min:26 / target:35 |
 | EAS Build | ✅ جاهز | ملف eas.json محضّر |
 
@@ -61,6 +62,7 @@ eas submit --platform android --profile production
 
 - **اسم التطبيق:** البيت الشامي
 - **اسم الحزمة:** com.thelevantinehouse.menu
+- **رابط سياسة الخصوصية:** https://jolly-pasca-488d71.netlify.app
 - **الفئة:** Food & Drink
 - **التصنيف:** للجميع (Everyone)
 - **اللغة الرئيسية:** العربية

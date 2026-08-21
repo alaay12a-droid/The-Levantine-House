@@ -1,5 +1,5 @@
 import React from "react";
-import { ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Linking, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -12,6 +12,8 @@ const F = {
   bold: "Cairo_700Bold",
   extra: "Cairo_800ExtraBold",
 };
+
+const PUBLIC_PRIVACY_URL = "https://jolly-pasca-488d71.netlify.app";
 
 const sections = [
   {
@@ -128,6 +130,16 @@ export default function PrivacyPolicy() {
         <Text style={[styles.footer, { color: colors.mutedForeground, fontFamily: F.regular }]}>
           {isEn ? "The Levantine House — All rights reserved © 2026" : "البيت الشامي — جميع الحقوق محفوظة © 2026"}
         </Text>
+        <TouchableOpacity
+          onPress={() => Linking.openURL(PUBLIC_PRIVACY_URL)}
+          accessibilityRole="link"
+          accessibilityLabel={isEn ? "Open full privacy policy online" : "فتح سياسة الخصوصية الكاملة"}
+          style={styles.publicLink}
+        >
+          <Text style={[styles.publicLinkText, { color: colors.gold, fontFamily: F.semi }]}>
+            {isEn ? "View the full privacy policy online" : "عرض سياسة الخصوصية الكاملة على الويب"}
+          </Text>
+        </TouchableOpacity>
       </ScrollView>
     </View>
   );
@@ -156,4 +168,6 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 15, flex: 1, textAlign: "right" },
   body: { fontSize: 13, lineHeight: 24, textAlign: "right" },
   footer: { textAlign: "center", fontSize: 12, marginTop: 10 },
+  publicLink: { alignSelf: "center", marginTop: 12, padding: 6 },
+  publicLinkText: { fontSize: 13, textDecorationLine: "underline" },
 });
