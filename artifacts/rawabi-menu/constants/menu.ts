@@ -48,8 +48,8 @@ export interface MenuCategory {
 
 export const RESTAURANT_INFO = {
   name: "البيت الشامي",
-  tagline: "للمذاق فن وأصول",
-  taglineEn: "A Fine Art of Taste",
+  tagline: "طعم الشام في كل طبق",
+  taglineEn: "The taste of the Levant in every dish",
   nameEn: "The Levantine House",
   phone: "0530707042",
   whatsapp: "966530707042",

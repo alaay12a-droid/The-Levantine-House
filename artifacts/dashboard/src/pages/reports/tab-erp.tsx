@@ -337,7 +337,7 @@ export function TabErp({ orders, loading }: Props) {
   <div class="header">
     <div>
       <div class="restaurant-name">البيت الشامي</div>
-      <div class="restaurant-sub">للمذاق فن وأصول — تبوك، حي الروضة</div>
+      <div class="restaurant-sub">طعم الشام في كل طبق — تبوك، حي الروضة</div>
     </div>
     <div class="report-meta">
       <div><strong>تقرير المبيعات</strong> — ${subtypeLabel}</div>

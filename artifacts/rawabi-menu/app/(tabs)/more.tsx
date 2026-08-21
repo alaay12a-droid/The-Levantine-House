@@ -39,12 +39,23 @@ const F = {
   extra: "Cairo_800ExtraBold",
 };
 
-interface SocialLink { image: any; label: string; url: string; }
+interface SocialLink { image: any; label: string; url: string; handle: string; }
 
-const SOCIAL_LINKS: SocialLink[] = [
-  { image: snapchatLogo, label: "سناب شات", url: "" },
-  { image: tiktokLogo,   label: "تيك توك",   url: "" },
-];
+function createSocialLink(
+  platform: "snapchat" | "tiktok",
+  image: any,
+  label: string,
+  value: string,
+): SocialLink | null {
+  const handle = value.trim().replace(/^@/, "");
+  // Do not surface legacy Rawabi accounts even if an old settings response is cached.
+  if (!handle || /rawabi|rwabi/i.test(handle)) return null;
+
+  const baseUrl = platform === "snapchat"
+    ? "https://www.snapchat.com/add/"
+    : "https://www.tiktok.com/@";
+  return { image, label, handle, url: `${baseUrl}${encodeURIComponent(handle)}` };
+}
 
 interface MenuItem { icon: string; label: string; action: () => void; danger?: boolean; highlight?: boolean; }
 
@@ -73,6 +84,10 @@ export default function MoreScreen() {
   const [unreadTotal, setUnreadTotal]   = useState(0);
   const chatScrollRef                    = useRef<ScrollView>(null);
   const isEn = language === "en";
+  const socialLinks = [
+    createSocialLink("snapchat", snapchatLogo, "سناب شات", info.snapchat),
+    createSocialLink("tiktok", tiktokLogo, "تيك توك", info.tiktok),
+  ].filter((link): link is SocialLink => link !== null);
 
   useChatUnreadAlert(unreadTotal);
 
@@ -344,19 +359,21 @@ export default function MoreScreen() {
           </View>
         )}
 
-        {/* Social */}
-        <View style={[styles.socialCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Text style={[styles.sectionLabel, { color: colors.mutedForeground, fontFamily: F.semi }]}>{t("contactUs")}</Text>
-          <View style={styles.socialRow}>
-            {SOCIAL_LINKS.map((s, i) => (
-              <TouchableOpacity key={i} onPress={() => Linking.openURL(s.url).catch(() => {})} style={styles.socialItem}>
-                <Image source={s.image} style={styles.socialLogo} resizeMode="cover" />
-                <Text style={[styles.socialLabel, { color: colors.foreground, fontFamily: F.bold }]}>{s.label}</Text>
-                <Text style={[styles.socialHandle, { color: colors.mutedForeground, fontFamily: F.regular }]}>@rawabi-mandi</Text>
-              </TouchableOpacity>
-            ))}
+        {/* Social links are displayed only after a current account is configured. */}
+        {socialLinks.length > 0 && (
+          <View style={[styles.socialCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[styles.sectionLabel, { color: colors.mutedForeground, fontFamily: F.semi }]}>{t("contactUs")}</Text>
+            <View style={styles.socialRow}>
+              {socialLinks.map((s) => (
+                <TouchableOpacity key={s.label} onPress={() => Linking.openURL(s.url).catch(() => {})} style={styles.socialItem}>
+                  <Image source={s.image} style={styles.socialLogo} resizeMode="cover" />
+                  <Text style={[styles.socialLabel, { color: colors.foreground, fontFamily: F.bold }]}>{s.label}</Text>
+                  <Text style={[styles.socialHandle, { color: colors.mutedForeground, fontFamily: F.regular }]}>@{s.handle}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
-        </View>
+        )}
 
         {/* Menu items */}
         <View style={[styles.menuCard, { backgroundColor: colors.card, borderColor: colors.border }]}>

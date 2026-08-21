@@ -34,8 +34,8 @@ export const DEFAULT_TEXTS: AppTexts = {
   dhabihaWhatsapp:  RESTAURANT_INFO.dhabihaWhatsapp,
   announcement:     "",
   deliveryArea:     "تبوك - حي الروضة وما حولها",
-  snapchat:         "rwabi-almndi",
-  tiktok:           "rwabialmndi",
+  snapchat:         "",
+  tiktok:           "",
 };
 
 let _cache: AppTexts | null = null;

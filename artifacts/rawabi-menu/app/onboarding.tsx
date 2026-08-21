@@ -284,7 +284,7 @@ export default function OnboardingScreen() {
       >
         <View style={styles.brand}>
           <Text style={styles.brandTitle}>البيت الشامي</Text>
-          <Text style={styles.brandSub}>للمذاق فن وأصول</Text>
+          <Text style={styles.brandSub}>طعم الشام في كل طبق</Text>
         </View>
 
         <View style={styles.dots}>
