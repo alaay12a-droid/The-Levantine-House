@@ -31,12 +31,6 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
-      - name: Link Driver Expo Project
-        working-directory: artifacts/rawabi-driver
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: eas init --account 021837ala --non-interactive
-
       - name: Build Driver Android APK
         working-directory: artifacts/rawabi-driver
         env:
