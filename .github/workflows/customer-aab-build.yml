@@ -38,7 +38,7 @@ jobs:
         working-directory: artifacts/rawabi-menu
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: EAS_PROJECT_ROOT="$PWD" TMPDIR=/tmp EAS_NO_VCS=1 eas init --account 021837ala --non-interactive
+        run: EAS_PROJECT_ROOT="$PWD" TMPDIR=/tmp EAS_NO_VCS=1 eas init --account 012837ala --non-interactive
 
       - name: Build Customer Android AAB
         working-directory: artifacts/rawabi-menu
@@ -60,5 +60,5 @@ jobs:
           echo "======================================"
           echo "Customer Android AAB build started on Expo servers."
           echo "Track your build at:"
-          echo "https://expo.dev/accounts/021837ala/projects/the-levantine-house/builds"
+          echo "https://expo.dev/accounts/012837ala/projects/the-levantine-house/builds"
           echo "======================================"

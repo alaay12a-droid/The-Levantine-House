@@ -30,7 +30,7 @@ bash set-production-url.sh https://the-levantine-house.onrender.com
 ```bash
 npm install -g eas-cli
 eas login
-# اسم المستخدم: 021837ala
+# اسم المستخدم: 012837ala
 ```
 
 ### الخطوة 3: بناء التطبيق (AAB)

@@ -42,5 +42,5 @@ jobs:
           echo "======================================"
           echo "Driver APK build started on Expo servers."
           echo "Track your build at:"
-          echo "https://expo.dev/accounts/021837ala/projects/the-levantine-house-driver/builds"
+          echo "https://expo.dev/accounts/012837ala/projects/the-levantine-house-driver/builds"
           echo "======================================"
