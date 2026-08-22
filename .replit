@@ -50,7 +50,7 @@ outputType = "webview"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "PORT=8099 pnpm --filter @workspace/rawabi-driver run dev"
+args = "PORT=8099 pnpm --filter @workspace/the-levantine-house-driver run dev"
 
 [agent]
 stack = "PNPM_WORKSPACE"
