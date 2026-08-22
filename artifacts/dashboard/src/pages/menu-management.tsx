@@ -61,7 +61,17 @@ interface MenuItem {
   walkingMinutes?: number | null;
 }
 
-const CATEGORIES = [
+interface MenuCategory {
+  id: string;
+  name: string;
+  nameEn?: string;
+  icon: string;
+  imageUrl?: string | null;
+  isVisible?: boolean;
+  sortOrder?: number;
+}
+
+const CATEGORIES: MenuCategory[] = [
   { id: "chicken",  name: "الدجاج",           icon: "🍗" },
   { id: "meat",     name: "اللحوم",           icon: "🥩" },
   { id: "mains",    name: "الأطباق الرئيسية", icon: "🍽️" },
@@ -72,7 +82,8 @@ const CATEGORIES = [
   { id: "extras",   name: "إضافات",           icon: "✨" },
 ];
 
-const getCatMeta = (id: string) => CATEGORIES.find(c => c.id === id) ?? { id, name: id, icon: "🍽️" };
+const getCatMeta = (id: string, categories: MenuCategory[] = CATEGORIES) =>
+  categories.find(c => c.id === id) ?? { id, name: id, icon: "🍽️" };
 
 function defaultSizesForCategory(category: string): SizeOption[] {
   if (category === "drinks") {
@@ -120,6 +131,7 @@ const emptyForm = (): ItemForm => ({
 export default function MenuManagement() {
   const { toast } = useToast();
   const [items, setItems]         = useState<MenuItem[]>([]);
+  const [categories, setCategories] = useState<MenuCategory[]>(CATEGORIES);
   const [loading, setLoading]     = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch]       = useState("");
@@ -159,6 +171,12 @@ export default function MenuManagement() {
     try {
       const data = await apiGet<MenuItem[]>("/menu");
       setItems(data);
+      try {
+        const categoryData = await apiGet<MenuCategory[]>("/menu/categories");
+        if (categoryData.length > 0) setCategories(categoryData);
+      } catch {
+        // Keep the built-in categories if the category settings request is unavailable.
+      }
     } catch {
       toast({ title: "تعذّر تحميل القائمة", variant: "destructive" });
     } finally {
@@ -565,7 +583,7 @@ export default function MenuManagement() {
           >
             الكل ({items.length})
           </Button>
-          {CATEGORIES.map(cat => {
+          {categories.map(cat => {
             const count = items.filter(i => i.category === cat.id).length;
             if (count === 0) return null;
             return (
@@ -606,7 +624,7 @@ export default function MenuManagement() {
               </thead>
               <tbody>
                 {filtered.map((item, idx) => {
-                  const cat = getCatMeta(item.category);
+                  const cat = getCatMeta(item.category, categories);
                   const enabledSizes = (item.sizes ?? []).filter(s => s.enabled);
                   const optionGroups = item.options ?? [];
                   return (
@@ -800,7 +818,7 @@ export default function MenuManagement() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {CATEGORIES.map(cat => (
+                    {categories.map(cat => (
                       <SelectItem key={cat.id} value={cat.id}>
                         {cat.icon} {cat.name}
                       </SelectItem>
