@@ -1,12 +1,16 @@
 import { useState, useEffect } from "react";
 import * as Notifications from "expo-notifications";
+import Constants from "expo-constants";
 import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { apiPost } from "@/constants/api";
 
 export const TOKEN_KEY = "@thelevantinehouse_customer_push_token";
 
-const PROJECT_ID = (process.env.EXPO_PUBLIC_EAS_PROJECT_ID as string | undefined)?.trim();
+const PROJECT_ID =
+  (process.env.EXPO_PUBLIC_EAS_PROJECT_ID as string | undefined)?.trim() ||
+  Constants.easConfig?.projectId ||
+  ((Constants.expoConfig?.extra?.eas as { projectId?: string } | undefined)?.projectId);
 
 // Must be wrapped in try/catch — throws in Expo Go and some emulators
 try {

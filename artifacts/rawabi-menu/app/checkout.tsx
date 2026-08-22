@@ -25,7 +25,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useColors } from "@/hooks/useColors";
 import { useCart } from "@/context/CartContext";
 import { useUser } from "@/context/UserContext";
-import { apiPost, apiGet } from "@/constants/api";
+import { apiPost, apiGet, apiPatch } from "@/constants/api";
 import { useCustomerPushToken, registerCustomerNotifications } from "@/hooks/useCustomerPushToken";
 import { useOrderBadge } from "@/context/OrderBadgeContext";
 import { usePaymentSettings } from "@/hooks/usePaymentSettings";
@@ -397,9 +397,11 @@ export default function CheckoutScreen() {
 
       // Wait up to 4 seconds for push token if not ready yet (fresh install race condition)
       let finalPushToken = customerPushToken;
+      let tokenRegistration: Promise<string | null> | null = null;
       if (!finalPushToken) {
+        tokenRegistration = registerCustomerNotifications();
         finalPushToken = await Promise.race([
-          registerCustomerNotifications(),
+          tokenRegistration,
           new Promise<null>((resolve) => setTimeout(() => resolve(null), 4000)),
         ]);
       }
@@ -442,6 +444,20 @@ export default function CheckoutScreen() {
         ].filter(Boolean).join(" | ") || null,
         customerPushToken: finalPushToken ?? null,
       });
+      // Fresh installs can need more than four seconds to obtain an Expo token.
+      // Do not lose order-status notifications in that case: attach the token as
+      // soon as registration completes in the background.
+      if (!finalPushToken && tokenRegistration) {
+        tokenRegistration
+          .then((lateToken) => {
+            if (!lateToken) return;
+            return apiPatch(`/orders/${order.id}/customer-push-token`, {
+              customerPushToken: lateToken,
+              customerPhone: user.phone,
+            });
+          })
+          .catch(() => {});
+      }
       if (paymentMethod === "wallet") {
         try {
           await apiPost("/wallet/pay", { phone: user.phone, amount: grandTotal, orderId: order.id });

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, ordersTable, menuItemsTable, appSettingsTable, orderDriverAssignmentsTable, deliveryDriversTable } from "@workspace/db";
+import { db, ordersTable, menuItemsTable, appSettingsTable, orderDriverAssignmentsTable, deliveryDriversTable, pushTokensTable } from "@workspace/db";
 import { eq, desc, gte, lt, count, and, ne } from "drizzle-orm";
 import { sendPushToCashiers, sendPushToToken, sendPushToDriver } from "../lib/sendPushNotification.js";
 import { sendSms } from "../lib/sendSms.js";
@@ -141,6 +141,19 @@ router.post("/orders", async (req, res) => {
   );
   res.status(201).json(order);
 
+  // Store the same token in the customer broadcast list. A direct order-status
+  // notification uses orders.customerPushToken, while broadcast notifications
+  // use push_tokens; keeping both in sync prevents the two paths drifting apart.
+  if (data.customerPushToken) {
+    db.insert(pushTokensTable)
+      .values({ token: data.customerPushToken, role: "customer" })
+      .onConflictDoUpdate({
+        target: pushTokensTable.token,
+        set: { role: "customer", driverId: null },
+      })
+      .catch((err) => req.log.warn({ err, orderId: order.id }, "Could not register customer push token"));
+  }
+
   // Process referral reward for the referred customer (fire and forget)
   processReferralReward(data.customerPhone, order.id, data.customerName)
     .catch((e) => req.log.warn({ err: e }, "Referral reward processing failed"));
@@ -192,6 +205,44 @@ router.get("/orders", async (req, res) => {
 });
 
 const RESTAURANT_NAME = "البيت الشامي";
+
+const attachCustomerPushTokenSchema = z.object({
+  customerPushToken: z.string().min(1),
+  customerPhone: z.string().min(1),
+});
+
+// A token request can be slow on a fresh app install. The client calls this
+// after the order was already created so status notifications are not lost.
+router.patch("/orders/:id/customer-push-token", async (req, res) => {
+  const orderId = parseInt(req.params.id);
+  const parsed = attachCustomerPushTokenSchema.safeParse(req.body);
+  if (isNaN(orderId) || !parsed.success) {
+    res.status(400).json({ error: "بيانات غير صحيحة" });
+    return;
+  }
+
+  const { customerPushToken, customerPhone } = parsed.data;
+  const [order] = await db
+    .update(ordersTable)
+    .set({ customerPushToken })
+    .where(and(eq(ordersTable.id, orderId), eq(ordersTable.customerPhone, customerPhone)))
+    .returning({ id: ordersTable.id });
+
+  if (!order) {
+    res.status(404).json({ error: "الطلب غير موجود" });
+    return;
+  }
+
+  await db
+    .insert(pushTokensTable)
+    .values({ token: customerPushToken, role: "customer" })
+    .onConflictDoUpdate({
+      target: pushTokensTable.token,
+      set: { role: "customer", driverId: null },
+    });
+
+  res.json({ ok: true });
+});
 
 function buildCustomerStatusMessage(status: string, dailyNumber: number, isDelivery: boolean): { title: string; body: string } | null {
   switch (status) {
