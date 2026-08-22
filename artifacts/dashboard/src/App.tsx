@@ -60,6 +60,9 @@ function Router() {
         </Layout>
       </Route>
       <Route path="/cashier" component={Cashier} />
+      <Route path="/admin/categories">
+        <Layout><AdminPanel /></Layout>
+      </Route>
       <Route path="/admin">
         <Layout><AdminPanel /></Layout>
       </Route>

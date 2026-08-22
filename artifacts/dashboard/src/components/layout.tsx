@@ -21,6 +21,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/broadcast":         "إشعار جماعي",
   "/cashier":           "لوحة الكاشير",
   "/admin":             "لوحة الإدارة",
+  "/admin/categories":  "أقسام المنيو",
   "/auth-diagnostics":  "تشخيص المصادقة",
 };
 
