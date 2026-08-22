@@ -349,6 +349,13 @@ export default function Admin() {
     setCategoryForm({ name: "", nameEn: "", icon: "🍽️", imageUrl: "", isVisible: true });
     setShowCategoryForm(true);
   };
+  useEffect(() => {
+    if (!authenticated || location !== "/admin/categories") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("new") !== "1") return;
+    openAddCategory();
+    window.history.replaceState(null, "", window.location.pathname);
+  }, [authenticated, location]);
   const openEditCategory = (category: ApiMenuCategory) => {
     setEditingCategory(category);
     setCategoryForm({ name: category.name, nameEn: category.nameEn, icon: category.icon, imageUrl: category.imageUrl ?? "", isVisible: category.isVisible });
