@@ -1,0 +1,49 @@
+name: The Levantine House Customer Android AAB
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-customer:
+    name: Build The Levantine House Customer AAB
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.26.1
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Setup EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Build Customer Android AAB
+        working-directory: artifacts/rawabi-menu
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: eas build --platform android --profile production --non-interactive --no-wait
+
+      - name: Print build URL
+        run: |
+          echo "======================================"
+          echo "Customer Android AAB build started on Expo servers."
+          echo "Track your build at:"
+          echo "https://expo.dev/accounts/021837ala/projects/the-levantine-house/builds"
+          echo "======================================"
