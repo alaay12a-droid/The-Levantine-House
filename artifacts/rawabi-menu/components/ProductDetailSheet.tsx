@@ -6,6 +6,7 @@ import {
   Modal,
   ScrollView,
   StyleSheet,
+  useWindowDimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
@@ -94,8 +95,10 @@ export function ProductDetailSheet({ item, visible, onClose }: Props) {
   const colors = useColors();
   const { addItem } = useCart();
   const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
 
   const [qty, setQty] = useState(1);
+  const [footerHeight, setFooterHeight] = useState(0);
 
   // DB-driven sizes
   const [dbSizeIdx, setDbSizeIdx] = useState(0);
@@ -208,6 +211,10 @@ export function ProductDetailSheet({ item, visible, onClose }: Props) {
   const unitPrice = baseSizePrice + extraPrice;
   const totalPrice = unitPrice * qty;
   const priceStr = (v: number) => v % 1 === 0 ? v.toString() : v.toFixed(1);
+  const sheetHeight = Math.max(0, Math.min(windowHeight * 0.88, windowHeight - insets.top - 12));
+  // The footer is absolutely positioned over the scroll content, so reserve
+  // its measured height plus a small breathing room for the final option.
+  const contentBottomPadding = (footerHeight || 120) + 24;
 
   const handleAdd = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -256,11 +263,12 @@ export function ProductDetailSheet({ item, visible, onClose }: Props) {
       animationType="slide"
       onRequestClose={onClose}
       statusBarTranslucent
+      navigationBarTranslucent
     >
       <View style={styles.backdrop}>
         <TouchableOpacity style={styles.backdropTouch} onPress={onClose} activeOpacity={1} />
 
-        <View style={[styles.sheet, { backgroundColor: colors.card }]}>
+        <View style={[styles.sheet, { backgroundColor: colors.card, height: sheetHeight }]}>
           {/* ── Close button ── */}
           <View style={styles.closeRow}>
             <TouchableOpacity onPress={onClose} style={[styles.closeBtn, { backgroundColor: colors.secondary }]}>
@@ -269,9 +277,11 @@ export function ProductDetailSheet({ item, visible, onClose }: Props) {
           </View>
 
           <ScrollView
-            contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 18, paddingBottom: 148, gap: 18 }}
+            style={styles.contentScroll}
+            contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 18, paddingBottom: contentBottomPadding, gap: 18 }}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
+            nestedScrollEnabled
           >
             {/* ── Item image ── */}
             {item.imageUrl ? (
@@ -597,7 +607,10 @@ export function ProductDetailSheet({ item, visible, onClose }: Props) {
           </ScrollView>
 
           {/* ── Fixed Footer: Qty + Add ── */}
-          <View style={[styles.footer, { backgroundColor: colors.card, borderTopColor: colors.border, paddingBottom: insets.bottom + 14 }]}>
+          <View
+            onLayout={event => setFooterHeight(event.nativeEvent.layout.height)}
+            style={[styles.footer, { backgroundColor: colors.card, borderTopColor: colors.border, paddingBottom: insets.bottom + 14 }]}
+          >
             <View style={styles.qtyRow}>
               <TouchableOpacity
                 onPress={() => { if (qty < 99) { setQty(qty + 1); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); } }}
@@ -676,6 +689,12 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     overflow: "hidden",
     maxHeight: "88%",
+    minHeight: 0,
+    flexShrink: 1,
+  },
+  contentScroll: {
+    flex: 1,
+    minHeight: 0,
   },
   heroImg: {
     width: "100%",
