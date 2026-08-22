@@ -1,0 +1,61 @@
+name: The Levantine House Customer iOS Submit
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-submit-customer-ios:
+    name: Build and Submit The Levantine House Customer iOS
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.26.1
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Setup EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Initialize Customer EAS project
+        working-directory: artifacts/rawabi-menu
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: EAS_PROJECT_ROOT="$PWD" TMPDIR=/tmp EAS_NO_VCS=1 eas init --account 021837ala --non-interactive
+
+      - name: Build Customer iOS IPA
+        working-directory: artifacts/rawabi-menu
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: EAS_PROJECT_ROOT="$PWD" TMPDIR=/tmp EAS_NO_VCS=1 EAS_BUILD_NO_EXPO_GO_WARNING=true eas build --platform ios --profile production --non-interactive --wait
+
+      - name: Submit Customer iOS to App Store Connect
+        working-directory: artifacts/rawabi-menu
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: EAS_PROJECT_ROOT="$PWD" TMPDIR=/tmp EAS_NO_VCS=1 eas submit --platform ios --profile production --latest --non-interactive
+
+      - name: Print submission details
+        run: |
+          echo "======================================"
+          echo "Customer iOS build submitted to App Store Connect."
+          echo "App Store Connect app ID: 6792793006"
+          echo "Bundle ID: com.thelevantinehouse.menu"
+          echo "======================================"
