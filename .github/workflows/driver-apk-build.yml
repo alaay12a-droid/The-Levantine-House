@@ -1,13 +1,11 @@
-name: The Levantine House Android Build (AAB)
+name: The Levantine House Driver Android APK
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 jobs:
-  build-android:
-    name: Build The Levantine House Android AAB
+  build-driver:
+    name: Build The Levantine House Driver APK
     runs-on: ubuntu-latest
 
     steps:
@@ -17,7 +15,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -25,7 +23,7 @@ jobs:
           version: 10.26.1
 
       - name: Install dependencies
-        run: pnpm install --no-frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
       - name: Setup EAS
         uses: expo/expo-github-action@v8
@@ -33,14 +31,14 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
-      - name: Build Android AAB
-        working-directory: artifacts/rawabi-menu
-        run: eas build --platform android --profile production --non-interactive --no-wait
+      - name: Build Driver Android APK
+        working-directory: artifacts/rawabi-driver
+        run: eas build --platform android --profile preview --non-interactive --no-wait
 
       - name: Print build URL
         run: |
           echo "======================================"
-          echo "Build started on Expo servers."
+          echo "Driver APK build started on Expo servers."
           echo "Track your build at:"
-          echo "https://expo.dev/accounts/021837ala/projects/rawabi-menu/builds"
+          echo "https://expo.dev/accounts/021837ala/projects/the-levantine-house-driver/builds"
           echo "======================================"
