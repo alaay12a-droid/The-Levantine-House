@@ -33,6 +33,8 @@ jobs:
 
       - name: Build Driver Android APK
         working-directory: artifacts/rawabi-driver
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: eas build --platform android --profile preview --non-interactive --no-wait
 
       - name: Print build URL
