@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { Link } from "wouter";
 import { apiGet, apiPost, apiPut, apiDel } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -495,6 +496,12 @@ export default function MenuManagement() {
           <Button variant="outline" size="icon" onClick={() => load(true)} disabled={refreshing}>
             <RefreshCw className={cn("h-4 w-4", refreshing && "animate-spin")} />
           </Button>
+          <Link href="/admin/categories?new=1">
+            <Button variant="outline" className="gap-2 border-orange-200 text-orange-700 hover:bg-orange-50">
+              <Package className="h-4 w-4" />
+              إضافة قسم
+            </Button>
+          </Link>
           <Button onClick={openAdd} className="gap-2">
             <Plus className="h-4 w-4" />
             إضافة صنف
