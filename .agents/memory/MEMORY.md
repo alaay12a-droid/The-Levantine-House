@@ -23,3 +23,4 @@
 - [Replit Expo Android limitation](replit-expo-android-limitation.md) — Expo Launch currently handles iOS publishing, not Android APK/AAB builds; do not run EAS CLI from the agent shell
 - [GitHub workflow write path](github-workflow-write-path.md) — connector writes under .github may be denied; isolate workflow commits from the remote main tree and push through authenticated Git
 - [GitHub Actions EAS authentication](github-actions-eas-auth.md) — direct EAS commands need EXPO_TOKEN in their own step environment; mobile variants must use separate matching EAS projects
+- [Expo GitHub monorepo directory](expo-github-base-directory.md) — GitHub App builds need the Expo project's Base directory set to the mobile app subdirectory, not repository root
