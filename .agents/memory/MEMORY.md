@@ -24,3 +24,4 @@
 - [GitHub workflow write path](github-workflow-write-path.md) — connector writes under .github may be denied; isolate workflow commits from the remote main tree and push through authenticated Git
 - [GitHub Actions EAS authentication](github-actions-eas-auth.md) — direct EAS commands need EXPO_TOKEN in their own step environment; mobile variants must use separate matching EAS projects
 - [Expo GitHub monorepo directory](expo-github-base-directory.md) — GitHub App builds need the Expo project's Base directory set to the mobile app subdirectory, not repository root
+- [EAS monorepo archive isolation](eas-monorepo-archive-isolation.md) — EAS prebuild reinstalls included workspace packages, so unrelated packages must be excluded from the mobile build archive
