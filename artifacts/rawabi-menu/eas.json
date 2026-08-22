@@ -24,18 +24,20 @@
     "production": {
       "android": {
         "buildType": "app-bundle",
-        "image": "latest",
-        "credentialsSource": "remote"
+        "image": "latest"
       },
       "ios": {
         "image": "latest",
-        "credentialsSource": "local",
         "channel": "production"
       },
       "node": "22.15.0",
       "env": {
         "EXPO_PUBLIC_API_BASE_URL": "https://the-levantine-house.onrender.com"
       }
+    },
+    "production-ios": {
+      "extends": "production",
+      "credentialsSource": "local"
     }
   },
   "submit": {

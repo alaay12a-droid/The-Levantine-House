@@ -44,7 +44,16 @@ jobs:
         working-directory: artifacts/rawabi-menu
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: EAS_PROJECT_ROOT="$PWD" TMPDIR=/tmp EAS_NO_VCS=1 EAS_BUILD_NO_EXPO_GO_WARNING=true eas build --platform ios --profile production --non-interactive --wait
+        run: |
+          set +e
+          output=$(EAS_PROJECT_ROOT="$PWD" TMPDIR=/tmp EAS_NO_VCS=1 EAS_BUILD_NO_EXPO_GO_WARNING=true eas build --platform ios --profile production-ios --non-interactive --wait 2>&1)
+          exit_code=$?
+          printf '%s\n' "$output"
+          if [ "$exit_code" -ne 0 ]; then
+            diagnostic=$(printf '%s' "$output" | tr '\n' ' ' | cut -c1-5000)
+            echo "::error title=EAS iOS IPA build failed::$diagnostic"
+            exit "$exit_code"
+          fi
 
       - name: Submit Customer iOS to App Store Connect
         working-directory: artifacts/rawabi-menu
