@@ -9,10 +9,12 @@
       "distribution": "internal"
     },
     "preview": {
-      "distribution": "internal"
+      "distribution": "internal",
+      "pnpm": "10.26.1"
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "pnpm": "10.26.1"
     }
   },
   "submit": {

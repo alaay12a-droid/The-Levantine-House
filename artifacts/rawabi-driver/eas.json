@@ -10,6 +10,7 @@
         "image": "latest"
       },
       "node": "22.15.0",
+      "pnpm": "10.26.1",
       "env": {
         "CI": "true",
         "EXPO_PUBLIC_API_BASE_URL": "https://the-levantine-house.onrender.com"
@@ -21,6 +22,7 @@
         "image": "latest"
       },
       "node": "22.15.0",
+      "pnpm": "10.26.1",
       "env": {
         "CI": "true",
         "EXPO_PUBLIC_API_BASE_URL": "https://the-levantine-house.onrender.com"
