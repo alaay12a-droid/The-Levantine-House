@@ -38,7 +38,7 @@ jobs:
         working-directory: artifacts/rawabi-menu
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: eas build --platform android --profile production --non-interactive --no-wait
+        run: EAS_PROJECT_ROOT="$PWD" TMPDIR=/tmp EAS_NO_VCS=1 EAS_BUILD_NO_EXPO_GO_WARNING=true eas build --platform android --profile production --non-interactive --no-wait
 
       - name: Print build URL
         run: |
