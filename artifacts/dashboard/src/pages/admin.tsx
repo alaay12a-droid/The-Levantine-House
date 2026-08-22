@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useLocation } from "wouter";
 import ZoneMapPicker, { type LatLng } from "@/components/zone-map-picker";
 import { apiGet, apiPost, apiPut, apiDel, apiPatch } from "@/lib/api";
 import { formatCurrency } from "@/lib/format";
@@ -38,6 +39,7 @@ function fmtPrice(riyals: number) { return `${(riyals).toFixed(2)} ر.س`; }
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function Admin() {
   const { toast } = useToast();
+  const [location] = useLocation();
 
   // Auth
   const [authenticated, setAuthenticated] = useState(false);
@@ -46,7 +48,7 @@ export default function Admin() {
   const [pinsLoaded, setPinsLoaded] = useState(false);
 
   // Navigation
-  const [activeTab, setActiveTab] = useState<AdminTab>("menu");
+  const [activeTab, setActiveTab] = useState<AdminTab>(() => location === "/admin/categories" ? "categories" : "menu");
   const [settingsSection, setSettingsSection] = useState<SettingsSection>("hours");
 
   // ── Menu ──
