@@ -22,3 +22,4 @@
 - [Artifact identity stability](artifact-identity-stability.md) — registered Replit artifact IDs are immutable; preserve them while renaming visible titles, packages, and workflows
 - [Replit Expo Android limitation](replit-expo-android-limitation.md) — Expo Launch currently handles iOS publishing, not Android APK/AAB builds; do not run EAS CLI from the agent shell
 - [GitHub workflow write path](github-workflow-write-path.md) — connector writes under .github may be denied; isolate workflow commits from the remote main tree and push through authenticated Git
+- [GitHub Actions EAS authentication](github-actions-eas-auth.md) — direct EAS commands need EXPO_TOKEN in their own step environment; mobile variants must use separate matching EAS projects
