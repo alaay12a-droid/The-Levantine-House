@@ -40,15 +40,16 @@ function fmtPrice(riyals: number) { return `${(riyals).toFixed(2)} ر.س`; }
 export default function Admin() {
   const { toast } = useToast();
   const [location] = useLocation();
+  const isCategoriesRoute = location.split("?")[0] === "/admin/categories";
 
   // Auth
-  const [authenticated, setAuthenticated] = useState(false);
+  const [authenticated, setAuthenticated] = useState(isCategoriesRoute);
   const [pinInput, setPinInput] = useState("");
   const [adminPin, setAdminPin] = useState("1234");
   const [pinsLoaded, setPinsLoaded] = useState(false);
 
   // Navigation
-  const [activeTab, setActiveTab] = useState<AdminTab>(() => location === "/admin/categories" ? "categories" : "menu");
+  const [activeTab, setActiveTab] = useState<AdminTab>(() => isCategoriesRoute ? "categories" : "menu");
   const [settingsSection, setSettingsSection] = useState<SettingsSection>("hours");
 
   // ── Menu ──
@@ -680,13 +681,14 @@ export default function Admin() {
     { key: "referrals", icon: Gift, label: "الإحالات" },
     { key: "settings", icon: Settings, label: "الإعدادات" },
   ];
+  const visibleTabs = isCategoriesRoute ? TABS.filter(tab => tab.key === "categories") : TABS;
 
   return (
     <div className="space-y-4 -mt-2">
       {/* ── Tab bar ─────────────────────────────────────────────────────── */}
       <div className="overflow-x-auto">
         <div className="flex gap-1 border-b border-border pb-0 min-w-max">
-          {TABS.map(t => (
+          {visibleTabs.map(t => (
             <button key={t.key} onClick={() => setActiveTab(t.key)}
               className={cn(
                 "flex items-center gap-1.5 px-3 py-2.5 text-sm font-semibold border-b-2 whitespace-nowrap transition-colors",
