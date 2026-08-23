@@ -11,27 +11,32 @@ id = "NgFkFuxj9j6w4gMZGqCvA"
 uri = "file://AsalaAlMamlakah.zip"
 type = "unspecified"
 title = "AsalaAlMamlakah - Android Studio Project"
+logical_id = "688dac89-3ae8-4cdf-a4b7-eaf30d48a533"
 
 [[outputs]]
 id = "uCj9nv55iXqztHqRMC2Uo"
 uri = "file://RawabiAlMandi.zip"
 type = "unspecified"
 title = "RawabiAlMandi.zip — آخر تحديث"
+logical_id = "72c35e98-ab6d-4121-9d35-727fd706c0b7"
 
 [[outputs]]
 id = "ZDyeEUweczbzM_WPDvYNq"
 uri = "file://RawabiAlMandi-Source.zip"
 type = "unspecified"
 title = "RawabiAlMandi — جاهز لـ Google Play"
+logical_id = "43dec7a3-5860-435e-8edf-1d6208dc7ce9"
 
 [[outputs]]
 id = "HWHbb8SioEOg7vaeP7mZi"
 uri = "file://expo-qr.png"
 type = "image"
 title = "Expo QR Code - روابي المندي"
+logical_id = "86e1c6e5-336b-4ce8-a0fb-b818d7ebc171"
 
 [[outputs]]
 id = "TWgZiHigzMS8ByJPZEC9B"
 uri = "file://expo_qr.jpg"
 type = "image"
 title = "امسح لتجربة كود الخصم"
+logical_id = "94a03dcf-fabe-4449-9060-1a8105b4d23f"
