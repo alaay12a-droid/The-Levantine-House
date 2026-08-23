@@ -58,6 +58,3 @@ ADMIN_USERNAME = "admin"
 SEED_ADMIN = "false"
 EXPO_PUBLIC_API_BASE_URL = "https://the-levantine-house.onrender.com"
 CORS_ALLOWED_ORIGINS = "https://the-levantine-house.onrender.com,https://the-levantine-house-dashboard.onrender.com"
-
-[objectStorage]
-defaultBucketID = "replit-objstore-9b1ed311-51b8-4a02-bb83-d4c98e35068d"
