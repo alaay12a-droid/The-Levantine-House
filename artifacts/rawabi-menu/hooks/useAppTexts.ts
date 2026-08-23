@@ -16,8 +16,6 @@ export interface AppTexts {
   dhabihaWhatsapp: string;
   announcement: string;
   deliveryArea: string;
-  snapchat: string;
-  tiktok: string;
 }
 
 export const DEFAULT_TEXTS: AppTexts = {
@@ -33,9 +31,7 @@ export const DEFAULT_TEXTS: AppTexts = {
   dhabihaPhone:     RESTAURANT_INFO.dhabihaPhone,
   dhabihaWhatsapp:  RESTAURANT_INFO.dhabihaWhatsapp,
   announcement:     "",
-  deliveryArea:     "تبوك - حي الروضة وما حولها",
-  snapchat:         "rwabi-almndi",
-  tiktok:           "rwabialmndi",
+  deliveryArea:     "",
 };
 
 let _cache: AppTexts | null = null;
@@ -56,8 +52,6 @@ function mapRaw(data: Record<string, string>): AppTexts {
     dhabihaWhatsapp: data.txt_dhabiha_whatsapp || DEFAULT_TEXTS.dhabihaWhatsapp,
     announcement:    data.txt_announcement     ?? "",
     deliveryArea:    data.txt_delivery_area    || DEFAULT_TEXTS.deliveryArea,
-    snapchat:        data.txt_snapchat         || DEFAULT_TEXTS.snapchat,
-    tiktok:          data.txt_tiktok           || DEFAULT_TEXTS.tiktok,
   };
 }
 

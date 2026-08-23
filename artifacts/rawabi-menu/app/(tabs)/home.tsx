@@ -34,9 +34,6 @@ const F = {
   extra: "Cairo_800ExtraBold",
 };
 
-const BRANCH_ADDRESS = "تبوك — حي الروضة";
-const BRANCH_MAPS_URL = "https://maps.google.com/";
-
 type OrderMode = "delivery" | "pickup";
 type RawItem = MenuItem & { available?: boolean; nameEn?: string; descriptionEn?: string; stock?: number | null };
 
@@ -221,15 +218,16 @@ export default function HomeScreen() {
 
   const getItemType = useCallback((item: ListEntry) => item._t, []);
 
-  const locationText = orderMode === "delivery" ? (user?.address ?? "حدد موقعك") : BRANCH_ADDRESS;
+  const branchAddress = isEn ? (info.locationEn || info.location) : info.location;
+  const locationText = orderMode === "delivery" ? (user?.address ?? "حدد موقعك") : (branchAddress || "حدد موقع الفرع");
   const locationLabel = orderMode === "delivery" ? "التوصيل" : "الاستلام";
 
   const handleLocationPress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (orderMode === "delivery") {
       router.push("/onboarding");
-    } else {
-      Linking.openURL(BRANCH_MAPS_URL);
+    } else if (branchAddress) {
+      Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(branchAddress)}`);
     }
   };
 

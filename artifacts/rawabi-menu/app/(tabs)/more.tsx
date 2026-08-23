@@ -16,8 +16,6 @@ import {
   ActivityIndicator,
 } from "react-native";
 
-const snapchatLogo = require("@/assets/images/snapchat.jpg");
-const tiktokLogo = require("@/assets/images/tiktok.jpg");
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
@@ -38,13 +36,6 @@ const F = {
   bold: "Cairo_700Bold",
   extra: "Cairo_800ExtraBold",
 };
-
-interface SocialLink { image: any; label: string; url: string; }
-
-const SOCIAL_LINKS: SocialLink[] = [
-  { image: snapchatLogo, label: "سناب شات", url: "" },
-  { image: tiktokLogo,   label: "تيك توك",   url: "" },
-];
 
 interface MenuItem { icon: string; label: string; action: () => void; danger?: boolean; highlight?: boolean; }
 
@@ -211,24 +202,24 @@ export default function MoreScreen() {
       action: openSupportChat,
       highlight: true,
     },
-    {
+    ...(info.phone ? [{
       icon: "phone",
       label: t("callUs"),
       action: () => Linking.openURL(`tel:${info.phone}`),
-    },
-    {
+    }] : []),
+    ...(info.whatsapp ? [{
       icon: "message-circle",
       label: t("whatsapp"),
       action: () =>
         Linking.openURL(
           `https://wa.me/${info.whatsapp}?text=${encodeURIComponent("السلام عليكم، أرغب في الاستفسار")}`
         ),
-    },
-    {
+    }] : []),
+    ...(info.location ? [{
       icon: "map-pin",
       label: `${t("location")} — ${info.location}`,
-      action: () => Linking.openURL("https://maps.app.goo.gl/DiAZzzLKBAmGNv19A"),
-    },
+      action: () => Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(info.location)}`),
+    }] : []),
     {
       icon: "info",
       label: t("aboutUs"),
@@ -343,20 +334,6 @@ export default function MoreScreen() {
             </View>
           </View>
         )}
-
-        {/* Social */}
-        <View style={[styles.socialCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Text style={[styles.sectionLabel, { color: colors.mutedForeground, fontFamily: F.semi }]}>{t("contactUs")}</Text>
-          <View style={styles.socialRow}>
-            {SOCIAL_LINKS.map((s, i) => (
-              <TouchableOpacity key={i} onPress={() => Linking.openURL(s.url).catch(() => {})} style={styles.socialItem}>
-                <Image source={s.image} style={styles.socialLogo} resizeMode="cover" />
-                <Text style={[styles.socialLabel, { color: colors.foreground, fontFamily: F.bold }]}>{s.label}</Text>
-                <Text style={[styles.socialHandle, { color: colors.mutedForeground, fontFamily: F.regular }]}>@rawabi-mandi</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
 
         {/* Menu items */}
         <View style={[styles.menuCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -544,13 +521,7 @@ const styles = StyleSheet.create({
   profileInfo: { flex: 1, alignItems: "flex-end" },
   profileName: { fontSize: 17 },
   profilePhone: { fontSize: 14, marginTop: 2 },
-  socialCard: { marginHorizontal: 16, marginBottom: 12, borderRadius: 14, borderWidth: 1, padding: 16, gap: 12 },
   sectionLabel: { fontSize: 13, textAlign: "right" },
-  socialRow: { flexDirection: "row-reverse", gap: 20 },
-  socialItem: { alignItems: "center", gap: 6 },
-  socialLogo: { width: 64, height: 64, borderRadius: 16 },
-  socialLabel: { fontSize: 13 },
-  socialHandle: { fontSize: 11 },
   menuCard: { marginHorizontal: 16, borderRadius: 14, borderWidth: 1, overflow: "hidden" },
   menuRow: { flexDirection: "row-reverse", alignItems: "center", paddingHorizontal: 16, paddingVertical: 15, gap: 12 },
   menuLabel: { flex: 1, fontSize: 15, textAlign: "right" },

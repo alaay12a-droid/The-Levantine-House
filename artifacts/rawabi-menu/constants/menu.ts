@@ -51,13 +51,15 @@ export const RESTAURANT_INFO = {
   tagline: "للمذاق فن وأصول",
   taglineEn: "A Fine Art of Taste",
   nameEn: "The Levantine House",
-  phone: "0530707042",
-  whatsapp: "966530707042",
-  location: "تبوك - حي الروضة",
-  locationEn: "Tabuk - Al-Rawdah District",
+  // Contact details are managed from the admin text settings. Keep these
+  // empty so a new restaurant never inherits the old restaurant's details.
+  phone: "",
+  whatsapp: "",
+  location: "",
+  locationEn: "",
   instagram: "",
-  dhabihaPhone: "0531555268",
-  dhabihaWhatsapp: "966531555268",
+  dhabihaPhone: "",
+  dhabihaWhatsapp: "",
 };
 
 export const FOOD_IMAGES: Record<string, any> = {

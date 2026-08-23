@@ -18,8 +18,6 @@ const DEFAULTS: Record<string, string> = {
   txt_dhabiha_whatsapp: "",
   txt_announcement:     "",
   txt_delivery_area:    "",
-  txt_snapchat:         "",
-  txt_tiktok:           "",
 };
 
 // ── GET /app-texts ─────────────────────────────────────────────────────────────

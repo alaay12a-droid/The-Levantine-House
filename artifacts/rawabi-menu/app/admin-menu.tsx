@@ -3781,8 +3781,6 @@ ${kpiBlock}${payBlock}${sumBlock}
                 { key: "txt_phone",      label: "رقم الهاتف الرئيسي",      placeholder: DEFAULT_TEXTS.phone      },
                 { key: "txt_whatsapp",   label: "واتساب (مع كود الدولة)",  placeholder: DEFAULT_TEXTS.whatsapp   },
                 { key: "txt_instagram",  label: "إنستقرام",                 placeholder: DEFAULT_TEXTS.instagram  },
-                { key: "txt_snapchat",   label: "سناب شات (اسم المستخدم)", placeholder: DEFAULT_TEXTS.snapchat   },
-                { key: "txt_tiktok",     label: "تيك توك (اسم المستخدم)",  placeholder: DEFAULT_TEXTS.tiktok     },
               ]},
               { section: "📍 الموقع", fields: [
                 { key: "txt_location",     label: "العنوان (عربي)",         placeholder: DEFAULT_TEXTS.location    },

@@ -422,6 +422,13 @@ export default function MenuScreen() {
     Linking.openURL(`tel:${info.phone}`);
   };
 
+  const openRestaurantLocation = () => {
+    const location = info.locationEn || info.location || info.deliveryArea;
+    if (location) {
+      Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`);
+    }
+  };
+
   // ── Fix #3: debounced search via useDeferredValue + useMemo ──────────
   // useDeferredValue lets React defer the search computation to a lower
   // priority, keeping the TextInput responsive on every keystroke.
@@ -760,9 +767,9 @@ export default function MenuScreen() {
               <Text style={[styles.deliverySubtitle, { color: colors.foreground, fontFamily: F.bold }]}>
                 {isEn ? "We deliver to your door" : "نوصل طلبك لباب بيتك"}
               </Text>
-              <TouchableOpacity onPress={() => Linking.openURL("https://maps.app.goo.gl/DiAZzzLKBAmGNv19A")}>
+              <TouchableOpacity onPress={openRestaurantLocation} disabled={!info.location && !info.locationEn && !info.deliveryArea}>
                 <Text style={[styles.deliveryLocation, { color: colors.mutedForeground, fontFamily: F.semi }]}>
-                  📍 {isEn ? info.locationEn : info.deliveryArea}
+                  📍 {isEn ? (info.locationEn || info.location) : (info.deliveryArea || info.location)}
                 </Text>
               </TouchableOpacity>
               <View style={styles.deliveryBtns}>
