@@ -1,8 +1,12 @@
 /**
  * BranchPickerModal
  * Full-screen modal shown when the customer picks "استلام".
- * Displays an interactive map (react-native-maps) centred on the selected
- * branch, followed by a sorted branch list and a confirm button.
+ * Displays an interactive map when the native map module is available,
+ * followed by a sorted branch list and a confirm button.
+ *
+ * react-native-maps is loaded lazily because Expo Go does not include its
+ * native module. Importing it at module scope crashes the whole app before
+ * the checkout screen can render.
  */
 import React, { useMemo, useRef, useEffect } from "react";
 import {
@@ -18,7 +22,7 @@ import {
   Pressable,
   StatusBar,
 } from "react-native";
-import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
+import Constants, { ExecutionEnvironment } from "expo-constants";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -71,6 +75,30 @@ function distKm(lat1: number, lng1: number, lat2: number, lng2: number): number 
 const { height: SCREEN_H } = Dimensions.get("window");
 const MAP_H = Math.round(SCREEN_H * 0.38);
 
+type NativeMapsModule = {
+  default: React.ComponentType<any>;
+  Marker: React.ComponentType<any>;
+  PROVIDER_GOOGLE?: string;
+};
+
+function loadNativeMaps(): NativeMapsModule | null {
+  const isExpoGo =
+    Constants.appOwnership === "expo" ||
+    Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+
+  if (Platform.OS === "web" || isExpoGo) return null;
+
+  try {
+    // Keep this require inside the runtime guard. Expo Go can bundle the
+    // dependency, but it cannot evaluate it because RNMapsAirModule is absent.
+    return require("react-native-maps") as NativeMapsModule;
+  } catch {
+    // A native build without the map module should still provide branch
+    // selection through the list below.
+    return null;
+  }
+}
+
 // Default map region (Saudi Arabia center) when no branch has coordinates
 const SAUDI_REGION = {
   latitude: 23.8859,
@@ -93,7 +121,8 @@ export default function BranchPickerModal({
   isEn = false,
 }: Props) {
   const insets = useSafeAreaInsets();
-  const mapRef = useRef<MapView>(null);
+  const mapRef = useRef<any>(null);
+  const nativeMaps = useMemo(loadNativeMaps, []);
 
   // Sort branches by distance from user (branches without coords go last)
   const sorted = useMemo(() => {
@@ -132,6 +161,38 @@ export default function BranchPickerModal({
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const hasBranchCoords = branches.some(b => b.lat != null && b.lng != null);
+  const showNativeMap = hasBranchCoords && nativeMaps !== null;
+
+  const renderNativeMap = () => {
+    if (!nativeMaps) return null;
+
+    const NativeMapView = nativeMaps.default;
+    const NativeMarker = nativeMaps.Marker;
+
+    return (
+      <NativeMapView
+        ref={mapRef}
+        style={StyleSheet.absoluteFill}
+        initialRegion={mapRegion}
+        provider={Platform.OS === "android" ? nativeMaps.PROVIDER_GOOGLE : undefined}
+        showsUserLocation={!!(userLat && userLng)}
+        showsMyLocationButton={false}
+      >
+        {sorted.map(b =>
+          b.lat != null && b.lng != null ? (
+            <NativeMarker
+              key={b.id}
+              coordinate={{ latitude: b.lat, longitude: b.lng }}
+              title={b.name}
+              description={b.address ?? undefined}
+              pinColor={selected?.id === b.id ? "#E8920C" : "#999"}
+              onPress={() => onSelect(b)}
+            />
+          ) : null,
+        )}
+      </NativeMapView>
+    );
+  };
 
   return (
     <Modal
@@ -145,29 +206,9 @@ export default function BranchPickerModal({
       <View style={[styles.root, { backgroundColor: colors.background, paddingBottom: insets.bottom + 16 }]}>
 
         {/* ── Map ─────────────────────────────────────────────────────────── */}
-        {hasBranchCoords ? (
+        {showNativeMap ? (
           <View style={[styles.mapContainer, { height: MAP_H }]}>
-            <MapView
-              ref={mapRef}
-              style={StyleSheet.absoluteFill}
-              initialRegion={mapRegion}
-              provider={Platform.OS === "android" ? PROVIDER_GOOGLE : undefined}
-              showsUserLocation={!!(userLat && userLng)}
-              showsMyLocationButton={false}
-            >
-              {sorted.map(b =>
-                b.lat != null && b.lng != null ? (
-                  <Marker
-                    key={b.id}
-                    coordinate={{ latitude: b.lat, longitude: b.lng }}
-                    title={b.name}
-                    description={b.address ?? undefined}
-                    pinColor={selected?.id === b.id ? "#E8920C" : "#999"}
-                    onPress={() => onSelect(b)}
-                  />
-                ) : null,
-              )}
-            </MapView>
+            {renderNativeMap()}
 
             {/* Close button overlay */}
             <Pressable
@@ -178,7 +219,7 @@ export default function BranchPickerModal({
             </Pressable>
           </View>
         ) : (
-          /* No coords — show header bar instead of map */
+          /* Expo Go / no coords — show a clear list-based alternative */
           <View style={[styles.headerBar, { backgroundColor: colors.card, borderBottomColor: colors.border, paddingTop: insets.top + 8 }]}>
             <Pressable onPress={onClose} style={styles.headerClose}>
               <Text style={{ fontSize: 18, color: colors.foreground }}>✕</Text>
@@ -192,7 +233,19 @@ export default function BranchPickerModal({
 
         {/* ── Branch list ─────────────────────────────────────────────────── */}
         <View style={[styles.sheet, { backgroundColor: colors.background }]}>
-          {hasBranchCoords && (
+          {!showNativeMap && hasBranchCoords && (
+            <View style={[styles.mapFallback, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+              <Text style={[styles.mapFallbackTitle, { color: colors.foreground, fontFamily: F.bold }]}>
+                {isEn ? "Map preview is unavailable here" : "الخريطة غير متاحة في هذا الوضع"}
+              </Text>
+              <Text style={[styles.mapFallbackText, { color: colors.mutedForeground, fontFamily: F.regular }]}>
+                {isEn
+                  ? "Choose your pickup branch from the list below."
+                  : "اختر فرع الاستلام من القائمة أدناه."}
+              </Text>
+            </View>
+          )}
+          {showNativeMap && (
             <View style={[styles.sheetHeader, { borderBottomColor: colors.border }]}>
               <Text style={[styles.sheetTitle, { color: colors.foreground, fontFamily: F.bold }]}>
                 {isEn ? "Choose Pickup Branch" : "اختار الفرع للاستلام"}
@@ -334,6 +387,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  mapFallback: {
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    alignItems: "flex-end",
+    gap: 3,
+  },
+  mapFallbackTitle: {
+    fontSize: 15,
+  },
+  mapFallbackText: {
+    fontSize: 12,
+    textAlign: "right",
   },
   sheetTitle: {
     fontSize: 16,
