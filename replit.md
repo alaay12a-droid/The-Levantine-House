@@ -39,7 +39,7 @@ Premium Arabic mobile restaurant ordering app built with Expo React Native.
 - **Location**: تبوك - حي الروضة
 - **Expo Account**: 012837ala
 - **Expo Slug**: the-levantine-house
-- **EAS Project**: intentionally unlinked; create a new project for this app
+- **EAS Project ID**: 83b4e404-a637-4f64-b77c-0c397246e99e
 - **Android Package**: com.thelevantinehouse.menu
 - **iOS Bundle ID**: com.thelevantinehouse.menu
 - **Firebase / database**: separate credentials and `NEON_DATABASE_URL`; never use the original deployment
