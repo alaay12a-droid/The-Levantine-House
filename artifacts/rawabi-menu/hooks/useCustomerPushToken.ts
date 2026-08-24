@@ -31,6 +31,20 @@ export async function registerCustomerNotifications(): Promise<string | null> {
   if (Platform.OS === "web") return null;
 
   try {
+    // Android 13+ needs a notification channel before prompting, and a MAX
+    // importance channel makes broadcast notifications visible outside the app.
+    if (Platform.OS === "android") {
+      await Notifications.setNotificationChannelAsync("order-status", {
+        name: "إشعارات البيت الشامي",
+        importance: Notifications.AndroidImportance.MAX,
+        sound: "default",
+        vibrationPattern: [0, 200, 100, 200],
+        lightColor: "#D4AF37",
+        enableVibrate: true,
+        showBadge: true,
+      });
+    }
+
     const { status: existing } = await Notifications.getPermissionsAsync();
     let finalStatus = existing;
     if (existing !== "granted") {
@@ -47,17 +61,6 @@ export async function registerCustomerNotifications(): Promise<string | null> {
       finalStatus = status;
     }
     if (finalStatus !== "granted") return null;
-
-    if (Platform.OS === "android") {
-      await Notifications.setNotificationChannelAsync("order-status", {
-        name: "حالة طلبك",
-        importance: Notifications.AndroidImportance.HIGH,
-        sound: "default",
-        vibrationPattern: [0, 200, 100, 200],
-        lightColor: "#D4AF37",
-        showBadge: true,
-      });
-    }
 
     // Get Expo push token — retry up to 3 times with 2s delay on failure
     let expoToken: string | null = null;

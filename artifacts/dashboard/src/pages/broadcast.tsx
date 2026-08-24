@@ -8,19 +8,24 @@ export default function Broadcast() {
   const [title, setTitle]     = useState("");
   const [body, setBody]       = useState("");
   const [sending, setSending] = useState(false);
-  const [result, setResult]   = useState<"ok" | "error" | null>(null);
+  const [result, setResult]   = useState<{ kind: "ok" | "partial" | "error"; sent?: number; total?: number } | null>(null);
 
   async function handleSend() {
     if (!title.trim() || !body.trim()) return;
     setSending(true);
     setResult(null);
     try {
-      await apiPost("/notifications/broadcast", { title: title.trim(), body: body.trim() });
-      setResult("ok");
+      const response = await apiPost<{ ok: boolean; sent: number; total: number }>("/notifications/broadcast", {
+        title: title.trim(),
+        body: body.trim(),
+      });
+      setResult(response.ok
+        ? { kind: "ok", sent: response.sent, total: response.total }
+        : { kind: "partial", sent: response.sent, total: response.total });
       setTitle("");
       setBody("");
     } catch {
-      setResult("error");
+      setResult({ kind: "error" });
     } finally {
       setSending(false);
     }
@@ -76,12 +81,17 @@ export default function Broadcast() {
           {sending ? "جارٍ الإرسال..." : "إرسال للجميع"}
         </Button>
 
-        {result === "ok" && (
+        {result?.kind === "ok" && (
           <div className="rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 text-sm text-center font-medium">
-            ✅ تم إرسال الإشعار لجميع العملاء
+            ✅ تم تسليم الإشعار لخدمة الإرسال لكل الأجهزة المسجلة ({result.sent}/{result.total})
           </div>
         )}
-        {result === "error" && (
+        {result?.kind === "partial" && (
+          <div className="rounded-lg bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 text-sm text-center font-medium">
+            ⚠️ تم قبول الإشعار لبعض الأجهزة فقط ({result.sent}/{result.total}). ستتم إزالة الأجهزة غير الصالحة تلقائيًا.
+          </div>
+        )}
+        {result?.kind === "error" && (
           <div className="rounded-lg bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm text-center font-medium">
             ❌ فشل الإرسال، حاول مرة أخرى
           </div>

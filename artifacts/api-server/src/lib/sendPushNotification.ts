@@ -14,16 +14,18 @@ export interface PushMessage {
 // ── FCM (Firebase Admin) — primary delivery path ─────────────────────────────
 
 interface FCMResult {
-  stale: string[];      // invalid/unregistered tokens — remove from DB
-  successCount: number; // how many were delivered successfully
+  stale: string[];
+  failed: string[];
+  successCount: number;
 }
 
 async function sendViaFCM(fcmTokens: string[], msg: PushMessage): Promise<FCMResult> {
-  if (fcmTokens.length === 0) return { stale: [], successCount: 0 };
+  if (fcmTokens.length === 0) return { stale: [], failed: [], successCount: 0 };
   const messaging = getFCMMessaging();
-  if (!messaging) return { stale: [], successCount: 0 };
+  if (!messaging) return { stale: [], failed: [...fcmTokens], successCount: 0 };
 
   const stale: string[] = [];
+  const failed: string[] = [];
   let successCount = 0;
   const CHUNK = 500; // FCM multicast limit
 
@@ -55,6 +57,7 @@ async function sendViaFCM(fcmTokens: string[], msg: PushMessage): Promise<FCMRes
       res.responses.forEach((r, idx) => {
         if (r.success) return;
         const code = r.error?.code ?? "";
+        failed.push(chunk[idx]!);
         if (code === "messaging/mismatched-credential") {
           logger.error(
             { code, hint: "FIREBASE_SERVICE_ACCOUNT project does not match google-services.json — update credentials" },
@@ -76,11 +79,12 @@ async function sendViaFCM(fcmTokens: string[], msg: PushMessage): Promise<FCMRes
         "FCM multicast chunk sent",
       );
     } catch (err) {
+      failed.push(...chunk);
       logger.error({ err }, "FCM multicast error");
     }
   }
 
-  return { stale, successCount };
+  return { stale, failed, successCount };
 }
 
 // ── Expo Push API — fallback for tokens without FCM token ────────────────────
@@ -95,9 +99,17 @@ interface ExpoTicket {
 const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
 const EXPO_CHUNK = 100;
 
-async function sendViaExpo(expoTokens: string[], msg: PushMessage): Promise<string[]> {
-  if (expoTokens.length === 0) return [];
-  const invalid: string[] = [];
+interface ExpoResult {
+  stale: string[];
+  failed: string[];
+  successCount: number;
+}
+
+async function sendViaExpo(expoTokens: string[], msg: PushMessage): Promise<ExpoResult> {
+  if (expoTokens.length === 0) return { stale: [], failed: [], successCount: 0 };
+  const stale: string[] = [];
+  const failed: string[] = [];
+  let successCount = 0;
 
   for (let i = 0; i < expoTokens.length; i += EXPO_CHUNK) {
     const chunk = expoTokens.slice(i, i + EXPO_CHUNK);
@@ -120,6 +132,7 @@ async function sendViaExpo(expoTokens: string[], msg: PushMessage): Promise<stri
 
       if (!resp.ok) {
         logger.error({ status: resp.status }, "Expo Push API HTTP error");
+        failed.push(...chunk);
         continue;
       }
 
@@ -130,6 +143,9 @@ async function sendViaExpo(expoTokens: string[], msg: PushMessage): Promise<stri
       const receiptToToken = new Map<string, string>();
       json.data.forEach((ticket, idx) => {
         const maskedToken = chunk[idx]?.slice(0, 30) ?? "unknown";
+        if (ticket.status === "ok") {
+          successCount += 1;
+        }
         if (ticket.status === "ok" && ticket.id) {
           receiptToToken.set(ticket.id, maskedToken);
         } else if (ticket.status === "error") {
@@ -143,8 +159,9 @@ async function sendViaExpo(expoTokens: string[], msg: PushMessage): Promise<stri
             },
             "Expo push ticket error",
           );
+          failed.push(chunk[idx]!);
           if (errCode === "DeviceNotRegistered" || errCode === "InvalidCredentials") {
-            invalid.push(chunk[idx]!);
+            stale.push(chunk[idx]!);
           }
         }
       });
@@ -172,11 +189,12 @@ async function sendViaExpo(expoTokens: string[], msg: PushMessage): Promise<stri
         }, 60_000);
       }
     } catch (err) {
+      failed.push(...chunk);
       logger.error({ err }, "Expo push fetch error");
     }
   }
 
-  return invalid;
+  return { stale, failed, successCount };
 }
 
 // ── Last receipt result (in-memory, debug use only) ──────────────────────────
@@ -304,83 +322,127 @@ async function removeStaleByFCMToken(fcmTokens: string[]): Promise<void> {
    * "cashier"  = alert all cashier devices (new orders, customer chat pings).
    * Never mix these — a "cashier" caller must not accidentally hit customer rows.
    */
-  async function sendPushToRole(role: "customer" | "cashier", msg: PushMessage): Promise<void> {
-    try {
-      const rows = await db
-        .select()
-        .from(pushTokensTable)
-        .where(eq(pushTokensTable.role, role));
+export interface PushDeliverySummary {
+  role: "customer" | "cashier";
+  targets: number;
+  accepted: number;
+  failed: number;
+  stale: number;
+  viaFcm: number;
+  viaExpo: number;
+  error?: "delivery_error";
+}
 
-      logger.info(
-        { role, tokenCount: rows.length, tokens: rows.map((r) => r.token) },
-        "sendPushToRole — resolved target tokens for role",
-      );
+async function sendPushToRole(
+  role: "customer" | "cashier",
+  msg: PushMessage,
+): Promise<PushDeliverySummary> {
+  const emptySummary = (): PushDeliverySummary => ({
+    role,
+    targets: 0,
+    accepted: 0,
+    failed: 0,
+    stale: 0,
+    viaFcm: 0,
+    viaExpo: 0,
+  });
 
-      if (rows.length === 0) {
-        logger.warn({ role }, "No push tokens registered for role — broadcast skipped");
-        return;
-      }
+  try {
+    const rows = await db
+      .select()
+      .from(pushTokensTable)
+      .where(eq(pushTokensTable.role, role));
 
-      const rowsWithFCM = rows.filter((r) => !!r.fcmToken);
-      const fcmTokens = rowsWithFCM.map((r) => r.fcmToken as string);
+    logger.info(
+      { role, tokenCount: rows.length, tokens: rows.map((r) => r.token) },
+      "sendPushToRole — resolved target tokens for role",
+    );
 
-      const expoOnlyTokens = rows
-        .filter((r) => !r.fcmToken)
-        .map((r) => r.token)
-        .filter((t): t is string => !!t && t.startsWith("ExponentPushToken["));
-
-      logger.info(
-        { role, fcm: fcmTokens.length, expo: expoOnlyTokens.length },
-        "Sending role broadcast",
-      );
-
-      // Run FCM and Expo-only in parallel
-      const [fcmResult, staleExpoOnly] = await Promise.all([
-        sendViaFCM(fcmTokens, msg),
-        sendViaExpo(expoOnlyTokens, msg),
-      ]);
-
-      // If FCM failed to deliver any messages (e.g. wrong Firebase project),
-      // fall back to Expo Push API using the associated Expo tokens
-      let expoFallbackTokens: string[] = [];
-      if (fcmResult.successCount < fcmTokens.length) {
-        expoFallbackTokens = rowsWithFCM
-          .map((r) => r.token)
-          .filter((t): t is string => !!t && t.startsWith("ExponentPushToken["));
-        if (expoFallbackTokens.length > 0) {
-          logger.warn(
-            { role, fcmSent: fcmResult.successCount, fcmTotal: fcmTokens.length, fallback: expoFallbackTokens.length },
-            "FCM partial failure — falling back to Expo Push API",
-          );
-        }
-      }
-
-      const [staleExpoFallback] = await Promise.all([
-        expoFallbackTokens.length > 0 ? sendViaExpo(expoFallbackTokens, msg) : Promise.resolve([]),
-        removeStaleByFCMToken(fcmResult.stale),
-        removeStaleExpoTokens(staleExpoOnly),
-      ]);
-
-      await removeStaleExpoTokens(staleExpoFallback);
-    } catch (err) {
-      logger.error({ err, role }, "Error in sendPushToRole");
+    if (rows.length === 0) {
+      logger.warn({ role }, "No push tokens registered for role — broadcast skipped");
+      return emptySummary();
     }
+
+    const rowsWithFCM = rows.filter((r) => !!r.fcmToken);
+    const fcmTokens = rowsWithFCM.map((r) => r.fcmToken as string);
+    const expoOnlyTokens = rows
+      .filter((r) => !r.fcmToken)
+      .map((r) => r.token)
+      .filter((t): t is string => !!t && t.startsWith("ExponentPushToken["));
+
+    logger.info(
+      { role, fcm: fcmTokens.length, expo: expoOnlyTokens.length },
+      "Sending role broadcast",
+    );
+
+    const [fcmResult, expoOnlyResult] = await Promise.all([
+      sendViaFCM(fcmTokens, msg),
+      sendViaExpo(expoOnlyTokens, msg),
+    ]);
+
+    // Retry only the FCM recipients that failed. Retrying every recipient here
+    // would show duplicate notifications on Android devices that already received
+    // the FCM message.
+    const failedFcmTokens = new Set(fcmResult.failed);
+    const failedFcmRows = rowsWithFCM.filter((row) => failedFcmTokens.has(row.fcmToken as string));
+    const expoFallbackTokens = failedFcmRows
+      .map((row) => row.token)
+      .filter((token): token is string => !!token && token.startsWith("ExponentPushToken["));
+
+    if (expoFallbackTokens.length > 0) {
+      logger.warn(
+        { role, fcmSent: fcmResult.successCount, fcmTotal: fcmTokens.length, fallback: expoFallbackTokens.length },
+        "FCM partial failure — falling back to Expo Push API",
+      );
+    }
+
+    const expoFallbackResult = expoFallbackTokens.length > 0
+      ? await sendViaExpo(expoFallbackTokens, msg)
+      : { stale: [], failed: [], successCount: 0 };
+
+    await Promise.all([
+      removeStaleByFCMToken(fcmResult.stale),
+      removeStaleExpoTokens(expoOnlyResult.stale),
+      removeStaleExpoTokens(expoFallbackResult.stale),
+    ]);
+
+    const undeliverable = rows.length - rowsWithFCM.length - expoOnlyTokens.length;
+    const failedWithoutFallback = failedFcmRows.length - expoFallbackTokens.length;
+    const result: PushDeliverySummary = {
+      role,
+      targets: rows.length,
+      accepted: fcmResult.successCount + expoOnlyResult.successCount + expoFallbackResult.successCount,
+      failed: expoOnlyResult.failed.length + expoFallbackResult.failed.length + undeliverable + failedWithoutFallback,
+      stale: new Set([
+        ...fcmResult.stale,
+        ...expoOnlyResult.stale,
+        ...expoFallbackResult.stale,
+      ]).size,
+      viaFcm: fcmResult.successCount,
+      viaExpo: expoOnlyResult.successCount + expoFallbackResult.successCount,
+    };
+    logger.info(result, "Push role broadcast completed");
+    return result;
+  } catch (err) {
+    logger.error({ err, role }, "Error in sendPushToRole");
+    return { ...emptySummary(), error: "delivery_error" };
   }
+}
 
   /**
    * Broadcast to all registered customer devices (e.g. promo announcements).
    */
-  export async function sendPushToAll(msg: PushMessage): Promise<void> {
-    return sendPushToRole("customer", msg);
-  }
+export async function sendPushToAll(msg: PushMessage): Promise<PushDeliverySummary> {
+  return sendPushToRole("customer", msg);
+}
 
   /**
    * Broadcast to all registered cashier devices (e.g. new order alerts,
    * customer -> cashier chat messages when no driver is assigned).
    */
-  export async function sendPushToCashiers(msg: PushMessage): Promise<void> {
-    return sendPushToRole("cashier", msg);
-  }
+export async function sendPushToCashiers(msg: PushMessage): Promise<PushDeliverySummary> {
+  return sendPushToRole("cashier", msg);
+}
 
 /**
  * Send a push notification to a specific driver's registered devices.
@@ -404,24 +466,25 @@ export async function sendPushToDriver(driverId: number, msg: PushMessage): Prom
       .map((r) => r.token)
       .filter((t): t is string => !!t && t.startsWith("ExponentPushToken["));
 
-    const [fcmResult, staleExpo] = await Promise.all([
+    const [fcmResult, expoOnlyResult] = await Promise.all([
       sendViaFCM(fcmTokens, msg),
       sendViaExpo(expoOnlyTokens, msg),
     ]);
 
-    if (fcmResult.successCount < fcmTokens.length) {
-      const fallback = rowsWithFCM
+    const failedFcmTokens = new Set(fcmResult.failed);
+    const fallback = rowsWithFCM
+      .filter((row) => failedFcmTokens.has(row.fcmToken as string))
         .map((r) => r.token)
         .filter((t): t is string => !!t && t.startsWith("ExponentPushToken["));
-      if (fallback.length > 0) {
-        logger.warn({ driverId, fallback: fallback.length }, "FCM failed — falling back to Expo for driver");
-        await sendViaExpo(fallback, msg);
-      }
+    if (fallback.length > 0) {
+      logger.warn({ driverId, fallback: fallback.length }, "FCM failed — falling back to Expo for driver");
+      const fallbackResult = await sendViaExpo(fallback, msg);
+      await removeStaleExpoTokens(fallbackResult.stale);
     }
 
     await Promise.all([
       removeStaleByFCMToken(fcmResult.stale),
-      removeStaleExpoTokens(staleExpo),
+      removeStaleExpoTokens(expoOnlyResult.stale),
     ]);
   } catch (err) {
     logger.error({ err, driverId }, "Error in sendPushToDriver");
@@ -469,8 +532,8 @@ export async function sendPushToToken(
       } else {
         logger.info({ expoToken: expoToken.slice(0, 35) }, "sendPushToToken — no FCM token, sending via Expo Push API (iOS path)");
       }
-      const stale = await sendViaExpo([expoToken], msg);
-      await removeStaleExpoTokens(stale);
+      const expoResult = await sendViaExpo([expoToken], msg);
+      await removeStaleExpoTokens(expoResult.stale);
     } else if (!fcmDelivered && !expoToken.startsWith("ExponentPushToken[")) {
       logger.warn({ expoToken: expoToken.slice(0, 35) }, "No valid delivery token — targeted push skipped");
     }

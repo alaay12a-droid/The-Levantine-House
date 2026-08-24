@@ -18,10 +18,35 @@ router.post("/notifications/broadcast", async (req, res) => {
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "بيانات غير صحيحة" }); return; }
 
-  await sendPushToAll({ title: parsed.data.title, body: parsed.data.body, sound: "default" });
+  const delivery = await sendPushToAll({
+    title: parsed.data.title,
+    body: parsed.data.body,
+    sound: "default",
+    channelId: "order-status",
+    data: { type: "broadcast" },
+  });
 
-  req.log.info({ title: parsed.data.title }, "Broadcast notification sent");
-  res.json({ ok: true, remaining: 9999 });
+  if (delivery.error) {
+    req.log.error({ title: parsed.data.title, delivery }, "Broadcast notification delivery failed");
+    res.status(502).json({ error: "تعذّر التواصل مع خدمة الإشعارات" });
+    return;
+  }
+
+  if (delivery.targets === 0) {
+    res.status(409).json({ error: "لا توجد أجهزة عملاء مسجلة لتلقي الإشعارات" });
+    return;
+  }
+
+  const complete = delivery.accepted === delivery.targets && delivery.failed === 0;
+  req.log.info({ title: parsed.data.title, delivery }, "Broadcast notification dispatched");
+  res.status(complete ? 200 : 207).json({
+    ok: complete,
+    sent: delivery.accepted,
+    total: delivery.targets,
+    failed: delivery.failed,
+    stale: delivery.stale,
+    remaining: 9999,
+  });
 });
 
 export default router;

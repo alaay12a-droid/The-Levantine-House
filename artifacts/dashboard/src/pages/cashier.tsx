@@ -372,10 +372,12 @@ export default function Cashier() {
     if (!broadcastTitle.trim() || !broadcastBody.trim()) return;
     setBroadcastSending(true);
     try {
-      const res = await apiPost<{ ok: number; remaining: number }>("/notifications/broadcast", { title: broadcastTitle, body: broadcastBody });
+      const res = await apiPost<{ ok: boolean; sent: number; total: number; remaining: number }>("/notifications/broadcast", { title: broadcastTitle, body: broadcastBody });
       setBroadcastRemaining(res.remaining);
       setBroadcastTitle(""); setBroadcastBody("");
-      toast({ title: `تم الإرسال (${res.ok} مستخدم)` });
+      toast(res.ok
+        ? { title: `تم قبول الإشعار لكل العملاء (${res.sent}/${res.total})` }
+        : { title: `إرسال جزئي (${res.sent}/${res.total})`, description: "تعذّر إرسال الإشعار لبعض الأجهزة", variant: "destructive" });
       setShowBroadcastModal(false);
     } catch { toast({ title: "خطأ في الإرسال", variant: "destructive" }); }
     finally { setBroadcastSending(false); }

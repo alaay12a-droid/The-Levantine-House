@@ -65,7 +65,7 @@
         {
           "icon": "./assets/images/notification_icon.png",
           "color": "#E8920C",
-          "defaultChannel": "orders",
+          "defaultChannel": "order-status",
           "sounds": [
             "./assets/sounds/notification.wav",
             "./assets/sounds/notification_loop.wav",

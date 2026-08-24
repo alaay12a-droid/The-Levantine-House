@@ -420,14 +420,19 @@ export default function CashierScreen() {
     if (!broadcastTitle.trim() || !broadcastBody.trim()) return;
     setBroadcastSending(true);
     try {
-      const res = await apiPost<{ ok: boolean; remaining: number }>("/notifications/broadcast", {
+      const res = await apiPost<{ ok: boolean; sent: number; total: number; remaining: number }>("/notifications/broadcast", {
         title: broadcastTitle.trim(),
         body:  broadcastBody.trim(),
       });
       setBroadcastRemaining(res.remaining);
       setBroadcastTitle("");
       setBroadcastBody("");
-      Alert.alert("تم الإرسال ✓", "تم إرسال الإشعار لجميع المستخدمين");
+      Alert.alert(
+        res.ok ? "تم الإرسال ✓" : "تم الإرسال جزئياً",
+        res.ok
+          ? `تم قبول الإشعار لكل الأجهزة المسجلة (${res.sent}/${res.total})`
+          : `تم قبول الإشعار لـ ${res.sent} من ${res.total} جهازًا. تعذّر الإرسال للبقية.`,
+      );
       setShowBroadcastModal(false);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "تعذّر الإرسال";
