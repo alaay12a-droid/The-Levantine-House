@@ -28,6 +28,7 @@
     },
     "android": {
       "package": "com.thelevantinehouse.menu",
+      "googleServicesFile": "./google-services.json",
       "versionCode": 33,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/thelevantine-house-logo.jpg",

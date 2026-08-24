@@ -19,5 +19,6 @@
 - [EAS iOS channel required for OTA](eas-ios-channel-ota.md) — production iOS profile in eas.json MUST have channel:"production" or OTA updates never reach devices; omitting it silently breaks all OTA delivery
 - [Standalone app isolation](standalone-app-isolation.md) — a forked app must fail closed on legacy Firebase/API/DB values; new mobile credentials and API URL must be supplied explicitly
 - [Firebase service-account validation](firebase-service-account-validation.md) — validate a pasted service-account secret by restarting the server; an uploaded attachment or a confirmation alone does not replace its stored value
+- [Firebase multi-client config isolation](firebase-multi-client-config.md) — filter google-services.json by Android package when one Firebase project contains multiple app clients
 - [GitHub main synchronization](github-main-sync.md) — fetch GitHub main before merging; the local main ref can lag and diverge from the published source of truth
 - [Apple SMS 2FA throttling](apple-sms-2fa-throttling.md) — EAS credential setup can be blocked before code entry when Apple temporarily refuses SMS verification codes

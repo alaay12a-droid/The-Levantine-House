@@ -1,0 +1,28 @@
+{
+  "project_info": {
+    "project_number": "231107517156",
+    "project_id": "the-levantine-house",
+    "storage_bucket": "the-levantine-house.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:231107517156:android:ccef0c33254463d6912af1",
+        "android_client_info": {
+          "package_name": "com.thelevantinehouse.menu"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAxe0p8KjxDaaqVxqUlN2KjeSZF3l_RmIM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ]
+}
