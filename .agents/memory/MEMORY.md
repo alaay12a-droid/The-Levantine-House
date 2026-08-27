@@ -22,3 +22,4 @@
 - [Firebase multi-client config isolation](firebase-multi-client-config.md) — filter google-services.json by Android package when one Firebase project contains multiple app clients
 - [GitHub main synchronization](github-main-sync.md) — fetch GitHub main before merging; the local main ref can lag and diverge from the published source of truth
 - [Apple SMS 2FA throttling](apple-sms-2fa-throttling.md) — EAS credential setup can be blocked before code entry when Apple temporarily refuses SMS verification codes
+- [EAS iOS submit authentication](eas-ios-submit-auth.md) — iOS submission must use either an ASC API key or app-specific password, never both in one request
