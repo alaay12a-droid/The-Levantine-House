@@ -18,6 +18,13 @@
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "ascAppId": "6792793006",
+        "ascApiKeyPath": "./artifacts/rawabi-menu/certs/AuthKey_L3432Q48N5.p8",
+        "ascApiKeyId": "L3432Q48N5",
+        "ascApiKeyIssuerId": "428ea4ec-8e75-4111-a0a1-99e02a0b6c2d"
+      }
+    }
   }
 }
