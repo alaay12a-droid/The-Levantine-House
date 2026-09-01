@@ -18,6 +18,7 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.thelevantinehouse.driver",
       "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
         "NSLocationWhenInUseUsageDescription": "نحتاج موقعك لإرسال موقعك للعميل أثناء التوصيل",
         "NSLocationAlwaysUsageDescription": "نحتاج موقعك في الخلفية لإرسال موقعك للعميل طوال رحلة التوصيل",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "نحتاج موقعك في الخلفية لإرسال موقعك للعميل طوال رحلة التوصيل",
