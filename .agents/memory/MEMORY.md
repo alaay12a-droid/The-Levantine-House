@@ -20,3 +20,4 @@
 - [Standalone app isolation](standalone-app-isolation.md) — a forked app must fail closed on legacy Firebase/API/DB values; new mobile credentials and API URL must be supplied explicitly
 - [Firebase service-account validation](firebase-service-account-validation.md) — validate a pasted service-account secret by restarting the server; an uploaded attachment or a confirmation alone does not replace its stored value
 - [GitHub main synchronization](github-main-sync.md) — fetch GitHub main before merging; the local main ref can lag and diverge from the published source of truth
+- [EAS Submit credential exclusivity](eas-submit-credential-exclusivity.md) — Expo rejects iOS Submit before launch when remote Apple credential types conflict
