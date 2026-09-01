@@ -3,14 +3,14 @@
     "name": "البيت الشامي",
     "slug": "the-levantine-house",
     "owner": "021837ala",
-    "version": "1.4.2",
+    "version": "1.4.3",
     "orientation": "portrait",
-    "icon": "./assets/images/thelevantine-house-logo.jpg",
+    "icon": "./assets/images/thelevantine-house-logo.png",
     "scheme": "thelevantinehouse",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/images/thelevantine-house-logo.jpg",
+      "image": "./assets/images/thelevantine-house-logo.png",
       "resizeMode": "contain",
       "backgroundColor": "#0F0A05"
     },
@@ -29,9 +29,9 @@
     "android": {
       "package": "com.thelevantinehouse.menu",
       "googleServicesFile": "./google-services.json",
-      "versionCode": 34,
+      "versionCode": 35,
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/thelevantine-house-logo.jpg",
+        "foregroundImage": "./assets/images/thelevantine-house-logo.png",
         "backgroundColor": "#0F0A05"
       },
       "permissions": [

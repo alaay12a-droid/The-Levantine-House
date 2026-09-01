@@ -18,12 +18,12 @@
 ## الخطوات المطلوبة منك
 
 ### الخطوة 1: التأكد من API الإنتاج
-- استخدم API الإنتاج المعتمد على Render: `https://the-levantine-house.onrender.com`
+- استخدم API الإنتاج المعتمد على Render: `https://the-levantine-house-45jt.onrender.com`
 - لا تستخدم أي رابط Replit أو رابط المشروع القديم.
 - إذا احتجت للتحقق من الإعداد قبل البناء:
 ```bash
 cd artifacts/rawabi-menu
-bash set-production-url.sh https://the-levantine-house.onrender.com
+bash set-production-url.sh https://the-levantine-house-45jt.onrender.com
 ```
 
 ### الخطوة 2: تثبيت EAS CLI وتسجيل الدخول

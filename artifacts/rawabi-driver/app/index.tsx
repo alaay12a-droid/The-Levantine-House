@@ -58,7 +58,7 @@ const C = {
 } as const;
 
 // ── API helpers ───────────────────────────────────────────────────────────────
-const PRODUCTION_API_BASE_URL = "https://the-levantine-house.onrender.com";
+const PRODUCTION_API_BASE_URL = "https://the-levantine-house-45jt.onrender.com";
 const configuredApi = (process.env.EXPO_PUBLIC_API_BASE_URL as string | undefined)?.trim();
 
 if (configuredApi && configuredApi !== PRODUCTION_API_BASE_URL) {
