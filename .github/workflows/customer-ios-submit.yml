@@ -1,4 +1,4 @@
-name: The Levantine House Customer iOS Submit
+name: The Levantine House Customer iOS Build
 
 on:
   workflow_dispatch:
@@ -7,8 +7,8 @@ permissions:
   contents: read
 
 jobs:
-  build-and-submit-customer-ios:
-    name: Build and Submit The Levantine House Customer iOS
+  build-customer-ios:
+    name: Build The Levantine House Customer iOS
     runs-on: ubuntu-latest
 
     steps:
@@ -34,11 +34,12 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
-      - name: Initialize Customer EAS project
+      - name: Validate Customer EAS project path
         working-directory: artifacts/rawabi-menu
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: EAS_PROJECT_ROOT="$PWD" TMPDIR=/tmp EAS_NO_VCS=1 eas init --account 012837ala --non-interactive
+        run: |
+          test "$PWD" = "$GITHUB_WORKSPACE/artifacts/rawabi-menu"
+          test -f eas.json
+          node -e 'const eas=require("./eas.json"); const app=require("./app.json").expo; if (eas.build?.production?.ios?.image !== "latest" || eas.submit?.production?.ios?.ascAppId !== "6804418785" || app.owner !== "021837ala" || app.extra?.eas?.projectId !== "83b4e404-a637-4f64-b77c-0c397246e99e" || app.ios?.bundleIdentifier !== "com.thelevantinehouse.menu") process.exit(1)'
 
       - name: Build Customer iOS IPA
         working-directory: artifacts/rawabi-menu
@@ -46,7 +47,7 @@ jobs:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
           set +e
-          output=$(EAS_PROJECT_ROOT="$PWD" TMPDIR=/tmp EAS_NO_VCS=1 EAS_BUILD_NO_EXPO_GO_WARNING=true eas build --platform ios --profile production-ios --non-interactive --wait 2>&1)
+          output=$(EAS_PROJECT_ROOT="$GITHUB_WORKSPACE/artifacts/rawabi-menu" TMPDIR=/tmp EAS_NO_VCS=1 EAS_BUILD_NO_EXPO_GO_WARNING=true eas build --platform ios --profile production --non-interactive --no-wait 2>&1)
           exit_code=$?
           printf '%s\n' "$output"
           if [ "$exit_code" -ne 0 ]; then
@@ -55,16 +56,12 @@ jobs:
             exit "$exit_code"
           fi
 
-      - name: Submit Customer iOS to App Store Connect
-        working-directory: artifacts/rawabi-menu
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: EAS_PROJECT_ROOT="$PWD" TMPDIR=/tmp EAS_NO_VCS=1 eas submit --platform ios --profile production --latest --non-interactive
-
-      - name: Print submission details
+      - name: Print build details
         run: |
           echo "======================================"
-          echo "Customer iOS build submitted to App Store Connect."
-          echo "App Store Connect app ID: 6792793006"
+          echo "Customer iOS build started on Expo servers."
+          echo "EAS config: artifacts/rawabi-menu/eas.json"
+          echo "Profile: production"
+          echo "App Store Connect app ID: 6804418785"
           echo "Bundle ID: com.thelevantinehouse.menu"
           echo "======================================"
