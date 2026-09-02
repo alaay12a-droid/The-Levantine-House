@@ -100,8 +100,8 @@ export function ProductDetailSheet({ item, visible, onClose }: Props) {
   const [qty, setQty] = useState(1);
   const [footerHeight, setFooterHeight] = useState(0);
 
-  // DB-driven sizes
-  const [dbSizeIdx, setDbSizeIdx] = useState(0);
+  // DB-driven size selection — use its identity because dashboard order can vary.
+  const [selectedDbSizeName, setSelectedDbSizeName] = useState("");
 
   // Legacy chicken/meat size state
   const [sizeIdx, setSizeIdx] = useState(0);
@@ -120,6 +120,8 @@ export function ProductDetailSheet({ item, visible, onClose }: Props) {
   // Enabled sizes from DB (prices already in SAR from useMenu hook)
   const enabledDbSizes = item?.sizes?.filter(s => s.enabled) ?? [];
   const hasDbSizes = enabledDbSizes.length > 0;
+  const selectedDbSize =
+    enabledDbSizes.find(size => size.name === selectedDbSizeName) ?? enabledDbSizes[0];
 
   // Option groups from DB (choices available)
   const optionGroups: MenuItemOptionGroup[] = (item?.options ?? []).map(g => ({
@@ -139,7 +141,8 @@ export function ProductDetailSheet({ item, visible, onClose }: Props) {
       setQty(1);
       setRiceIdx(0);
       setAddonIdx(0);
-      setDbSizeIdx(0);
+      const firstDbSize = (item.sizes ?? []).find(s => s.enabled);
+      setSelectedDbSizeName(firstDbSize?.name ?? "");
       const sizes = getChickenSizes(item);
       setSizeIdx(sizes?.defaultIdx ?? 0);
       const meatSizes = getMeatSizes(item);
@@ -189,7 +192,7 @@ export function ProductDetailSheet({ item, visible, onClose }: Props) {
     : [];
 
   const baseSizePrice = hasDbSizes
-    ? enabledDbSizes[dbSizeIdx].price
+    ? selectedDbSize?.price ?? item.price
     : showSizeSelector
       ? chickenPrices[sizeIdx]
       : showMeatSizeSelector
@@ -223,8 +226,8 @@ export function ProductDetailSheet({ item, visible, onClose }: Props) {
     let sizeExtraPrice = 0;
 
     if (hasDbSizes) {
-      sizeLabel = enabledDbSizes[dbSizeIdx].name;
-      sizeExtraPrice = enabledDbSizes[dbSizeIdx].price - item.price;
+      sizeLabel = selectedDbSize?.name;
+      sizeExtraPrice = (selectedDbSize?.price ?? item.price) - item.price;
     } else if (showSizeSelector) {
       sizeLabel = ["نصف", "حبة كاملة"][sizeIdx];
       sizeExtraPrice = chickenPrices[sizeIdx] - item.price;
@@ -338,11 +341,11 @@ export function ProductDetailSheet({ item, visible, onClose }: Props) {
                 <Text style={[styles.sectionTitle, { color: colors.foreground }]}>الحجم</Text>
                 <View style={{ flexDirection: "row", gap: enabledDbSizes.length === 3 ? 6 : 10 }}>
                   {enabledDbSizes.map((opt, i) => {
-                    const active = dbSizeIdx === i;
+                    const active = selectedDbSize?.name === opt.name;
                     return (
                       <TouchableOpacity
-                        key={i}
-                        onPress={() => { setDbSizeIdx(i); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
+                        key={`${opt.name}-${opt.price}`}
+                        onPress={() => { setSelectedDbSizeName(opt.name); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
                         style={[
                           styles.sizeBtn,
                           {
