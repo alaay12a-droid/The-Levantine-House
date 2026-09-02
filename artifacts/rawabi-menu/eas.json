@@ -7,7 +7,7 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_API_BASE_URL": "https://the-levantine-house.onrender.com"
+        "EXPO_PUBLIC_API_BASE_URL": "https://the-levantine-house-45jt.onrender.com"
       }
     },
     "preview": {
@@ -18,7 +18,7 @@
       },
       "node": "22.15.0",
       "env": {
-        "EXPO_PUBLIC_API_BASE_URL": "https://the-levantine-house.onrender.com"
+        "EXPO_PUBLIC_API_BASE_URL": "https://the-levantine-house-45jt.onrender.com"
       }
     },
     "production": {
@@ -32,7 +32,7 @@
       },
       "node": "22.15.0",
       "env": {
-        "EXPO_PUBLIC_API_BASE_URL": "https://the-levantine-house.onrender.com"
+        "EXPO_PUBLIC_API_BASE_URL": "https://the-levantine-house-45jt.onrender.com"
       }
     },
     "production-ios": {
