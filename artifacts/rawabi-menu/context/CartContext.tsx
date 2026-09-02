@@ -10,6 +10,7 @@ export interface CartCustomization {
 }
 
 export interface CartItem {
+  cartItemId: string;
   item: MenuItem;
   quantity: number;
   customization?: CartCustomization;
@@ -17,8 +18,8 @@ export interface CartItem {
 
 interface CartActions {
   addItem: (item: MenuItem, qty?: number, customization?: CartCustomization) => void;
-  removeItem: (itemId: string) => void;
-  updateQuantity: (itemId: string, quantity: number) => void;
+  removeItem: (cartItemId: string) => void;
+  updateQuantity: (cartItemId: string, quantity: number) => void;
   clearCart: () => void;
 }
 
@@ -31,33 +32,51 @@ interface CartState {
 const CartActionsContext = createContext<CartActions | undefined>(undefined);
 const CartStateContext = createContext<CartState | undefined>(undefined);
 
+export function getCartItemId(itemId: string, customization?: CartCustomization): string {
+  if (!customization) return itemId;
+
+  const selectedOptions = [...(customization.selectedOptions ?? [])]
+    .sort((a, b) => a.groupName.localeCompare(b.groupName) || a.choice.localeCompare(b.choice));
+
+  return `${itemId}:${JSON.stringify({
+    size: customization.size ?? null,
+    riceType: customization.riceType ?? null,
+    addon: customization.addon ?? null,
+    selectedOptions,
+    extraPrice: customization.extraPrice ?? 0,
+  })}`;
+}
+
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
 
   const addItem = useCallback((item: MenuItem, qty: number = 1, customization?: CartCustomization) => {
+    const cartItemId = getCartItemId(item.id, customization);
     setItems((prev) => {
-      const existing = prev.find((c) => c.item.id === item.id);
+      const existing = prev.find((c) => c.cartItemId === cartItemId);
       if (existing) {
         return prev.map((c) =>
-          c.item.id === item.id ? { ...c, quantity: c.quantity + qty } : c
+          c.cartItemId === cartItemId ? { ...c, quantity: c.quantity + qty } : c
         );
       }
-      return [...prev, { item, quantity: qty, customization }];
+      return [...prev, { cartItemId, item, quantity: qty, customization }];
     });
   }, []);
 
-  const removeItem = useCallback((itemId: string) => {
-    setItems((prev) => prev.filter((c) => c.item.id !== itemId));
+  const removeItem = useCallback((cartItemId: string) => {
+    setItems((prev) => prev.filter((c) => c.cartItemId !== cartItemId));
   }, []);
 
-  const updateQuantity = useCallback((itemId: string, quantity: number) => {
-    if (quantity <= 0) {
-      setItems((prev) => prev.filter((c) => c.item.id !== itemId));
-    } else {
-      setItems((prev) =>
-        prev.map((c) => (c.item.id === itemId ? { ...c, quantity } : c))
-      );
-    }
+  const updateQuantity = useCallback((cartItemId: string, quantity: number) => {
+    setItems((prev) => {
+      const exactMatch = prev.find((c) => c.cartItemId === cartItemId);
+      const targetId = exactMatch?.cartItemId
+        ?? [...prev].reverse().find((c) => c.item.id === cartItemId)?.cartItemId;
+
+      if (!targetId) return prev;
+      if (quantity <= 0) return prev.filter((c) => c.cartItemId !== targetId);
+      return prev.map((c) => (c.cartItemId === targetId ? { ...c, quantity } : c));
+    });
   }, []);
 
   const clearCart = useCallback(() => setItems([]), []);

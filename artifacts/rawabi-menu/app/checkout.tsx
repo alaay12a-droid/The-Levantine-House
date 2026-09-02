@@ -376,10 +376,10 @@ export default function CheckoutScreen() {
           if (!fresh || fresh.stock === null) continue;
           if (ci.quantity > fresh.stock) {
             if (fresh.stock === 0) {
-              updateQuantity(ci.item.id, 0); // remove from cart
+              updateQuantity(ci.cartItemId, 0); // remove this cart variant
               adjustments.push(isEn ? `"${ci.item.name}" is out of stock and was removed` : `"${ci.item.name}" نفد المخزون وتم إزالته`);
             } else {
-              updateQuantity(ci.item.id, fresh.stock); // reduce to available
+              updateQuantity(ci.cartItemId, fresh.stock); // reduce this cart variant
               adjustments.push(isEn ? `"${ci.item.name}": reduced to ${fresh.stock} (available qty)` : `"${ci.item.name}": تم تعديل الكمية إلى ${fresh.stock} فقط`);
             }
           }
@@ -1107,11 +1107,12 @@ export default function CheckoutScreen() {
 
           {/* Items */}
           {items.map((ci) => {
-            const lineTotal = ci.item.price * ci.quantity;
+            const unitPrice = ci.item.price + (ci.customization?.extraPrice ?? 0);
+            const lineTotal = unitPrice * ci.quantity;
             const lineTotalStr = lineTotal % 1 === 0 ? lineTotal.toString() : lineTotal.toFixed(1);
             const name = isEn && ci.item.nameEn ? ci.item.nameEn : resolveCartItemName(ci.item.name, ci.customization);
             return (
-              <React.Fragment key={ci.item.id}>
+              <React.Fragment key={ci.cartItemId}>
                 <View style={[styles.rowDivider, { backgroundColor: colors.border }]} />
                 <View style={[styles.listRow, dyn.row]}>
                   <Text style={[styles.rowValue, dyn.val, { color: colors.mutedForeground, fontFamily: F.bold }]}>
