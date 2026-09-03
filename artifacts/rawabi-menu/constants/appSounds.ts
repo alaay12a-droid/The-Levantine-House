@@ -16,13 +16,13 @@ export const SOUND_CHOICES: SoundChoice[] = [
 ];
 
 export const SOUND_KEYS = {
-  muted:       "rawabi_snd_muted",
-  order:       "rawabi_snd_order",
-  message:     "rawabi_snd_message",
-  delivery:    "rawabi_snd_delivery",
-  customOrder:    "rawabi_snd_custom_order",
-  customMessage:  "rawabi_snd_custom_message",
-  customDelivery: "rawabi_snd_custom_delivery",
+  muted:       "thelevantinehouse_snd_muted",
+  order:       "thelevantinehouse_snd_order",
+  message:     "thelevantinehouse_snd_message",
+  delivery:    "thelevantinehouse_snd_delivery",
+  customOrder:    "thelevantinehouse_snd_custom_order",
+  customMessage:  "thelevantinehouse_snd_custom_message",
+  customDelivery: "thelevantinehouse_snd_custom_delivery",
 };
 
 export function getCustomKey(soundKey: string): string {

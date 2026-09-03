@@ -23,24 +23,11 @@ const F = {
   extra: "Cairo_800ExtraBold",
 };
 
-const RICE_OPTIONS: { label: string; extra: number }[] = [
-  { label: "أرز بشاور أبيض", extra: 0 },
-  { label: "أرز مندي", extra: 0 },
-];
+const RICE_OPTIONS: { label: string; extra: number }[] = [];
+const ADDON_OPTIONS: { label: string; extra: number }[] = [];
 
-const ADDON_OPTIONS: { label: string; extra: number }[] = [
-  { label: "بدون كشنة", extra: 0 },
-  { label: "زيادة كشنة", extra: 0 },
-];
-
-const RICE_CATS = new Set(["chicken", "meat", "mains"]);
-
-function itemNeedsCustomization(item: MenuItem): boolean {
-  if (!RICE_CATS.has(item.category)) return false;
-  if (item.description?.includes("بدون رز")) return false;
-  if (item.name.includes("سادة")) return false;
-  if (item.name.startsWith("رز ")) return false;
-  return true;
+function itemNeedsCustomization(_item: MenuItem): boolean {
+  return false;
 }
 
 interface ChickenSizes {
@@ -49,17 +36,8 @@ interface ChickenSizes {
   defaultIdx: number;
 }
 
-function getChickenSizes(item: MenuItem): ChickenSizes | null {
-  if (item.category !== "chicken") return null;
-  if (item.name.startsWith("رز ")) return null;
-  if (item.description?.includes("بدون رز") && item.name.includes("سادة")) return null;
-
-  const isHalf = item.name.includes("نص") || item.name.includes("نصف");
-
-  if (isHalf) {
-    return { halfPrice: item.price, wholePrice: item.price * 2, defaultIdx: 0 };
-  }
-  return { halfPrice: item.price / 2, wholePrice: item.price, defaultIdx: 1 };
+function getChickenSizes(_item: MenuItem): ChickenSizes | null {
+  return null;
 }
 
 interface MeatSizes {
@@ -69,20 +47,8 @@ interface MeatSizes {
   defaultIdx: number;
 }
 
-function getMeatSizes(item: MenuItem): MeatSizes | null {
-  if (item.category !== "meat") return null;
-  if (item.name.includes("نفر")) return null;
-
-  const isQuarter = item.name.includes("ربع");
-  const isHalf    = item.name.includes("نص") || item.name.includes("نصف");
-
-  if (isQuarter) {
-    return { quarterPrice: item.price, halfPrice: item.price * 2, wholePrice: item.price * 4, defaultIdx: 0 };
-  }
-  if (isHalf) {
-    return { quarterPrice: item.price / 2, halfPrice: item.price, wholePrice: item.price * 2, defaultIdx: 1 };
-  }
-  return { quarterPrice: item.price / 4, halfPrice: item.price / 2, wholePrice: item.price, defaultIdx: 2 };
+function getMeatSizes(_item: MenuItem): MeatSizes | null {
+  return null;
 }
 
 interface Props {

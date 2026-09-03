@@ -203,7 +203,7 @@ function PreviewCard({ config }: { config: AppConfig }) {
         </View>
         <View style={{ flex: 1, gap: 4 }}>
           <Text style={{ color: colors.foreground, fontFamily: F.bold, fontSize: config.bodySize, textAlign: "right" }}>
-            مندي دجاج كامل
+            شاورما عربي
           </Text>
           <Text style={{ color: colors.mutedForeground, fontFamily: F.regular, fontSize: config.captionSize, textAlign: "right" }}>
             وجبة للأسرة • مع الرز

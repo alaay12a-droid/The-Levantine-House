@@ -127,7 +127,7 @@ export const OCCASION_THEMES: Record<OccasionId, OccasionTheme> = {
   },
 };
 
-export const OCCASION_KEY = "rawabi_occasion";
+export const OCCASION_KEY = "thelevantinehouse_occasion";
 
 // All selectable occasions (excluding "none" from the auto badge row)
 export const OCCASION_LIST: OccasionTheme[] = [

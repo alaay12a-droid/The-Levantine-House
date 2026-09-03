@@ -2,10 +2,10 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { AppState, type AppStateStatus } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { apiGet } from "@/constants/api";
-import { MENU_CATEGORIES, FOOD_IMAGES, type MenuItem } from "@/constants/menu";
+import { FOOD_IMAGES, type MenuItem } from "@/constants/menu";
 
-// ── Cache key (unchanged — backward compatible) ─────────────────────────────
-const MENU_CACHE_KEY   = "@rawabi_menu_cache_v4";
+const MENU_CACHE_KEY = "@thelevantinehouse_menu_cache_v1";
+const LEGACY_MENU_CACHE_KEY = "@rawabi_menu_cache_v4";
 const OFFLINE_RETRY_MS = 30_000; // retry every 30 s while offline
 
 interface MenuCache {
@@ -129,23 +129,8 @@ function buildCategories(apiItems: ApiMenuItem[], definitions: ApiMenuCategoryDe
     }
   }
 
-  const staticSpecial = MENU_CATEGORIES.filter(
-    (c) => c.isDelivery || c.isDhabiha || c.isOccasions
-  ).map((c) => ({
-    ...c,
-    nameEn: c.nameEn ?? c.name,
-    items:  c.items.map((i) => ({ ...i, available: true })),
-  })) as MenuCategoryWithApi[];
-
-  return [...result, ...staticSpecial];
+  return result;
 }
-
-const staticFallback = (): MenuCategoryWithApi[] =>
-  MENU_CATEGORIES.map((c) => ({
-    ...c,
-    nameEn: c.nameEn ?? c.name,
-    items:  c.items.map((i) => ({ ...i, available: true })),
-  })) as MenuCategoryWithApi[];
 
 // ── Lightweight freshness hash ───────────────────────────────────────────────
 // Covers every field the customer can see: name, price, availability, image, order.
@@ -173,6 +158,7 @@ export function useMenu() {
   const [categories, setCategories] = useState<MenuCategoryWithApi[]>([]);
   const [loading, setLoading]       = useState(true);
   const [apiItems, setApiItems]     = useState<ApiMenuItem[]>([]);
+  const [error, setError]           = useState(false);
 
   // Hash of the data currently rendered — used to skip no-op re-renders
   const lastHashRef = useRef<string | null>(null);
@@ -205,9 +191,11 @@ export function useMenu() {
       const cache: MenuCache = { items: data, categories: definitions, savedAt: Date.now(), dataHash: hash };
       AsyncStorage.setItem(MENU_CACHE_KEY, JSON.stringify(cache)).catch(() => {});
 
+      setError(false);
       stopRetry(); // we're online — cancel any retry loop
       return true;
     } catch {
+      setError(true);
       return false; // offline or server error
     }
   }, [stopRetry]);
@@ -217,6 +205,9 @@ export function useMenu() {
     let alive = true;
 
     (async () => {
+      // Delete the inherited restaurant cache without ever rendering it.
+      await AsyncStorage.removeItem(LEGACY_MENU_CACHE_KEY).catch(() => {});
+
       // Step 1 — Hydrate from AsyncStorage immediately so the screen is never blank
       try {
         const raw = await AsyncStorage.getItem(MENU_CACHE_KEY);
@@ -239,8 +230,6 @@ export function useMenu() {
       if (!online) {
         // Offline: keep whatever is displayed; schedule periodic retries
         retryRef.current = setInterval(() => { doFetch(); }, OFFLINE_RETRY_MS);
-        // If cache was empty, show static bundle so menu is never blank
-        setCategories(prev => prev.length > 0 ? prev : staticFallback());
       }
 
       setLoading(false); // clear spinner in all cases
@@ -262,5 +251,5 @@ export function useMenu() {
     return () => sub.remove();
   }, [doFetch]);
 
-  return { categories, loading, refresh: doFetch, refreshIfStale: doFetch, apiItems, FOOD_IMAGES };
+  return { categories, loading, error, refresh: doFetch, refreshIfStale: doFetch, apiItems, FOOD_IMAGES };
 }

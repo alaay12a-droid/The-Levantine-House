@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useState, useEffect } from "react";
 
-const KEY = "@rawabi_tab_config";
+const KEY = "@thelevantinehouse_tab_config";
 
 export interface TabConfig {
   height: number;

@@ -116,7 +116,7 @@ const F = {
 };
 
 
-const ORDER_TYPE_KEY = "rawabi_order_type";
+const ORDER_TYPE_KEY = "thelevantinehouse_order_type";
 
 function getTimeGreeting() {
   const h = new Date().getHours();
@@ -131,7 +131,7 @@ export default function MenuScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useUser();
-  const { categories, loading: menuLoading, refresh: refreshMenu, refreshIfStale } = useMenu();
+  const { categories, loading: menuLoading, error: menuError, refresh: refreshMenu, refreshIfStale } = useMenu();
   const { occasions } = useOccasions();
   const { banners, refresh: refreshBanners } = useBanners();
   const { combos } = useCombos();
@@ -901,6 +901,22 @@ export default function MenuScreen() {
               }}
             />
           ))}
+        </View>
+      ) : menuError && categories.length === 0 ? (
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 28, gap: 14 }}>
+          <Feather name="wifi-off" size={42} color={colors.mutedForeground} />
+          <Text style={{ fontFamily: F.bold, fontSize: 18, color: colors.foreground, textAlign: "center" }}>
+            تعذر تحميل الأصناف
+          </Text>
+          <Text style={{ fontFamily: F.regular, fontSize: 14, color: colors.mutedForeground, textAlign: "center" }}>
+            تحقق من اتصال الإنترنت ثم حاول مرة أخرى
+          </Text>
+          <TouchableOpacity
+            onPress={() => { void refreshMenu(); }}
+            style={{ backgroundColor: colors.primary, borderRadius: 12, paddingHorizontal: 24, paddingVertical: 12 }}
+          >
+            <Text style={{ color: "#fff", fontFamily: F.bold, fontSize: 15 }}>إعادة المحاولة</Text>
+          </TouchableOpacity>
         </View>
       ) : (
         /* ── REGULAR MENU — FlashList (RecyclerView virtualization) ── */

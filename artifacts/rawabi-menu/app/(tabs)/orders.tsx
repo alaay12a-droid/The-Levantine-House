@@ -37,8 +37,8 @@ const F = {
   extra:   "Cairo_800ExtraBold",
 };
 
-export const ORDERS_STORAGE_KEY      = "@rawabi_my_orders";
-const        LIVE_STATUS_STORAGE_KEY = "@rawabi_live_status";
+export const ORDERS_STORAGE_KEY      = "@thelevantinehouse_my_orders";
+const        LIVE_STATUS_STORAGE_KEY = "@thelevantinehouse_live_status";
 const        POLL_INTERVAL_MS        = 12_000; // 12 seconds
 
 export interface StoredOrder {
@@ -256,7 +256,7 @@ export default function OrdersScreen() {
 
   // ─── Load rated orders from AsyncStorage ──────────────────────────────────
   useEffect(() => {
-    AsyncStorage.getItem("@rawabi_rated_orders").then((raw) => {
+    AsyncStorage.getItem("@thelevantinehouse_rated_orders").then((raw) => {
       if (raw) setRatedOrders(JSON.parse(raw));
     }).catch(() => {});
   }, []);
@@ -268,7 +268,7 @@ export default function OrdersScreen() {
       await apiPost(`/orders/${ratingOrderId}/rate`, { stars: ratingStars, comment: ratingComment.trim() || undefined });
       const updated = { ...ratedOrders, [ratingOrderId]: ratingStars };
       setRatedOrders(updated);
-      await AsyncStorage.setItem("@rawabi_rated_orders", JSON.stringify(updated));
+      await AsyncStorage.setItem("@thelevantinehouse_rated_orders", JSON.stringify(updated));
       setRatingOrderId(null);
       setRatingStars(0);
       setRatingComment("");

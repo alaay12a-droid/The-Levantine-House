@@ -9,11 +9,8 @@ const MEAT_SIZES = ["ربع", "نصف", "كامل"];
  * Meat items  — identified by " - " separator in name:
  *   "حنيذ بلدي - كامل"  + نصف  →  "حنيذ بلدي - نصف"
  *
- * Chicken items — two flavours:
- *   1. Mid-name "حبة كاملة" / "نص حبة"  (مندي, مضغوط, مدفون)
- *      "مندي دجاج حبة كاملة مع الرز"  + نصف  →  "مندي دجاج نص حبة مع الرز"
- *      "مندي دجاج نص حبة مع الرز"     + حبة كاملة → "مندي دجاج حبة كاملة مع الرز"
- *   2. Prefix "نص حبة" / bare "حبة"  (على الفحم)
+ * Whole/half chicken items can embed the selected size in their display name.
+ * Prefix "نص حبة" / bare "حبة" is normalized to match the selected size.
  *      "حبة على الفحم مع الرز"          + نصف  →  "نص حبة على الفحم مع الرز"
  *      "نص حبة على الفحم مع الرز"      + حبة كاملة → "حبة على الفحم مع الرز"
  */

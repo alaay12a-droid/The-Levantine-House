@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAppConfig } from "@/context/AppConfigContext";
 
-const LOCAL_KEY = "@rawabi_payment_local";
+const LOCAL_KEY = "@thelevantinehouse_payment_local";
 
 export interface PaymentSettings {
   applePayEnabled: boolean;

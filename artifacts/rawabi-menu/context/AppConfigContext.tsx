@@ -3,7 +3,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { apiGet, apiPut } from "@/constants/api";
 import { SOUND_KEYS } from "@/constants/appSounds";
 
-const STORAGE_KEY = "@rawabi_app_config_v2";
+const STORAGE_KEY = "@thelevantinehouse_app_config_v1";
 
 export type BgThemeKey = "dark-brown" | "dark-gray" | "dark-blue" | "dark-green" | "dark-red" | "dark-purple" | "light" | "light-warm";
 

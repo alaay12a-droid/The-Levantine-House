@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useCallback } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const ORDERS_STORAGE_KEY = "@rawabi_my_orders";
+const ORDERS_STORAGE_KEY = "@thelevantinehouse_my_orders";
 
 interface OrderBadgeContextType {
   activeCount: number;

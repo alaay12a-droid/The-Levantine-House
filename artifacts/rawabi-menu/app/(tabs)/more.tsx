@@ -97,7 +97,7 @@ export default function MoreScreen() {
   // Check unread on mount and when returning to screen
   const checkUnread = useCallback(async () => {
     try {
-      const raw = await AsyncStorage.getItem("rawabi_orders");
+      const raw = await AsyncStorage.getItem("thelevantinehouse_orders");
       const orders: StoredOrder[] = raw ? JSON.parse(raw) : [];
       const recent = orders.slice(0, 6);
       if (!recent.length) return;
@@ -118,7 +118,7 @@ export default function MoreScreen() {
 
   const openSupportChat = async () => {
     try {
-      const raw = await AsyncStorage.getItem("rawabi_orders");
+      const raw = await AsyncStorage.getItem("thelevantinehouse_orders");
       const orders: StoredOrder[] = raw ? JSON.parse(raw) : [];
       if (!orders.length) {
         Alert.alert(

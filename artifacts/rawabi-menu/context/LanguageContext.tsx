@@ -15,7 +15,7 @@ const LanguageContext = createContext<LanguageContextType>({
   isRTL: true,
 });
 
-const STORAGE_KEY = "@rawabi_language";
+const STORAGE_KEY = "@thelevantinehouse_language";
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const [language, setLangState] = useState<Language>("ar");

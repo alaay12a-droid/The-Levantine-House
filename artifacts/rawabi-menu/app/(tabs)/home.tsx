@@ -83,7 +83,7 @@ export default function HomeScreen() {
   const { language } = useLanguage();
   const isEn = language === "en";
   const info = useAppTexts();
-  const { categories, refresh: refreshMenu } = useMenu();
+  const { categories, loading: menuLoading, error: menuError, refresh: refreshMenu } = useMenu();
   const { banners, refresh: refreshBanners } = useBanners();
   const { items: cartItems } = useCartState();
 
@@ -335,7 +335,25 @@ export default function HomeScreen() {
       </View>
 
       {/* ── EMPTY SEARCH STATE ── */}
-      {searchEmpty ? (
+      {menuLoading ? (
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+          <Text style={{ fontFamily: F.regular, fontSize: 14, color: colors.mutedForeground }}>جاري تحميل الأصناف...</Text>
+        </View>
+      ) : menuError && categories.length === 0 ? (
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 28, gap: 14 }}>
+          <Feather name="wifi-off" size={42} color={colors.mutedForeground} />
+          <Text style={{ fontFamily: F.bold, fontSize: 18, color: colors.foreground, textAlign: "center" }}>تعذر تحميل الأصناف</Text>
+          <Text style={{ fontFamily: F.regular, fontSize: 14, color: colors.mutedForeground, textAlign: "center" }}>
+            تحقق من اتصال الإنترنت ثم حاول مرة أخرى
+          </Text>
+          <TouchableOpacity
+            onPress={() => { void refreshMenu(); }}
+            style={{ backgroundColor: colors.primary, borderRadius: 12, paddingHorizontal: 24, paddingVertical: 12 }}
+          >
+            <Text style={{ color: "#fff", fontFamily: F.bold, fontSize: 15 }}>إعادة المحاولة</Text>
+          </TouchableOpacity>
+        </View>
+      ) : searchEmpty ? (
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 12 }}>
           <Text style={{ fontSize: 40 }}>🔍</Text>
           <Text style={{ fontFamily: F.regular, fontSize: 14, color: colors.mutedForeground, textAlign: "center" }}>

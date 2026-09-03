@@ -2474,7 +2474,7 @@ ${kpiBlock}${payBlock}${sumBlock}
                 onChangeText={(v) =>
                   savePaymentSettings({ ...paymentSettings, moyasarApplePayIdentifier: v.trim() })
                 }
-                placeholder="merchant.com.rawabialmandi.app"
+                placeholder="merchant.com.thelevantinehouse.menu"
                 placeholderTextColor={colors.mutedForeground}
                 autoCapitalize="none"
                 autoCorrect={false}
@@ -3275,7 +3275,7 @@ ${kpiBlock}${payBlock}${sumBlock}
             <TextInput
               value={dcCode}
               onChangeText={(v) => setDcCode(v.toUpperCase().replace(/\s/g, ""))}
-              placeholder="مثال: RAWABI10"
+              placeholder="مثال: SHAMI10"
               placeholderTextColor={colors.mutedForeground}
               autoCapitalize="characters"
               autoCorrect={false}
@@ -5273,7 +5273,7 @@ ${kpiBlock}${payBlock}${sumBlock}
             <TextInput
               value={newName}
               onChangeText={setNewName}
-              placeholder="مثال: مندي دجاج كامل"
+              placeholder="مثال: شاورما عربي"
               placeholderTextColor={colors.mutedForeground}
               style={[styles.input, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.secondary, fontFamily: F.regular }]}
               textAlign="right"
@@ -5283,7 +5283,7 @@ ${kpiBlock}${payBlock}${sumBlock}
             <TextInput
               value={newNameEn}
               onChangeText={setNewNameEn}
-              placeholder="e.g. Whole Chicken Mandi"
+              placeholder="e.g. Arabic Shawarma"
               placeholderTextColor={colors.mutedForeground}
               style={[styles.input, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.secondary, fontFamily: F.regular }]}
               textAlign="left"

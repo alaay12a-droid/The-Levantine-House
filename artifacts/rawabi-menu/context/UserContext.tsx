@@ -23,7 +23,7 @@ const UserContext = createContext<UserContextType>({
   clearUser: async () => {},
 });
 
-const STORAGE_KEY = "@rawabi_user_profile";
+const STORAGE_KEY = "@thelevantinehouse_user_profile";
 
 export function UserProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserProfile | null>(null);

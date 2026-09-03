@@ -1,8 +1,8 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { apiGet, apiPut } from "@/constants/api";
 
-const LOCAL_KEY = "@rawabi_pins_v2";
-const MASTER_CODE = "RAWABI@2026";
+const LOCAL_KEY = "@thelevantinehouse_pins_v1";
+const MASTER_CODE = "LEVANTINE@2026";
 
 export interface Pins {
   cashier: string;

@@ -51,7 +51,7 @@ async function reverseGeocodeArabic(lat: number, lng: number): Promise<string> {
   try {
     const res = await fetch(
       `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=ar`,
-      { headers: { "User-Agent": "RawabiAlMandi/1.0" } }
+      { headers: { "User-Agent": "TheLevantineHouse/1.0" } }
     );
     const data = await res.json();
     const a = data?.address ?? {};
@@ -69,7 +69,7 @@ async function reverseGeocodeArabic(lat: number, lng: number): Promise<string> {
   }
 }
 
-const PENDING_REFERRAL_KEY = "@rawabi_pending_referral";
+const PENDING_REFERRAL_KEY = "@thelevantinehouse_pending_referral";
 
 export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();

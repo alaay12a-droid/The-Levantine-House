@@ -2,7 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useState } fr
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { apiGet } from "@/constants/api";
 
-const STORAGE_KEY = "@rawabi_favorites";
+const STORAGE_KEY = "@thelevantinehouse_favorites";
 
 interface FavoritesCtx {
   favorites: string[];

@@ -104,7 +104,7 @@ export default function CheckoutScreen() {
   const [zoneCheckResult, setZoneCheckResult] = useState<ZoneCheckResult | null>(null);
   const [zoneChecking, setZoneChecking] = useState(false);
 
-  const VERIFIED_PHONES_KEY = "@rawabi_verified_phones";
+  const VERIFIED_PHONES_KEY = "@thelevantinehouse_verified_phones";
   const markPhoneVerified = async (phone: string) => {
     try {
       const raw = await AsyncStorage.getItem(VERIFIED_PHONES_KEY);
