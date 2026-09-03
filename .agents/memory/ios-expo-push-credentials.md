@@ -24,6 +24,12 @@ Uploaded credentials via Expo GraphQL API using EXPO_TOKEN:
 
 **How to apply:** If push stops working after re-keying on Apple Developer Portal, re-upload the new p8 via the same GraphQL mutation flow (delete old key first, create new, setPushKey).
 
+For every new Expo project or bundle identifier, verify that its own `iosAppCredentials` has a non-null push key. A team-scoped APNs key already stored in the Expo account can be linked to the new credentials without rebuilding the app.
+
+**Why:** A correctly signed production build and a valid Expo token can still return an immediate `InvalidCredentials` ticket when the new bundle's Expo-side push-key link is missing.
+
+**How to apply:** Test a current device token through Expo Push Service. If the ticket says APNs credentials cannot be found, inspect the new project's remote iOS credentials and link the existing active team key, then require a fresh ticket and receipt with `status: ok`.
+
 ## Verification
 After fix: `iosAppCredentials[0].pushKey.keyIdentifier = "L3432Q48N5"` confirmed via API.
 
