@@ -28,7 +28,7 @@
     },
     "android": {
       "package": "com.thelevantinehouse.menu",
-      "versionCode": 34,
+      "versionCode": 35,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/thelevantine-house-logo.jpg",
         "backgroundColor": "#0F0A05"
