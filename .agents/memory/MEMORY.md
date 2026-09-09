@@ -22,3 +22,4 @@
 - [GitHub main synchronization](github-main-sync.md) — fetch GitHub main before merging; the local main ref can lag and diverge from the published source of truth
 - [EAS Submit credential exclusivity](eas-submit-credential-exclusivity.md) — Expo rejects iOS Submit before launch when remote Apple credential types conflict
 - [Customer iOS CI credential gate](customer-ios-ci-credential-gate.md) — non-interactive builds require an ASC key linked to the Apple team; the local profile cannot sign the current bundle
+- [Android edge-to-edge Play warnings](android-edge-to-edge-play-warnings.md) — Expo SDK 54 can be correctly edge-to-edge while Play still flags deprecated APIs bundled inside upstream native modules

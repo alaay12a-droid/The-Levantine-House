@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, Platform } from "react-native
 import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useCart } from "@/context/CartContext";
 
 const F = {
@@ -13,6 +14,7 @@ const F = {
 export function CartBar() {
   const { totalItems, totalPrice } = useCart();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   if (totalItems === 0) return null;
 
@@ -27,7 +29,7 @@ export function CartBar() {
     <TouchableOpacity
       onPress={handlePress}
       activeOpacity={0.9}
-      style={[styles.fab, { bottom: Platform.OS === "web" ? 88 : 108 }]}
+      style={[styles.fab, { bottom: Platform.OS === "web" ? 88 : 108 + insets.bottom }]}
     >
       <View style={styles.iconWrap}>
         <Feather name="shopping-cart" size={22} color="#fff" />

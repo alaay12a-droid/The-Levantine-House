@@ -202,7 +202,7 @@ export default function BranchPickerModal({
       onRequestClose={onClose}
       statusBarTranslucent
     >
-      <StatusBar backgroundColor="transparent" translucent />
+      <StatusBar barStyle="light-content" />
       <View style={[styles.root, { backgroundColor: colors.background, paddingBottom: insets.bottom + 16 }]}>
 
         {/* ── Map ─────────────────────────────────────────────────────────── */}
