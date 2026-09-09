@@ -6,7 +6,7 @@ export function buildReferralPage(ref: string | undefined): string {
   const code = (ref ?? "").toUpperCase().trim();
   const hasCode = code.startsWith("REF") && code.length > 3;
 
-  const iosUrl = process.env.PUBLIC_IOS_APP_URL ?? "https://apps.apple.com/app/id6792793006";
+  const iosUrl = process.env.PUBLIC_IOS_APP_URL ?? "https://apps.apple.com/app/id6804418785";
   const androidUrl = process.env.PUBLIC_ANDROID_APP_URL
     ?? "https://play.google.com/store/apps/details?id=com.thelevantinehouse.menu";
 
