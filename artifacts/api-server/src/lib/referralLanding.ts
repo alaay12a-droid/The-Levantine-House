@@ -301,8 +301,8 @@ export function buildReferralPage(ref: string | undefined): string {
     <!-- Headline -->
     <div class="headline">${hasCode ? "حمّل التطبيق وسجّل الآن" : "البيت الشامي"}</div>
     <div class="sub">${hasCode
-      ? "أشهى مندي في تبوك يصلك على باب البيت"
-      : "اطلب أشهى مندي في تبوك مباشرة من هاتفك"
+      ? "ألذ وجبات البيت الشامي تصلك إلى باب البيت"
+      : "اطلب أشهى وجبات البيت الشامي مباشرة من هاتفك"
     }</div>
 
     <!-- Referral code box -->
