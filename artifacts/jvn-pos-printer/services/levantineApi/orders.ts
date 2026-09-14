@@ -43,6 +43,7 @@ function mapOrder(order: ApiOrder): RemoteOrder {
     deliveryFee: (order.deliveryFee ?? 0) / 100,
     notes: order.notes,
     status: order.status,
+    orderType: order.customerAddress ? 'delivery' : 'pickup',
     createdAt: order.createdAt,
   };
 }

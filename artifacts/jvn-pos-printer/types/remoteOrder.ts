@@ -11,5 +11,7 @@ export type RemoteOrder = {
   deliveryFee: number;
   notes: string | null;
   status: string;
+  orderType: 'delivery' | 'pickup';
+  paymentMethod?: string;
   createdAt: string;
 };

@@ -1,3 +1,5 @@
-import OrdersScreen from '@/screens/OrdersScreen';
+import { Redirect } from 'expo-router';
 
-export default OrdersScreen;
+export default function Index() {
+  return <Redirect href="/orders" />;
+}
