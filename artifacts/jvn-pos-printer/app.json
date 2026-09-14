@@ -2,7 +2,7 @@
   "expo": {
     "name": "البيت الشامي — طابعة الطلبات",
     "slug": "levantine-house-printer",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "levantine-house-printer",
@@ -12,7 +12,7 @@
     },
     "android": {
       "package": "com.thelevantinehouse.printer",
-      "versionCode": 2,
+      "versionCode": 3,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/icon.png",
         "backgroundColor": "#F8F3EB"
@@ -21,10 +21,19 @@
     "web": {
       "favicon": "./assets/images/icon.png"
     },
-    "plugins": ["expo-router"],
+    "plugins": [
+      "expo-router"
+    ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "b83e5630-6d85-41cc-a8e8-292b8091e8f3"
+      }
+    },
+    "owner": "021837ala"
   }
 }

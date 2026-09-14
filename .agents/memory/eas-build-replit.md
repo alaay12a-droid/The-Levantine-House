@@ -7,6 +7,24 @@ description: How to submit EAS builds from within the Replit pnpm monorepo envir
 Run `eas build` from **inside the artifact directory** using `EAS_PROJECT_ROOT=$(pwd)`.
 Do NOT use the /tmp/ standalone approach — npm/pnpm/yarn install all fail in Replit due to OOM.
 
+For a standalone artifact archive, replace `catalog:` dependency versions with
+explicit npm versions and remove unused `workspace:*` dependencies. EAS falls
+back to Yarn when the artifact archive has no lockfile, and Yarn cannot resolve
+pnpm workspace protocols without the workspace root.
+
+If the artifact contains an `android/` directory, EAS ignores the Android
+package and version in `app.json`. Update `applicationId`, `namespace`,
+`versionCode`, and `versionName` in Gradle, and keep Kotlin package declarations
+aligned.
+
+**Why:** Printer APK builds initially failed during dependency installation on
+`catalog:` and reported stale package/version metadata from the native Android
+project despite correct values in `app.json`.
+
+**How to apply:** Before starting EAS for a standalone mobile artifact, inspect
+its package manifest for workspace-only protocols and check whether native
+Android files override managed Expo configuration.
+
 ## Why EAS_PROJECT_ROOT works
 Without it, EAS uses `git rev-parse --show-toplevel` → workspace root → archives the entire pnpm store (269 MB).
 With `EAS_PROJECT_ROOT=$(pwd)`, EAS uses the artifact dir as root → .easignore excludes node_modules → ~52 MB archive.
