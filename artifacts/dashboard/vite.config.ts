@@ -34,7 +34,10 @@ export default defineConfig({
       "@": path.resolve(import.meta.dirname, "src"),
       "@assets": path.resolve(import.meta.dirname, "..", "..", "attached_assets"),
     },
-    dedupe: ["react", "react-dom"],
+    // The generated workspace API client is linked into this app and can
+    // otherwise resolve its own React Query copy. Hooks from that copy cannot
+    // see this app's QueryClientProvider, causing a blank production page.
+    dedupe: ["react", "react-dom", "@tanstack/react-query"],
   },
   root: path.resolve(import.meta.dirname),
   build: {
