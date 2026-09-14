@@ -1,4 +1,4 @@
-import { Platform } from 'react-native';
+import { NativeModules, Platform } from 'react-native';
 import * as SunmiPrinter from '@mitsuharu/react-native-sunmi-printer-library';
 import type { PrintableOrder } from '@/types/order';
 
@@ -20,18 +20,22 @@ function printDate(date: Date): string {
 }
 
 function readableError(error: unknown): string {
-  const message = error instanceof Error ? error.message : String(error);
-
-  if (
-    message.includes('does not support') ||
-    message.includes('undefined') ||
-    message.includes('null')
-  ) {
-    return 'لم يتم العثور على طابعة Sunmi المدمجة. ثبّت نسخة APK على جهاز Sunmi V3.';
+  if (error instanceof Error) {
+    return `${error.name}: ${error.message}`;
   }
-
-  return message;
+  if (typeof error === 'string') return error;
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return String(error);
+  }
 }
+
+export type PrinterLogLevel = 'info' | 'success' | 'error';
+export type PrinterLogHandler = (
+  level: PrinterLogLevel,
+  message: string,
+) => void;
 
 export async function checkPrinter(): Promise<PrinterReadiness> {
   if (Platform.OS !== 'android') {
@@ -58,30 +62,51 @@ export async function checkPrinter(): Promise<PrinterReadiness> {
   }
 }
 
-export async function printOrderReceipt(order: PrintableOrder): Promise<void> {
+export async function printOrderReceipt(
+  order: PrintableOrder,
+  onLog?: PrinterLogHandler,
+): Promise<void> {
+  const log = (level: PrinterLogLevel, message: string) => {
+    console[level === 'error' ? 'error' : 'log'](`[SunmiPrinter] ${message}`);
+    onLog?.(level, message);
+  };
+
   if (Platform.OS !== 'android') {
     throw new Error(
       'الطباعة متاحة فقط داخل نسخة Android المثبتة على جهاز Sunmi V3.',
     );
   }
 
-  let bufferOpened = false;
-
   try {
+    log('info', 'بدء استدعاء مكتبة Sunmi الأصلية.');
+    if (!NativeModules.SunmiPrinterLibrary) {
+      throw new Error(
+        'NativeModules.SunmiPrinterLibrary غير موجود. يلزم تثبيت APK جديد يحتوي المكتبة الأصلية، وليس تحديث JavaScript فقط.',
+      );
+    }
+    log('success', 'تم العثور على NativeModules.SunmiPrinterLibrary.');
+
+    log('info', 'SunmiPrinter.prepare() — جارٍ ربط خدمة الطابعة.');
     await SunmiPrinter.prepare();
+    log('success', 'SunmiPrinter.prepare() نجح.');
+
+    log('info', 'SunmiPrinter.getPrinterState() — جارٍ فحص الحالة.');
     const state = await SunmiPrinter.getPrinterState();
+    log(
+      state.value === 1 ? 'success' : 'error',
+      `حالة الطابعة: value=${state.value}, description=${state.description ?? 'undefined'}`,
+    );
 
     if (state.value !== 1) {
       throw new Error(`الطابعة غير جاهزة: ${state.description}`);
     }
 
-    await SunmiPrinter.enterPrinterBuffer(true);
-    bufferOpened = true;
-
     await SunmiPrinter.setAlignment('center');
     await SunmiPrinter.setTextStyle('bold', true);
     await SunmiPrinter.setFontSize(34);
+    log('info', 'SunmiPrinter.printText() — إرسال أول سطر فعلي للطابعة.');
     await SunmiPrinter.printText('البيت الشامي\n');
+    log('success', 'أول استدعاء SunmiPrinter.printText() نجح.');
 
     await SunmiPrinter.setFontSize(24);
     await SunmiPrinter.setTextStyle('bold', false);
@@ -110,7 +135,7 @@ export async function printOrderReceipt(order: PrintableOrder): Promise<void> {
     for (const item of order.items) {
       await SunmiPrinter.setAlignment('right');
       await SunmiPrinter.printText(`${item.name}\n`);
-      await SunmiPrinter.printColumnsText(
+      await SunmiPrinter.printColumnsString(
         [money(item.quantity * item.price), `${item.quantity} × ${money(item.price)}`],
         [13, 19],
         ['left', 'right'],
@@ -141,12 +166,10 @@ export async function printOrderReceipt(order: PrintableOrder): Promise<void> {
     await SunmiPrinter.printText(`${LINE}\n`);
     await SunmiPrinter.printText('شكرًا لاختياركم البيت الشامي\n');
     await SunmiPrinter.lineWrap(4);
-    await SunmiPrinter.exitPrinterBuffer(true);
-    bufferOpened = false;
+    log('success', 'اكتملت جميع أوامر الطباعة وجرى تغذية الورق.');
   } catch (error) {
-    if (bufferOpened) {
-      await SunmiPrinter.exitPrinterBuffer(false).catch(() => undefined);
-    }
-    throw new Error(readableError(error));
+    const exactError = readableError(error);
+    log('error', `فشل استدعاء الطابعة: ${exactError}`);
+    throw new Error(exactError);
   }
 }

@@ -7,9 +7,17 @@ import {
 } from '@/services/printedOrders';
 import { printOrderReceipt } from '@/services/sunmiPrinter';
 import type { RemoteOrder } from '@/types/remoteOrder';
+import type { PrinterLogLevel } from '@/services/sunmiPrinter';
 
 const POLL_INTERVAL_MS = 5000;
 const RETRY_DELAY_MS = 30000;
+
+export type PrinterLogEntry = {
+  id: number;
+  at: Date;
+  level: PrinterLogLevel;
+  message: string;
+};
 
 export function useAutomaticOrderPrinter() {
   const [orders, setOrders] = useState<RemoteOrder[]>([]);
@@ -17,11 +25,27 @@ export function useAutomaticOrderPrinter() {
   const [activeOrderId, setActiveOrderId] = useState<number | null>(null);
   const [lastPrintedOrder, setLastPrintedOrder] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [printerLogs, setPrinterLogs] = useState<PrinterLogEntry[]>([]);
   const printedIdsRef = useRef<Set<number>>(new Set());
   const inFlightIds = useRef<Set<number>>(new Set());
   const retryAfter = useRef<Map<number, number>>(new Map());
   const pollRunning = useRef(false);
   const mounted = useRef(true);
+  const logSequence = useRef(0);
+  const lastQueueFingerprint = useRef('');
+
+  const addPrinterLog = useCallback(
+    (level: PrinterLogLevel, message: string) => {
+      const entry: PrinterLogEntry = {
+        id: ++logSequence.current,
+        at: new Date(),
+        level,
+        message,
+      };
+      setPrinterLogs((current) => [entry, ...current].slice(0, 30));
+    },
+    [],
+  );
 
   const poll = useCallback(async () => {
     if (pollRunning.current) return;
@@ -31,12 +55,22 @@ export function useAutomaticOrderPrinter() {
       const acceptedOrders = await fetchAcceptedOrders();
       if (!mounted.current) return;
       setIsConnected(true);
-      setError(null);
 
       const unprinted = acceptedOrders.filter(
         (order) => !printedIdsRef.current.has(order.id),
       );
       setOrders(unprinted);
+      const queueFingerprint = unprinted.map((order) => order.id).join(',');
+      if (
+        unprinted.length > 0 &&
+        queueFingerprint !== lastQueueFingerprint.current
+      ) {
+        addPrinterLog(
+          'info',
+          `اكتُشف ${unprinted.length} طلب غير مطبوع بحالة preparing.`,
+        );
+      }
+      lastQueueFingerprint.current = queueFingerprint;
 
       if (Platform.OS !== 'android') return;
 
@@ -46,20 +80,27 @@ export function useAutomaticOrderPrinter() {
 
         inFlightIds.current.add(order.id);
         setActiveOrderId(order.id);
+        addPrinterLog(
+          'info',
+          `بدء محاولة طباعة الطلب #${order.dailyNumber ?? order.id} (id=${order.id}).`,
+        );
         Vibration.vibrate([0, 250, 120, 250]);
 
         try {
-          await printOrderReceipt({
-            orderNumber: order.dailyNumber ?? order.id,
-            customerName: order.customerName,
-            customerPhone: order.customerPhone,
-            customerAddress: order.customerAddress ?? 'استلام من الفرع',
-            items: order.items,
-            total: order.total,
-            deliveryFee: order.deliveryFee,
-            notes: order.notes ?? undefined,
-            printedAt: new Date(),
-          });
+          await printOrderReceipt(
+            {
+              orderNumber: order.dailyNumber ?? order.id,
+              customerName: order.customerName,
+              customerPhone: order.customerPhone,
+              customerAddress: order.customerAddress ?? 'استلام من الفرع',
+              items: order.items,
+              total: order.total,
+              deliveryFee: order.deliveryFee,
+              notes: order.notes ?? undefined,
+              printedAt: new Date(),
+            },
+            addPrinterLog,
+          );
           printedIdsRef.current = await savePrintedOrderId(
             printedIdsRef.current,
             order.id,
@@ -69,12 +110,21 @@ export function useAutomaticOrderPrinter() {
             current.filter((item) => item.id !== order.id),
           );
           setLastPrintedOrder(order.dailyNumber ?? order.id);
+          setError(null);
+          addPrinterLog(
+            'success',
+            `نجحت طباعة الطلب #${order.dailyNumber ?? order.id} وتم حفظه محليًا.`,
+          );
         } catch (printError) {
           retryAfter.current.set(order.id, Date.now() + RETRY_DELAY_MS);
-          setError(
+          const message =
             printError instanceof Error
               ? printError.message
-              : 'تعذرت الطباعة، ستتم المحاولة مجددًا.',
+              : String(printError);
+          setError(message);
+          addPrinterLog(
+            'error',
+            `الطلب #${order.dailyNumber ?? order.id}: ${message}. إعادة المحاولة بعد 30 ثانية.`,
           );
         } finally {
           inFlightIds.current.delete(order.id);
@@ -84,15 +134,16 @@ export function useAutomaticOrderPrinter() {
     } catch (pollError) {
       if (!mounted.current) return;
       setIsConnected(false);
-      setError(
+      const message =
         pollError instanceof Error
           ? pollError.message
-          : 'تعذر الاتصال بخادم البيت الشامي.',
-      );
+          : 'تعذر الاتصال بخادم البيت الشامي.';
+      setError(message);
+      addPrinterLog('error', `خطأ اتصال API: ${message}`);
     } finally {
       pollRunning.current = false;
     }
-  }, []);
+  }, [addPrinterLog]);
 
   useEffect(() => {
     mounted.current = true;
@@ -127,6 +178,7 @@ export function useAutomaticOrderPrinter() {
     activeOrderId,
     lastPrintedOrder,
     error,
+    printerLogs,
     isPreview: Platform.OS === 'web',
   };
 }

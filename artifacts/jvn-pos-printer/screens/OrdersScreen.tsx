@@ -28,6 +28,7 @@ export default function OrdersScreen() {
     activeOrderId,
     lastPrintedOrder,
     error,
+    printerLogs,
     isPreview,
   } =
     useAutomaticOrderPrinter();
@@ -121,6 +122,50 @@ export default function OrdersScreen() {
                 />
               )}
             </View>
+            {!isPreview && printerLogs.length > 0 ? (
+              <View
+                style={[
+                  styles.logCard,
+                  { backgroundColor: colors.card, borderColor: colors.border },
+                ]}
+              >
+                <View style={styles.logHeader}>
+                  <Text style={[styles.logCount, { color: colors.mutedForeground }]}>
+                    آخر {printerLogs.length} أحداث
+                  </Text>
+                  <Text style={[styles.logTitle, { color: colors.foreground }]}>
+                    سجل محاولة الطباعة
+                  </Text>
+                </View>
+                {printerLogs.slice(0, 10).map((entry) => (
+                  <View key={entry.id} style={styles.logRow}>
+                    <Text
+                      selectable
+                      style={[
+                        styles.logMessage,
+                        {
+                          color:
+                            entry.level === 'error'
+                              ? colors.destructive
+                              : entry.level === 'success'
+                                ? colors.success
+                                : colors.foreground,
+                        },
+                      ]}
+                    >
+                      {entry.message}
+                    </Text>
+                    <Text style={[styles.logTime, { color: colors.mutedForeground }]}>
+                      {entry.at.toLocaleTimeString('ar-SA', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit',
+                      })}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
             {orders.length > 0 ? (
               <Text style={[styles.queue, { color: colors.mutedForeground }]}>
                 بانتظار الطباعة · {orders.length}
@@ -266,6 +311,42 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     marginBottom: 8,
     fontFamily: 'Inter_600SemiBold',
+  },
+  logCard: {
+    borderWidth: 1,
+    borderRadius: 18,
+    padding: 13,
+    marginBottom: 16,
+  },
+  logHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 9,
+  },
+  logTitle: {
+    fontSize: 14,
+    fontFamily: 'Inter_700Bold',
+    writingDirection: 'rtl',
+  },
+  logCount: { fontSize: 10, fontFamily: 'Inter_400Regular' },
+  logRow: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#DDD4C8',
+    paddingVertical: 7,
+  },
+  logMessage: {
+    fontSize: 11,
+    lineHeight: 17,
+    textAlign: 'right',
+    writingDirection: 'rtl',
+    fontFamily: 'Inter_500Medium',
+  },
+  logTime: {
+    fontSize: 9,
+    marginTop: 2,
+    textAlign: 'left',
+    fontFamily: 'Inter_400Regular',
   },
   empty: {
     flex: 1,
