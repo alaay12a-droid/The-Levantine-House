@@ -48,7 +48,7 @@ function mapOrder(order: ApiOrder): RemoteOrder {
   };
 }
 
-export async function fetchAcceptedOrders(): Promise<RemoteOrder[]> {
+export async function fetchPrinterOrders(): Promise<RemoteOrder[]> {
   const response = await fetch(`${API_BASE_URL}/orders`, {
     headers: { Accept: 'application/json' },
   });
@@ -63,10 +63,14 @@ export async function fetchAcceptedOrders(): Promise<RemoteOrder[]> {
   }
 
   return (data as ApiOrder[])
-    .filter((order) => order.status === 'preparing')
     .map(mapOrder)
     .sort(
       (a, b) =>
         new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
     );
+}
+
+export async function fetchAcceptedOrders(): Promise<RemoteOrder[]> {
+  const orders = await fetchPrinterOrders();
+  return orders.filter((order) => order.status === 'preparing');
 }

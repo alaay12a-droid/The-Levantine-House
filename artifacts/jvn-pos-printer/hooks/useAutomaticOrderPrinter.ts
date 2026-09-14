@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, Platform, Vibration } from 'react-native';
-import { fetchAcceptedOrders } from '@/services/levantineApi/orders';
+import { setAudioModeAsync, useAudioPlayer } from 'expo-audio';
+import { fetchPrinterOrders } from '@/services/levantineApi/orders';
 import {
   loadPrintedOrderIds,
   savePrintedOrderId,
@@ -11,6 +12,19 @@ import type { PrinterLogLevel } from '@/services/sunmiPrinter';
 
 const POLL_INTERVAL_MS = 5000;
 const RETRY_DELAY_MS = 30000;
+const RIYADH_DATE_FORMATTER = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Asia/Riyadh',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+
+function isTodayInRiyadh(date: string): boolean {
+  return (
+    RIYADH_DATE_FORMATTER.format(new Date(date)) ===
+    RIYADH_DATE_FORMATTER.format(new Date())
+  );
+}
 
 export type PrinterLogEntry = {
   id: number;
@@ -20,6 +34,10 @@ export type PrinterLogEntry = {
 };
 
 export function useAutomaticOrderPrinter() {
+  const alertPlayer = useAudioPlayer(
+    require('../assets/order-alert.wav'),
+    { updateInterval: 500 },
+  );
   const [orders, setOrders] = useState<RemoteOrder[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const [activeOrderId, setActiveOrderId] = useState<number | null>(null);
@@ -33,6 +51,23 @@ export function useAutomaticOrderPrinter() {
   const mounted = useRef(true);
   const logSequence = useRef(0);
   const lastQueueFingerprint = useRef('');
+  const silencedPendingIds = useRef<Set<number>>(new Set());
+  const [pendingAlertIds, setPendingAlertIds] = useState<number[]>([]);
+  const [silencedRevision, setSilencedRevision] = useState(0);
+  const activePendingAlertIds = pendingAlertIds.filter(
+    (id) => !silencedPendingIds.current.has(id),
+  );
+  const isOrderAlertActive = activePendingAlertIds.length > 0;
+
+  const silenceOrderAlert = useCallback((orderId: number) => {
+    silencedPendingIds.current.add(orderId);
+    setSilencedRevision((revision) => revision + 1);
+  }, []);
+
+  const resumeOrderAlert = useCallback((orderId: number) => {
+    silencedPendingIds.current.delete(orderId);
+    setSilencedRevision((revision) => revision + 1);
+  }, []);
 
   const addPrinterLog = useCallback(
     (level: PrinterLogLevel, message: string) => {
@@ -52,7 +87,21 @@ export function useAutomaticOrderPrinter() {
     pollRunning.current = true;
 
     try {
-      const acceptedOrders = await fetchAcceptedOrders();
+      const allOrders = await fetchPrinterOrders();
+      const acceptedOrders = allOrders.filter(
+        (order) => order.status === 'preparing',
+      );
+      const currentPendingIds = allOrders
+        .filter(
+          (order) =>
+            order.status === 'pending' && isTodayInRiyadh(order.createdAt),
+        )
+        .map((order) => order.id);
+      const currentPendingSet = new Set(currentPendingIds);
+      for (const id of silencedPendingIds.current) {
+        if (!currentPendingSet.has(id)) silencedPendingIds.current.delete(id);
+      }
+      setPendingAlertIds(currentPendingIds);
       if (!mounted.current) return;
       setIsConnected(true);
 
@@ -146,6 +195,43 @@ export function useAutomaticOrderPrinter() {
   }, [addPrinterLog]);
 
   useEffect(() => {
+    if (Platform.OS === 'web') return;
+
+    alertPlayer.loop = true;
+    if (isOrderAlertActive) {
+      void setAudioModeAsync({
+        playsInSilentMode: true,
+        shouldPlayInBackground: true,
+        interruptionMode: 'doNotMix',
+      })
+        .then(() => {
+          alertPlayer.play();
+          Vibration.vibrate([0, 500, 600], true);
+        })
+        .catch((audioError: unknown) => {
+          addPrinterLog(
+            'error',
+            `تعذر تشغيل تنبيه الطلب: ${
+              audioError instanceof Error
+                ? audioError.message
+                : String(audioError)
+            }`,
+          );
+        });
+      return;
+    }
+
+    alertPlayer.pause();
+    void alertPlayer.seekTo(0);
+    Vibration.cancel();
+  }, [
+    addPrinterLog,
+    alertPlayer,
+    isOrderAlertActive,
+    silencedRevision,
+  ]);
+
+  useEffect(() => {
     mounted.current = true;
     let timer: ReturnType<typeof setInterval> | null = null;
 
@@ -169,8 +255,10 @@ export function useAutomaticOrderPrinter() {
       mounted.current = false;
       if (timer) clearInterval(timer);
       subscription.remove();
+      alertPlayer.pause();
+      Vibration.cancel();
     };
-  }, [poll]);
+  }, [alertPlayer, poll]);
 
   return {
     orders,
@@ -179,6 +267,10 @@ export function useAutomaticOrderPrinter() {
     lastPrintedOrder,
     error,
     printerLogs,
+    isOrderAlertActive,
+    pendingAlertCount: activePendingAlertIds.length,
+    silenceOrderAlert,
+    resumeOrderAlert,
     isPreview: Platform.OS === 'web',
   };
 }

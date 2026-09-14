@@ -157,12 +157,18 @@ export default function OrdersScreen() {
 function OrderCard({ order, tab }: { order: RemoteOrder; tab: string }) {
   const colors = useColors();
   const updateStatus = useUpdateOrderStatus();
-  const { activeOrderId } = usePrinter();
+  const { activeOrderId, silenceOrderAlert, resumeOrderAlert } = usePrinter();
 
   const isPrinting = activeOrderId === order.id;
 
   const handleAction = () => {
-    if (tab === 'new') updateStatus.mutate({ id: order.id, status: 'preparing' });
+    if (tab === 'new') {
+      silenceOrderAlert(order.id);
+      updateStatus.mutate(
+        { id: order.id, status: 'preparing' },
+        { onError: () => resumeOrderAlert(order.id) },
+      );
+    }
     else if (tab === 'preparing') updateStatus.mutate({ id: order.id, status: 'ready' });
     else if (tab === 'ready') updateStatus.mutate({ id: order.id, status: 'done' });
   };
