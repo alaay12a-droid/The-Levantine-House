@@ -1,0 +1,398 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>مخطط بناء تطبيق طابعة طلبات Sunmi مستقل</title>
+  <style>
+    :root{--ink:#201d18;--muted:#6f685f;--gold:#c99b22;--gold2:#f7edd0;--paper:#fffdf8;--line:#e6ded0;--ok:#147a4b;--bad:#b3342d;--code:#1d232b}
+    *{box-sizing:border-box} body{margin:0;background:#eee9df;color:var(--ink);font-family:Tahoma,Arial,sans-serif;line-height:1.75}
+    main{max-width:1080px;margin:0 auto;background:var(--paper);min-height:100vh;box-shadow:0 0 32px #0001}
+    header{padding:54px 62px;background:linear-gradient(135deg,#191713,#302a20);color:#fff;border-bottom:7px solid var(--gold)}
+    header small{color:#ead8a9;font-weight:700} h1{font-size:38px;line-height:1.3;margin:12px 0} header p{max-width:760px;color:#e8e2d7}
+    section{padding:38px 62px;border-bottom:1px solid var(--line)} h2{font-size:27px;margin:0 0 18px;border-right:5px solid var(--gold);padding-right:13px}
+    h3{font-size:20px;margin:28px 0 10px} p{margin:8px 0} ul,ol{padding-right:24px} li{margin:6px 0}
+    .notice,.danger,.success{padding:15px 18px;border-radius:12px;margin:18px 0;border:1px solid}
+    .notice{background:#fff7df;border-color:#e7c96c}.danger{background:#fff0ee;border-color:#e1a29e}.success{background:#eaf8f0;border-color:#9ed4b7}
+    code,pre{direction:ltr;text-align:left;font-family:Consolas,monospace} code{background:#eee9df;padding:2px 6px;border-radius:5px}
+    pre{background:var(--code);color:#eef2f5;padding:18px;border-radius:12px;overflow:auto;line-height:1.55;white-space:pre-wrap}
+    table{width:100%;border-collapse:collapse;margin:16px 0;font-size:14px} th,td{border:1px solid var(--line);padding:10px;text-align:right;vertical-align:top} th{background:#f4ecdb}
+    .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}.card{border:1px solid var(--line);border-radius:14px;padding:18px;background:#fff}
+    .phone{width:310px;margin:18px auto;border:9px solid #242424;border-radius:28px;background:#f8f6f0;overflow:hidden;box-shadow:0 12px 30px #0002}
+    .phone .top{padding:18px;background:#fff;text-align:center;font-weight:800;border-bottom:1px solid #ddd}.tabs{display:flex;font-size:11px;background:#fff;border-bottom:1px solid #ddd}.tabs span{flex:1;padding:10px 4px;text-align:center}.tabs .active{border-bottom:3px solid var(--gold);font-weight:800}
+    .filters{display:flex;gap:5px;padding:10px}.pill{flex:1;text-align:center;background:#fff;padding:7px;border-radius:16px;font-size:11px}.pill.on{background:var(--gold2);color:#765600}
+    .order{margin:10px;background:#fff;border:1px solid #ddd;border-radius:14px;padding:12px;font-size:11px}.order b{font-size:15px}.row{display:flex;justify-content:space-between;gap:8px}.btn{background:var(--gold);padding:10px;border-radius:9px;text-align:center;font-weight:800;margin-top:10px}
+    .drawer{margin:10px;background:#fff;border-radius:12px;border:1px solid #ddd;padding:10px}.drawer div{padding:10px;border-bottom:1px solid #eee}.drawer div:last-child{border:0}
+    .check li::marker{color:var(--ok)} .page-break{break-before:page}
+    footer{padding:28px 62px;color:var(--muted);font-size:13px;background:#f7f3eb}
+    @media(max-width:700px){header,section,footer{padding:28px 20px}h1{font-size:28px}.grid{grid-template-columns:1fr}.phone{max-width:100%}}
+    @media print{body{background:#fff}main{box-shadow:none;max-width:none}section{break-inside:auto}.card,.notice,.danger,pre,table{break-inside:avoid}}
+  </style>
+</head>
+<body><main>
+  <header>
+    <small>وثيقة مستقلة — لا تحتوي أي ربط بالمشروع المرجعي</small>
+    <h1>مخطط بناء تطبيق طابعة طلبات Sunmi V3</h1>
+    <p>مواصفات كاملة لبناء تطبيق Android مستقل لإدارة طلبات مطعم، التنبيه المستمر، قبول الطلب، الطباعة الحرارية التلقائية، منع التكرار، وإسناد مندوب التوصيل.</p>
+  </header>
+
+  <section>
+    <h2>1. شرط الاستقلال الكامل</h2>
+    <div class="danger"><b>قاعدة إلزامية:</b> المشروع الجديد لا يستخدم أي رابط API أو قاعدة بيانات أو package ID أو Expo project ID أو مفاتيح توقيع أو صور أو أسرار من أي مشروع آخر.</div>
+    <ul class="check">
+      <li>أنشئ مستودعًا ومجلد مشروع جديدين.</li>
+      <li>اختر اسم تطبيق وslug وAndroid package مختلفين، مثال: <code>com.NEW_BRAND.printer</code>.</li>
+      <li>أنشئ EAS Project وAndroid Keystore جديدين.</li>
+      <li>أنشئ API وقاعدة PostgreSQL مستقلين.</li>
+      <li>استخدم متغيرًا جديدًا مثل <code>EXPO_PUBLIC_API_BASE_URL</code> ولا تضع رابطًا ثابتًا في الكود.</li>
+      <li>لا تنسخ ملفات <code>.env</code> أو credentials أو service accounts.</li>
+      <li>أضف فحص تشغيل يمنع التطبيق من البدء إذا بقيت قيمة placeholder أو ظهر رابط مشروع آخر.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>2. النتيجة المطلوبة</h2>
+    <p>تطبيق Android يعمل على جهاز Sunmi V3 ويقوم بالآتي:</p>
+    <ol>
+      <li>يتصل بالـAPI المستقل ويجلب الطلبات كل 5 ثوانٍ وعند فتح التطبيق أو عودته للمقدمة.</li>
+      <li>عند وجود طلب <code>pending</code> اليوم: يشغّل صوتًا متكررًا واهتزازًا مستمرًا.</li>
+      <li>زر «قبول وتجهيز» يوقف تنبيه ذلك الطلب فورًا ثم يطلب تغيير حالته إلى <code>preparing</code>.</li>
+      <li>إذا فشل تغيير الحالة يعود التنبيه. إذا نجح لا يعود التنبيه.</li>
+      <li>أي طلب <code>preparing</code> غير مطبوع يدخل طابور الطباعة ويُطبع مرة واحدة فقط.</li>
+      <li>بعد قبول طلب توصيل، يقرأ إعداد الإسناد: تلقائيًا يختار مندوبًا متاحًا، ويدويًا يعرض قائمة.</li>
+      <li>طلبات <code>pickup</code> لا تُسند إلى مندوب.</li>
+      <li>يتيح إدارة الطلبات، القائمة، ساعات العمل، إعدادات الصوت والدفع، والسجل.</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>3. شكل الواجهة</h2>
+    <div class="grid">
+      <div class="card">
+        <h3>شاشة الطلبات</h3>
+        <div class="phone">
+          <div class="top">اسم المطعم ☰</div>
+          <div class="tabs"><span class="active">جديد</span><span>قيد التحضير</span><span>الوجبة جاهزة</span><span>الاسترداد</span></div>
+          <div class="filters"><div class="pill on">الكل (1)</div><div class="pill">توصيل (1)</div><div class="pill">استلام (0)</div></div>
+          <div class="order"><div class="row"><b>طلب #174</b><span>توصيل</span></div><p>اسم العميل — رقم الهاتف</p><p>العنوان</p><hr><div class="row"><span>2 × اسم الصنف</span><span>00.00</span></div><div class="row"><b>الإجمالي</b><b>00.00 ر.س</b></div><div class="btn">قبول وتجهيز</div></div>
+        </div>
+      </div>
+      <div class="card">
+        <h3>القائمة الجانبية</h3>
+        <div class="phone">
+          <div class="top">القائمة ×</div>
+          <div class="drawer">
+            <div>طلبات اليوم</div><div>الطلبات السابقة</div><div>الأصناف والخيارات</div><div>ساعات العمل</div><div>الإعدادات</div><div>حالة الطابعة والتشخيص</div>
+          </div>
+        </div>
+        <p>التصميم عربي RTL، خلفية فاتحة، بطاقات بيضاء، لون أساسي ذهبي، وأزرار كبيرة مناسبة لشاشة جهاز نقاط البيع.</p>
+      </div>
+    </div>
+    <h3>التبويبات</h3>
+    <table><tr><th>التبويب</th><th>المحتوى</th><th>الإجراء</th></tr>
+      <tr><td>جديد</td><td>طلبات pending لليوم</td><td>قبول وتجهيز</td></tr>
+      <tr><td>قيد التحضير</td><td>طلبات preparing</td><td>الوجبة جاهزة</td></tr>
+      <tr><td>الوجبة جاهزة</td><td>طلبات ready</td><td>إنهاء/تسليم وفق نوع الطلب</td></tr>
+      <tr><td>الاسترداد</td><td>ملغاة أو طلبات استرداد حسب النظام</td><td>عرض التفاصيل</td></tr>
+    </table>
+  </section>
+
+  <section class="page-break">
+    <h2>4. التقنية المقترحة</h2>
+    <ul>
+      <li>Expo + React Native + TypeScript + Expo Router.</li>
+      <li>React Query لإدارة بيانات الخادم.</li>
+      <li>Express + TypeScript للـAPI.</li>
+      <li>PostgreSQL + Drizzle ORM أو ORM مكافئ.</li>
+      <li>AsyncStorage أو SQLite لسجل الطباعة المحلي.</li>
+      <li><code>@mitsuharu/react-native-sunmi-printer-library</code> أو مكتبة Sunmi متوافقة ومختبرة.</li>
+      <li><code>expo-audio</code> للصوت وReact Native Vibration للاهتزاز.</li>
+      <li>EAS Build بملف APK داخلي للتثبيت المباشر.</li>
+    </ul>
+    <div class="notice">مكتبة Sunmi native لا تعمل داخل Expo Go أو الويب. يجب استخدام Development Build أو APK حقيقي على جهاز Sunmi.</div>
+  </section>
+
+  <section>
+    <h2>5. حالات الطلب</h2>
+    <pre>pending
+  └── قبول المطعم → preparing
+        ├── pickup: طباعة ثم ready → done
+        └── delivery: طباعة + إسناد مندوب
+              └── ready → out_for_delivery → done
+
+يمكن الانتقال إلى cancelled فقط حسب سياسة واضحة ومتحقق منها في الخادم.</pre>
+    <p>يجب أن يملك الخادم مصفوفة انتقالات معتمدة؛ لا يسمح للعميل بإرسال أي انتقال عشوائي. الأسعار والإجماليات وحالة التوفر تُحسب وتُتحقق في الخادم.</p>
+  </section>
+
+  <section>
+    <h2>6. التنبيه الصوتي والاهتزاز</h2>
+    <ol>
+      <li>حمّل ملف صوت محلي داخل APK، ولا تعتمد على رابط شبكة.</li>
+      <li>ابنِ Set للطلبات pending التي تم إسكاتها مؤقتًا.</li>
+      <li>إذا وجد طلب pending غير مسكت: شغّل الصوت loop واهتزازًا بنمط متكرر.</li>
+      <li>عند ضغط قبول: أضف ID إلى Set قبل طلب الشبكة، فيتوقف فورًا.</li>
+      <li>عند فشل PATCH: احذف ID من Set ليعود التنبيه.</li>
+      <li>عند نجاح PATCH أو اختفاء الطلب من pending: نظف ID نهائيًا.</li>
+      <li>عند عدم وجود أي طلب pending: أوقف الصوت، أعده للبداية، وألغ الاهتزاز.</li>
+    </ol>
+    <div class="danger"><b>لا توقف التنبيه بسبب فتح الشاشة فقط.</b> التوقف مرتبط بقبول ناجح، إلغاء الطلب، أو خروجه الفعلي من pending.</div>
+  </section>
+
+  <section>
+    <h2>7. الطباعة التلقائية ومنع التكرار</h2>
+    <h3>خوارزمية الطباعة</h3>
+    <ol>
+      <li>اجلب طلبات اليوم.</li>
+      <li>رشّح الحالة <code>preparing</code>.</li>
+      <li>استبعد IDs الموجودة في سجل <code>printedOrderIds</code>.</li>
+      <li>رتب من الأقدم إلى الأحدث.</li>
+      <li>اطبع طلبًا واحدًا فقط في كل مرة.</li>
+      <li>بعد نجاح كامل تسلسل Sunmi، احفظ ID محليًا.</li>
+      <li>عند الفشل لا تحفظ ID، وانتظر 30 ثانية قبل إعادة المحاولة.</li>
+    </ol>
+    <h3>منع التكرار</h3>
+    <ul>
+      <li>سجل محلي دائم في AsyncStorage/SQLite يبقى بعد إعادة تشغيل التطبيق والجهاز.</li>
+      <li>Set للطلبات قيد الطباعة يمنع بدء عمليتين لنفس الطلب.</li>
+      <li>لا تكتب «مطبوع» قبل نجاح آخر أمر feed/cut أو اكتمال المكتبة.</li>
+      <li>لأكثر من طابعة: أضف جدول خادم <code>print_receipts</code> ومفتاح unique على <code>(order_id, device_id)</code>.</li>
+      <li>إعادة الطباعة اليدوية تحتاج تأكيدًا واضحًا وتسجل السبب.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>8. تصميم الإيصال</h2>
+    <ol>
+      <li>اسم المطعم في المنتصف وبخط عريض.</li>
+      <li>رقم الطلب اليومي والتاريخ والوقت.</li>
+      <li>نوع الطلب: توصيل أو استلام شخصي.</li>
+      <li>بيانات العميل والعنوان للتوصيل.</li>
+      <li>جدول أصناف مناسب لعرض 72/80mm: الصنف، الكمية، السعر.</li>
+      <li>الإضافات والملاحظات تحت الصنف.</li>
+      <li>المجموع الفرعي، رسوم التوصيل، الخصم، ثم الإجمالي بخط عريض.</li>
+      <li>طريقة الدفع وملاحظات الطلب.</li>
+      <li>Feed كافٍ في نهاية الورقة.</li>
+    </ol>
+    <p>احتفظ بالمال في قاعدة البيانات بوحدة هللة/سنت كعدد صحيح. حوّله إلى ريال فقط عند العرض والطباعة.</p>
+  </section>
+
+  <section class="page-break">
+    <h2>9. إسناد المندوب</h2>
+    <h3>تعريف المندوب المتاح</h3>
+    <ul>
+      <li><code>active = true</code></li><li><code>is_online = true</code></li>
+      <li>لا يملك assignment نشطًا بحالة <code>assigned</code> أو <code>picked_up</code> لطلب غير منتهٍ.</li>
+      <li>إذا توفر GPS حديث، يرتب حسب الأقرب للمطعم؛ وإلا يوضع بعد من يملك موقعًا صالحًا.</li>
+    </ul>
+    <h3>التدفق</h3>
+    <ol>
+      <li>يتم أولًا قبول الطلب وتحويله إلى preparing.</li>
+      <li>إذا كان pickup ينتهي التدفق دون إسناد.</li>
+      <li>اقرأ <code>drivers_auto_assign</code>.</li>
+      <li>إذا true: أرسل POST دون driverId.</li>
+      <li>إذا false: اجلب المتاحين وافتح Modal، ثم أرسل driverId المختار.</li>
+      <li>فشل الإسناد لا يعيد الطلب إلى pending ولا يعيد صوت الطلب.</li>
+    </ol>
+    <div class="success"><b>شرط transaction:</b> اقفل عملية الإسناد، أعد فحص أن الطلب preparing وأن المندوب ما زال متاحًا، ثم أنشئ assignment واحدًا فقط. لا تغيّر حالة الطلب داخل endpoint الإسناد.</div>
+  </section>
+
+  <section>
+    <h2>10. عقود الـAPI المطلوبة</h2>
+    <table><tr><th>Method</th><th>Path</th><th>الغرض</th></tr>
+      <tr><td>GET</td><td><code>/api/orders</code></td><td>آخر الطلبات مرتبة من الأحدث</td></tr>
+      <tr><td>GET</td><td><code>/api/orders/:id</code></td><td>تفاصيل طلب</td></tr>
+      <tr><td>PATCH</td><td><code>/api/orders/:id/status</code></td><td>تغيير الحالة بتحقق الانتقال</td></tr>
+      <tr><td>GET</td><td><code>/api/menu</code></td><td>الأصناف</td></tr>
+      <tr><td>GET</td><td><code>/api/menu/categories</code></td><td>التصنيفات</td></tr>
+      <tr><td>PUT</td><td><code>/api/menu/:id</code></td><td>تحديث التوفر</td></tr>
+      <tr><td>GET/PUT</td><td><code>/api/branch-hours</code></td><td>ساعات واستقبال الطلبات</td></tr>
+      <tr><td>GET/PUT</td><td><code>/api/settings/sounds</code></td><td>الصوت</td></tr>
+      <tr><td>GET/PUT</td><td><code>/api/settings/payment</code></td><td>وسائل الدفع</td></tr>
+      <tr><td>GET</td><td><code>/api/drivers/available</code></td><td>المندوبون المتاحون</td></tr>
+      <tr><td>POST</td><td><code>/api/orders/:id/assign-driver-preparing</code></td><td>إسناد دون تغيير preparing</td></tr>
+      <tr><td>GET/PUT</td><td><code>/api/settings/drivers-auto-assign</code></td><td>تلقائي أو يدوي</td></tr>
+    </table>
+    <h3>شكل الطلب</h3>
+    <pre>{
+  "id": 123,
+  "dailyNumber": 45,
+  "customerName": "اسم العميل",
+  "customerPhone": "05xxxxxxxx",
+  "customerAddress": "العنوان أو null",
+  "items": [{"name":"الصنف","price":2500,"quantity":2}],
+  "totalPrice": 5500,
+  "deliveryFee": 500,
+  "notes": null,
+  "status": "pending",
+  "orderType": "delivery",
+  "paymentMethod": "cash",
+  "createdAt": "ISO-8601"
+}</pre>
+    <h3>استجابة الأخطاء</h3>
+    <pre>{ "error": "رسالة عربية واضحة", "details": {} }</pre>
+    <p>اقرأ جسم Response مرة واحدة فقط كنص، ثم حاول تحويله إلى JSON. لا تستدعِ <code>response.json()</code> ثم <code>response.text()</code> على نفس الرد.</p>
+  </section>
+
+  <section>
+    <h2>11. نموذج قاعدة البيانات</h2>
+    <table><tr><th>الجدول</th><th>الحقول الأساسية</th></tr>
+      <tr><td>orders</td><td>id, daily_number, customer snapshot, items JSON, totals minor-unit, status, order_type, payment, notes, branch_id, created_at</td></tr>
+      <tr><td>order_status_history</td><td>order_id, from_status, to_status, actor, timestamp</td></tr>
+      <tr><td>menu_items</td><td>name, category, price, available, stock, image, options JSON, sort_order</td></tr>
+      <tr><td>app_settings</td><td>key unique, value JSON</td></tr>
+      <tr><td>delivery_drivers</td><td>name, phone, active, is_online, credential_hash, last_lat/lng/location_at</td></tr>
+      <tr><td>order_driver_assignments</td><td>order_id unique, driver_id, status, assigned/picked_up/delivered timestamps</td></tr>
+      <tr><td>print_receipts</td><td>order_id, device_id, state, receipt_hash, printed_at, error</td></tr>
+    </table>
+  </section>
+
+  <section>
+    <h2>12. هيكل ملفات مقترح</h2>
+    <pre>printer-app/
+  app/
+    _layout.tsx
+    orders.tsx
+    previous.tsx
+    menu.tsx
+    hours.tsx
+    settings.tsx
+  components/
+    AppLayout.tsx
+    OrderCard.tsx
+    DriverPickerModal.tsx
+  contexts/
+    PrinterContext.tsx
+  hooks/
+    useApi.ts
+    useAutomaticOrderPrinter.ts
+  services/
+    sunmiPrinter.ts
+    printedOrders.ts
+    orderAlert.ts
+  types/
+    order.ts
+  assets/
+    icon.png
+    new-order-alert.mp3
+  android/
+  app.json
+  eas.json
+
+api-server/
+  src/routes/orders.ts
+  src/routes/menu.ts
+  src/routes/settings.ts
+  src/routes/drivers.ts
+  src/db/schema.ts</pre>
+  </section>
+
+  <section>
+    <h2>13. إعداد Android وEAS</h2>
+    <pre>{
+  "expo": {
+    "name": "NEW_RESTAURANT — طابعة الطلبات",
+    "slug": "new-restaurant-printer",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "new-restaurant-printer",
+    "android": {
+      "package": "com.NEW_BRAND.printer",
+      "versionCode": 1
+    },
+    "extra": {
+      "eas": { "projectId": "CREATE_A_NEW_EAS_PROJECT_ID" }
+    }
+  }
+}</pre>
+    <pre>{
+  "cli": { "appVersionSource": "local" },
+  "build": {
+    "production": {
+      "distribution": "internal",
+      "android": { "buildType": "apk" }
+    }
+  }
+}</pre>
+    <ul>
+      <li>إذا وجد مجلد <code>android/</code>، حدّث أيضًا <code>applicationId</code> و<code>namespace</code> و<code>versionCode</code> و<code>versionName</code> في Gradle.</li>
+      <li>أنشئ keystore جديدًا ولا تنقل توقيع مشروع آخر.</li>
+      <li>اختبر المكتبة native على جهاز Sunmi الحقيقي قبل تسليم النسخة.</li>
+    </ul>
+  </section>
+
+  <section class="page-break">
+    <h2>14. اختبارات القبول الإلزامية</h2>
+    <ol class="check">
+      <li>طلب pending جديد يشغل الصوت والاهتزاز حتى القبول.</li>
+      <li>فشل قبول الطلب يعيد التنبيه.</li>
+      <li>نجاح القبول يحول إلى preparing ويطبع مرة واحدة.</li>
+      <li>تكرار polling عشرات المرات لا يعيد الطباعة.</li>
+      <li>إغلاق وفتح التطبيق أو إعادة تشغيل الجهاز لا يعيد طباعة الطلب.</li>
+      <li>نفاد الورق لا يسجل الطلب كمطبوع، ويعيد المحاولة بعد إصلاح الطابعة.</li>
+      <li>طلبات pickup لا تُسند لمندوب.</li>
+      <li>الوضع التلقائي يختار مندوبًا متاحًا واحدًا فقط.</li>
+      <li>الوضع اليدوي يعرض المتاحين ويمنع المندوب المشغول.</li>
+      <li>الإسناد لا يغيّر حالة preparing.</li>
+      <li>اختبار انقطاع الشبكة وعودتها، وقفل الشاشة، والخروج للمقدمة.</li>
+      <li>اختبار إيصال عربي طويل، إضافات كثيرة، ملاحظات، ورسوم وخصم.</li>
+      <li>التأكد أن APK يتصل فقط بالـAPI الجديد المستقل.</li>
+      <li>فحص APK النهائي: package وversionCode والتوقيع تخص المشروع الجديد.</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>15. نص جاهز لإعطائه لوكيل المشروع الثاني</h2>
+    <pre dir="rtl" style="text-align:right">ابنِ من الصفر تطبيق Android مستقل لطابعة Sunmi V3 لإدارة طلبات مطعم.
+
+قواعد صارمة:
+1. لا تربط أو تستورد أي كود أو API أو قاعدة بيانات أو أسرار أو package ID أو Expo project ID أو keystore من أي مشروع سابق.
+2. أنشئ API وPostgreSQL وEAS Project وAndroid package وتوقيعًا جديدًا.
+3. اجعل رابط API متغير بيئة إلزاميًا، وافشل صراحة إذا كان مفقودًا أو placeholder.
+4. لا تستخدم بيانات وهمية في النسخة النهائية.
+
+الوظائف:
+- واجهة عربية RTL بتبويبات: جديد، قيد التحضير، الوجبة جاهزة، الاسترداد.
+- قائمة جانبية: طلبات اليوم، الطلبات السابقة، الأصناف، ساعات العمل، الإعدادات، تشخيص الطابعة.
+- polling للطلبات كل 5 ثوانٍ وعند عودة التطبيق للمقدمة.
+- صوت loop واهتزاز مستمر لكل طلب pending حتى قبول ناجح.
+- زر قبول وتجهيز: يسكت التنبيه فورًا، PATCH إلى preparing، ويعيد التنبيه فقط إذا فشل PATCH.
+- طباعة تلقائية عبر مكتبة Sunmi للطلبات preparing، الأقدم أولًا، عملية واحدة في كل مرة.
+- سجل محلي دائم للطلبات المطبوعة، ولا يُسجل ID إلا بعد اكتمال الطباعة بنجاح.
+- retry بعد 30 ثانية عند فشل الطابعة، دون طباعة متزامنة أو مكررة.
+- إيصال عربي: رأس المطعم، رقم الطلب، بيانات العميل، الأصناف، الإضافات، الرسوم، الخصم، الإجمالي، الدفع والملاحظات.
+- إدارة توفر الأصناف، ساعات استقبال الطلبات، أصوات التنبيه ووسائل الدفع.
+- بعد قبول delivery: اقرأ drivers_auto_assign. إذا true عيّن تلقائيًا، وإذا false اعرض المندوبين المتاحين.
+- pickup لا يفتح اختيار مندوب ولا ينشئ assignment.
+- endpoint الإسناد transactional وidempotent، يعيد فحص preparing وتوفر المندوب ولا يغير حالة الطلب.
+- الأخطاء JSON عربية ومتسقة. في العميل اقرأ response body مرة واحدة فقط.
+
+التقنية:
+Expo/React Native/TypeScript/Expo Router/React Query، Express/TypeScript، PostgreSQL، وEAS APK داخلي.
+
+قبل التسليم:
+- شغّل TypeScript والفحوصات.
+- اختبر على Sunmi V3 الحقيقي.
+- أثبت أن polling لا يكرر الطباعة.
+- أثبت أن restart لا يكرر الطباعة.
+- اختبر paper-out والشبكة والتنبيه وpickup والتعيين التلقائي واليدوي.
+- أعطني APK ورابط build وSHA-256 وقائمة المتغيرات المطلوبة دون كشف أي سر.</pre>
+  </section>
+
+  <section>
+    <h2>16. قائمة المعلومات التي يجب توفيرها للمشروع الجديد</h2>
+    <ul>
+      <li>اسم المطعم الجديد وشعاره وألوانه.</li>
+      <li>رابط API الجديد بعد نشره.</li>
+      <li>منطقة الوقت والعملة والضريبة.</li>
+      <li>عرض ورق الطابعة وطراز Sunmi الدقيق.</li>
+      <li>سياسة حالات الطلب والإلغاء والاسترداد.</li>
+      <li>هل توجد طابعة واحدة أم عدة أجهزة؟</li>
+      <li>بيانات EAS/Expo الخاصة بالمشروع الجديد من خلال Secrets، لا داخل المحادثة أو الكود.</li>
+      <li>حساب قاعدة البيانات وخدمات الإشعارات الجديدة من خلال Secrets.</li>
+    </ul>
+  </section>
+
+  <footer>
+    هذه الوثيقة مواصفات عامة مستقلة. القيم المكتوبة بأحرف كبيرة placeholders ويجب استبدالها بقيم المشروع الجديد. لا تحتوي الوثيقة على أسرار أو روابط إنتاج أو معرفات أو بيانات من المشروع المرجعي.
+  </footer>
+</main></body></html>

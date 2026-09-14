@@ -40,3 +40,17 @@ uri = "file://expo_qr.jpg"
 type = "image"
 title = "امسح لتجربة كود الخصم"
 logical_id = "94a03dcf-fabe-4449-9060-1a8105b4d23f"
+
+[[outputs]]
+id = "MI2Y6Bl5SWlbXC2OQZakJ"
+uri = "file://deliverables/standalone-sunmi-printer-blueprint-ar.html"
+type = "text"
+title = "مخطط تطبيق طابعة Sunmi مستقل"
+description = "ملف عربي قابل للتنزيل والطباعة PDF، يتضمن الواجهة، التدفقات، الطباعة، منع التكرار، تعيين المندوب، API، قاعدة البيانات، EAS، الاختبارات، ونصًا جاهزًا لوكيل المشروع الثاني."
+logical_id = "b92c64e5-2113-4b8a-8257-1cd2e1531aab"
+content_hash = "sha256:25f3d785c0e47c6ea0aac79113569d5ee5d0533ca67433e423f42fa7fd29445e"
+size = 26306
+mtime_ms = 1789393474292
+storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:d2061778-c26c-4b96-9a08-54e10f2e3c79/b92c64e5-2113-4b8a-8257-1cd2e1531aab/1f6c4bb2-726f-456e-a027-751493d2693f"
+storage_version_token = "1789393499588435"
+content_type = "text/html"
