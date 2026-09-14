@@ -1,3 +1,3 @@
-import PrintOrderScreen from '@/screens/PrintOrderScreen';
+import OrdersScreen from '@/screens/OrdersScreen';
 
-export default PrintOrderScreen;
+export default OrdersScreen;

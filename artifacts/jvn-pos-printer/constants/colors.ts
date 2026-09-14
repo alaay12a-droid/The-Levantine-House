@@ -18,6 +18,8 @@ const colors = {
     destructive: '#C9473A',
     destructiveForeground: '#FFFFFF',
     destructiveSoft: '#FBE9E6',
+    success: '#25976A',
+    primaryDark: '#715700',
     border: '#E4E2D9',
     input: '#DEDDD5',
     inputBackground: '#FBFAF6',
