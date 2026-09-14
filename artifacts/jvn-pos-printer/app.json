@@ -1,21 +1,21 @@
 {
   "expo": {
-    "name": "جڤن — طابعة الطلبات",
-    "slug": "jvn-pos-printer",
+    "name": "البيت الشامي — طابعة الطلبات",
+    "slug": "levantine-house-printer",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "jvn-pos-printer",
+    "scheme": "levantine-house-printer",
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": false
     },
     "android": {
-      "package": "com.jvn.posprinter",
+      "package": "com.thelevantinehouse.printer",
       "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/icon.png",
-        "backgroundColor": "#181814"
+        "backgroundColor": "#F8F3EB"
       }
     },
     "web": {

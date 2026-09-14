@@ -80,12 +80,17 @@ export async function printOrderReceipt(order: PrintableOrder): Promise<void> {
 
     await SunmiPrinter.setAlignment('center');
     await SunmiPrinter.setTextStyle('bold', true);
-    await SunmiPrinter.setFontSize(40);
-    await SunmiPrinter.printText('جڤن\n');
+    await SunmiPrinter.setFontSize(34);
+    await SunmiPrinter.printText('البيت الشامي\n');
 
     await SunmiPrinter.setFontSize(24);
     await SunmiPrinter.setTextStyle('bold', false);
     await SunmiPrinter.printText('فاتورة طلب\n');
+    if (order.orderNumber) {
+      await SunmiPrinter.setTextStyle('bold', true);
+      await SunmiPrinter.printText(`طلب رقم #${order.orderNumber}\n`);
+      await SunmiPrinter.setTextStyle('bold', false);
+    }
     await SunmiPrinter.printText(`${printDate(order.printedAt)}\n`);
     await SunmiPrinter.printText(`${LINE}\n`);
 
@@ -112,6 +117,17 @@ export async function printOrderReceipt(order: PrintableOrder): Promise<void> {
       );
     }
 
+    if (order.deliveryFee && order.deliveryFee > 0) {
+      await SunmiPrinter.setAlignment('right');
+      await SunmiPrinter.printText(`رسوم التوصيل: ${money(order.deliveryFee)}\n`);
+    }
+    if (order.notes) {
+      await SunmiPrinter.setAlignment('right');
+      await SunmiPrinter.setTextStyle('bold', true);
+      await SunmiPrinter.printText(`ملاحظات: ${order.notes}\n`);
+      await SunmiPrinter.setTextStyle('bold', false);
+    }
+
     await SunmiPrinter.setAlignment('center');
     await SunmiPrinter.printText(`${LINE}\n`);
     await SunmiPrinter.setAlignment('right');
@@ -123,7 +139,7 @@ export async function printOrderReceipt(order: PrintableOrder): Promise<void> {
     await SunmiPrinter.setFontSize(22);
     await SunmiPrinter.setTextStyle('bold', false);
     await SunmiPrinter.printText(`${LINE}\n`);
-    await SunmiPrinter.printText('شكرًا لاختياركم جڤن\n');
+    await SunmiPrinter.printText('شكرًا لاختياركم البيت الشامي\n');
     await SunmiPrinter.lineWrap(4);
     await SunmiPrinter.exitPrinterBuffer(true);
     bufferOpened = false;

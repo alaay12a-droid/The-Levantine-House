@@ -24,3 +24,4 @@
 - [Customer iOS CI credential gate](customer-ios-ci-credential-gate.md) — non-interactive builds require an ASC key linked to the Apple team; the local profile cannot sign the current bundle
 - [Android edge-to-edge Play warnings](android-edge-to-edge-play-warnings.md) — Expo SDK 54 can be correctly edge-to-edge while Play still flags deprecated APIs bundled inside upstream native modules
 - [Expo 57 Android status bar config](expo57-android-status-bar.md) — SDK 57 rejects android.edgeToEdgeEnabled and deprecates androidStatusBar; use expo-status-bar
+- [Printer duplicate prevention](printer-duplicate-prevention.md) — Sunmi printer must keep orders preparing and prevent repeats with a device-local printed-ID ledger

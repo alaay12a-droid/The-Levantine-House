@@ -1,34 +1,22 @@
-import { useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
+  Image,
   Platform,
-  Pressable,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '@/hooks/useColors';
-import { useRealtimeOrders } from '@/hooks/useRealtimeOrders';
-import { markOrderPrinted } from '@/services/supabase/orders';
-import { printOrderReceipt } from '@/services/sunmiPrinter';
+import { useAutomaticOrderPrinter } from '@/hooks/useAutomaticOrderPrinter';
 import type { RemoteOrder } from '@/types/remoteOrder';
 
-function money(value: number): string {
-  return `${value.toFixed(2)} ر.س`;
-}
+const logo = require('@/assets/images/levantine-house-logo.jpg');
 
-function orderTime(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat('ar-SA', {
-    hour: 'numeric',
-    minute: '2-digit',
-  }).format(date);
+function money(value: number) {
+  return `${value.toFixed(2)} ر.س`;
 }
 
 export default function OrdersScreen() {
@@ -36,252 +24,142 @@ export default function OrdersScreen() {
   const insets = useSafeAreaInsets();
   const {
     orders,
-    connectionState,
+    isConnected,
+    activeOrderId,
+    lastPrintedOrder,
     error,
-    latestOrderName,
-    removeOrder,
-  } = useRealtimeOrders();
-  const [activeOrderId, setActiveOrderId] = useState<string | null>(null);
-  const [printedLocally, setPrintedLocally] = useState<Set<string>>(
-    () => new Set(),
-  );
-
-  const completeStatusUpdate = async (order: RemoteOrder) => {
-    setActiveOrderId(order.id);
-    try {
-      await markOrderPrinted(order.id);
-      removeOrder(order.id);
-      setPrintedLocally((current) => {
-        const next = new Set(current);
-        next.delete(order.id);
-        return next;
-      });
-      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch (caughtError) {
-      const message =
-        caughtError instanceof Error
-          ? caughtError.message
-          : 'تعذر تحديث حالة الطلب.';
-      Alert.alert('راجع حالة الطلب', message);
-    } finally {
-      setActiveOrderId(null);
-    }
-  };
-
-  const handlePrint = async (order: RemoteOrder) => {
-    setActiveOrderId(order.id);
-    try {
-      await printOrderReceipt({
-        customerName: order.customerName,
-        customerPhone: order.customerPhone,
-        customerAddress: order.customerAddress,
-        items: order.items,
-        total: order.total,
-        printedAt: new Date(),
-      });
-
-      setPrintedLocally((current) => new Set(current).add(order.id));
-      await markOrderPrinted(order.id);
-      removeOrder(order.id);
-      setPrintedLocally((current) => {
-        const next = new Set(current);
-        next.delete(order.id);
-        return next;
-      });
-      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert('تمت الطباعة', 'طُبعت الفاتورة وتحدثت حالة الطلب إلى printed.');
-    } catch (caughtError) {
-      const message =
-        caughtError instanceof Error
-          ? caughtError.message
-          : 'تعذرت طباعة الطلب.';
-      const wasPrinted = message.startsWith('تمت الطباعة');
-      if (!wasPrinted) {
-        setPrintedLocally((current) => {
-          const next = new Set(current);
-          next.delete(order.id);
-          return next;
-        });
-      }
-      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert(
-        wasPrinted ? 'تمت الطباعة فقط' : 'تعذرت الطباعة',
-        message,
-      );
-    } finally {
-      setActiveOrderId(null);
-    }
-  };
-
-  const statusCopy = {
-    'not-configured': {
-      text: 'بانتظار إعداد Supabase',
-      color: colors.mutedForeground,
-    },
-    connecting: { text: 'جاري الاتصال...', color: colors.primary },
-    connected: { text: 'متصل لحظيًا', color: colors.success },
-    error: { text: 'الاتصال متوقف', color: colors.destructive },
-  }[connectionState];
+    isPreview,
+  } =
+    useAutomaticOrderPrinter();
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
-      {latestOrderName ? (
-        <View
-          style={[
-            styles.incomingBanner,
-            {
-              top: insets.top + 8,
-              backgroundColor: colors.foreground,
-            },
-          ]}
-        >
-          <View style={[styles.bell, { backgroundColor: colors.primary }]}>
-            <Feather name="bell" size={20} color={colors.primaryForeground} />
-          </View>
-          <View style={styles.bannerCopy}>
-            <Text style={[styles.bannerTitle, { color: colors.card }]}>
-              وصل طلب جديد
-            </Text>
-            <Text style={[styles.bannerText, { color: colors.totalMuted }]}>
-              طلب {latestOrderName} جاهز للمراجعة والطباعة
-            </Text>
-          </View>
-        </View>
-      ) : null}
-
       <FlatList
         data={orders}
-        keyExtractor={(order) => order.id}
+        keyExtractor={(item) => String(item.id)}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[
           styles.content,
           {
-            paddingTop: insets.top + (Platform.OS === 'web' ? 64 : 18),
+            paddingTop: insets.top + (Platform.OS === 'web' ? 58 : 16),
             paddingBottom: insets.bottom + 28,
           },
-          orders.length === 0 && styles.emptyContent,
+          orders.length === 0 && styles.grow,
         ]}
         ListHeaderComponent={
           <View>
             <View style={styles.header}>
-              <View style={[styles.logo, { backgroundColor: colors.primary }]}>
-                <Feather
-                  name="printer"
-                  size={26}
-                  color={colors.primaryForeground}
-                />
-              </View>
+              <Image source={logo} style={styles.logo} />
               <View style={styles.headerCopy}>
                 <Text style={[styles.brand, { color: colors.foreground }]}>
-                  جڤن
+                  البيت الشامي
                 </Text>
-                <Text style={[styles.screenTitle, { color: colors.foreground }]}>
-                  الطلبات الجديدة
+                <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
+                  الطباعة التلقائية للطلبات المقبولة
                 </Text>
               </View>
             </View>
-
             <View
               style={[
-                styles.connectionCard,
+                styles.statusCard,
                 { backgroundColor: colors.card, borderColor: colors.border },
               ]}
             >
               <View
-                style={[styles.statusDot, { backgroundColor: statusCopy.color }]}
+                style={[
+                  styles.dot,
+                  {
+                    backgroundColor: isPreview
+                      ? colors.primary
+                      : isConnected
+                      ? colors.success
+                      : colors.destructive,
+                  },
+                ]}
               />
-              <View style={styles.connectionCopy}>
-                <Text
-                  style={[
-                    styles.connectionTitle,
-                    { color: colors.cardForeground },
-                  ]}
-                >
-                  {statusCopy.text}
+              <View style={styles.statusCopy}>
+                <Text style={[styles.statusTitle, { color: colors.foreground }]}>
+                  {isPreview
+                    ? 'معاينة الواجهة'
+                    : isConnected
+                      ? 'متصل بخادم البيت الشامي'
+                      : 'الاتصال متوقف'}
                 </Text>
                 <Text
                   style={[
-                    styles.connectionText,
-                    { color: error ? colors.destructive : colors.mutedForeground },
+                    styles.statusText,
+                    {
+                      color: error
+                        ? colors.destructive
+                        : colors.mutedForeground,
+                    },
                   ]}
                 >
-                  {error ??
-                    (connectionState === 'not-configured'
-                      ? 'أضف رابط Supabase والمفتاح لبدء استقبال الطلبات.'
-                      : `${orders.length} طلب بانتظار الطباعة`)}
+                  {isPreview
+                    ? 'الاتصال والطباعة التلقائية يعملان داخل تطبيق Android.'
+                    : error ??
+                    (activeOrderId
+                      ? `تتم الآن طباعة الطلب #${activeOrderId}`
+                      : lastPrintedOrder
+                        ? `آخر فاتورة مطبوعة #${lastPrintedOrder}`
+                        : 'تتم مراقبة الطلبات كل 5 ثوانٍ')}
                 </Text>
               </View>
-              <Feather
-                name={connectionState === 'connected' ? 'wifi' : 'wifi-off'}
-                size={20}
-                color={statusCopy.color}
-              />
+              {activeOrderId ? (
+                <ActivityIndicator color={colors.primary} />
+              ) : (
+                <Feather
+                  name={isPreview ? 'monitor' : isConnected ? 'wifi' : 'wifi-off'}
+                  size={20}
+                  color={
+                    isPreview
+                      ? colors.primary
+                      : isConnected
+                        ? colors.success
+                        : colors.destructive
+                  }
+                />
+              )}
             </View>
-
             {orders.length > 0 ? (
-              <Text style={[styles.queueLabel, { color: colors.mutedForeground }]}>
-                قائمة الانتظار · {orders.length}
+              <Text style={[styles.queue, { color: colors.mutedForeground }]}>
+                بانتظار الطباعة · {orders.length}
               </Text>
             ) : null}
           </View>
         }
         ListEmptyComponent={
-          <View style={styles.emptyState}>
+          <View style={styles.empty}>
             <View style={[styles.emptyIcon, { backgroundColor: colors.muted }]}>
-              {connectionState === 'connecting' ? (
-                <ActivityIndicator color={colors.primary} />
-              ) : (
-                <Feather
-                  name="inbox"
-                  size={32}
-                  color={colors.mutedForeground}
-                />
-              )}
+              <Feather
+                name="printer"
+                size={32}
+                color={colors.mutedForeground}
+              />
             </View>
             <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
-              {connectionState === 'not-configured'
-                ? 'أكمل إعداد الاتصال'
-                : 'لا توجد طلبات جديدة'}
+              الطابعة جاهزة
             </Text>
             <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
-              {connectionState === 'not-configured'
-                ? 'بعد إضافة بيانات Supabase ستظهر طلبات pending هنا لحظيًا.'
-                : 'ستظهر الطلبات الجديدة تلقائيًا دون تحديث يدوي.'}
+              سيُطبع أي طلب ينتقل إلى «قيد التجهيز» تلقائيًا، بدون ضغط أي زر.
             </Text>
           </View>
         }
-        renderItem={({ item, index }) => (
-          <OrderCard
-            order={item}
-            number={index + 1}
-            isBusy={activeOrderId === item.id}
-            isPrintedLocally={printedLocally.has(item.id)}
-            onPrint={() => void handlePrint(item)}
-            onRetryStatus={() => void completeStatusUpdate(item)}
-          />
+        renderItem={({ item }) => (
+          <OrderCard order={item} printing={activeOrderId === item.id} />
         )}
       />
     </View>
   );
 }
 
-type OrderCardProps = {
-  order: RemoteOrder;
-  number: number;
-  isBusy: boolean;
-  isPrintedLocally: boolean;
-  onPrint: () => void;
-  onRetryStatus: () => void;
-};
-
 function OrderCard({
   order,
-  number,
-  isBusy,
-  isPrintedLocally,
-  onPrint,
-  onRetryStatus,
-}: OrderCardProps) {
+  printing,
+}: {
+  order: RemoteOrder;
+  printing: boolean;
+}) {
   const colors = useColors();
   return (
     <View
@@ -291,99 +169,42 @@ function OrderCard({
       ]}
     >
       <View style={styles.orderHeader}>
-        <View style={[styles.orderNumber, { backgroundColor: colors.primarySoft }]}>
-          <Text style={[styles.orderNumberText, { color: colors.primaryDark }]}>
-            #{number}
-          </Text>
-        </View>
-        <View style={styles.orderTitleCopy}>
-          <Text style={[styles.customerName, { color: colors.foreground }]}>
-            {order.customerName}
-          </Text>
-          <Text style={[styles.orderTime, { color: colors.mutedForeground }]}>
-            {orderTime(order.createdAt)}
-          </Text>
-        </View>
+        <Text style={[styles.orderNumber, { color: colors.primaryDark }]}>
+          طلب #{order.dailyNumber ?? order.id}
+        </Text>
+        <Text style={[styles.customer, { color: colors.foreground }]}>
+          {order.customerName}
+        </Text>
       </View>
-
-      <InfoLine icon="phone" text={order.customerPhone} />
-      <InfoLine icon="map-pin" text={order.customerAddress} />
-
-      <View style={[styles.divider, { backgroundColor: colors.border }]} />
-
+      <Text style={[styles.details, { color: colors.mutedForeground }]}>
+        {order.customerPhone} · {order.customerAddress ?? 'استلام من الفرع'}
+      </Text>
       {order.items.map((item, index) => (
         <View key={`${order.id}-${index}`} style={styles.itemRow}>
-          <Text style={[styles.itemPrice, { color: colors.foreground }]}>
+          <Text style={[styles.price, { color: colors.foreground }]}>
             {money(item.price * item.quantity)}
           </Text>
           <Text style={[styles.itemName, { color: colors.foreground }]}>
-            {item.name}
-          </Text>
-          <Text style={[styles.itemQty, { color: colors.mutedForeground }]}>
-            × {item.quantity}
+            {item.quantity} × {item.name}
           </Text>
         </View>
       ))}
-
       <View style={[styles.totalRow, { backgroundColor: colors.accent }]}>
-        <Text style={[styles.totalValue, { color: colors.foreground }]}>
+        <Text style={[styles.total, { color: colors.foreground }]}>
           {money(order.total)}
         </Text>
         <Text style={[styles.totalLabel, { color: colors.mutedForeground }]}>
           الإجمالي
         </Text>
       </View>
-
-      <Pressable
-        disabled={isBusy}
-        onPress={isPrintedLocally ? onRetryStatus : onPrint}
-        style={({ pressed }) => [
-          styles.printButton,
-          {
-            backgroundColor: isPrintedLocally
-              ? colors.foreground
-              : colors.primary,
-            opacity: isBusy ? 0.55 : pressed ? 0.78 : 1,
-          },
-        ]}
-      >
-        {isBusy ? (
-          <ActivityIndicator color={colors.primaryForeground} />
-        ) : (
-          <Feather
-            name={isPrintedLocally ? 'refresh-cw' : 'printer'}
-            size={20}
-            color={colors.primaryForeground}
-          />
-        )}
-        <Text
-          style={[styles.printButtonText, { color: colors.primaryForeground }]}
-        >
-          {isBusy
-            ? 'جاري التنفيذ...'
-            : isPrintedLocally
-              ? 'إعادة تحديث الحالة'
-              : 'طباعة الطلب'}
-        </Text>
-      </Pressable>
-    </View>
-  );
-}
-
-function InfoLine({
-  icon,
-  text,
-}: {
-  icon: React.ComponentProps<typeof Feather>['name'];
-  text: string;
-}) {
-  const colors = useColors();
-  return (
-    <View style={styles.infoLine}>
-      <Feather name={icon} size={16} color={colors.mutedForeground} />
-      <Text style={[styles.infoText, { color: colors.mutedForeground }]}>
-        {text}
-      </Text>
+      {printing ? (
+        <View style={[styles.printing, { backgroundColor: colors.foreground }]}>
+          <ActivityIndicator color={colors.primary} />
+          <Text style={[styles.printingText, { color: colors.card }]}>
+            جاري الطباعة تلقائيًا...
+          </Text>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -396,206 +217,135 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     paddingHorizontal: 18,
   },
-  emptyContent: { flexGrow: 1 },
+  grow: { flexGrow: 1 },
   header: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
     gap: 13,
     marginBottom: 15,
   },
-  logo: {
-    width: 56,
-    height: 56,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  logo: { width: 66, height: 66, borderRadius: 20 },
   headerCopy: { flex: 1, alignItems: 'flex-end' },
-  brand: { fontSize: 13, fontFamily: 'Inter_600SemiBold' },
-  screenTitle: {
+  brand: {
     fontSize: 27,
     fontFamily: 'Inter_700Bold',
     writingDirection: 'rtl',
   },
-  connectionCard: {
-    minHeight: 70,
+  subtitle: {
+    fontSize: 12,
+    textAlign: 'right',
+    fontFamily: 'Inter_400Regular',
+    writingDirection: 'rtl',
+  },
+  statusCard: {
     borderWidth: 1,
     borderRadius: 18,
+    minHeight: 76,
     paddingHorizontal: 15,
     flexDirection: 'row-reverse',
     alignItems: 'center',
     gap: 11,
-    marginBottom: 20,
+    marginBottom: 18,
   },
-  statusDot: { width: 10, height: 10, borderRadius: 5 },
-  connectionCopy: { flex: 1, alignItems: 'flex-end' },
-  connectionTitle: {
+  dot: { width: 10, height: 10, borderRadius: 5 },
+  statusCopy: { flex: 1, alignItems: 'flex-end' },
+  statusTitle: {
     fontSize: 14,
     fontFamily: 'Inter_700Bold',
     writingDirection: 'rtl',
   },
-  connectionText: {
+  statusText: {
     fontSize: 12,
     lineHeight: 18,
-    fontFamily: 'Inter_400Regular',
     textAlign: 'right',
+    fontFamily: 'Inter_400Regular',
     writingDirection: 'rtl',
   },
-  queueLabel: {
+  queue: {
     fontSize: 12,
+    textAlign: 'right',
+    marginBottom: 8,
     fontFamily: 'Inter_600SemiBold',
-    textAlign: 'right',
-    marginBottom: 9,
-    writingDirection: 'rtl',
   },
-  incomingBanner: {
-    position: 'absolute',
-    zIndex: 10,
-    left: 16,
-    right: 16,
-    minHeight: 70,
-    borderRadius: 18,
-    padding: 13,
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    gap: 11,
-  },
-  bell: {
-    width: 43,
-    height: 43,
-    borderRadius: 13,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  bannerCopy: { flex: 1, alignItems: 'flex-end' },
-  bannerTitle: {
-    fontSize: 15,
-    fontFamily: 'Inter_700Bold',
-    writingDirection: 'rtl',
-  },
-  bannerText: {
-    fontSize: 12,
-    lineHeight: 18,
-    textAlign: 'right',
-    fontFamily: 'Inter_400Regular',
-    writingDirection: 'rtl',
-  },
-  emptyState: {
+  empty: {
     flex: 1,
-    minHeight: 330,
+    minHeight: 350,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 30,
+    paddingHorizontal: 28,
   },
   emptyIcon: {
-    width: 74,
-    height: 74,
-    borderRadius: 24,
+    width: 76,
+    height: 76,
+    borderRadius: 25,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
+    marginBottom: 15,
   },
-  emptyTitle: {
-    fontSize: 20,
-    fontFamily: 'Inter_700Bold',
-    textAlign: 'center',
-    writingDirection: 'rtl',
-  },
+  emptyTitle: { fontSize: 21, fontFamily: 'Inter_700Bold' },
   emptyText: {
     fontSize: 14,
     lineHeight: 22,
-    fontFamily: 'Inter_400Regular',
     textAlign: 'center',
+    fontFamily: 'Inter_400Regular',
     writingDirection: 'rtl',
-    marginTop: 6,
+    marginTop: 5,
   },
   orderCard: {
     borderWidth: 1,
-    borderRadius: 21,
-    padding: 16,
-    marginBottom: 13,
+    borderRadius: 20,
+    padding: 15,
+    marginBottom: 12,
   },
   orderHeader: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 13,
   },
-  orderNumber: {
-    minWidth: 42,
-    height: 42,
-    borderRadius: 13,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  orderNumberText: { fontSize: 13, fontFamily: 'Inter_700Bold' },
-  orderTitleCopy: { flex: 1, alignItems: 'flex-end', marginRight: 11 },
-  customerName: {
+  orderNumber: { fontSize: 13, fontFamily: 'Inter_700Bold' },
+  customer: {
     fontSize: 18,
     fontFamily: 'Inter_700Bold',
     writingDirection: 'rtl',
   },
-  orderTime: { fontSize: 12, fontFamily: 'Inter_500Medium' },
-  infoLine: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 7,
-  },
-  infoText: {
-    flex: 1,
-    fontSize: 13,
-    lineHeight: 19,
+  details: {
+    fontSize: 12,
     textAlign: 'right',
-    fontFamily: 'Inter_400Regular',
     writingDirection: 'rtl',
+    marginVertical: 9,
   },
-  divider: { height: 1, marginVertical: 11 },
   itemRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 9,
-    gap: 7,
+    justifyContent: 'space-between',
+    marginBottom: 7,
   },
-  itemPrice: {
-    minWidth: 76,
-    fontSize: 13,
-    fontFamily: 'Inter_600SemiBold',
-  },
+  price: { fontSize: 13, fontFamily: 'Inter_600SemiBold' },
   itemName: {
     flex: 1,
-    fontSize: 14,
     textAlign: 'right',
-    fontFamily: 'Inter_600SemiBold',
+    fontSize: 14,
+    fontFamily: 'Inter_500Medium',
     writingDirection: 'rtl',
   },
-  itemQty: { fontSize: 12, fontFamily: 'Inter_500Medium' },
   totalRow: {
-    borderRadius: 14,
-    paddingHorizontal: 13,
-    minHeight: 52,
+    minHeight: 50,
+    borderRadius: 13,
+    paddingHorizontal: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 5,
-    marginBottom: 12,
+    marginTop: 6,
   },
-  totalLabel: {
-    fontSize: 13,
-    fontFamily: 'Inter_600SemiBold',
-    writingDirection: 'rtl',
-  },
-  totalValue: { fontSize: 19, fontFamily: 'Inter_700Bold' },
-  printButton: {
-    minHeight: 53,
-    borderRadius: 15,
+  total: { fontSize: 19, fontFamily: 'Inter_700Bold' },
+  totalLabel: { fontSize: 13, fontFamily: 'Inter_600SemiBold' },
+  printing: {
+    minHeight: 48,
+    borderRadius: 13,
+    marginTop: 10,
     flexDirection: 'row-reverse',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 9,
   },
-  printButtonText: {
-    fontSize: 15,
-    fontFamily: 'Inter_700Bold',
-    writingDirection: 'rtl',
-  },
+  printingText: { fontSize: 14, fontFamily: 'Inter_700Bold' },
 });

@@ -12,10 +12,13 @@ export type PrintableOrderItem = {
 };
 
 export type PrintableOrder = {
+  orderNumber?: number;
   customerName: string;
   customerPhone: string;
   customerAddress: string;
   items: PrintableOrderItem[];
   total: number;
+  deliveryFee?: number;
+  notes?: string;
   printedAt: Date;
 };
