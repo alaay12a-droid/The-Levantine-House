@@ -54,3 +54,17 @@ mtime_ms = 1789393474292
 storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:d2061778-c26c-4b96-9a08-54e10f2e3c79/b92c64e5-2113-4b8a-8257-1cd2e1531aab/1f6c4bb2-726f-456e-a027-751493d2693f"
 storage_version_token = "1789393499588435"
 content_type = "text/html"
+
+[[outputs]]
+id = "ccY4ZRTPhkuccxGsN_h6l"
+uri = "file://deliverables/standalone-sunmi-printer-blueprint-ar.pdf"
+type = "pdf"
+title = "تحميل مخطط تطبيق طابعة Sunmi"
+description = "PDF عربي من 8 صفحات جاهز للتحميل وإرساله إلى المشروع الثاني."
+logical_id = "8399e1d5-b527-4c65-a94b-2d2f31f1a63d"
+content_hash = "sha256:d190e819c95eaef9091066ddff43f38584c297eaab38b776ab0a8bddcce1167e"
+size = 434066
+mtime_ms = 1789393745946
+storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:d2061778-c26c-4b96-9a08-54e10f2e3c79/8399e1d5-b527-4c65-a94b-2d2f31f1a63d/8af6dd0b-9626-4225-a2e4-8041d9af8b38"
+storage_version_token = "1789393755253504"
+content_type = "application/pdf"
