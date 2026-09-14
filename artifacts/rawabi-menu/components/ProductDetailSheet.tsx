@@ -51,6 +51,14 @@ function getMeatSizes(_item: MenuItem): MeatSizes | null {
   return null;
 }
 
+function isShawarmaItem(item: MenuItem): boolean {
+  return item.name.includes("شاورما") || item.nameEn?.toLowerCase().includes("shawarma") === true;
+}
+
+function isLegacyKashnaOption(name: string): boolean {
+  return name.includes("كشنة");
+}
+
 interface Props {
   item: (MenuItem & { available?: boolean; nameEn?: string; descriptionEn?: string }) | null;
   visible: boolean;
@@ -97,9 +105,14 @@ export function ProductDetailSheet({ item, visible, onClose }: Props) {
   const hasOptionGroups = optionGroups.length > 0;
 
   // DB-driven rice types and additions (available entries only)
-  const dbRiceTypes = (item?.riceTypes ?? []).filter(r => r.available);
+  const isShawarma = item ? isShawarmaItem(item) : false;
+  const dbRiceTypes = isShawarma
+    ? []
+    : (item?.riceTypes ?? []).filter(r => r.available);
   const hasDbRiceTypes = dbRiceTypes.length > 0;
-  const dbAdditions = (item?.additions ?? []).filter(a => a.available);
+  const dbAdditions = (item?.additions ?? []).filter(
+    addition => addition.available && (!isShawarma || !isLegacyKashnaOption(addition.name)),
+  );
   const hasDbAdditions = dbAdditions.length > 0;
 
   useEffect(() => {
@@ -123,9 +136,12 @@ export function ProductDetailSheet({ item, visible, onClose }: Props) {
       }
       setSelectedOptions(defaults);
       // Auto-select first DB rice type / addition
-      const dbRt = (item.riceTypes ?? []).filter(r => r.available);
+      const shawarma = isShawarmaItem(item);
+      const dbRt = shawarma ? [] : (item.riceTypes ?? []).filter(r => r.available);
       setDbRiceTypeName(dbRt.length > 0 ? dbRt[0].name : "");
-      const dbAdd = (item.additions ?? []).filter(a => a.available);
+      const dbAdd = (item.additions ?? []).filter(
+        addition => addition.available && (!shawarma || !isLegacyKashnaOption(addition.name)),
+      );
       setDbAdditionName(dbAdd.length > 0 ? dbAdd[0].name : "");
     }
   }, [visible, item?.id]);
