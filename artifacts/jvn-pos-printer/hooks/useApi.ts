@@ -101,6 +101,41 @@ export function useUpdateOrderStatus() {
   });
 }
 
+export type AvailableDriver = {
+  id: number;
+  name: string;
+  phone: string;
+  photoUrl: string | null;
+  distanceKm: number | null;
+};
+
+export async function fetchDriversAutoAssignSetting(): Promise<boolean> {
+  const data = (await fetchWithArabicError(
+    `${API_BASE_URL}/settings/drivers-auto-assign`,
+  )) as { enabled: boolean };
+  return data.enabled;
+}
+
+export async function fetchAvailableDrivers(): Promise<AvailableDriver[]> {
+  return (await fetchWithArabicError(
+    `${API_BASE_URL}/drivers/available`,
+  )) as AvailableDriver[];
+}
+
+export async function assignDriverWhilePreparing(
+  orderId: number,
+  driverId?: number,
+): Promise<{ ok: true; driverId: number; driverName: string; orderStatus: string }> {
+  return (await fetchWithArabicError(
+    `${API_BASE_URL}/orders/${orderId}/assign-driver-preparing`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(driverId ? { driverId } : {}),
+    },
+  )) as { ok: true; driverId: number; driverName: string; orderStatus: string };
+}
+
 export type ApiMenuItem = {
   itemId: string;
   name: string;

@@ -1,8 +1,15 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, FlatList, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, FlatList, RefreshControl, Modal } from 'react-native';
 import { useColors } from '@/hooks/useColors';
 import { Feather } from '@expo/vector-icons';
-import { useOrdersQuery, useUpdateOrderStatus } from '@/hooks/useApi';
+import {
+  assignDriverWhilePreparing,
+  AvailableDriver,
+  fetchAvailableDrivers,
+  fetchDriversAutoAssignSetting,
+  useOrdersQuery,
+  useUpdateOrderStatus,
+} from '@/hooks/useApi';
 import { usePrinter } from '@/contexts/PrinterContext';
 import { RemoteOrder } from '@/types/remoteOrder';
 import { PrinterDiagnostics } from '@/components/PrinterDiagnostics';
@@ -27,6 +34,11 @@ export default function OrdersScreen() {
   const [activeTab, setActiveTab] = useState<OrderTab>('new');
   const [newFilter, setNewFilter] = useState<NewFilter>('all');
   const [refundFilter, setRefundFilter] = useState<RefundFilter>('all');
+  const [driverOrder, setDriverOrder] = useState<RemoteOrder | null>(null);
+  const [availableDrivers, setAvailableDrivers] = useState<AvailableDriver[]>([]);
+  const [driverDialogLoading, setDriverDialogLoading] = useState(false);
+  const [driverAssigningId, setDriverAssigningId] = useState<number | null>(null);
+  const [driverDialogError, setDriverDialogError] = useState('');
   
   const filteredOrders = orders.filter((o) => {
     if (!isTodayRiyadh(o.createdAt)) return false;
@@ -65,6 +77,61 @@ export default function OrdersScreen() {
     { id: 'orders', label: 'الطلبات' },
     { id: 'dispute', label: 'اعتراض' },
   ];
+
+  const closeDriverDialog = () => {
+    if (driverDialogLoading || driverAssigningId !== null) return;
+    setDriverOrder(null);
+    setAvailableDrivers([]);
+    setDriverDialogError('');
+  };
+
+  const handleAcceptedDelivery = async (order: RemoteOrder) => {
+    if (order.orderType !== 'delivery') return;
+
+    setDriverOrder(order);
+    setAvailableDrivers([]);
+    setDriverDialogError('');
+    setDriverDialogLoading(true);
+
+    try {
+      const autoAssign = await fetchDriversAutoAssignSetting();
+      if (autoAssign) {
+        await assignDriverWhilePreparing(order.id);
+        setDriverOrder(null);
+        return;
+      }
+
+      const drivers = await fetchAvailableDrivers();
+      setAvailableDrivers(drivers);
+      if (drivers.length === 0) {
+        setDriverDialogError('لا يوجد مندوب متاح حاليًا.');
+      }
+    } catch (error) {
+      setDriverDialogError(error instanceof Error ? error.message : 'تعذر تعيين المندوب.');
+    } finally {
+      setDriverDialogLoading(false);
+    }
+  };
+
+  const handleSelectDriver = async (driver: AvailableDriver) => {
+    if (!driverOrder) return;
+    setDriverAssigningId(driver.id);
+    setDriverDialogError('');
+    try {
+      await assignDriverWhilePreparing(driverOrder.id, driver.id);
+      setDriverOrder(null);
+      setAvailableDrivers([]);
+    } catch (error) {
+      setDriverDialogError(error instanceof Error ? error.message : 'تعذر تعيين المندوب.');
+      try {
+        setAvailableDrivers(await fetchAvailableDrivers());
+      } catch {
+        // Keep the assignment error visible if refreshing the list also fails.
+      }
+    } finally {
+      setDriverAssigningId(null);
+    }
+  };
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
@@ -148,13 +215,88 @@ export default function OrdersScreen() {
             </View>
           )
         }
-        renderItem={({ item }) => <OrderCard order={item} tab={activeTab} />}
+        renderItem={({ item }) => (
+          <OrderCard
+            order={item}
+            tab={activeTab}
+            onAcceptedDelivery={handleAcceptedDelivery}
+          />
+        )}
       />
+
+      <Modal
+        visible={driverOrder !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={closeDriverDialog}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.driverDialog, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={styles.driverDialogHeader}>
+              <TouchableOpacity
+                onPress={closeDriverDialog}
+                disabled={driverDialogLoading || driverAssigningId !== null}
+                style={[styles.modalClose, { backgroundColor: colors.muted }]}
+              >
+                <Feather name="x" size={20} color={colors.foreground} />
+              </TouchableOpacity>
+              <View style={styles.driverDialogTitleBlock}>
+                <Text style={[styles.driverDialogTitle, { color: colors.foreground }]}>تعيين مندوب</Text>
+                <Text style={[styles.driverDialogSubtitle, { color: colors.mutedForeground }]}>
+                  الطلب #{driverOrder?.dailyNumber ?? driverOrder?.id}
+                </Text>
+              </View>
+            </View>
+
+            {driverDialogLoading ? (
+              <View style={styles.driverDialogState}>
+                <ActivityIndicator size="large" color={colors.primary} />
+                <Text style={[styles.driverDialogSubtitle, { color: colors.mutedForeground }]}>جاري التحقق من الإعداد...</Text>
+              </View>
+            ) : (
+              <>
+                {driverDialogError ? (
+                  <Text style={[styles.driverDialogError, { color: colors.destructive }]}>{driverDialogError}</Text>
+                ) : null}
+                {availableDrivers.map(driver => (
+                  <TouchableOpacity
+                    key={driver.id}
+                    onPress={() => handleSelectDriver(driver)}
+                    disabled={driverAssigningId !== null}
+                    style={[styles.driverRow, { borderColor: colors.border, backgroundColor: colors.background }]}
+                  >
+                    {driverAssigningId === driver.id ? (
+                      <ActivityIndicator color={colors.primary} />
+                    ) : (
+                      <Feather name="chevron-left" size={20} color={colors.primary} />
+                    )}
+                    <View style={styles.driverRowText}>
+                      <Text style={[styles.driverName, { color: colors.foreground }]}>{driver.name}</Text>
+                      <Text style={[styles.driverPhone, { color: colors.mutedForeground }]}>{driver.phone}</Text>
+                    </View>
+                    <View style={[styles.availableBadge, { backgroundColor: colors.primarySoft }]}>
+                      <Text style={[styles.availableBadgeText, { color: colors.primaryDark }]}>متاح</Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
 
-function OrderCard({ order, tab }: { order: RemoteOrder; tab: string }) {
+function OrderCard({
+  order,
+  tab,
+  onAcceptedDelivery,
+}: {
+  order: RemoteOrder;
+  tab: string;
+  onAcceptedDelivery: (order: RemoteOrder) => void;
+}) {
   const colors = useColors();
   const updateStatus = useUpdateOrderStatus();
   const { activeOrderId, silenceOrderAlert, resumeOrderAlert } = usePrinter();
@@ -166,7 +308,10 @@ function OrderCard({ order, tab }: { order: RemoteOrder; tab: string }) {
       silenceOrderAlert(order.id);
       updateStatus.mutate(
         { id: order.id, status: 'preparing' },
-        { onError: () => resumeOrderAlert(order.id) },
+        {
+          onSuccess: () => onAcceptedDelivery(order),
+          onError: () => resumeOrderAlert(order.id),
+        },
       );
     }
     else if (tab === 'preparing') updateStatus.mutate({ id: order.id, status: 'ready' });
@@ -245,6 +390,54 @@ function OrderCard({ order, tab }: { order: RemoteOrder; tab: string }) {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  driverDialog: {
+    width: '100%',
+    maxWidth: 520,
+    maxHeight: '78%',
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: 18,
+    gap: 14,
+  },
+  driverDialogHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  driverDialogTitleBlock: { alignItems: 'flex-end', gap: 2 },
+  driverDialogTitle: { fontSize: 20, fontWeight: '800' },
+  driverDialogSubtitle: { fontSize: 13, textAlign: 'right' },
+  modalClose: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  driverDialogState: { minHeight: 120, alignItems: 'center', justifyContent: 'center', gap: 12 },
+  driverDialogError: { fontSize: 14, fontWeight: '700', textAlign: 'right' },
+  driverRow: {
+    minHeight: 70,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  driverRowText: { flex: 1, alignItems: 'flex-end' },
+  driverName: { fontSize: 16, fontWeight: '800' },
+  driverPhone: { fontSize: 12 },
+  availableBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999 },
+  availableBadgeText: { fontSize: 11, fontWeight: '800' },
   tabs: {
     flexDirection: 'row-reverse',
     borderBottomWidth: 1,
