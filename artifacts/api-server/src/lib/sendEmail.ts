@@ -1,12 +1,11 @@
 import { Resend } from "resend";
-
-const ADMIN_EMAIL = "alaay12a@gmail.com";
+import nodemailer from "nodemailer";
 
 export async function sendPinOtpEmail(code: string): Promise<void> {
   const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey || apiKey === "none") throw new Error("RESEND_API_KEY غير مضبوط");
-
-  const resend = new Resend(apiKey);
+  const emailUser = process.env.EMAIL_USER;
+  const emailPass = process.env.EMAIL_PASS;
+  const adminEmail = process.env.DASHBOARD_RESET_EMAIL ?? emailUser;
 
   const html = `
     <div dir="rtl" style="font-family:Arial,sans-serif;max-width:480px;margin:auto;padding:24px;background:#1A0A00;border-radius:12px;color:#F5E6D0">
@@ -21,12 +20,34 @@ export async function sendPinOtpEmail(code: string): Promise<void> {
     </div>
   `;
 
-  const { error } = await resend.emails.send({
-    from: "البيت الشامي <onboarding@resend.dev>",
-    to: ADMIN_EMAIL,
+  if (apiKey && apiKey !== "none") {
+    if (!adminEmail) throw new Error("بريد استعادة كلمة المرور غير مضبوط");
+
+    const resend = new Resend(apiKey);
+    const { error } = await resend.emails.send({
+      from: "البيت الشامي <onboarding@resend.dev>",
+      to: adminEmail,
+      subject: `${code} — رمز تغيير كلمة المرور | البيت الشامي`,
+      html,
+    });
+
+    if (error) throw new Error(error.message);
+    return;
+  }
+
+  if (!emailUser || !emailPass || !adminEmail) {
+    throw new Error("خدمة إرسال بريد استعادة كلمة المرور غير مضبوطة");
+  }
+
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: { user: emailUser, pass: emailPass },
+  });
+
+  await transporter.sendMail({
+    from: `"البيت الشامي" <${emailUser}>`,
+    to: adminEmail,
     subject: `${code} — رمز تغيير كلمة المرور | البيت الشامي`,
     html,
   });
-
-  if (error) throw new Error(error.message);
 }
